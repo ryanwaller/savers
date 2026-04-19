@@ -776,11 +776,11 @@ export default function Home() {
           <div className="top-row top-row-primary">
             <div className="crumbs">
               <button
-                className="mobile-menu-btn"
+                className="circle-btn mobile-menu-btn"
                 onClick={() => setMobileSidebarOpen(true)}
                 aria-label="Open menu"
               >
-                ☰
+                <span aria-hidden>☰</span>
               </button>
               {canGoBack && (
                 <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
@@ -845,13 +845,6 @@ export default function Home() {
               <div className="mobile-actions">
                 {mobileSearchOpen ? (
                   <div className="mobile-search-row">
-                    <input
-                      autoFocus
-                      className="mobile-search-input"
-                      placeholder="Search…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
                     <button
                       className="circle-btn"
                       aria-label="Close search"
@@ -862,6 +855,13 @@ export default function Home() {
                     >
                       ×
                     </button>
+                    <input
+                      autoFocus
+                      className="mobile-search-input"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                   </div>
                 ) : (
                   <>
@@ -870,14 +870,14 @@ export default function Home() {
                       aria-label="Search"
                       onClick={() => setMobileSearchOpen(true)}
                     >
-                      <MagnifyingGlass size={16} />
+                      <MagnifyingGlass size={14} />
                     </button>
                     <button
                       className="circle-btn circle-btn-primary"
                       aria-label="Add bookmark"
                       onClick={() => setShowAdd(true)}
                     >
-                      <Plus size={16} weight="bold" />
+                      <Plus size={14} weight="bold" />
                     </button>
                   </>
                 )}
@@ -968,7 +968,7 @@ export default function Home() {
       <style jsx>{`
         .app {
           display: flex;
-          height: 100vh;
+          height: 100dvh;
           width: 100vw;
           max-width: 100%;
           overflow-x: hidden;
@@ -1034,14 +1034,12 @@ export default function Home() {
         }
         .mobile-menu-btn {
           display: none;
-          font-size: 18px;
-          color: var(--color-text);
-          margin-right: 8px;
-          padding: 2px;
         }
         @media (max-width: 768px) {
           .mobile-menu-btn {
-            display: block;
+            display: inline-flex;
+            margin-right: 8px;
+            font-size: 16px;
           }
           .sidebar-resizer {
             display: none;
@@ -1149,16 +1147,16 @@ export default function Home() {
         .mobile-search-input {
           flex: 1 1 auto;
           min-width: 0;
-          height: 36px;
-          padding: 0 14px;
+          height: 32px;
+          padding: 0 12px;
           border-radius: 999px;
           border: 1px solid var(--color-border);
           background: var(--color-bg-secondary);
-          font-size: 16px;
+          font-size: 14px;
         }
         .circle-btn {
-          width: 36px;
-          height: 36px;
+          width: 32px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1166,7 +1164,7 @@ export default function Home() {
           border-radius: 999px;
           color: var(--color-text);
           background: var(--color-bg);
-          font-size: 18px;
+          font-size: 16px;
           line-height: 1;
           flex-shrink: 0;
         }
@@ -1256,7 +1254,22 @@ export default function Home() {
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
         }
         @media (max-width: 768px) {
+          .main {
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100dvh;
+          }
+          .content {
+            overflow: visible;
+            flex: 0 0 auto;
+            min-height: 0;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+          }
           .top {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: var(--color-bg);
             padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
             gap: 10px;
           }

@@ -395,6 +395,12 @@ function BookmarkCard({
           min-height: 340px;
           width: 100%;
         }
+        @media (max-width: 768px) {
+          .card-shell,
+          .card {
+            min-height: 0;
+          }
+        }
         .card:hover {
           border-color: var(--color-border-strong);
         }
@@ -545,8 +551,18 @@ function BookmarkCard({
         }
         @media (max-width: 768px) {
           .body {
-            padding: 10px 10px 12px;
-            gap: 4px;
+            padding: 8px 10px 10px;
+            gap: 3px;
+          }
+          .desc {
+            display: none;
+          }
+          .meta {
+            gap: 5px;
+          }
+          .fav {
+            width: 12px;
+            height: 12px;
           }
         }
         @media (hover: hover) {
@@ -579,6 +595,8 @@ function BookmarkCard({
           .title {
             font-size: 12px;
             font-weight: 600;
+            -webkit-line-clamp: 2;
+            line-height: 1.35;
           }
         }
         .meta {

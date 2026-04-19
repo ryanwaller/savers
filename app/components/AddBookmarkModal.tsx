@@ -665,12 +665,12 @@ export default function AddBookmarkModal({
           .body :global(input),
           .body :global(textarea),
           .body :global(select) {
-            font-size: 16px;
-            padding: 10px 12px;
+            font-size: 13px;
+            padding: 8px 10px;
           }
           .btn-small {
-            height: 36px;
-            font-size: 14px;
+            height: 32px;
+            font-size: 13px;
           }
           .preview {
             flex-direction: column;
