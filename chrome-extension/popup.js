@@ -180,7 +180,7 @@ async function hydrateMetadata(force = false) {
 }
 
 async function suggestCollection(force = false) {
-  if (!state.tabUrl || !state.flatCollections.length) {
+  if (!state.tabUrl) {
     clearSuggestion();
     return;
   }

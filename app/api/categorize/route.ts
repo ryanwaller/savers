@@ -74,30 +74,23 @@ export async function POST(req: NextRequest) {
     const { user } = await requireUser()
     const { url, title, description, collections } = await req.json()
 
-    if (!collections?.length) {
-      return NextResponse.json({ suggestion: null })
-    }
+    const hasCollections = Array.isArray(collections) && collections.length > 0
+    const flat = hasCollections ? flattenCollections(collections) : []
+    const examplesById = hasCollections
+      ? await loadCollectionExamples(flat.map((c) => c.id), user.id)
+      : new Map<string, string[]>()
+    const collectionList = hasCollections
+      ? flat
+          .map((c, i) => {
+            const examples = examplesById.get(c.id) ?? []
+            const examplesLine = examples.length ? `\n   Examples: ${examples.join(' | ')}` : ''
+            return `${i + 1}. ${c.path} (id: ${c.id})${examplesLine}`
+          })
+          .join('\n')
+      : '(none yet — propose a fresh collection name)'
 
-    const flat = flattenCollections(collections)
-    const examplesById = await loadCollectionExamples(
-      flat.map((c) => c.id),
-      user.id
-    )
-    const collectionList = flat
-      .map((c, i) => {
-        const examples = examplesById.get(c.id) ?? []
-        const examplesLine = examples.length ? `\n   Examples: ${examples.join(' | ')}` : ''
-        return `${i + 1}. ${c.path} (id: ${c.id})${examplesLine}`
-      })
-      .join('\n')
-
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 400,
-      messages: [
-        {
-          role: 'user',
-          content: `You are helping categorize a saved bookmark into an existing personal library taxonomy.
+    const promptBody = hasCollections
+      ? `You are helping categorize a saved bookmark into an existing personal library taxonomy.
 
 Your job:
 1. Choose the best EXISTING collection when there is a reasonable fit.
@@ -117,7 +110,22 @@ Important taxonomy guidance:
 When proposing a new collection:
 - Keep the new collection name short, natural, and title cased.
 - Prefer proposing it under an existing parent when that makes sense.
-- Do not propose a redundant collection if an existing one is close enough.
+- Do not propose a redundant collection if an existing one is close enough.`
+      : `You are helping the user start their personal bookmark library. They have no collections yet.
+
+Your job:
+- Propose a NEW top-level collection name that this bookmark naturally belongs in.
+- Pick a name short enough to reuse for similar future bookmarks — not so narrow it only fits this one page, not so broad it becomes a catch-all.
+- Title case, one to three words. Examples of good names: "Shopping", "Recipes", "Design Inspo", "Reading List".
+- Avoid "Misc", "Other", "Bookmarks", "Saved".`
+
+    const message = await client.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 400,
+      messages: [
+        {
+          role: 'user',
+          content: `${promptBody}
 
 Bookmark:
 - URL: ${url}
@@ -133,6 +141,7 @@ Respond with JSON only, no explanation:
 Rules for output:
 - If an existing collection fits, set collection_id + collection_path and leave proposed_* as null.
 - If no existing collection fits neatly, set collection_id + collection_path to null and fill proposed_collection_name. proposed_parent_* may be null for a new top-level collection.
+- If there are no existing collections at all, always fill proposed_collection_name and leave collection_id null.
 - If the bookmark is too ambiguous, use confidence "low".`,
         },
       ],
