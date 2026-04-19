@@ -102,6 +102,88 @@ textarea { resize: vertical; }
   background: var(--color-bg-secondary);
 }
 
+.auth-shell {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 35%),
+    var(--color-bg);
+}
+
+.auth-card {
+  width: min(420px, 100%);
+  border: 1px solid var(--color-border);
+  border-radius: 18px;
+  background: var(--color-bg);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-size: 12px;
+}
+
+.auth-brand {
+  color: var(--color-text-muted);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.auth-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+}
+
+.auth-copy h1,
+.auth-copy p,
+.auth-field span,
+.auth-status,
+.auth-message,
+.auth-card input,
+.auth-card button {
+  font-size: 12px;
+}
+
+.auth-copy h1 {
+  font-weight: 600;
+}
+
+.auth-copy p,
+.auth-field span {
+  color: var(--color-text-muted);
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.auth-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.auth-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.auth-status,
+.auth-message {
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--color-bg-secondary);
+  border: 1px solid var(--color-border);
+}
+
 /* Scrollbar - hidden but scrollable */
 ::-webkit-scrollbar { width: 0px; height: 0px; background: transparent; }
 * {

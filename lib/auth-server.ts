@@ -57,7 +57,12 @@ export async function requireUser(): Promise<{ user: User }> {
   } = await supabase.auth.getUser()
 
   if (error || !user) {
-    throw new UnauthorizedError(error?.message)
+    // Supabase's AuthRetryableFetchError sometimes stringifies the request URL
+    // into .message ({"url":"…/auth/v1/user"}). Don't leak that to the UI.
+    const raw = error?.message?.trim()
+    const looksLikeUrlDump =
+      !!raw && (raw.startsWith('{"url"') || raw.includes('/auth/v1/user'))
+    throw new UnauthorizedError(looksLikeUrlDump ? undefined : raw)
   }
 
   await claimLegacyLibrary(user.id)

@@ -32,7 +32,15 @@ export async function createSupabaseServerClient() {
       },
       setAll(cookiesToSet) {
         for (const { name, value, options } of cookiesToSet) {
-          cookieStore.set(name, value, options)
+          // Extension → Railway is treated as cross-site. SameSite=Lax (Supabase's
+          // default) blocks cookies on those requests, which is why the Chrome
+          // extension gets "Auth session missing!". SameSite=None requires Secure,
+          // so only apply it in production where the app is served over HTTPS.
+          const isHttps = process.env.NODE_ENV === 'production'
+          const patched = isHttps
+            ? { ...options, sameSite: 'none' as const, secure: true }
+            : options
+          cookieStore.set(name, value, patched)
         }
       },
     },

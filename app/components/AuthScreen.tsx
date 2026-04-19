@@ -55,97 +55,29 @@ export default function AuthScreen({
               />
             </label>
 
-            <button className="btn btn-primary auth-submit" type="submit" disabled={sending}>
-              {sending ? "Sending link…" : "Email me a sign-in link"}
-            </button>
-
-            {onGoogleSubmit && (
-              <button
-                className="btn auth-google"
-                type="button"
-                disabled={googleSending}
-                onClick={() => {
-                  void onGoogleSubmit();
-                }}
-              >
-                {googleSending ? "Opening Google…" : "Continue with Google"}
+            <div className="auth-actions">
+              <button className="btn btn-primary auth-submit" type="submit" disabled={sending}>
+                {sending ? "Sending link…" : "Email me a sign-in link"}
               </button>
-            )}
+
+              {onGoogleSubmit && (
+                <button
+                  className="btn auth-google"
+                  type="button"
+                  disabled={googleSending}
+                  onClick={() => {
+                    void onGoogleSubmit();
+                  }}
+                >
+                  {googleSending ? "Opening Google…" : "Continue with Google"}
+                </button>
+              )}
+            </div>
           </form>
         )}
 
         {message && <div className="auth-message small">{message}</div>}
       </div>
-
-      <style jsx>{`
-        .auth-shell {
-          min-height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          padding: 24px;
-          background:
-            radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 35%),
-            var(--color-bg);
-        }
-        .auth-card {
-          width: min(420px, 100%);
-          border: 1px solid var(--color-border);
-          border-radius: 18px;
-          background: var(--color-bg);
-          padding: 24px;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
-        }
-        .auth-brand {
-          font-size: 12px;
-          color: var(--color-text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.08em;
-        }
-        .auth-copy {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .auth-copy h1 {
-          font-size: 12px;
-          font-weight: 600;
-        }
-        .auth-copy p {
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-        .auth-form {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .auth-field {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .auth-field span {
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-        .auth-status,
-        .auth-message {
-          font-size: 12px;
-          padding: 10px 12px;
-          border-radius: 10px;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-        }
-        .auth-submit {
-          align-self: flex-start;
-        }
-        .auth-google {
-          align-self: flex-start;
-        }
-      `}</style>
     </div>
   );
 }

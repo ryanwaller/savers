@@ -838,7 +838,19 @@ export default function Home() {
         </header>
 
         <section className="content">
-          {loadError && <div className="load-error small">{loadError}</div>}
+          {loadError && (
+            <div className="load-error small" role="alert">
+              <span className="load-error-msg">{loadError}</span>
+              <button
+                type="button"
+                className="load-error-dismiss"
+                aria-label="Dismiss error"
+                onClick={() => setLoadError(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
           <BookmarkGrid
             bookmarks={bookmarks}
             subCollections={subCollections}
@@ -1119,6 +1131,29 @@ export default function Home() {
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           color: var(--color-text-muted);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .load-error-msg {
+          flex: 1;
+          overflow-wrap: anywhere;
+        }
+        .load-error-dismiss {
+          flex-shrink: 0;
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 16px;
+          line-height: 1;
+          color: var(--color-text-muted);
+          border-radius: 4px;
+        }
+        .load-error-dismiss:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
         }
         .drop-status {
           position: fixed;
