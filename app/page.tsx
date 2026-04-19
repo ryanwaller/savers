@@ -1,0 +1,1187 @@
+"use client";
+
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import type { User } from "@supabase/supabase-js";
+import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
+import { api } from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import Sidebar from "./components/Sidebar";
+import CollectionIcon from "./components/CollectionIcon";
+import BookmarkGrid from "./components/BookmarkGrid";
+import AddBookmarkModal from "./components/AddBookmarkModal";
+import BookmarkDetail from "./components/BookmarkDetail";
+import AISuggestionToast from "./components/AISuggestionToast";
+import DropZone from "./components/DropZone";
+import AuthScreen from "./components/AuthScreen";
+
+type Selection =
+  | { kind: "all" }
+  | { kind: "unsorted" }
+  | { kind: "pinned" }
+  | { kind: "collection"; id: string };
+
+export default function Home() {
+  const MIN_SIDEBAR_WIDTH = 180;
+  const MAX_SIDEBAR_WIDTH = 420;
+
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [sendingAuthLink, setSendingAuthLink] = useState(false);
+  const [signingInWithGoogle, setSigningInWithGoogle] = useState(false);
+
+  // Counts — we compute locally from the full bookmark list for accuracy.
+  const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([]);
+  const allBookmarksRef = useRef<Bookmark[]>([]);
+  const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
+  const tree = useMemo(() => annotateCounts(treeRaw, allBookmarks), [treeRaw, allBookmarks]);
+  const [flat, setFlat] = useState<Collection[]>([]);
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  const [selection, setSelection] = useState<Selection>({ kind: "all" });
+  const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of allBookmarks) {
+      if (b.tags) {
+        for (const t of b.tags) set.add(t);
+      }
+    }
+    return Array.from(set).sort();
+  }, [allBookmarks]);
+
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [resizingSidebar, setResizingSidebar] = useState(false);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [detail, setDetail] = useState<Bookmark | null>(null);
+  const [toast, setToast] = useState<{
+    bookmark: Bookmark;
+    suggestion: AISuggestion;
+  } | null>(null);
+  const [dropStatus, setDropStatus] = useState<string | null>(null);
+
+  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+  const lastForegroundRefreshRef = useRef(0);
+
+  useEffect(() => {
+    allBookmarksRef.current = allBookmarks;
+  }, [allBookmarks]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadUser = async () => {
+      const { data, error } = await supabase.auth.getUser();
+      if (!alive) return;
+
+      if (error) {
+        setUser(null);
+      } else {
+        setUser(data.user ?? null);
+      }
+
+      setAuthLoading(false);
+    };
+
+    void loadUser();
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!alive) return;
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+      if (session?.user) {
+        setAuthMessage(null);
+      }
+    });
+
+    return () => {
+      alive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("auth") === "error") {
+      setAuthMessage("That sign-in link expired or was invalid. Please try again.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) return;
+    setAllBookmarks([]);
+    setBookmarks([]);
+    setTreeRaw([]);
+    setFlat([]);
+    setDetail(null);
+    setToast(null);
+    setLoadError(null);
+  }, [user]);
+
+  // Load preference on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.sidebar.width");
+    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(parsed)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSidebarWidth(Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed)));
+    }
+  }, []);
+
+  // Save preference on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.sidebar.width", String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  useEffect(() => {
+    if (!resizingSidebar) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!resizeState.current) return;
+      const nextWidth =
+        resizeState.current.startWidth + (event.clientX - resizeState.current.startX);
+      setSidebarWidth(clamp(nextWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH));
+    };
+
+    const handlePointerUp = () => {
+      resizeState.current = null;
+      setResizingSidebar(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [resizingSidebar]);
+
+  const loadCollections = useCallback(async () => {
+    try {
+      const data = await api.listCollections();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load collections");
+    }
+  }, []);
+
+  const loadAllBookmarks = useCallback(async () => {
+    try {
+      const { bookmarks } = await api.listBookmarks();
+      setAllBookmarks(bookmarks);
+      return bookmarks;
+    } catch {
+      /* swallow — the grid will show its own error if needed */
+    }
+    return null;
+  }, [setAllBookmarks]);
+
+  const loadVisibleBookmarks = useCallback(
+    async (showLoading = true) => {
+      if (showLoading) setLoadingBookmarks(true);
+      try {
+        const params: { collection_id?: string } = {};
+        if (selection.kind === "unsorted") params.collection_id = "unsorted";
+        else if (selection.kind === "collection") params.collection_id = selection.id;
+        // Pinned view: fetch everything, then filter to pinned=true client-side.
+        const { bookmarks } = await api.listBookmarks(params);
+        const scoped =
+          selection.kind === "pinned" ? bookmarks.filter((b) => b.pinned) : bookmarks;
+        setBookmarks(sortPinnedFirst(filterBookmarks(scoped, search, activeTag)));
+        setLoadError(null);
+      } catch (e) {
+        setLoadError(e instanceof Error ? e.message : "Failed to load bookmarks");
+      } finally {
+        if (showLoading) setLoadingBookmarks(false);
+      }
+    },
+    [selection, search, activeTag]
+  );
+
+  const refreshFromServer = useCallback(
+    async (showLoading = false) => {
+      await loadAllBookmarks();
+      await Promise.all([
+        loadCollections(),
+        loadVisibleBookmarks(showLoading),
+      ]);
+    },
+    [loadAllBookmarks, loadCollections, loadVisibleBookmarks]
+  );
+
+  // Initial load
+  useEffect(() => {
+    if (authLoading || !user) return;
+    (async () => {
+      await loadAllBookmarks();
+      await loadCollections();
+    })();
+  }, [authLoading, user, loadAllBookmarks, loadCollections]);
+
+  // Load bookmarks for the current view (with debounced search)
+  const searchTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    searchTimer.current = window.setTimeout(() => {
+      void loadVisibleBookmarks(true);
+    }, search ? 250 : 0);
+    return () => {
+      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    };
+  }, [authLoading, user, loadVisibleBookmarks, search]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const maybeRefresh = () => {
+      const now = Date.now();
+      if (now - lastForegroundRefreshRef.current < 800) return;
+      lastForegroundRefreshRef.current = now;
+      void refreshFromServer(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+
+    window.addEventListener("focus", maybeRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", maybeRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, refreshFromServer]);
+
+  const totals = useMemo(
+    () => ({
+      all: allBookmarks.length,
+      unsorted: allBookmarks.filter((b) => b.collection_id === null).length,
+      pinned: allBookmarks.filter((b) => b.pinned).length,
+    }),
+    [allBookmarks]
+  );
+
+  const subCollections = useMemo<Collection[]>(() => {
+    if (selection.kind !== "collection") return [];
+    const node = findNode(tree, selection.id);
+    return node?.children ?? [];
+  }, [selection, tree]);
+
+  const breadcrumbItems = useMemo(() => {
+    if (selection.kind === "all") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+      ];
+    }
+    if (selection.kind === "unsorted") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Unsorted", icon: null, isCollection: false, selection: { kind: "unsorted" } as Selection },
+      ];
+    }
+    if (selection.kind === "pinned") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Pinned", icon: null, isCollection: false, selection: { kind: "pinned" } as Selection },
+      ];
+    }
+
+    const path = pathToCollections(tree, selection.id) ?? [];
+    return [
+      { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+      ...path.map((item) => ({
+        label: item.name,
+        icon: item.icon,
+        isCollection: true,
+        selection: { kind: "collection", id: item.id } as Selection,
+      })),
+    ];
+  }, [selection, tree]);
+  const canGoBack = breadcrumbItems.length > 1;
+
+  const defaultCollectionForAdd =
+    selection.kind === "collection" ? selection.id : null;
+
+  function navigateBack() {
+    if (!canGoBack) return;
+    setSelection(breadcrumbItems[breadcrumbItems.length - 2].selection);
+  }
+
+  function handleTagClick(tag: string | null) {
+    setActiveTag(tag);
+  }
+
+  async function handleCreateCollection(name: string, parent_id: string | null) {
+    try {
+      const { collection } = await api.createCollection(name, parent_id);
+      await loadCollections();
+      return collection;
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create collection");
+      throw e;
+    }
+  }
+  async function handleRenameCollection(id: string, name: string) {
+    try {
+      await api.updateCollection(id, { name });
+      await loadCollections();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to rename");
+    }
+  }
+  async function handleChangeCollectionIcon(id: string, iconName: string | null) {
+    try {
+      await api.updateCollection(id, { icon: iconName });
+      await loadCollections();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to update icon");
+    }
+  }
+  async function handleDeleteCollection(id: string) {
+    try {
+      await api.deleteCollection(id);
+      if (selection.kind === "collection" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await Promise.all([loadCollections(), loadAllBookmarks()]);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleReorderCollections(ids: string[]) {
+    const oldTree = treeRaw;
+
+    // Optimistic Update: Reorder the tree locally first
+    const newTree = JSON.parse(JSON.stringify(treeRaw)) as Collection[];
+    const updateSiblings = (nodes: Collection[]): boolean => {
+      // Check if this level contains the items we are reordering
+      if (nodes.find((n) => n.id === ids[0])) {
+        nodes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        // Update positions to stay consistent
+        nodes.forEach((n, i) => {
+          n.position = i;
+        });
+        return true;
+      }
+      for (const node of nodes) {
+        if (node.children && updateSiblings(node.children)) return true;
+      }
+      return false;
+    };
+
+    updateSiblings(newTree);
+    setTreeRaw(newTree);
+
+    try {
+      await api.reorderCollections(ids);
+      // We don't strictly need to loadCollections() here if the optimistic 
+      // update was successful, but we can do it in the background to be sure.
+    } catch (e) {
+      // Revert on failure
+      setTreeRaw(oldTree);
+      alert(e instanceof Error ? e.message : "Failed to reorder");
+    }
+  }
+
+  function handleBookmarkCreated(b: Bookmark) {
+    setShowAdd(false);
+
+    setAllBookmarks((prev) => [b, ...prev]);
+    if (
+      selection.kind === "all" ||
+      (selection.kind === "unsorted" && b.collection_id === null) ||
+      (selection.kind === "collection" && selection.id === b.collection_id)
+    ) {
+      setBookmarks((prev) => [b, ...prev]);
+    }
+
+    // Run AI categorization in the background — don't block the save.
+    if (tree.length > 0) {
+      api
+        .categorize({
+          url: b.url,
+          title: b.title,
+          description: b.description,
+          collections: tree,
+        })
+        .then(({ suggestion }) => {
+          if (
+            suggestion &&
+            suggestion.confidence !== "low" &&
+            (
+              (suggestion.collection_id && suggestion.collection_id !== b.collection_id) ||
+              suggestion.proposed_collection_name
+            )
+          ) {
+            setToast({ bookmark: b, suggestion });
+          }
+        })
+        .catch(() => {
+          /* silent: no toast means unsorted stays unsorted */
+        });
+    }
+  }
+
+  async function handleMoveFromToast(collectionId: string) {
+    if (!toast) return;
+    try {
+      const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
+        collection_id: collectionId,
+      });
+      setAllBookmarks((prev) =>
+        prev.map((x) => (x.id === bookmark.id ? bookmark : x))
+      );
+      setBookmarks((prev) => {
+        // Drop it from the current view if it no longer belongs here
+        if (selection.kind === "unsorted") return prev.filter((x) => x.id !== bookmark.id);
+        if (selection.kind === "collection" && selection.id !== collectionId)
+          return prev.filter((x) => x.id !== bookmark.id);
+        return prev.map((x) => (x.id === bookmark.id ? bookmark : x));
+      });
+      setToast(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to move");
+    }
+  }
+
+  async function handleCreateAndMoveFromToast(name: string, parentId: string | null) {
+    if (!toast) return;
+    try {
+      const collection = await handleCreateCollection(name, parentId);
+      const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
+        collection_id: collection.id,
+      });
+      setAllBookmarks((prev) => prev.map((x) => (x.id === bookmark.id ? bookmark : x)));
+      setBookmarks((prev) => {
+        if (selection.kind === "unsorted") return prev.filter((x) => x.id !== bookmark.id);
+        if (selection.kind === "collection" && selection.id !== collection.id) {
+          return prev.filter((x) => x.id !== bookmark.id);
+        }
+        return prev.map((x) => (x.id === bookmark.id ? bookmark : x));
+      });
+      setToast(null);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to create and move");
+    }
+  }
+
+  function handleBookmarkSaved(b: Bookmark) {
+    setDetail(null);
+    setAllBookmarks((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    setBookmarks((prev) => {
+      // Remove if no longer matches current view
+      if (selection.kind === "unsorted" && b.collection_id !== null) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      if (selection.kind === "collection" && selection.id !== b.collection_id) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      return prev.map((x) => (x.id === b.id ? b : x));
+    });
+  }
+
+  function handleBookmarkPatched(b: Bookmark) {
+    setDetail(b);
+    setAllBookmarks((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    setBookmarks((prev) => {
+      if (selection.kind === "unsorted" && b.collection_id !== null) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      if (selection.kind === "collection" && selection.id !== b.collection_id) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      return prev.map((x) => (x.id === b.id ? b : x));
+    });
+  }
+
+  function handleBookmarkDeleted(id: string) {
+    setDetail(null);
+    setAllBookmarks((prev) => prev.filter((x) => x.id !== id));
+    setBookmarks((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  async function handleDeleteBookmark(id: string) {
+    try {
+      await api.deleteBookmark(id);
+      handleBookmarkDeleted(id);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handlePinBookmark(id: string, pinned: boolean) {
+    // Optimistic toggle so the UI feels instant.
+    setAllBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned } : x)));
+    setBookmarks((prev) => {
+      const next = prev.map((x) => (x.id === id ? { ...x, pinned } : x));
+      // If viewing the Pinned collection and the user just unpinned, drop it.
+      if (selection.kind === "pinned" && !pinned) {
+        return next.filter((x) => x.id !== id);
+      }
+      return next;
+    });
+    try {
+      const { bookmark } = await api.updateBookmark(id, { pinned });
+      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    } catch (e) {
+      // Roll back on failure.
+      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
+      alert(e instanceof Error ? e.message : "Failed to update pin");
+    }
+  }
+
+  async function handleDroppedUrls(urls: string[]) {
+    // Auto-save each dropped URL to the current view's collection
+    // (or Unsorted if we're looking at All / Unsorted).
+    const targetCollection =
+      selection.kind === "collection" ? selection.id : null;
+
+    let okCount = 0;
+    let failCount = 0;
+    let lastError: string | null = null;
+    const total = urls.length;
+    setDropStatus(`Saving ${total} bookmark${total === 1 ? "" : "s"}…`);
+
+    for (const url of urls) {
+      try {
+        // Best-effort metadata fetch (OG/title/description/favicon).
+        let meta: { title: string | null; description: string | null; og_image: string | null; favicon: string | null } = {
+          title: null, description: null, og_image: null, favicon: null,
+        };
+        try {
+          meta = await api.fetchMetadata(url);
+        } catch (e) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Metadata fetch failed for", url, e);
+          }
+        }
+
+        const { bookmark } = await api.createBookmark({
+          url,
+          title: meta.title,
+          description: meta.description,
+          og_image: meta.og_image,
+          favicon: meta.favicon,
+          tags: [],
+          notes: null,
+          collection_id: targetCollection,
+        });
+
+        handleBookmarkCreated(bookmark);
+        okCount += 1;
+      } catch (e) {
+        failCount += 1;
+        lastError = e instanceof Error ? e.message : String(e);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Drop save failed", url, e);
+        }
+      }
+    }
+
+    if (failCount > 0 && okCount === 0) {
+      setDropStatus(`Save failed: ${lastError ?? "unknown error"}`);
+    } else if (failCount > 0) {
+      setDropStatus(`Saved ${okCount} of ${total}. ${failCount} failed.`);
+    } else {
+      setDropStatus(total === 1 ? "Saved." : `Saved ${okCount} bookmarks.`);
+    }
+    setTimeout(() => setDropStatus(null), failCount > 0 ? 5000 : 1800);
+  }
+
+  async function handleSendMagicLink() {
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthMessage("Enter your email first.");
+      return;
+    }
+
+    setSendingAuthLink(true);
+    setAuthMessage(null);
+
+    try {
+      const redirectBase =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: `${redirectBase}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setAuthMessage("Check your inbox for a Savers sign-in link.");
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "Failed to send sign-in link.");
+    } finally {
+      setSendingAuthLink(false);
+    }
+  }
+
+  async function handleSignOut() {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      alert(error.message);
+      return;
+    }
+    setSelection({ kind: "all" });
+    setSearch("");
+    setActiveTag(null);
+    setAuthMessage(null);
+  }
+
+  async function handleGoogleSignIn() {
+    setSigningInWithGoogle(true);
+    setAuthMessage(null);
+
+    try {
+      const redirectBase =
+        typeof window !== "undefined"
+          ? window.location.origin
+          : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${redirectBase}/auth/callback?next=/`,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
+      setSigningInWithGoogle(false);
+    }
+  }
+
+  if (authLoading || !user) {
+    return (
+      <AuthScreen
+        email={authEmail}
+        googleSending={signingInWithGoogle}
+        message={authMessage}
+        mode={authLoading ? "loading" : "signed_out"}
+        sending={sendingAuthLink}
+        onEmailChange={setAuthEmail}
+        onGoogleSubmit={handleGoogleSignIn}
+        onSubmit={handleSendMagicLink}
+      />
+    );
+  }
+
+  return (
+    <DropZone onUrls={handleDroppedUrls}>
+    <div
+      className={`app ${mobileSidebarOpen ? "mobile-sidebar-open" : ""}`}
+      data-savers-app
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
+      <Sidebar
+        tree={tree}
+        totals={totals}
+        allTags={allTags}
+        activeTag={activeTag}
+        onTagClick={handleTagClick}
+        selection={selection}
+        onSelect={(s) => {
+          setSelection(s);
+          setActiveTag(null);
+          setMobileSidebarOpen(false);
+        }}
+        onCreateCollection={handleCreateCollection}
+        onRenameCollection={handleRenameCollection}
+        onDeleteCollection={handleDeleteCollection}
+        onChangeCollectionIcon={handleChangeCollectionIcon}
+        onReorderCollections={handleReorderCollections}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+      />
+
+      <div
+        className={`sidebar-resizer ${resizingSidebar ? "active" : ""}`}
+        role="separator"
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={MIN_SIDEBAR_WIDTH}
+        aria-valuemax={MAX_SIDEBAR_WIDTH}
+        onPointerDown={(event) => {
+          resizeState.current = { startX: event.clientX, startWidth: sidebarWidth };
+          setResizingSidebar(true);
+        }}
+      />
+
+      <main className="main">
+        <header className="top">
+          <div className="crumbs">
+            <button
+              className="mobile-menu-btn"
+              onClick={() => setMobileSidebarOpen(true)}
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
+            {canGoBack && (
+              <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
+                ←
+              </button>
+            )}
+            {breadcrumbItems.map((item, i) => (
+              <span key={i} className="crumb">
+                <button
+                  className={i === breadcrumbItems.length - 1 ? "crumb-link current" : "crumb-link ancestor"}
+                  onClick={() => setSelection(item.selection)}
+                >
+                  {item.isCollection && (
+                    <span className="crumb-icon" aria-hidden>
+                      <CollectionIcon name={item.icon} size={13} />
+                    </span>
+                  )}
+                  <span className="crumb-label">{item.label}</span>
+                </button>
+                {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
+              </span>
+            ))}
+            {activeTag && (
+              <>
+                <span className="sep">›</span>
+                <span className="tag-filter" title={`Filtering by ${activeTag}`}>
+                  <span className="tag-filter-label">#{activeTag}</span>
+                  <button
+                    className="tag-filter-clear"
+                    aria-label={`Clear tag filter ${activeTag}`}
+                    onClick={() => setActiveTag(null)}
+                  >
+                    ×
+                  </button>
+                </span>
+              </>
+            )}
+          </div>
+
+          <div className="top-right">
+            <div className="session-chip" title={user.email ?? "Signed in"}>
+              <span className="session-email">{user.email ?? "Signed in"}</span>
+              <button className="session-signout" onClick={handleSignOut}>
+                Sign out
+              </button>
+            </div>
+            <div className="search">
+              <input
+                placeholder="Search titles, URLs, descriptions, tags…"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+              + Add bookmark
+            </button>
+          </div>
+        </header>
+
+        <section className="content">
+          {loadError && <div className="load-error small">{loadError}</div>}
+          <BookmarkGrid
+            bookmarks={bookmarks}
+            subCollections={subCollections}
+            onOpenCollection={(id) => setSelection({ kind: "collection", id })}
+            onOpenBookmark={(b) => setDetail(b)}
+            onDeleteBookmark={handleDeleteBookmark}
+            onPinBookmark={handlePinBookmark}
+            onTagClick={handleTagClick}
+            loading={loadingBookmarks}
+            emptyLabel={
+              search || activeTag
+                ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
+                    .filter(Boolean)
+                    .join(" + ")}.`
+                : selection.kind === "unsorted"
+                ? "Nothing unsorted — nice."
+                : selection.kind === "pinned"
+                ? "No pinned bookmarks yet."
+                : "No bookmarks here yet."
+            }
+          />
+        </section>
+      </main>
+
+      {showAdd && (
+        <AddBookmarkModal
+          flat={flat}
+          defaultCollectionId={defaultCollectionForAdd}
+          onCreateCollection={handleCreateCollection}
+          onClose={() => setShowAdd(false)}
+          onCreated={handleBookmarkCreated}
+        />
+      )}
+
+      {detail && (
+        <BookmarkDetail
+          key={detail.id}
+          bookmark={detail}
+          flat={flat}
+          tree={tree}
+          onCreateCollection={handleCreateCollection}
+          onClose={() => setDetail(null)}
+          onSaved={handleBookmarkSaved}
+          onPatched={handleBookmarkPatched}
+          onDeleted={handleBookmarkDeleted}
+        />
+      )}
+
+      {toast && (
+        <AISuggestionToast
+          bookmark={toast.bookmark}
+          suggestion={toast.suggestion}
+          flat={flat}
+          onCreateCollection={handleCreateCollection}
+          onCreateAndMove={handleCreateAndMoveFromToast}
+          onMove={handleMoveFromToast}
+          onDismiss={() => setToast(null)}
+        />
+      )}
+
+      {dropStatus && (
+        <div className="drop-status small" role="status">{dropStatus}</div>
+      )}
+
+      <style jsx>{`
+        .app {
+          display: flex;
+          height: 100vh;
+          width: 100vw;
+        }
+        .main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          background: var(--color-bg);
+        }
+        .sidebar-resizer {
+          width: 10px;
+          margin-left: -5px;
+          margin-right: -5px;
+          cursor: col-resize;
+          position: relative;
+          z-index: 3;
+          flex-shrink: 0;
+        }
+        .sidebar-resizer::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+        }
+        .sidebar-resizer::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 50%;
+          width: 1px;
+          transform: translateX(-50%);
+          background: transparent;
+          transition: background 120ms ease;
+        }
+        .sidebar-resizer:hover::after,
+        .sidebar-resizer.active::after {
+          background: var(--color-border-strong);
+        }
+        .top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          height: 54px;
+          padding: 0 20px;
+          border-bottom: 1px solid var(--color-border);
+          box-sizing: border-box;
+        }
+        .mobile-menu-btn {
+          display: none;
+          font-size: 18px;
+          color: var(--color-text);
+          margin-right: 12px;
+          padding: 4px;
+        }
+        @media (max-width: 768px) {
+          .mobile-menu-btn {
+            display: block;
+          }
+          .sidebar-resizer {
+            display: none;
+          }
+          :global(.sidebar) {
+            position: fixed;
+            inset: 0;
+            width: 100vw !important;
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 200ms ease;
+          }
+          .mobile-sidebar-open :global(.sidebar) {
+            transform: translateX(0);
+          }
+        }
+        .crumbs {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .crumb-back {
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .crumb-back:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+        }
+        .crumb {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          white-space: nowrap;
+        }
+        .crumb-link {
+          font-size: 12px;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .crumb-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .current .crumb-icon { color: var(--color-text); }
+        .current { font-weight: 500; }
+        .ancestor { color: var(--color-text-muted); }
+        .crumb-link:hover {
+          color: var(--color-text);
+        }
+        .sep { color: var(--color-text-faint); font-size: 12px; }
+        .top-right {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .session-chip {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          padding: 0 0 0 10px;
+          height: 28px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+        }
+        .session-email {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          max-width: 180px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .session-signout {
+          height: 100%;
+          padding: 0 10px;
+          border-left: 1px solid var(--color-border);
+          color: var(--color-text);
+          font-size: 12px;
+          border-radius: 0 999px 999px 0;
+        }
+        .session-signout:hover {
+          background: var(--color-bg-hover);
+        }
+        .tag-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 6px 4px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          max-width: 220px;
+        }
+        .tag-filter-label {
+          font-size: 12px;
+          color: var(--color-text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .tag-filter-clear {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .tag-filter-clear:hover {
+          color: var(--color-text);
+          background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+        }
+        .search input {
+          width: 200px;
+          height: 28px;
+          font-size: 12px;
+        }
+        @media (max-width: 1080px) {
+          .session-chip {
+            display: none;
+          }
+        }
+        .content {
+          flex: 1;
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .load-error {
+          margin: 14px 20px 0;
+          padding: 8px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          color: var(--color-text-muted);
+        }
+        .drop-status {
+          position: fixed;
+          left: 50%;
+          bottom: 24px;
+          transform: translateX(-50%);
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          padding: 6px 14px;
+          color: var(--color-text-muted);
+          z-index: 70;
+        }
+      `}</style>
+    </div>
+    </DropZone>
+  );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function findNode(tree: Collection[], id: string): Collection | null {
+  for (const c of tree) {
+    if (c.id === id) return c;
+    if (c.children) {
+      const found = findNode(c.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function pathToCollections(
+  tree: Collection[],
+  id: string,
+  trail: { id: string; name: string; icon: string | null }[] = []
+): { id: string; name: string; icon: string | null }[] | null {
+  for (const c of tree) {
+    const next = [...trail, { id: c.id, name: c.name, icon: c.icon }];
+    if (c.id === id) return next;
+    if (c.children) {
+      const p = pathToCollections(c.children, id, next);
+      if (p) return p;
+    }
+  }
+  return null;
+}
+
+function sortPinnedFirst(bookmarks: Bookmark[]): Bookmark[] {
+  // Stable partition: pinned first, preserve relative order within each group.
+  const pinned: Bookmark[] = [];
+  const rest: Bookmark[] = [];
+  for (const b of bookmarks) (b.pinned ? pinned : rest).push(b);
+  return [...pinned, ...rest];
+}
+
+function filterBookmarks(bookmarks: Bookmark[], search: string, activeTag: string | null): Bookmark[] {
+  const query = search.trim().toLowerCase();
+  const normalizedTag = activeTag?.trim().toLowerCase() ?? "";
+  if (!query && !normalizedTag) return bookmarks;
+
+  return bookmarks.filter((bookmark) => {
+    const haystacks = [
+      bookmark.title ?? "",
+      bookmark.url,
+      bookmark.description ?? "",
+      ...(bookmark.tags ?? []),
+    ];
+
+    const matchesQuery = !query || haystacks.some((value) => value.toLowerCase().includes(query));
+    const matchesTag =
+      !normalizedTag ||
+      (bookmark.tags ?? []).some((tag) => tag.toLowerCase() === normalizedTag);
+
+    return matchesQuery && matchesTag;
+  });
+}
+
+function annotateCounts(tree: Collection[], bookmarks: Bookmark[]): Collection[] {
+  const counts = new Map<string, number>();
+  for (const b of bookmarks) {
+    if (!b.collection_id) continue;
+    counts.set(b.collection_id, (counts.get(b.collection_id) ?? 0) + 1);
+  }
+  const walk = (nodes: Collection[]): Collection[] =>
+    nodes.map((n) => ({
+      ...n,
+      bookmark_count: counts.get(n.id) ?? 0,
+      children: n.children ? walk(n.children) : undefined,
+    }));
+  return walk(tree);
+}

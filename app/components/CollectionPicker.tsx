@@ -1,0 +1,336 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { Collection } from "@/lib/types";
+import CollectionIcon from "./CollectionIcon";
+
+type Props = {
+  flat: Collection[];
+  value: string | null;
+  onChange: (id: string | null) => void;
+  onCreateCollection?: (name: string, parentId: string | null) => Promise<Collection>;
+  allowUnsorted?: boolean;
+  placeholder?: string;
+  openDirection?: "down" | "up";
+};
+
+// Builds a "Parent / Child / Grandchild" path string for each collection
+function pathMap(flat: Collection[]): Map<string, string> {
+  const byId = new Map(flat.map((c) => [c.id, c]));
+  const cache = new Map<string, string>();
+  function resolve(id: string): string {
+    if (cache.has(id)) return cache.get(id)!;
+    const c = byId.get(id);
+    if (!c) return "";
+    const p = c.parent_id ? `${resolve(c.parent_id)} / ${c.name}` : c.name;
+    cache.set(id, p);
+    return p;
+  }
+  for (const c of flat) resolve(c.id);
+  return cache;
+}
+
+export default function CollectionPicker({
+  flat,
+  value,
+  onChange,
+  onCreateCollection,
+  allowUnsorted = true,
+  placeholder = "Choose a collection",
+  openDirection = "down",
+}: Props) {
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState("");
+  const [creating, setCreating] = useState(false);
+  const [newName, setNewName] = useState("");
+  const [creatingBusy, setCreatingBusy] = useState(false);
+
+  const paths = useMemo(() => pathMap(flat), [flat]);
+  const byId = useMemo(() => new Map(flat.map((c) => [c.id, c])), [flat]);
+  const sorted = useMemo(
+    () =>
+      [...flat].sort((a, b) =>
+        (paths.get(a.id) || "").localeCompare(paths.get(b.id) || "")
+      ),
+    [flat, paths]
+  );
+
+  const filtered = useMemo(() => {
+    if (!q.trim()) return sorted;
+    const needle = q.toLowerCase();
+    return sorted.filter((c) =>
+      (paths.get(c.id) || "").toLowerCase().includes(needle)
+    );
+  }, [sorted, paths, q]);
+
+  const label =
+    value === null
+      ? allowUnsorted ? "Unsorted" : placeholder
+      : paths.get(value) || placeholder;
+
+  async function submitNewCollection() {
+    const name = newName.trim();
+    if (!name || !onCreateCollection) return;
+    setCreatingBusy(true);
+    try {
+      const collection = await onCreateCollection(name, null);
+      onChange(collection.id);
+      setQ("");
+      setNewName("");
+      setCreating(false);
+      setOpen(false);
+    } finally {
+      setCreatingBusy(false);
+    }
+  }
+
+  const selectedIcon = value ? byId.get(value)?.icon ?? null : null;
+
+  return (
+    <div className={`picker ${openDirection === "up" ? "up" : "down"}`}>
+      <button className="trigger" onClick={() => setOpen((v) => !v)} type="button">
+        <span className={`trigger-label ${value === null && !allowUnsorted ? "muted" : ""}`}>
+          {value !== null && (
+            <span className="opt-icon">
+              <CollectionIcon name={selectedIcon} size={13} />
+            </span>
+          )}
+          <span className="trigger-text">{label}</span>
+        </span>
+        <span className="chev">▾</span>
+      </button>
+      {open && (
+        <div className="panel" onMouseLeave={() => setOpen(false)}>
+          <input
+            autoFocus
+            className="search"
+            placeholder="Find collection…"
+            value={q}
+            onChange={(e) => setQ(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setOpen(false);
+                return;
+              }
+              if (e.key === "Enter") {
+                e.preventDefault();
+                const firstMatch = filtered[0];
+                if (firstMatch) {
+                  onChange(firstMatch.id);
+                  setOpen(false);
+                } else if (allowUnsorted && !q.trim()) {
+                  onChange(null);
+                  setOpen(false);
+                }
+              }
+            }}
+          />
+          {onCreateCollection && (
+            creating ? (
+              <div className="create-box">
+                <input
+                  autoFocus
+                  className="search"
+                  placeholder="Collection name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={() => {
+                    if (!newName.trim() && !creatingBusy) setCreating(false);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setCreating(false);
+                      setNewName("");
+                      return;
+                    }
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void submitNewCollection();
+                    }
+                  }}
+                />
+                <div className="create-actions">
+                  <button
+                    type="button"
+                    className="create-btn"
+                    onClick={() => {
+                      setCreating(false);
+                      setNewName("");
+                    }}
+                    disabled={creatingBusy}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="button"
+                    className="create-btn primary"
+                    onClick={() => void submitNewCollection()}
+                    disabled={creatingBusy || !newName.trim()}
+                  >
+                    {creatingBusy ? "Creating…" : "Create"}
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                className="new-opt"
+                onClick={() => {
+                  setCreating(true);
+                  setNewName(q.trim());
+                }}
+              >
+                + New collection
+              </button>
+            )
+          )}
+          <div className="list">
+            {allowUnsorted && (
+              <button
+                className={`opt ${value === null ? "on" : ""}`}
+                onClick={() => {
+                  onChange(null);
+                  setOpen(false);
+                }}
+              >
+                Unsorted
+              </button>
+            )}
+            {filtered.map((c) => (
+              <button
+                key={c.id}
+                className={`opt ${value === c.id ? "on" : ""}`}
+                onClick={() => {
+                  onChange(c.id);
+                  setOpen(false);
+                }}
+                title={paths.get(c.id)}
+              >
+                <span className="opt-icon">
+                  <CollectionIcon name={c.icon} size={13} />
+                </span>
+                <span className="opt-label">{paths.get(c.id)}</span>
+              </button>
+            ))}
+            {filtered.length === 0 && (
+              <div className="empty">No matches.</div>
+            )}
+          </div>
+        </div>
+      )}
+      <style jsx>{`
+        .picker { position: relative; }
+        .trigger {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          width: 100%;
+          height: 28px;
+          padding: 0 8px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg);
+          font-size: 12px;
+          text-align: left;
+        }
+        .trigger:hover { background: var(--color-bg-hover); }
+        .chev { font-size: 10px; color: var(--color-text-muted); margin-left: 8px; }
+        .panel {
+          position: absolute;
+          left: 0;
+          right: 0;
+          z-index: 20;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 6px;
+          display: flex;
+          flex-direction: column;
+          max-height: 260px;
+          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
+        }
+        .picker.down .panel { top: 32px; }
+        .picker.up .panel { bottom: 32px; }
+        .search { font-size: 12px; margin-bottom: 4px; }
+        .create-box {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-bottom: 4px;
+        }
+        .create-actions {
+          display: flex;
+          justify-content: flex-end;
+          gap: 6px;
+        }
+        .new-opt,
+        .create-btn {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 8px;
+          border-radius: 3px;
+          font-size: 12px;
+        }
+        .new-opt {
+          margin-bottom: 4px;
+          color: var(--color-text);
+        }
+        .new-opt:hover,
+        .create-btn:hover {
+          background: var(--color-bg-hover);
+        }
+        .create-btn {
+          width: auto;
+          color: var(--color-text-muted);
+        }
+        .create-btn.primary {
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+        }
+        .list { overflow-y: auto; min-height: 0; }
+        .opt {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          text-align: left;
+          padding: 5px 8px;
+          border-radius: 3px;
+          font-size: 12px;
+        }
+        .opt:hover { background: var(--color-bg-hover); }
+        .opt.on { background: var(--color-bg-active); }
+        .opt-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          flex: 1;
+        }
+        .opt-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .opt:hover .opt-icon,
+        .opt.on .opt-icon { color: var(--color-text); }
+        .trigger-label {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+          overflow: hidden;
+        }
+        .trigger-text {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .empty { padding: 8px; font-size: 12px; color: var(--color-text-muted); }
+      `}</style>
+    </div>
+  );
+}

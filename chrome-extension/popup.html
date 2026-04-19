@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Savers Quick Add</title>
+    <link rel="stylesheet" href="./popup.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="header">
+        <div>
+          <h1>Savers</h1>
+          <p>Save the current tab fast.</p>
+        </div>
+      </header>
+
+      <section class="panel">
+        <label class="field">
+          <span class="label">App URL</span>
+          <input id="app-url" type="url" placeholder="http://localhost:3000" />
+        </label>
+
+        <div class="field">
+          <span class="label">Current page</span>
+          <div id="page-card" class="page-card">
+            <div id="page-title" class="page-title">Loading active tab…</div>
+            <div id="page-url" class="page-url"></div>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="label">Title</span>
+          <input id="bookmark-title" type="text" />
+        </label>
+
+        <label class="field">
+          <span class="label">Collection</span>
+          <select id="collection-select"></select>
+        </label>
+
+        <div id="ai-suggestion" class="ai-suggestion hidden">
+          <div class="label">AI suggestion</div>
+          <div id="ai-suggestion-copy" class="ai-suggestion-copy"></div>
+          <div class="inline-actions ai-actions">
+            <button id="apply-ai-suggestion" class="btn btn-secondary" type="button">
+              Use suggestion
+            </button>
+            <button id="dismiss-ai-suggestion" class="btn btn-ghost" type="button">
+              Dismiss
+            </button>
+          </div>
+        </div>
+
+        <div class="inline-actions">
+          <button id="suggest-collection" class="btn btn-secondary" type="button">
+            AI suggest
+          </button>
+          <button id="show-create" class="btn btn-secondary" type="button">
+            + New collection
+          </button>
+          <button id="refresh-meta" class="btn btn-secondary" type="button">
+            Refresh metadata
+          </button>
+        </div>
+
+        <div id="create-wrap" class="create-wrap hidden">
+          <label class="field">
+            <span class="label">New collection name</span>
+            <input id="new-collection-name" type="text" placeholder="Collection name" />
+          </label>
+          <div class="inline-actions">
+            <button id="create-collection" class="btn btn-secondary" type="button">
+              Create
+            </button>
+            <button id="cancel-create" class="btn btn-ghost" type="button">
+              Cancel
+            </button>
+          </div>
+        </div>
+
+        <label class="field">
+          <span class="label">Description</span>
+          <textarea id="bookmark-description" rows="3"></textarea>
+        </label>
+
+        <p id="status" class="status" role="status"></p>
+
+        <div class="footer">
+          <button id="open-app" class="btn btn-ghost" type="button">Open app</button>
+          <button id="save-bookmark" class="btn btn-primary" type="button">
+            Save bookmark
+          </button>
+        </div>
+      </section>
+    </main>
+
+    <script src="./popup.js"></script>
+  </body>
+</html>
