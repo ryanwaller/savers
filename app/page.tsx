@@ -70,6 +70,24 @@ export default function Home() {
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
 
+  function getAuthRedirectBase() {
+    const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+    if (typeof window === "undefined") {
+      return configuredBase ?? "";
+    }
+
+    const currentBase = window.location.origin;
+    const isLocalhost =
+      currentBase.includes("localhost") || currentBase.includes("127.0.0.1");
+
+    if (isLocalhost) {
+      return currentBase;
+    }
+
+    return configuredBase || currentBase;
+  }
+
   useEffect(() => {
     allBookmarksRef.current = allBookmarks;
   }, [allBookmarks]);
@@ -626,10 +644,7 @@ export default function Home() {
     setAuthMessage(null);
 
     try {
-      const redirectBase =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+      const redirectBase = getAuthRedirectBase();
       const supabase = getSupabaseBrowserClient();
 
       const { error } = await supabase.auth.signInWithOtp({
@@ -669,15 +684,13 @@ export default function Home() {
     setAuthMessage(null);
 
     try {
-      const redirectBase =
-        typeof window !== "undefined"
-          ? window.location.origin
-          : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+      const redirectBase = getAuthRedirectBase();
       const supabase = getSupabaseBrowserClient();
 
-      const { error } = await supabase.auth.signInWithOAuth({
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
+          skipBrowserRedirect: true,
           redirectTo: `${redirectBase}/auth/callback?next=/`,
         },
       });
@@ -685,6 +698,12 @@ export default function Home() {
       if (error) {
         throw error;
       }
+
+      if (!data?.url) {
+        throw new Error("Google sign-in did not return a redirect URL.");
+      }
+
+      window.location.assign(data.url);
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
       setSigningInWithGoogle(false);
