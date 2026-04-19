@@ -2,10 +2,10 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
 import { api } from "@/lib/api";
-import { supabase } from "@/lib/supabase";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
 import BookmarkGrid from "./components/BookmarkGrid";
@@ -78,6 +78,7 @@ export default function Home() {
     let alive = true;
 
     const loadUser = async () => {
+      const supabase = getSupabaseBrowserClient();
       const { data, error } = await supabase.auth.getUser();
       if (!alive) return;
 
@@ -94,14 +95,16 @@ export default function Home() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = getSupabaseBrowserClient().auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
       if (!alive) return;
       setUser(session?.user ?? null);
       setAuthLoading(false);
       if (session?.user) {
         setAuthMessage(null);
       }
-    });
+      }
+    );
 
     return () => {
       alive = false;
@@ -627,6 +630,7 @@ export default function Home() {
         typeof window !== "undefined"
           ? window.location.origin
           : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+      const supabase = getSupabaseBrowserClient();
 
       const { error } = await supabase.auth.signInWithOtp({
         email,
@@ -648,6 +652,7 @@ export default function Home() {
   }
 
   async function handleSignOut() {
+    const supabase = getSupabaseBrowserClient();
     const { error } = await supabase.auth.signOut();
     if (error) {
       alert(error.message);
@@ -668,6 +673,7 @@ export default function Home() {
         typeof window !== "undefined"
           ? window.location.origin
           : process.env.NEXT_PUBLIC_SITE_URL ?? "";
+      const supabase = getSupabaseBrowserClient();
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
