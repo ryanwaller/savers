@@ -176,6 +176,10 @@ select:focus {
   color: var(--muted);
 }
 
+.status.ai-status:empty {
+  display: none;
+}
+
 .status.error {
   color: #ff8f8f;
 }

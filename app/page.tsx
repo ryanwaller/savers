@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -53,6 +54,7 @@ export default function Home() {
   }, [allBookmarks]);
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [resizingSidebar, setResizingSidebar] = useState(false);
@@ -770,7 +772,7 @@ export default function Home() {
       />
 
       <main className="main">
-        <header className="top">
+        <header className={`top ${mobileSearchOpen ? "top-searching" : ""}`}>
           <div className="top-row top-row-primary">
             <div className="crumbs">
               <button
@@ -821,22 +823,65 @@ export default function Home() {
 
           <div className="top-row top-row-secondary">
             <div className="top-right">
-              <div className="session-chip" title={user.email ?? "Signed in"}>
-                <span className="session-email">{user.email ?? "Signed in"}</span>
-                <button className="session-signout" onClick={handleSignOut}>
-                  Sign out
+              <div className="desktop-actions">
+                <div className="session-chip" title={user.email ?? "Signed in"}>
+                  <span className="session-email">{user.email ?? "Signed in"}</span>
+                  <button className="session-signout" onClick={handleSignOut}>
+                    Sign out
+                  </button>
+                </div>
+                <div className="search">
+                  <input
+                    placeholder="Search titles, URLs, descriptions, tags…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+                  + Add bookmark
                 </button>
               </div>
-              <div className="search">
-                <input
-                  placeholder="Search titles, URLs, descriptions, tags…"
-                  value={search}
-                  onChange={(e) => setSearch(e.target.value)}
-                />
+
+              <div className="mobile-actions">
+                {mobileSearchOpen ? (
+                  <div className="mobile-search-row">
+                    <input
+                      autoFocus
+                      className="mobile-search-input"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <button
+                      className="circle-btn"
+                      aria-label="Close search"
+                      onClick={() => {
+                        setMobileSearchOpen(false);
+                        setSearch("");
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      className="circle-btn"
+                      aria-label="Search"
+                      onClick={() => setMobileSearchOpen(true)}
+                    >
+                      <MagnifyingGlass size={16} />
+                    </button>
+                    <button
+                      className="circle-btn circle-btn-primary"
+                      aria-label="Add bookmark"
+                      onClick={() => setShowAdd(true)}
+                    >
+                      <Plus size={16} weight="bold" />
+                    </button>
+                  </>
+                )}
               </div>
-              <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-                + Add bookmark
-              </button>
             </div>
           </div>
         </header>
@@ -882,6 +927,7 @@ export default function Home() {
       {showAdd && (
         <AddBookmarkModal
           flat={flat}
+          tree={tree}
           defaultCollectionId={defaultCollectionForAdd}
           onCreateCollection={handleCreateCollection}
           onClose={() => setShowAdd(false)}
@@ -1082,6 +1128,53 @@ export default function Home() {
           min-width: 0;
           flex-shrink: 0;
         }
+        .desktop-actions {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          min-width: 0;
+        }
+        .mobile-actions {
+          display: none;
+          align-items: center;
+          gap: 8px;
+          min-width: 0;
+        }
+        .mobile-search-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+        .mobile-search-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          height: 36px;
+          padding: 0 14px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          font-size: 16px;
+        }
+        .circle-btn {
+          width: 36px;
+          height: 36px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          color: var(--color-text);
+          background: var(--color-bg);
+          font-size: 18px;
+          line-height: 1;
+          flex-shrink: 0;
+        }
+        .circle-btn-primary {
+          background: var(--color-text);
+          color: var(--color-bg);
+          border-color: var(--color-text);
+        }
         .session-chip {
           display: inline-flex;
           align-items: center;
@@ -1164,20 +1257,12 @@ export default function Home() {
         }
         @media (max-width: 768px) {
           .top {
-            height: auto;
-            align-items: stretch;
-            flex-direction: column;
-            gap: 6px;
-            padding: calc(env(safe-area-inset-top, 0px) + 2px) 12px 8px;
-          }
-          .top-row {
-            width: 100%;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            gap: 10px;
           }
           .crumbs {
-            width: 100%;
             min-width: 0;
             gap: 6px;
-            min-height: 28px;
           }
           .crumb:not(:last-of-type) {
             display: none;
@@ -1196,30 +1281,20 @@ export default function Home() {
           .tag-filter {
             max-width: min(48vw, 180px);
           }
-          .top-right {
-            width: 100%;
-            display: grid;
-            grid-template-columns: minmax(0, 1fr) auto;
-            gap: 8px;
+          .desktop-actions {
+            display: none;
           }
-          .search {
+          .mobile-actions {
+            display: flex;
+          }
+          .top.top-searching .top-row-primary {
+            display: none;
+          }
+          .top.top-searching .top-row-secondary {
+            flex: 1 1 auto;
             min-width: 0;
           }
-          .search input {
-            width: 100%;
-            min-width: 0;
-          }
-          .top-right :global(.btn) {
-            min-width: 0;
-            padding-left: 10px;
-            padding-right: 10px;
-          }
-        }
-        @media (max-width: 560px) {
-          .top-right {
-            grid-template-columns: minmax(0, 1fr);
-          }
-          .top-right :global(.btn) {
+          .top.top-searching .mobile-actions {
             width: 100%;
           }
         }

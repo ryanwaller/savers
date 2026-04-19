@@ -396,14 +396,23 @@ export default function BookmarkDetail({
           animation: slideIn 180ms ease;
         }
         @media (max-width: 768px) {
+          .backdrop {
+            padding: 0;
+            background: transparent;
+          }
           .panel {
-            width: min(420px, calc(100vw - 12px));
-            max-width: calc(100vw - 12px);
-            height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
-            margin-top: calc(env(safe-area-inset-top, 0px) + 6px);
-            border: 1px solid var(--color-border);
-            border-right: 0;
-            border-radius: var(--radius-lg) 0 0 var(--radius-lg);
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            margin-top: 0;
+            border: 0;
+            border-radius: 0;
+          }
+          .body :global(input),
+          .body :global(textarea),
+          .body :global(select) {
+            font-size: 16px;
+            padding: 10px 12px;
           }
         }
         @keyframes slideIn {
@@ -561,6 +570,8 @@ export default function BookmarkDetail({
           .foot :global(.btn),
           .right :global(.btn) {
             flex: 1 1 140px;
+            height: 40px;
+            font-size: 14px;
           }
         }
       `}</style>

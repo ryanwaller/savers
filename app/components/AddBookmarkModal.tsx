@@ -2,11 +2,12 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, domainOf, normalizeUrl, screenshotPreviewUrl, tintForDomain } from "@/lib/api";
-import type { Bookmark, Collection } from "@/lib/types";
+import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import CollectionPicker from "./CollectionPicker";
 
 type Props = {
   flat: Collection[];
+  tree: Collection[];
   defaultCollectionId: string | null;
   onCreateCollection: (name: string, parentId: string | null) => Promise<Collection>;
   onClose: () => void;
@@ -15,6 +16,7 @@ type Props = {
 
 export default function AddBookmarkModal({
   flat,
+  tree,
   defaultCollectionId,
   onCreateCollection,
   onClose,
@@ -34,6 +36,18 @@ export default function AddBookmarkModal({
   const [imgOk, setImgOk] = useState(true);
   const [isDark, setIsDark] = useState(false);
   const lastFetchedRef = useRef("");
+
+  // Suggestion state
+  const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiApplying, setAiApplying] = useState(false);
+  const [aiDismissed, setAiDismissed] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+
+  // Inline "+ New collection" state
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -96,6 +110,96 @@ export default function AddBookmarkModal({
     return () => window.clearTimeout(timer);
   }, [url, fetchMetadata]);
 
+  const runSuggest = useCallback(async () => {
+    const u = normalizeUrl(url);
+    if (!u) return;
+    try {
+      new URL(u);
+    } catch {
+      return;
+    }
+    setAiLoading(true);
+    setAiStatus("Suggesting a collection…");
+    try {
+      const { suggestion } = await api.categorize({
+        url: u,
+        title: title.trim() || null,
+        description: description.trim() || null,
+        collections: tree,
+      });
+      if (!suggestion || suggestion.confidence === "low") {
+        setAiSuggestion(null);
+        setAiStatus("No clear suggestion.");
+        return;
+      }
+      if (suggestion.collection_id && suggestion.collection_id === collectionId) {
+        setAiSuggestion(null);
+        setAiStatus("Already in the suggested collection.");
+        return;
+      }
+      setAiSuggestion(suggestion);
+      setAiDismissed(false);
+      setAiStatus("Suggestion ready.");
+    } catch (e) {
+      setAiSuggestion(null);
+      setAiStatus(
+        `Suggestion failed: ${e instanceof Error ? e.message : "unknown error"}`
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }, [url, title, description, tree, collectionId]);
+
+  async function applySuggestion() {
+    if (!aiSuggestion) return;
+    setAiApplying(true);
+    setError(null);
+    try {
+      let nextCollectionId = aiSuggestion.collection_id;
+      let pathLabel = aiSuggestion.collection_path;
+
+      if (!nextCollectionId && aiSuggestion.proposed_collection_name) {
+        const created = await onCreateCollection(
+          aiSuggestion.proposed_collection_name,
+          aiSuggestion.proposed_parent_collection_id ?? null
+        );
+        nextCollectionId = created.id;
+        pathLabel = aiSuggestion.proposed_parent_collection_path
+          ? `${aiSuggestion.proposed_parent_collection_path} / ${created.name}`
+          : created.name;
+      }
+
+      if (!nextCollectionId) return;
+
+      setCollectionId(nextCollectionId);
+      setAiSuggestion(null);
+      setAiDismissed(false);
+      setAiStatus(pathLabel ? `Using ${pathLabel}.` : "Suggestion applied.");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to apply suggestion");
+    } finally {
+      setAiApplying(false);
+    }
+  }
+
+  async function createInlineCollection() {
+    const name = newCollectionName.trim();
+    if (!name) return;
+    setCreatingCollection(true);
+    setError(null);
+    try {
+      const created = await onCreateCollection(name, null);
+      setCollectionId(created.id);
+      setNewCollectionName("");
+      setShowCreateCollection(false);
+      setAiStatus(`Created ${created.name}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create collection");
+    } finally {
+      setCreatingCollection(false);
+    }
+  }
+
   async function handleSave() {
     const u = normalizeUrl(url);
     if (!u) {
@@ -144,11 +248,22 @@ export default function AddBookmarkModal({
   const host = normalizedUrl ? domainOf(normalizedUrl) : "";
   const tint = normalizedUrl ? tintForDomain(normalizedUrl, isDark) : "var(--color-bg-secondary)";
 
+  const showAiSuggestion = !aiDismissed && !!aiSuggestion;
+  const aiTargetLabel = aiSuggestion?.collection_path
+    ? aiSuggestion.collection_path
+    : aiSuggestion?.proposed_parent_collection_path
+      ? `${aiSuggestion.proposed_parent_collection_path} / ${aiSuggestion.proposed_collection_name}`
+      : aiSuggestion?.proposed_collection_name;
+
+  const urlReady = normalizedUrl && (() => {
+    try { new URL(normalizedUrl); return true; } catch { return false; }
+  })();
+
   return (
     <div className="backdrop" onClick={onClose}>
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="head">
-          <div className="title">Add bookmark</div>
+          <div className="title small muted">Add bookmark</div>
           <button className="close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
@@ -170,6 +285,9 @@ export default function AddBookmarkModal({
                   setFavicon(null);
                   setImgOk(true);
                   setError(null);
+                  setAiSuggestion(null);
+                  setAiDismissed(false);
+                  setAiStatus(null);
                 }
                 setUrl(next);
               }}
@@ -229,6 +347,114 @@ export default function AddBookmarkModal({
             />
           </label>
 
+          <div className="field">
+            <div className="label">Collection</div>
+            <CollectionPicker
+              flat={flat}
+              value={collectionId}
+              onChange={setCollectionId}
+            />
+
+            {showAiSuggestion && aiTargetLabel && (
+              <div className="ai-card">
+                <div className="ai-title">Suggestion</div>
+                <div className="ai-copy">
+                  <span className="ai-confidence">{capitalize(aiSuggestion!.confidence)}</span>
+                  {": "}
+                  {aiTargetLabel}
+                </div>
+                <div className="ai-actions">
+                  <button
+                    type="button"
+                    className="btn btn-primary"
+                    onClick={() => void applySuggestion()}
+                    disabled={aiApplying}
+                  >
+                    {aiApplying ? "Applying…" : "Use suggestion"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn"
+                    onClick={() => {
+                      setAiDismissed(true);
+                      setAiStatus("Suggestion dismissed.");
+                    }}
+                    disabled={aiApplying}
+                  >
+                    Dismiss
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {aiStatus && <div className="ai-status small muted">{aiStatus}</div>}
+
+            <div className="inline-actions">
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => void runSuggest()}
+                disabled={!urlReady || aiLoading}
+              >
+                {aiLoading ? "Suggesting…" : "Suggest"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => {
+                  setShowCreateCollection((v) => !v);
+                  setNewCollectionName("");
+                }}
+                disabled={creatingCollection}
+              >
+                + New collection
+              </button>
+            </div>
+
+            {showCreateCollection && (
+              <div className="create-wrap">
+                <input
+                  autoFocus
+                  placeholder="Collection name"
+                  value={newCollectionName}
+                  onChange={(e) => setNewCollectionName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      void createInlineCollection();
+                    }
+                    if (e.key === "Escape") {
+                      e.preventDefault();
+                      setShowCreateCollection(false);
+                      setNewCollectionName("");
+                    }
+                  }}
+                />
+                <div className="inline-actions">
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    onClick={() => void createInlineCollection()}
+                    disabled={creatingCollection || !newCollectionName.trim()}
+                  >
+                    {creatingCollection ? "Creating…" : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-small btn-ghost"
+                    onClick={() => {
+                      setShowCreateCollection(false);
+                      setNewCollectionName("");
+                    }}
+                    disabled={creatingCollection}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <label className="field">
             <div className="label">Tags <span className="small muted">(comma separated)</span></div>
             <input
@@ -247,19 +473,6 @@ export default function AddBookmarkModal({
             />
           </label>
 
-          <div className="field">
-            <div className="label">Collection</div>
-            <CollectionPicker
-              flat={flat}
-              value={collectionId}
-              onChange={setCollectionId}
-              onCreateCollection={onCreateCollection}
-            />
-            <div className="hint small muted">
-              Leave as Unsorted — we&rsquo;ll suggest a collection after saving.
-            </div>
-          </div>
-
           {error && <div className="error small">{error}</div>}
         </div>
 
@@ -277,33 +490,35 @@ export default function AddBookmarkModal({
           inset: 0;
           background: rgba(0, 0, 0, 0.28);
           display: flex;
-          align-items: flex-start;
-          justify-content: center;
-          padding:
-            calc(env(safe-area-inset-top, 0px) + 20px)
-            12px
-            calc(env(safe-area-inset-bottom, 0px) + 24px);
+          justify-content: flex-end;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
           z-index: 50;
         }
         .modal {
-          width: min(520px, calc(100vw - 24px));
+          width: 440px;
           max-width: 100%;
-          max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 44px);
+          height: 100%;
           background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-lg);
+          border-left: 1px solid var(--color-border);
           display: flex;
           flex-direction: column;
           overflow: hidden;
+          animation: slideIn 200ms ease;
+        }
+        @keyframes slideIn {
+          from { transform: translateX(30px); opacity: 0; }
+          to   { transform: translateX(0); opacity: 1; }
         }
         .head {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 12px 14px;
+          height: 54px;
+          padding: 0 16px;
           border-bottom: 1px solid var(--color-border);
+          box-sizing: border-box;
         }
-        .title { font-size: 12px; font-weight: 600; }
+        .title { font-size: 12px; }
         .close {
           font-size: 18px;
           color: var(--color-text-muted);
@@ -312,12 +527,13 @@ export default function AddBookmarkModal({
         }
         .close:hover { color: var(--color-text); }
         .body {
-          padding: 14px;
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
           gap: 12px;
           overflow-y: auto;
           overflow-x: hidden;
+          flex: 1;
         }
         .field { display: flex; flex-direction: column; gap: 5px; }
         .label { font-size: 12px; color: var(--color-text-muted); }
@@ -369,6 +585,55 @@ export default function AddBookmarkModal({
           min-width: 0;
         }
         .fav { width: 12px; height: 12px; border-radius: 2px; }
+        .ai-card {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+          padding: 10px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius);
+          background: var(--color-bg-secondary);
+        }
+        .ai-title {
+          font-size: 12px;
+          color: var(--color-text-muted);
+        }
+        .ai-copy {
+          font-size: 12px;
+          color: var(--color-text);
+          line-height: 1.45;
+        }
+        .ai-confidence { font-weight: 600; }
+        .ai-actions {
+          display: flex;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .ai-status {
+          margin-top: 6px;
+        }
+        .inline-actions {
+          display: flex;
+          gap: 6px;
+          flex-wrap: wrap;
+          margin-top: 6px;
+        }
+        .btn-small {
+          height: 26px;
+          padding: 0 10px;
+          font-size: 12px;
+        }
+        .create-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          margin-top: 8px;
+          padding: 8px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg-secondary);
+        }
         .error {
           padding: 8px 10px;
           border: 1px solid var(--color-border);
@@ -385,6 +650,28 @@ export default function AddBookmarkModal({
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
         @media (max-width: 768px) {
+          .backdrop {
+            padding: 0;
+            background: transparent;
+          }
+          .modal {
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            border: 0;
+            border-radius: 0;
+          }
+          .body :global(input),
+          .body :global(textarea),
+          .body :global(select) {
+            font-size: 16px;
+            padding: 10px 12px;
+          }
+          .btn-small {
+            height: 36px;
+            font-size: 14px;
+          }
           .preview {
             flex-direction: column;
             align-items: stretch;
@@ -397,9 +684,15 @@ export default function AddBookmarkModal({
           }
           .foot :global(.btn) {
             flex: 1 1 140px;
+            height: 40px;
+            font-size: 14px;
           }
         }
       `}</style>
     </div>
   );
+}
+
+function capitalize(value: string) {
+  return value ? `${value[0].toUpperCase()}${value.slice(1)}` : "";
 }

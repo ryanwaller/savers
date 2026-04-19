@@ -439,6 +439,15 @@ function BookmarkCard({
           transform: translateY(0) scale(1);
           pointer-events: auto;
         }
+        /* Touch devices: always show action buttons so there's no hover gate. */
+        @media (hover: none) {
+          .action-btn {
+            opacity: 1;
+            transform: none;
+            pointer-events: auto;
+            box-shadow: none;
+          }
+        }
         .action-btn:hover:not(:disabled) {
           color: var(--color-text);
           border-color: var(--color-border-strong);
@@ -509,10 +518,12 @@ function BookmarkCard({
             opacity 220ms ease,
             transform 300ms ease;
         }
-        .card-shell:hover .thumb :global(img),
-        .card-shell:focus-within .thumb :global(img) {
-          filter: blur(1.5px);
-          opacity: 0.78;
+        @media (hover: hover) {
+          .card-shell:hover .thumb :global(img),
+          .card-shell:focus-within .thumb :global(img) {
+            filter: blur(1.5px);
+            opacity: 0.78;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           .thumb :global(img) {
@@ -538,8 +549,10 @@ function BookmarkCard({
             gap: 4px;
           }
         }
-        .body:hover {
-          background: color-mix(in srgb, var(--color-bg-hover) 78%, transparent);
+        @media (hover: hover) {
+          .body:hover {
+            background: color-mix(in srgb, var(--color-bg-hover) 78%, transparent);
+          }
         }
         .body:focus-visible {
           outline: 2px solid color-mix(in srgb, var(--color-text) 22%, transparent);
@@ -564,7 +577,8 @@ function BookmarkCard({
         }
         @media (max-width: 768px) {
           .title {
-            font-size: 13px;
+            font-size: 12px;
+            font-weight: 600;
           }
         }
         .meta {
@@ -608,11 +622,13 @@ function BookmarkCard({
             transform 200ms cubic-bezier(0.2, 0.8, 0.25, 1);
           z-index: 1;
         }
-        .card-shell:hover .tags-overlay,
-        .card-shell:focus-within .tags-overlay {
-          opacity: 1;
-          transform: translateY(0) scale(1);
-          pointer-events: auto;
+        @media (hover: hover) {
+          .card-shell:hover .tags-overlay,
+          .card-shell:focus-within .tags-overlay {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+          }
         }
         @media (prefers-reduced-motion: reduce) {
           .tags-overlay {
