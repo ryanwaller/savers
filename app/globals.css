@@ -43,6 +43,8 @@ html, body {
   background: var(--color-bg);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
 }
 
 body { overflow: hidden; }
@@ -63,6 +65,7 @@ input, textarea {
   border-radius: var(--radius-sm);
   padding: 6px 8px;
   outline: none;
+  line-height: 1.2;
 }
 input:focus, textarea:focus { border-color: var(--color-border-strong); }
 textarea { resize: vertical; }

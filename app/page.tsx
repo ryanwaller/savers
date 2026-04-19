@@ -771,69 +771,73 @@ export default function Home() {
 
       <main className="main">
         <header className="top">
-          <div className="crumbs">
-            <button
-              className="mobile-menu-btn"
-              onClick={() => setMobileSidebarOpen(true)}
-              aria-label="Open menu"
-            >
-              ☰
-            </button>
-            {canGoBack && (
-              <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
-                ←
+          <div className="top-row top-row-primary">
+            <div className="crumbs">
+              <button
+                className="mobile-menu-btn"
+                onClick={() => setMobileSidebarOpen(true)}
+                aria-label="Open menu"
+              >
+                ☰
               </button>
-            )}
-            {breadcrumbItems.map((item, i) => (
-              <span key={i} className="crumb">
-                <button
-                  className={i === breadcrumbItems.length - 1 ? "crumb-link current" : "crumb-link ancestor"}
-                  onClick={() => setSelection(item.selection)}
-                >
-                  {item.isCollection && (
-                    <span className="crumb-icon" aria-hidden>
-                      <CollectionIcon name={item.icon} size={13} />
-                    </span>
-                  )}
-                  <span className="crumb-label">{item.label}</span>
+              {canGoBack && (
+                <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
+                  ←
                 </button>
-                {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
-              </span>
-            ))}
-            {activeTag && (
-              <>
-                <span className="sep">›</span>
-                <span className="tag-filter" title={`Filtering by ${activeTag}`}>
-                  <span className="tag-filter-label">#{activeTag}</span>
+              )}
+              {breadcrumbItems.map((item, i) => (
+                <span key={i} className="crumb">
                   <button
-                    className="tag-filter-clear"
-                    aria-label={`Clear tag filter ${activeTag}`}
-                    onClick={() => setActiveTag(null)}
+                    className={i === breadcrumbItems.length - 1 ? "crumb-link current" : "crumb-link ancestor"}
+                    onClick={() => setSelection(item.selection)}
                   >
-                    ×
+                    {item.isCollection && (
+                      <span className="crumb-icon" aria-hidden>
+                        <CollectionIcon name={item.icon} size={13} />
+                      </span>
+                    )}
+                    <span className="crumb-label">{item.label}</span>
                   </button>
+                  {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
-              </>
-            )}
+              ))}
+              {activeTag && (
+                <>
+                  <span className="sep">›</span>
+                  <span className="tag-filter" title={`Filtering by ${activeTag}`}>
+                    <span className="tag-filter-label">#{activeTag}</span>
+                    <button
+                      className="tag-filter-clear"
+                      aria-label={`Clear tag filter ${activeTag}`}
+                      onClick={() => setActiveTag(null)}
+                    >
+                      ×
+                    </button>
+                  </span>
+                </>
+              )}
+            </div>
           </div>
 
-          <div className="top-right">
-            <div className="session-chip" title={user.email ?? "Signed in"}>
-              <span className="session-email">{user.email ?? "Signed in"}</span>
-              <button className="session-signout" onClick={handleSignOut}>
-                Sign out
+          <div className="top-row top-row-secondary">
+            <div className="top-right">
+              <div className="session-chip" title={user.email ?? "Signed in"}>
+                <span className="session-email">{user.email ?? "Signed in"}</span>
+                <button className="session-signout" onClick={handleSignOut}>
+                  Sign out
+                </button>
+              </div>
+              <div className="search">
+                <input
+                  placeholder="Search titles, URLs, descriptions, tags…"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                />
+              </div>
+              <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
+                + Add bookmark
               </button>
             </div>
-            <div className="search">
-              <input
-                placeholder="Search titles, URLs, descriptions, tags…"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-              />
-            </div>
-            <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-              + Add bookmark
-            </button>
           </div>
         </header>
 
@@ -920,6 +924,8 @@ export default function Home() {
           display: flex;
           height: 100vh;
           width: 100vw;
+          max-width: 100%;
+          overflow-x: hidden;
         }
         .main {
           flex: 1;
@@ -927,6 +933,7 @@ export default function Home() {
           flex-direction: column;
           min-width: 0;
           background: var(--color-bg);
+          overflow-x: hidden;
         }
         .sidebar-resizer {
           width: 10px;
@@ -967,12 +974,24 @@ export default function Home() {
           border-bottom: 1px solid var(--color-border);
           box-sizing: border-box;
         }
+        .top-row {
+          min-width: 0;
+          display: flex;
+          align-items: center;
+        }
+        .top-row-primary {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .top-row-secondary {
+          flex: 0 0 auto;
+        }
         .mobile-menu-btn {
           display: none;
           font-size: 18px;
           color: var(--color-text);
-          margin-right: 12px;
-          padding: 4px;
+          margin-right: 8px;
+          padding: 2px;
         }
         @media (max-width: 768px) {
           .mobile-menu-btn {
@@ -984,7 +1003,8 @@ export default function Home() {
           :global(.sidebar) {
             position: fixed;
             inset: 0;
-            width: 100vw !important;
+            width: 100% !important;
+            max-width: 100%;
             z-index: 100;
             transform: translateX(-100%);
             transition: transform 200ms ease;
@@ -999,6 +1019,7 @@ export default function Home() {
           gap: 4px;
           min-width: 0;
           overflow: hidden;
+          flex: 1 1 auto;
         }
         .crumb-back {
           width: 22px;
@@ -1021,6 +1042,7 @@ export default function Home() {
           gap: 6px;
           font-size: 12px;
           white-space: nowrap;
+          min-width: 0;
         }
         .crumb-link {
           font-size: 12px;
@@ -1028,6 +1050,16 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
+          min-width: 0;
+        }
+        .current.crumb-link {
+          max-width: 100%;
+        }
+        .crumb-label {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .crumb-icon {
           display: inline-flex;
@@ -1048,6 +1080,7 @@ export default function Home() {
           align-items: center;
           gap: 10px;
           min-width: 0;
+          flex-shrink: 0;
         }
         .session-chip {
           display: inline-flex;
@@ -1112,7 +1145,9 @@ export default function Home() {
         }
         .search input {
           width: 200px;
-          height: 28px;
+          height: 30px;
+          padding: 6px 10px;
+          line-height: 1.2;
           font-size: 12px;
         }
         @media (max-width: 1080px) {
@@ -1123,7 +1158,70 @@ export default function Home() {
         .content {
           flex: 1;
           overflow-y: auto;
+          overflow-x: hidden;
           min-height: 0;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+        }
+        @media (max-width: 768px) {
+          .top {
+            height: auto;
+            align-items: stretch;
+            flex-direction: column;
+            gap: 6px;
+            padding: calc(env(safe-area-inset-top, 0px) + 2px) 12px 8px;
+          }
+          .top-row {
+            width: 100%;
+          }
+          .crumbs {
+            width: 100%;
+            min-width: 0;
+            gap: 6px;
+            min-height: 28px;
+          }
+          .crumb:not(:last-of-type) {
+            display: none;
+          }
+          .crumb {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .crumb-link,
+          .current.crumb-link {
+            width: 100%;
+          }
+          .sep {
+            display: none;
+          }
+          .tag-filter {
+            max-width: min(48vw, 180px);
+          }
+          .top-right {
+            width: 100%;
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 8px;
+          }
+          .search {
+            min-width: 0;
+          }
+          .search input {
+            width: 100%;
+            min-width: 0;
+          }
+          .top-right :global(.btn) {
+            min-width: 0;
+            padding-left: 10px;
+            padding-right: 10px;
+          }
+        }
+        @media (max-width: 560px) {
+          .top-right {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .top-right :global(.btn) {
+            width: 100%;
+          }
         }
         .load-error {
           margin: 14px 20px 0;

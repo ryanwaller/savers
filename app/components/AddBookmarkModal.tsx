@@ -279,13 +279,16 @@ export default function AddBookmarkModal({
           display: flex;
           align-items: flex-start;
           justify-content: center;
-          padding: 64px 20px;
+          padding:
+            calc(env(safe-area-inset-top, 0px) + 20px)
+            12px
+            calc(env(safe-area-inset-bottom, 0px) + 24px);
           z-index: 50;
         }
         .modal {
-          width: 520px;
+          width: min(520px, calc(100vw - 24px));
           max-width: 100%;
-          max-height: calc(100vh - 128px);
+          max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 44px);
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
@@ -314,6 +317,7 @@ export default function AddBookmarkModal({
           flex-direction: column;
           gap: 12px;
           overflow-y: auto;
+          overflow-x: hidden;
         }
         .field { display: flex; flex-direction: column; gap: 5px; }
         .label { font-size: 12px; color: var(--color-text-muted); }
@@ -378,6 +382,22 @@ export default function AddBookmarkModal({
           gap: 8px;
           padding: 10px 14px;
           border-top: 1px solid var(--color-border);
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+        }
+        @media (max-width: 768px) {
+          .preview {
+            flex-direction: column;
+            align-items: stretch;
+          }
+          .thumb {
+            width: 100%;
+          }
+          .foot {
+            flex-wrap: wrap;
+          }
+          .foot :global(.btn) {
+            flex: 1 1 140px;
+          }
         }
       `}</style>
     </div>

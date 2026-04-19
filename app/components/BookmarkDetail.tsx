@@ -382,6 +382,7 @@ export default function BookmarkDetail({
           background: rgba(0, 0, 0, 0.28);
           display: flex;
           justify-content: flex-end;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
           z-index: 50;
         }
         .panel {
@@ -396,7 +397,13 @@ export default function BookmarkDetail({
         }
         @media (max-width: 768px) {
           .panel {
-            width: 100vw;
+            width: min(420px, calc(100vw - 12px));
+            max-width: calc(100vw - 12px);
+            height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 12px);
+            margin-top: calc(env(safe-area-inset-top, 0px) + 6px);
+            border: 1px solid var(--color-border);
+            border-right: 0;
+            border-radius: var(--radius-lg) 0 0 var(--radius-lg);
           }
         }
         @keyframes slideIn {
@@ -426,6 +433,7 @@ export default function BookmarkDetail({
           flex-direction: column;
           gap: 12px;
           overflow-y: auto;
+          overflow-x: hidden;
           flex: 1;
         }
         .site-row {
@@ -541,9 +549,20 @@ export default function BookmarkDetail({
           gap: 8px;
           padding: 10px 14px;
           border-top: 1px solid var(--color-border);
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
         .right { display: flex; gap: 8px; }
         .danger:hover { background: var(--color-bg-hover); }
+        @media (max-width: 768px) {
+          .foot,
+          .right {
+            flex-wrap: wrap;
+          }
+          .foot :global(.btn),
+          .right :global(.btn) {
+            flex: 1 1 140px;
+          }
+        }
       `}</style>
     </div>
   );

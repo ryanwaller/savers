@@ -285,11 +285,14 @@ export default function Sidebar({
           background: var(--color-bg-secondary);
           display: flex;
           flex-direction: column;
+          overflow-x: hidden;
         }
         .sidebar-scroll {
           flex: 1;
           overflow-y: auto;
+          overflow-x: hidden;
           min-height: 0;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
         .sidebar-head {
           min-height: 54px;
@@ -329,6 +332,7 @@ export default function Sidebar({
         }
         .sidebar-section {
           padding: 4px 6px;
+          overflow-x: hidden;
         }
         .sidebar-label {
           padding: 8px 8px 4px 0;
@@ -375,6 +379,7 @@ export default function Sidebar({
         .sidebar-foot {
           padding: 8px 8px 12px;
           border-top: 1px solid var(--color-border);
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
         .sidebar-new {
           display: block;
@@ -429,6 +434,7 @@ function SidebarItem({
           align-items: center;
           gap: 8px;
           width: 100%;
+          min-width: 0;
           padding: 5px 8px;
           border-radius: var(--radius-sm);
           text-align: left;
@@ -450,7 +456,7 @@ function SidebarItem({
         .item.active .leading { color: var(--color-text); }
         .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .count {
-          width: 28px;
+          width: 32px;
           text-align: right;
           font-size: 12px;
           color: var(--color-text-muted);
@@ -854,7 +860,7 @@ function CollectionNode({
         }
         .tail {
           position: relative;
-          width: 28px;
+          width: 32px;
           height: 18px;
           flex-shrink: 0;
         }
