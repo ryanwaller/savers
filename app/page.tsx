@@ -703,7 +703,10 @@ export default function Home() {
         throw new Error("Google sign-in did not return a redirect URL.");
       }
 
-      window.location.assign(data.url);
+      const oauthUrl = new URL(data.url);
+      oauthUrl.searchParams.set("redirect_to", `${redirectBase}/auth/callback?next=/`);
+
+      window.location.assign(oauthUrl.toString());
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
       setSigningInWithGoogle(false);
