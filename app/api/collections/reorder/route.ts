@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const { ids } = await req.json()
     if (!Array.isArray(ids)) {

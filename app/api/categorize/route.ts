@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { Collection } from '@/lib/types'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 const client = new Anthropic()
 
@@ -42,6 +42,7 @@ function domainOf(url: string): string {
 
 async function loadCollectionExamples(collectionIds: string[], userId: string) {
   if (!collectionIds.length) return new Map<string, string[]>()
+  const supabaseAdmin = getSupabaseAdmin()
 
   const { data, error } = await supabaseAdmin
     .from('bookmarks')

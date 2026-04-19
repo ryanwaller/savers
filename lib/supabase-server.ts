@@ -4,30 +4,27 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-if (!supabaseUrl) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_URL')
+function requiredEnv(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY' | 'SUPABASE_SERVICE_ROLE_KEY') {
+  const value = process.env[name]
+  if (!value) {
+    throw new Error(`Missing ${name}`)
+  }
+  return value
 }
 
-if (!supabaseAnonKey) {
-  throw new Error('Missing NEXT_PUBLIC_SUPABASE_ANON_KEY')
+function getServerSupabaseConfig() {
+  return {
+    url: requiredEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    anonKey: requiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+    serviceRoleKey: requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
+  }
 }
-
-if (!supabaseServiceRoleKey) {
-  throw new Error('Missing SUPABASE_SERVICE_ROLE_KEY')
-}
-
-const serverSupabaseUrl = supabaseUrl
-const serverSupabaseAnonKey = supabaseAnonKey
-const serverSupabaseServiceRoleKey = supabaseServiceRoleKey
 
 export async function createSupabaseServerClient() {
+  const { url, anonKey } = getServerSupabaseConfig()
   const cookieStore = await cookies()
 
-  return createServerClient(serverSupabaseUrl, serverSupabaseAnonKey, {
+  return createServerClient(url, anonKey, {
     db: { schema: 'savers' },
     cookies: {
       getAll() {
@@ -42,10 +39,14 @@ export async function createSupabaseServerClient() {
   })
 }
 
-export const supabaseAdmin = createClient(serverSupabaseUrl, serverSupabaseServiceRoleKey, {
-  auth: {
-    autoRefreshToken: false,
-    persistSession: false,
-  },
-  db: { schema: 'savers' },
-})
+export function getSupabaseAdmin() {
+  const { url, serviceRoleKey } = getServerSupabaseConfig()
+
+  return createClient(url, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+    db: { schema: 'savers' },
+  })
+}

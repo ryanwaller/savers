@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { Collection } from '@/lib/types'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -69,6 +69,7 @@ function buildTree(collections: Collection[]): Collection[] {
 
 export async function GET() {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const { data, error } = await supabaseAdmin
       .from('collections')
@@ -97,6 +98,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const { name, parent_id } = await req.json()
 
@@ -155,6 +157,7 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const { id, user_id: _ignoredUserId, ...updates } = await req.json()
 
@@ -203,6 +206,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

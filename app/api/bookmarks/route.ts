@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
-import { supabaseAdmin } from '@/lib/supabase-server'
+import { getSupabaseAdmin } from '@/lib/supabase-server'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -54,6 +54,7 @@ function logUnexpectedError(scope: string, error: unknown) {
 
 async function ensureOwnedCollection(userId: string, collectionId: string | null) {
   if (!collectionId) return
+  const supabaseAdmin = getSupabaseAdmin()
 
   const { data, error } = await supabaseAdmin
     .from('collections')
@@ -73,6 +74,7 @@ async function ensureOwnedCollection(userId: string, collectionId: string | null
 
 export async function POST(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const body = await req.json()
     const { url, title, description, og_image, favicon, collection_id, tags, notes } = body
@@ -111,6 +113,7 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const collection_id = req.nextUrl.searchParams.get('collection_id')
     const q = req.nextUrl.searchParams.get('q')
@@ -151,6 +154,7 @@ export async function GET(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const body = await req.json()
     const { id, user_id: _ignoredUserId, ...updates } = body
@@ -188,6 +192,7 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
+    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })

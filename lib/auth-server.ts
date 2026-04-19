@@ -1,7 +1,7 @@
 import 'server-only'
 
 import type { User } from '@supabase/supabase-js'
-import { createSupabaseServerClient, supabaseAdmin } from '@/lib/supabase-server'
+import { createSupabaseServerClient, getSupabaseAdmin } from '@/lib/supabase-server'
 
 export class UnauthorizedError extends Error {
   constructor(message = 'Please sign in to Savers.') {
@@ -11,6 +11,7 @@ export class UnauthorizedError extends Error {
 }
 
 async function countRows(table: 'collections' | 'bookmarks', userId: string) {
+  const supabaseAdmin = getSupabaseAdmin()
   const { count, error } = await supabaseAdmin
     .from(table)
     .select('id', { count: 'exact', head: true })
@@ -24,6 +25,7 @@ async function countRows(table: 'collections' | 'bookmarks', userId: string) {
 }
 
 async function claimLegacyLibrary(userId: string) {
+  const supabaseAdmin = getSupabaseAdmin()
   const [ownedCollections, ownedBookmarks] = await Promise.all([
     countRows('collections', userId),
     countRows('bookmarks', userId),
