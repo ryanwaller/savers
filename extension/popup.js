@@ -182,7 +182,7 @@ async function save(ev) {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ id: bookmark.id, collection_id: s.collection_id }),
           });
-          suggestionLine = `AI filed it under ${s.collection_path}.`;
+          suggestionLine = `Filed it under ${s.collection_path}.`;
         } else {
           suggestionLine = "Saved to Unsorted.";
         }

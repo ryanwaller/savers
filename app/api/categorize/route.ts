@@ -171,7 +171,7 @@ Rules for output:
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message, suggestion: null }, { status: 401 })
     }
-    logUnexpectedError('AI categorize error:', err)
+    logUnexpectedError('Categorize error:', err)
     return NextResponse.json({ suggestion: null })
   }
 }

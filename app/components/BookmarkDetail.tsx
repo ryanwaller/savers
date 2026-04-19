@@ -196,7 +196,7 @@ export default function BookmarkDetail({
       setAiDismissed(false);
       onPatched(updated);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to apply AI suggestion");
+      setError(e instanceof Error ? e.message : "Failed to apply suggestion");
     } finally {
       setAiApplying(false);
     }
@@ -272,7 +272,7 @@ export default function BookmarkDetail({
 
           {showAiSuggestion && aiTargetLabel && (
             <div className="ai-card">
-              <div className="ai-title">AI suggestion</div>
+              <div className="ai-title">Suggestion</div>
               <div className="ai-copy">
                 <span className="ai-confidence">{capitalize(aiSuggestion.confidence)}</span>
                 {": "}
@@ -298,7 +298,7 @@ export default function BookmarkDetail({
           )}
 
           {aiLoading && !showAiSuggestion && (
-            <div className="small muted">Checking AI suggestion…</div>
+            <div className="small muted">Suggesting…</div>
           )}
 
           <label className="field">

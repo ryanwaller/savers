@@ -21,6 +21,7 @@ const els = {
   openApp: document.getElementById("open-app"),
   saveBookmark: document.getElementById("save-bookmark"),
   status: document.getElementById("status"),
+  aiStatus: document.getElementById("ai-status"),
 };
 
 const state = {
@@ -85,7 +86,7 @@ function bindEvents() {
 
   els.dismissAiSuggestion.addEventListener("click", () => {
     clearSuggestion();
-    setStatus("Suggestion dismissed.");
+    setAiStatus("Suggestion dismissed.");
   });
 
   els.showCreate.addEventListener("click", () => {
@@ -188,7 +189,7 @@ async function suggestCollection(force = false) {
   if (state.aiSuggestion && !force) return;
 
   els.suggestCollection.disabled = true;
-  setStatus("Asking AI for a collection…");
+  setAiStatus("Suggesting a collection…");
 
   try {
     const { collections } = await apiFetch("/api/collections", { method: "GET" });
@@ -207,7 +208,7 @@ async function suggestCollection(force = false) {
 
     if (!state.aiSuggestion) {
       clearSuggestion();
-      setStatus("No clear AI suggestion.");
+      setAiStatus("No clear suggestion.");
       return;
     }
 
@@ -219,11 +220,11 @@ async function suggestCollection(force = false) {
     ) {
       els.collectionSelect.value = state.aiSuggestion.collection_id;
     }
-    setStatus("AI suggestion ready.", "success");
+    setAiStatus("Suggestion ready.", "success");
   } catch (error) {
     clearSuggestion();
-    setStatus(
-      error instanceof Error ? `AI suggestion failed: ${error.message}` : "AI suggestion failed.",
+    setAiStatus(
+      error instanceof Error ? `Suggestion failed: ${error.message}` : "Suggestion failed.",
       "error"
     );
   } finally {
@@ -277,7 +278,7 @@ async function applySuggestion() {
     if (suggestion.collection_id) {
       els.collectionSelect.value = suggestion.collection_id;
       state.collectionTouched = true;
-      setStatus(`Using ${suggestion.collection_path || "suggested collection"}.`, "success");
+      setAiStatus(`Using ${suggestion.collection_path || "suggested collection"}.`, "success");
       return;
     }
 
@@ -295,10 +296,10 @@ async function applySuggestion() {
       await loadCollections();
       els.collectionSelect.value = collection.id;
       state.collectionTouched = true;
-      setStatus(`Created "${collection.name}".`, "success");
+      setAiStatus(`Created "${collection.name}".`, "success");
     }
   } catch (error) {
-    setStatus(
+    setAiStatus(
       error instanceof Error ? error.message : "Failed to apply suggestion.",
       "error"
     );
@@ -418,4 +419,9 @@ function capitalize(value) {
 function setStatus(message, kind = "") {
   els.status.textContent = message || "";
   els.status.className = `status ${kind}`.trim();
+}
+
+function setAiStatus(message, kind = "") {
+  els.aiStatus.textContent = message || "";
+  els.aiStatus.className = `status ai-status ${kind}`.trim();
 }

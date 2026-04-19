@@ -53,7 +53,6 @@ export default function AISuggestionToast({
       onMouseLeave={() => setHover(false)}
     >
       <div className="row">
-        <div className="ico">AI</div>
         <div className="text">
           <div className="line">
             {hasExistingSuggestion ? "Move" : "Create"} <span className="em">{truncate(title, 40)}</span>{" "}
@@ -141,18 +140,6 @@ export default function AISuggestionToast({
           display: flex;
           align-items: flex-start;
           gap: 10px;
-        }
-        .ico {
-          width: 22px;
-          height: 22px;
-          border: 1px solid var(--color-border);
-          border-radius: 4px;
-          font-size: 10px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-text-muted);
-          flex-shrink: 0;
         }
         .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
         .line { font-size: 12px; line-height: 1.4; }
