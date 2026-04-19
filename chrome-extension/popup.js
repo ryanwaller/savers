@@ -1,4 +1,4 @@
-const DEFAULT_APP_URL = "http://localhost:3000";
+const DEFAULT_APP_URL = "https://savers-production.up.railway.app";
 
 const els = {
   appUrl: document.getElementById("app-url"),
@@ -374,7 +374,10 @@ async function saveBookmark() {
 }
 
 async function apiFetch(path, options) {
-  const response = await fetch(`${state.appUrl}${path}`, options);
+  const response = await fetch(`${state.appUrl}${path}`, {
+    credentials: "include",
+    ...options,
+  });
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
     try {

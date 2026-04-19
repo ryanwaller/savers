@@ -1,11 +1,22 @@
-const DEFAULT_APP_URL = "http://localhost:3000";
+const DEFAULT_APP_URL = "https://savers-production.up.railway.app";
+const LEGACY_LOCALHOST_URL = "http://localhost:3000";
 const SAVE_PAGE_MENU_ID = "save-page-to-savers";
 
+/** Rewrite the stored localhost default to the Railway URL for existing installs. */
+async function migrateAppUrl() {
+  const stored = await chrome.storage.sync.get(["saversAppUrl"]);
+  if (stored.saversAppUrl === LEGACY_LOCALHOST_URL) {
+    await chrome.storage.sync.set({ saversAppUrl: DEFAULT_APP_URL });
+  }
+}
+
 chrome.runtime.onInstalled.addListener(() => {
+  void migrateAppUrl();
   void ensureContextMenus();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void migrateAppUrl();
   void ensureContextMenus();
 });
 
@@ -115,7 +126,10 @@ async function fetchBestEffortMetadata(appUrl, tab) {
 }
 
 async function apiFetch(appUrl, path, options) {
-  const response = await fetch(`${appUrl}${path}`, options);
+  const response = await fetch(`${appUrl}${path}`, {
+    credentials: "include",
+    ...options,
+  });
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
     try {

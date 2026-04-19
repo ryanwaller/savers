@@ -1,4 +1,4 @@
-const DEFAULT_API_BASE = "http://localhost:3000";
+const DEFAULT_API_BASE = "https://savers-production.up.railway.app";
 
 const urlInput = document.getElementById("url");
 const titleInput = document.getElementById("title");

@@ -1,10 +1,19 @@
-const DEFAULT_API_BASE = "http://localhost:3000";
+const DEFAULT_API_BASE = "https://savers-production.up.railway.app";
+const LEGACY_LOCALHOST_BASE = "http://localhost:3000";
 const MENU_ID = "save-page-to-savers";
 
 function normalizeBaseUrl(input) {
   const value = (input || "").trim();
   if (!value) return DEFAULT_API_BASE;
   return value.replace(/\/+$/, "");
+}
+
+/** Rewrite the stored localhost default to the Railway URL for existing installs. */
+async function migrateApiBase() {
+  const { saversApiBase } = await chrome.storage.sync.get({ saversApiBase: null });
+  if (saversApiBase === LEGACY_LOCALHOST_BASE) {
+    await chrome.storage.sync.set({ saversApiBase: DEFAULT_API_BASE });
+  }
 }
 
 async function getApiBase() {
@@ -29,10 +38,12 @@ async function ensureContextMenu() {
 }
 
 chrome.runtime.onInstalled.addListener(() => {
+  void migrateApiBase();
   void ensureContextMenu();
 });
 
 chrome.runtime.onStartup.addListener(() => {
+  void migrateApiBase();
   void ensureContextMenu();
 });
 
