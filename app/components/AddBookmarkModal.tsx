@@ -7,6 +7,7 @@ import {
   domainOf,
   normalizeUrl,
   previewImageUrl,
+  screenshotPreviewUrl,
   tintForDomain,
 } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
@@ -43,6 +44,7 @@ export default function AddBookmarkModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [imgOk, setImgOk] = useState(true);
+  const [previewStage, setPreviewStage] = useState<"microlink" | "fallback" | "fail">("microlink");
   const [isDark, setIsDark] = useState(false);
   const lastFetchedRef = useRef("");
 
@@ -297,12 +299,19 @@ export default function AddBookmarkModal({
   const urlReady = normalizedUrl && (() => {
     try { new URL(normalizedUrl); return true; } catch { return false; }
   })();
-  const previewSrc = urlReady
+  const microlinkPreviewSrc = urlReady ? screenshotPreviewUrl(normalizedUrl) : null;
+  const fallbackPreviewSrc = urlReady
     ? previewImageUrl(normalizedUrl, {
         ogImage,
         favicon,
       })
     : null;
+  const previewSrc = previewStage === "microlink" ? microlinkPreviewSrc : fallbackPreviewSrc;
+
+  useEffect(() => {
+    setImgOk(true);
+    setPreviewStage("microlink");
+  }, [microlinkPreviewSrc, fallbackPreviewSrc]);
 
   return (
     <div className="backdrop" onClick={onClose}>
@@ -329,6 +338,7 @@ export default function AddBookmarkModal({
                   setOgImage(null);
                   setFavicon(null);
                   setImgOk(true);
+                  setPreviewStage("microlink");
                   setError(null);
                   setAiSuggestion(null);
                   setAiDismissed(false);
@@ -384,7 +394,14 @@ export default function AddBookmarkModal({
                   <img
                     src={previewSrc ?? ""}
                     alt={`Screenshot of ${host || "website"}`}
-                    onError={() => setImgOk(false)}
+                    onError={() => {
+                      if (previewStage === "microlink") {
+                        setPreviewStage("fallback");
+                        return;
+                      }
+                      setImgOk(false);
+                      setPreviewStage("fail");
+                    }}
                   />
                 ) : (
                   <span className="thumb-label small muted">Preview unavailable</span>
