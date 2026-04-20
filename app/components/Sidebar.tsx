@@ -494,10 +494,11 @@ export default function Sidebar({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 18px;
+          font-size: 20px;
           line-height: 1;
           color: var(--color-text-muted);
           flex-shrink: 0;
+          transform: translateY(-1px);
         }
         .sidebar-label:hover .caret {
           color: var(--color-text);
@@ -661,6 +662,12 @@ function SidebarItem({
           font-feature-settings: "tnum" 1;
           flex-shrink: 0;
           white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
         }
       `}</style>
     </button>
@@ -1135,6 +1142,12 @@ function CollectionNode({
           font-feature-settings: "tnum" 1;
           transition: opacity 120ms ease;
           white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .tail-count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
         }
         .more {
           position: absolute;

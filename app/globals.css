@@ -147,12 +147,11 @@ textarea { resize: vertical; }
 .auth-copy {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 0;
   font-size: 12px;
 }
 
 .auth-copy h1,
-.auth-copy p,
 .auth-field span,
 .auth-status,
 .auth-message,
@@ -165,7 +164,6 @@ textarea { resize: vertical; }
   font-weight: 600;
 }
 
-.auth-copy p,
 .auth-field span {
   color: var(--color-text-muted);
 }
@@ -186,7 +184,12 @@ textarea { resize: vertical; }
   display: flex;
   align-items: center;
   gap: 10px;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
+}
+
+.auth-actions .btn {
+  flex: 1 1 0;
+  width: 100%;
 }
 
 .auth-status,
@@ -195,6 +198,12 @@ textarea { resize: vertical; }
   border-radius: 10px;
   background: var(--color-bg-secondary);
   border: 1px solid var(--color-border);
+}
+
+@media (max-width: 520px) {
+  .auth-actions {
+    flex-direction: column;
+  }
 }
 
 /* Scrollbar - hidden but scrollable */

@@ -83,6 +83,17 @@ export default function Home() {
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
 
+  const updateAllBookmarksState = useCallback(
+    (updater: (prev: Bookmark[]) => Bookmark[]) => {
+      setAllBookmarks((prev) => {
+        const next = updater(prev);
+        allBookmarksRef.current = next;
+        return next;
+      });
+    },
+    []
+  );
+
   function getAuthRedirectBase() {
     const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.trim();
 
@@ -154,6 +165,7 @@ export default function Home() {
 
   useEffect(() => {
     if (user) return;
+    allBookmarksRef.current = [];
     setAllBookmarks([]);
     setBookmarks([]);
     setTreeRaw([]);
@@ -221,6 +233,7 @@ export default function Home() {
   const loadAllBookmarks = useCallback(async () => {
     try {
       const { bookmarks } = await api.listBookmarks();
+      allBookmarksRef.current = bookmarks;
       setAllBookmarks(bookmarks);
       return bookmarks;
     } catch {
@@ -452,7 +465,7 @@ export default function Home() {
   function handleBookmarkCreated(b: Bookmark) {
     setShowAdd(false);
 
-    setAllBookmarks((prev) => [b, ...prev]);
+    updateAllBookmarksState((prev) => [b, ...prev]);
     if (
       selection.kind === "all" ||
       (selection.kind === "unsorted" && b.collection_id === null) ||
@@ -494,7 +507,7 @@ export default function Home() {
       const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
         collection_id: collectionId,
       });
-      setAllBookmarks((prev) =>
+      updateAllBookmarksState((prev) =>
         prev.map((x) => (x.id === bookmark.id ? bookmark : x))
       );
       setBookmarks((prev) => {
@@ -517,7 +530,7 @@ export default function Home() {
       const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
         collection_id: collection.id,
       });
-      setAllBookmarks((prev) => prev.map((x) => (x.id === bookmark.id ? bookmark : x)));
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === bookmark.id ? bookmark : x)));
       setBookmarks((prev) => {
         if (selection.kind === "unsorted") return prev.filter((x) => x.id !== bookmark.id);
         if (selection.kind === "collection" && selection.id !== collection.id) {
@@ -533,7 +546,7 @@ export default function Home() {
 
   function handleBookmarkSaved(b: Bookmark) {
     setDetail(null);
-    setAllBookmarks((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === b.id ? b : x)));
     setBookmarks((prev) => {
       // Remove if no longer matches current view
       if (selection.kind === "unsorted" && b.collection_id !== null) {
@@ -548,7 +561,7 @@ export default function Home() {
 
   function handleBookmarkPatched(b: Bookmark) {
     setDetail(b);
-    setAllBookmarks((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === b.id ? b : x)));
     setBookmarks((prev) => {
       if (selection.kind === "unsorted" && b.collection_id !== null) {
         return prev.filter((x) => x.id !== b.id);
@@ -562,7 +575,7 @@ export default function Home() {
 
   function handleBookmarkDeleted(id: string) {
     setDetail(null);
-    setAllBookmarks((prev) => prev.filter((x) => x.id !== id));
+    updateAllBookmarksState((prev) => prev.filter((x) => x.id !== id));
     setBookmarks((prev) => prev.filter((x) => x.id !== id));
   }
 
@@ -577,7 +590,7 @@ export default function Home() {
 
   async function handlePinBookmark(id: string, pinned: boolean) {
     // Optimistic toggle so the UI feels instant.
-    setAllBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned } : x)));
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? { ...x, pinned } : x)));
     setBookmarks((prev) => {
       const next = prev.map((x) => (x.id === id ? { ...x, pinned } : x));
       // If viewing the Pinned collection and the user just unpinned, drop it.
@@ -588,11 +601,13 @@ export default function Home() {
     });
     try {
       const { bookmark } = await api.updateBookmark(id, { pinned });
-      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
       setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
     } catch (e) {
       // Roll back on failure.
-      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
+      updateAllBookmarksState((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x))
+      );
       setBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
       alert(e instanceof Error ? e.message : "Failed to update pin");
     }
@@ -601,7 +616,7 @@ export default function Home() {
   async function handleRefreshPreview(id: string, version: number) {
     try {
       const { bookmark } = await api.updateBookmark(id, { preview_version: version });
-      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
       setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
       setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
     } catch (e) {

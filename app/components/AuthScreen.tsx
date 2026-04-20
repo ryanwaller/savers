@@ -35,10 +35,6 @@ export default function AuthScreen({
         <div className="auth-brand">Savers</div>
         <div className="auth-copy">
           <h1>Sign in to your library</h1>
-          <p>
-            Your bookmarks, collections, tags, and previews can travel with you across
-            machines once you sign in.
-          </p>
         </div>
         <form
           className="auth-form"
