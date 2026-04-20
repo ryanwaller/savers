@@ -598,6 +598,17 @@ export default function Home() {
     }
   }
 
+  async function handleRefreshPreview(id: string, version: number) {
+    try {
+      const { bookmark } = await api.updateBookmark(id, { preview_version: version });
+      setAllBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    } catch (e) {
+      throw e instanceof Error ? e : new Error("Failed to refresh preview");
+    }
+  }
+
   async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
     const allowDuplicates = options?.allowDuplicates ?? false;
     // Auto-save each dropped URL to the current view's collection
@@ -988,6 +999,7 @@ export default function Home() {
             onOpenBookmark={(b) => setDetail(b)}
             onDeleteBookmark={handleDeleteBookmark}
             onPinBookmark={handlePinBookmark}
+            onRefreshPreview={handleRefreshPreview}
             onTagClick={handleTagClick}
             loading={loadingBookmarks}
             emptyLabel={

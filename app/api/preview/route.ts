@@ -169,6 +169,7 @@ export async function GET(request: NextRequest) {
 
   const force = request.nextUrl.searchParams.get("force") === "true";
   const cacheBust = request.nextUrl.searchParams.get("cb");
+  const previewVersion = request.nextUrl.searchParams.get("pv");
   const candidates: ImageCandidate[] = [];
 
   if (force || Date.now() >= microlinkBackoffUntil) {
@@ -176,7 +177,7 @@ export async function GET(request: NextRequest) {
       kind: "microlink",
       url: screenshotPreviewUrl(normalizedUrl, {
         force,
-        cacheBust,
+        cacheBust: cacheBust ?? previewVersion,
       }),
     });
   }

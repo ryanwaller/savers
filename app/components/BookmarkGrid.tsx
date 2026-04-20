@@ -14,6 +14,7 @@ type Props = {
   onOpenBookmark: (b: Bookmark) => void;
   onDeleteBookmark: (id: string) => Promise<void> | void;
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
+  onRefreshPreview: (id: string, version: number) => Promise<void> | void;
   onTagClick: (tag: string) => void;
   loading?: boolean;
   emptyLabel?: string;
@@ -26,6 +27,7 @@ export default function BookmarkGrid({
   onOpenBookmark,
   onDeleteBookmark,
   onPinBookmark,
+  onRefreshPreview,
   onTagClick,
   loading,
   emptyLabel,
@@ -42,6 +44,7 @@ export default function BookmarkGrid({
           onEdit={() => onOpenBookmark(b)}
           onDelete={() => onDeleteBookmark(b.id)}
           onPin={() => onPinBookmark(b.id, !b.pinned)}
+          onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
           onTagClick={onTagClick}
         />
       ))}
@@ -154,12 +157,14 @@ function BookmarkCard({
   onEdit,
   onDelete,
   onPin,
+  onRefreshPreview,
   onTagClick,
 }: {
   b: Bookmark;
   onEdit: () => void;
   onDelete: () => Promise<void> | void;
   onPin: () => Promise<void> | void;
+  onRefreshPreview: (version: number) => Promise<void> | void;
   onTagClick: (tag: string) => void;
 }) {
   const [isDark, setIsDark] = useState(false);
@@ -207,16 +212,24 @@ function BookmarkCard({
 
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
+  const effectivePreviewVersion = previewNonce ?? b.preview_version ?? null;
   const screenshotSrc = previewImageUrl(b.url, {
     ogImage: b.og_image,
     favicon: b.favicon,
     force: previewNonce !== null,
     cacheBust: previewNonce,
+    previewVersion: effectivePreviewVersion,
   });
 
   useEffect(() => {
     setPreviewFailed(false);
   }, [screenshotSrc]);
+
+  useEffect(() => {
+    if (previewNonce !== null && b.preview_version === previewNonce) {
+      setPreviewNonce(null);
+    }
+  }, [b.preview_version, previewNonce]);
 
   async function handleDelete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
@@ -245,12 +258,19 @@ function BookmarkCard({
     onEdit();
   }
 
-  function handleReloadPreview(event: { stopPropagation: () => void }) {
+  async function handleReloadPreview(event: { stopPropagation: () => void }) {
     event.stopPropagation();
     setMenuOpen(false);
     setReloading(true);
     setPreviewFailed(false);
-    setPreviewNonce(Date.now());
+    const nextVersion = Date.now();
+    setPreviewNonce(nextVersion);
+    try {
+      await onRefreshPreview(nextVersion);
+    } catch {
+      setReloading(false);
+      setPreviewNonce(null);
+    }
   }
 
   async function handleTogglePin(event: { stopPropagation: () => void }) {

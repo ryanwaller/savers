@@ -24,6 +24,7 @@ export interface Bookmark {
   notes: string | null
   position: number
   created_at: string
+  preview_version?: number | null
   /** Pinned bookmarks sort first everywhere and populate the virtual "Pinned" collection. */
   pinned: boolean
 }

@@ -192,6 +192,7 @@ export function previewImageUrl(
     favicon?: string | null;
     force?: boolean;
     cacheBust?: string | number | null;
+    previewVersion?: string | number | null;
   }
 ): string {
   const params = new URLSearchParams({
@@ -203,6 +204,9 @@ export function previewImageUrl(
   if (options?.force) params.set("force", "true");
   if (options?.cacheBust !== undefined && options?.cacheBust !== null) {
     params.set("cb", String(options.cacheBust));
+  }
+  if (options?.previewVersion !== undefined && options?.previewVersion !== null) {
+    params.set("pv", String(options.previewVersion));
   }
 
   return `/api/preview?${params.toString()}`;
