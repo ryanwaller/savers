@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { domainOf, screenshotPreviewUrl, tintForDomain } from "@/lib/api";
+import { domainOf, previewImageUrl, tintForDomain } from "@/lib/api";
 import CollectionIcon from "./CollectionIcon";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -162,11 +162,6 @@ function BookmarkCard({
   onPin: () => Promise<void> | void;
   onTagClick: (tag: string) => void;
 }) {
-  // Cascade: try microlink screenshot first, then fall back to the saved
-  // og_image, then fall back to a text placeholder. When microlink rate-limits
-  // (common on bulk imports) the stored og_image is usually still good.
-  type ImgStage = "screenshot" | "og" | "fail";
-  const [imgStage, setImgStage] = useState<ImgStage>("screenshot");
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -211,24 +206,12 @@ function BookmarkCard({
 
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
-  const screenshotSrc = screenshotPreviewUrl(b.url, {
+  const screenshotSrc = previewImageUrl(b.url, {
+    ogImage: b.og_image,
+    favicon: b.favicon,
     force: previewNonce !== null,
     cacheBust: previewNonce,
   });
-  const previewSrc =
-    imgStage === "screenshot"
-      ? screenshotSrc
-      : imgStage === "og"
-        ? b.og_image ?? null
-        : null;
-
-  function handleImgError() {
-    if (imgStage === "screenshot" && b.og_image) {
-      setImgStage("og");
-    } else {
-      setImgStage("fail");
-    }
-  }
 
   async function handleDelete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
@@ -260,7 +243,6 @@ function BookmarkCard({
   function handleReloadPreview(event: { stopPropagation: () => void }) {
     event.stopPropagation();
     setMenuOpen(false);
-    setImgStage("screenshot");
     setReloading(true);
     setPreviewNonce(Date.now());
   }
@@ -298,15 +280,15 @@ function BookmarkCard({
             style={{ background: tint }}
             onClick={(event) => event.stopPropagation()}
           >
-            {previewSrc ? (
+            {screenshotSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
-                key={imgStage}
-                src={previewSrc}
+                key={screenshotSrc}
+                src={screenshotSrc}
                 alt={`Preview of ${host}`}
                 draggable={false}
-                onError={handleImgError}
                 onLoad={() => setReloading(false)}
+                onError={() => setReloading(false)}
                 loading="lazy"
               />
             ) : (

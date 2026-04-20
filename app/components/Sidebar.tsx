@@ -80,6 +80,30 @@ export default function Sidebar({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(true);
+  const [rootNestHover, setRootNestHover] = useState(false);
+  const rootNestTimerRef = useRef<number | null>(null);
+
+  function clearRootNestTimer() {
+    if (rootNestTimerRef.current !== null) {
+      window.clearTimeout(rootNestTimerRef.current);
+      rootNestTimerRef.current = null;
+    }
+  }
+
+  // True when the dragged collection can actually be promoted to root
+  // (i.e., it isn't already a root-level item).
+  const canDragToRoot = useMemo(() => {
+    if (!draggedId) return false;
+    return !tree.some((c) => c.id === draggedId);
+  }, [draggedId, tree]);
+
+  useEffect(() => {
+    if (!draggedId) {
+      clearRootNestTimer();
+      setRootNestHover(false);
+    }
+    return clearRootNestTimer;
+  }, [draggedId]);
   const [collapsedCollectionIds, setCollapsedCollectionIds] = useState<string[]>([]);
 
   async function submitNewRoot() {
@@ -132,9 +156,10 @@ export default function Sidebar({
       return;
     }
 
-    // Nest the dragged item inside the target (become a sub-collection).
-    if (asChild && targetId) {
-      if (blockedNestIds.has(targetId)) {
+    // Nest the dragged item inside the target (become a sub-collection),
+    // or promote it to root when targetId is null.
+    if (asChild) {
+      if (targetId && blockedNestIds.has(targetId)) {
         setDraggedId(null);
         return;
       }
@@ -215,8 +240,31 @@ export default function Sidebar({
 
         <div className="sidebar-section">
           <button
-            className="sidebar-label collapsible"
+            className={`sidebar-label collapsible ${rootNestHover ? "root-nest-target" : ""}`}
             onClick={() => setCollectionsExpanded(!collectionsExpanded)}
+            onDragOver={(e) => {
+              if (!canDragToRoot) return;
+              e.preventDefault();
+              if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+              if (!rootNestHover && rootNestTimerRef.current === null) {
+                rootNestTimerRef.current = window.setTimeout(() => {
+                  setRootNestHover(true);
+                  rootNestTimerRef.current = null;
+                }, 600);
+              }
+            }}
+            onDragLeave={() => {
+              clearRootNestTimer();
+              setRootNestHover(false);
+            }}
+            onDrop={(e) => {
+              const shouldPromote = rootNestHover && canDragToRoot;
+              clearRootNestTimer();
+              setRootNestHover(false);
+              if (shouldPromote) {
+                void handleDrop(e, null, true);
+              }
+            }}
           >
             <span className="caret">{collectionsExpanded ? "▾" : "▸"}</span>
             Collections
@@ -429,6 +477,16 @@ export default function Sidebar({
         }
         .sidebar-label.collapsible:hover {
           color: var(--color-text);
+        }
+        .sidebar-label.root-nest-target {
+          color: var(--color-text);
+          border-radius: var(--radius-sm);
+          box-shadow: inset 0 0 0 2px var(--color-text);
+          animation: rootNestPulse 700ms ease-in-out infinite alternate;
+        }
+        @keyframes rootNestPulse {
+          from { box-shadow: inset 0 0 0 2px var(--color-text); }
+          to   { box-shadow: inset 0 0 0 2px transparent; }
         }
         .caret {
           width: 22px;

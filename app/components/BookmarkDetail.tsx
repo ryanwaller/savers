@@ -651,23 +651,24 @@ export default function BookmarkDetail({
           flex-direction: column;
           gap: 6px;
           padding: 10px 12px;
-          border: 1px solid var(--color-border);
+          border: 1px solid #ff8f8f;
           border-radius: var(--radius);
-          background: var(--color-bg-secondary);
+          background: rgba(255, 90, 90, 0.08);
         }
         .duplicate-title {
           font-size: 12px;
-          color: var(--color-text);
-          font-weight: 500;
+          color: #ff8f8f;
+          font-weight: 600;
         }
         .duplicate-copy {
           font-size: 12px;
-          color: var(--color-text);
+          color: #ff8f8f;
         }
         .duplicate-list {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          color: #ffb4b4;
         }
         .duplicate-item {
           overflow: hidden;

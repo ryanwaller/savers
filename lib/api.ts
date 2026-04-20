@@ -185,6 +185,29 @@ export function screenshotPreviewUrl(
   return `https://api.microlink.io/?${params.toString()}`;
 }
 
+export function previewImageUrl(
+  url: string,
+  options?: {
+    ogImage?: string | null;
+    favicon?: string | null;
+    force?: boolean;
+    cacheBust?: string | number | null;
+  }
+): string {
+  const params = new URLSearchParams({
+    url: normalizeUrl(url),
+  });
+
+  if (options?.ogImage) params.set("og", options.ogImage);
+  if (options?.favicon) params.set("favicon", options.favicon);
+  if (options?.force) params.set("force", "true");
+  if (options?.cacheBust !== undefined && options?.cacheBust !== null) {
+    params.set("cb", String(options.cacheBust));
+  }
+
+  return `/api/preview?${params.toString()}`;
+}
+
 function hash(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;

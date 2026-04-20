@@ -6,7 +6,7 @@ import {
   canonicalBookmarkUrl,
   domainOf,
   normalizeUrl,
-  screenshotPreviewUrl,
+  previewImageUrl,
   tintForDomain,
 } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
@@ -297,6 +297,12 @@ export default function AddBookmarkModal({
   const urlReady = normalizedUrl && (() => {
     try { new URL(normalizedUrl); return true; } catch { return false; }
   })();
+  const previewSrc = urlReady
+    ? previewImageUrl(normalizedUrl, {
+        ogImage,
+        favicon,
+      })
+    : null;
 
   return (
     <div className="backdrop" onClick={onClose}>
@@ -376,7 +382,7 @@ export default function AddBookmarkModal({
                 {normalizedUrl && imgOk ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
-                    src={screenshotPreviewUrl(normalizedUrl)}
+                    src={previewSrc ?? ""}
                     alt={`Screenshot of ${host || "website"}`}
                     onError={() => setImgOk(false)}
                   />
@@ -672,23 +678,24 @@ export default function AddBookmarkModal({
           flex-direction: column;
           gap: 6px;
           padding: 10px 12px;
-          border: 1px solid var(--color-border);
+          border: 1px solid #ff8f8f;
           border-radius: var(--radius);
-          background: var(--color-bg-secondary);
+          background: rgba(255, 90, 90, 0.08);
         }
         .duplicate-title {
           font-size: 12px;
-          color: var(--color-text);
-          font-weight: 500;
+          color: #ff8f8f;
+          font-weight: 600;
         }
         .duplicate-copy {
           font-size: 12px;
-          color: var(--color-text);
+          color: #ff8f8f;
         }
         .duplicate-list {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          color: #ffb4b4;
         }
         .duplicate-item {
           overflow: hidden;

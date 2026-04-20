@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
-import { api } from "@/lib/api";
+import { api, canonicalBookmarkUrl } from "@/lib/api";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
@@ -14,6 +14,7 @@ import AddBookmarkModal from "./components/AddBookmarkModal";
 import BookmarkDetail from "./components/BookmarkDetail";
 import AISuggestionToast from "./components/AISuggestionToast";
 import DropZone from "./components/DropZone";
+import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 
 type Selection =
@@ -77,6 +78,7 @@ export default function Home() {
     suggestion: AISuggestion;
   } | null>(null);
   const [dropStatus, setDropStatus] = useState<string | null>(null);
+  const [duplicateImportUrls, setDuplicateImportUrls] = useState<string[]>([]);
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
@@ -602,6 +604,14 @@ export default function Home() {
     const targetCollection =
       selection.kind === "collection" ? selection.id : null;
 
+    // Build a set of canonical URLs already in the library so we can skip
+    // duplicates on the client and surface them in a modal at the end.
+    const existingCanonical = new Set<string>();
+    for (const bookmark of allBookmarksRef.current) {
+      existingCanonical.add(canonicalBookmarkUrl(bookmark.url));
+    }
+    const duplicates: string[] = [];
+
     let okCount = 0;
     let failCount = 0;
     let lastError: string | null = null;
@@ -609,6 +619,14 @@ export default function Home() {
     setDropStatus(`Saving ${total} bookmark${total === 1 ? "" : "s"}…`);
 
     for (const url of urls) {
+      const canonical = canonicalBookmarkUrl(url);
+      if (existingCanonical.has(canonical)) {
+        duplicates.push(url);
+        continue;
+      }
+      // Track within this batch too so identical URLs dropped together only
+      // save once and get counted as duplicates on the second hit.
+      existingCanonical.add(canonical);
       try {
         // Best-effort metadata fetch (OG/title/description/favicon).
         let meta: { title: string | null; description: string | null; og_image: string | null; favicon: string | null } = {
@@ -644,14 +662,31 @@ export default function Home() {
       }
     }
 
-    if (failCount > 0 && okCount === 0) {
+    const dupCount = duplicates.length;
+    const dupSuffix =
+      dupCount > 0
+        ? ` ${dupCount} duplicate${dupCount === 1 ? "" : "s"} skipped.`
+        : "";
+    if (failCount > 0 && okCount === 0 && dupCount === 0) {
       setDropStatus(`Save failed: ${lastError ?? "unknown error"}`);
     } else if (failCount > 0) {
-      setDropStatus(`Saved ${okCount} of ${total}. ${failCount} failed.`);
+      setDropStatus(`Saved ${okCount} of ${total}. ${failCount} failed.${dupSuffix}`);
+    } else if (okCount === 0 && dupCount > 0) {
+      setDropStatus(
+        dupCount === 1
+          ? "Already saved — nothing imported."
+          : `${dupCount} duplicates — nothing new imported.`
+      );
     } else {
-      setDropStatus(total === 1 ? "Saved." : `Saved ${okCount} bookmarks.`);
+      setDropStatus(
+        (total === 1 ? "Saved." : `Saved ${okCount} bookmark${okCount === 1 ? "" : "s"}.`) +
+          dupSuffix
+      );
     }
-    setTimeout(() => setDropStatus(null), failCount > 0 ? 5000 : 1800);
+    if (dupCount > 0) {
+      setDuplicateImportUrls(duplicates);
+    }
+    setTimeout(() => setDropStatus(null), failCount > 0 || dupCount > 0 ? 5000 : 1800);
   }
 
   async function handleSendMagicLink() {
@@ -1004,6 +1039,12 @@ export default function Home() {
       {dropStatus && (
         <div className="drop-status small" role="status">{dropStatus}</div>
       )}
+
+      <DuplicateImportModal
+        open={duplicateImportUrls.length > 0}
+        urls={duplicateImportUrls}
+        onClose={() => setDuplicateImportUrls([])}
+      />
 
       <style jsx>{`
         .app {
