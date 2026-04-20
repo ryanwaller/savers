@@ -7,13 +7,16 @@ type Props = {
   open: boolean;
   urls: string[];
   onClose: () => void;
+  onAddAnyway?: (urls: string[]) => Promise<void> | void;
 };
 
 // Shown after a drop/import that contained one or more URLs that
 // were already saved. Lists the skipped URLs so the user can decide
-// whether to clean up the duplicates on the originating side.
-export default function DuplicateImportModal({ open, urls, onClose }: Props) {
+// whether to clean up the duplicates on the originating side — or
+// force-add them anyway if they know what they're doing.
+export default function DuplicateImportModal({ open, urls, onClose, onAddAnyway }: Props) {
   const [mounted, setMounted] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -68,9 +71,30 @@ export default function DuplicateImportModal({ open, urls, onClose }: Props) {
           </ul>
         </div>
         <div className="dup-actions">
-          <button className="btn" onClick={onClose}>
-            Got it
+          <button className="btn" onClick={onClose} disabled={adding}>
+            {onAddAnyway ? "Skip" : "Got it"}
           </button>
+          {onAddAnyway && (
+            <button
+              className="btn btn-primary"
+              disabled={adding}
+              onClick={async () => {
+                setAdding(true);
+                try {
+                  await onAddAnyway(urls);
+                } finally {
+                  setAdding(false);
+                  onClose();
+                }
+              }}
+            >
+              {adding
+                ? "Adding…"
+                : count === 1
+                  ? "Add anyway"
+                  : "Add them anyway"}
+            </button>
+          )}
         </div>
       </div>
 

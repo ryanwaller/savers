@@ -598,7 +598,8 @@ export default function Home() {
     }
   }
 
-  async function handleDroppedUrls(urls: string[]) {
+  async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
+    const allowDuplicates = options?.allowDuplicates ?? false;
     // Auto-save each dropped URL to the current view's collection
     // (or Unsorted if we're looking at All / Unsorted).
     const targetCollection =
@@ -606,9 +607,13 @@ export default function Home() {
 
     // Build a set of canonical URLs already in the library so we can skip
     // duplicates on the client and surface them in a modal at the end.
+    // If allowDuplicates is true (force re-add path), skip the dedup filter
+    // entirely — the user has explicitly opted to add them anyway.
     const existingCanonical = new Set<string>();
-    for (const bookmark of allBookmarksRef.current) {
-      existingCanonical.add(canonicalBookmarkUrl(bookmark.url));
+    if (!allowDuplicates) {
+      for (const bookmark of allBookmarksRef.current) {
+        existingCanonical.add(canonicalBookmarkUrl(bookmark.url));
+      }
     }
     const duplicates: string[] = [];
 
@@ -620,13 +625,16 @@ export default function Home() {
 
     for (const url of urls) {
       const canonical = canonicalBookmarkUrl(url);
-      if (existingCanonical.has(canonical)) {
+      if (!allowDuplicates && existingCanonical.has(canonical)) {
         duplicates.push(url);
         continue;
       }
       // Track within this batch too so identical URLs dropped together only
-      // save once and get counted as duplicates on the second hit.
-      existingCanonical.add(canonical);
+      // save once and get counted as duplicates on the second hit. When
+      // force-adding, we skip this too so every entry actually saves.
+      if (!allowDuplicates) {
+        existingCanonical.add(canonical);
+      }
       try {
         // Best-effort metadata fetch (OG/title/description/favicon).
         let meta: { title: string | null; description: string | null; og_image: string | null; favicon: string | null } = {
@@ -1044,6 +1052,9 @@ export default function Home() {
         open={duplicateImportUrls.length > 0}
         urls={duplicateImportUrls}
         onClose={() => setDuplicateImportUrls([])}
+        onAddAnyway={async (urls) => {
+          await handleDroppedUrls(urls, { allowDuplicates: true });
+        }}
       />
 
       <style jsx>{`

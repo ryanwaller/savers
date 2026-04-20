@@ -168,6 +168,7 @@ function BookmarkCard({
   const [reloading, setReloading] = useState(false);
   const [pinning, setPinning] = useState(false);
   const [previewNonce, setPreviewNonce] = useState<number | null>(null);
+  const [previewFailed, setPreviewFailed] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
 
@@ -213,6 +214,10 @@ function BookmarkCard({
     cacheBust: previewNonce,
   });
 
+  useEffect(() => {
+    setPreviewFailed(false);
+  }, [screenshotSrc]);
+
   async function handleDelete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
     setMenuOpen(false);
@@ -244,6 +249,7 @@ function BookmarkCard({
     event.stopPropagation();
     setMenuOpen(false);
     setReloading(true);
+    setPreviewFailed(false);
     setPreviewNonce(Date.now());
   }
 
@@ -280,7 +286,7 @@ function BookmarkCard({
             style={{ background: tint }}
             onClick={(event) => event.stopPropagation()}
           >
-            {screenshotSrc ? (
+            {screenshotSrc && !previewFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 key={screenshotSrc}
@@ -288,7 +294,10 @@ function BookmarkCard({
                 alt={`Preview of ${host}`}
                 draggable={false}
                 onLoad={() => setReloading(false)}
-                onError={() => setReloading(false)}
+                onError={() => {
+                  setReloading(false);
+                  setPreviewFailed(true);
+                }}
                 loading="lazy"
               />
             ) : (
