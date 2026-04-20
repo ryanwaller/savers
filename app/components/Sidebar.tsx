@@ -50,6 +50,7 @@ type Props = {
   onDeleteCollection: (id: string) => Promise<void>;
   onChangeCollectionIcon: (id: string, iconName: string | null) => Promise<void>;
   onReorderCollections: (ids: string[]) => Promise<void>;
+  onReparentCollection: (id: string, newParentId: string | null) => Promise<void>;
   onSignOut?: () => void | Promise<void>;
   onCloseMobile?: () => void;
 };
@@ -69,6 +70,7 @@ export default function Sidebar({
   onDeleteCollection,
   onChangeCollectionIcon,
   onReorderCollections,
+  onReparentCollection,
   onSignOut,
   onCloseMobile,
 }: Props) {
@@ -97,15 +99,51 @@ export default function Sidebar({
     e.dataTransfer.dropEffect = "move";
   }
 
-  async function handleDrop(e: React.DragEvent, targetId: string | null) {
+  // Set of ids the dragged collection cannot be nested into (itself + descendants).
+  const blockedNestIds = useMemo(() => {
+    const blocked = new Set<string>();
+    if (!draggedId) return blocked;
+    const collect = (nodes: Collection[]): boolean => {
+      for (const n of nodes) {
+        if (n.id === draggedId) {
+          const walk = (node: Collection) => {
+            blocked.add(node.id);
+            node.children?.forEach(walk);
+          };
+          walk(n);
+          return true;
+        }
+        if (n.children && collect(n.children)) return true;
+      }
+      return false;
+    };
+    collect(tree);
+    return blocked;
+  }, [draggedId, tree]);
+
+  async function handleDrop(
+    e: React.DragEvent,
+    targetId: string | null,
+    asChild = false
+  ) {
     e.preventDefault();
     if (!draggedId || draggedId === targetId) {
       setDraggedId(null);
       return;
     }
 
-    // Find siblings of the dragged item to reorder
-    // For now, we only support reordering siblings at the same level.
+    // Nest the dragged item inside the target (become a sub-collection).
+    if (asChild && targetId) {
+      if (blockedNestIds.has(targetId)) {
+        setDraggedId(null);
+        return;
+      }
+      setDraggedId(null);
+      await onReparentCollection(draggedId, targetId);
+      return;
+    }
+
+    // Otherwise: reorder siblings at the same level.
     const findSiblings = (nodes: Collection[], id: string): Collection[] | null => {
       if (nodes.find(n => n.id === id)) return nodes;
       for (const node of nodes) {
@@ -126,7 +164,7 @@ export default function Sidebar({
     const newOrder = [...siblings.map(s => s.id)];
     const dragIdx = newOrder.indexOf(draggedId);
     newOrder.splice(dragIdx, 1);
-    
+
     const dropIdx = targetId ? newOrder.indexOf(targetId) : newOrder.length;
     // Basic logic: if dropped on an item, put it before it.
     newOrder.splice(dropIdx, 0, draggedId);
@@ -209,6 +247,7 @@ export default function Sidebar({
                   onChangeCollectionIcon={onChangeCollectionIcon}
                   onReorderCollections={onReorderCollections}
                   draggedId={draggedId}
+                  blockedNestIds={blockedNestIds}
                   onDragStart={setDraggedId}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
@@ -585,6 +624,7 @@ function CollectionNode({
   onChangeCollectionIcon,
   onReorderCollections,
   draggedId,
+  blockedNestIds,
   onDragStart,
   onDragOver,
   onDrop,
@@ -603,9 +643,10 @@ function CollectionNode({
   onChangeCollectionIcon: (id: string, iconName: string | null) => Promise<void>;
   onReorderCollections: (ids: string[]) => Promise<void>;
   draggedId: string | null;
+  blockedNestIds: Set<string>;
   onDragStart: (id: string) => void;
   onDragOver: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, targetId: string) => void;
+  onDrop: (e: React.DragEvent, targetId: string, asChild?: boolean) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pickingIcon, setPickingIcon] = useState(false);
@@ -615,9 +656,29 @@ function CollectionNode({
   const [addingChild, setAddingChild] = useState(false);
   const [childName, setChildName] = useState("");
   const [isDragTarget, setIsDragTarget] = useState(false);
+  const [nestHover, setNestHover] = useState(false);
+  const nestTimerRef = useRef<number | null>(null);
   const iconBtnRef = useRef<HTMLButtonElement>(null);
   const skipRenameBlurRef = useRef(false);
   const skipChildBlurRef = useRef(false);
+
+  const canNest = !!draggedId && draggedId !== node.id && !blockedNestIds.has(node.id);
+
+  function clearNestTimer() {
+    if (nestTimerRef.current !== null) {
+      window.clearTimeout(nestTimerRef.current);
+      nestTimerRef.current = null;
+    }
+  }
+
+  // Clean up any pending timer on unmount or when the drag ends.
+  useEffect(() => {
+    if (!draggedId) {
+      clearNestTimer();
+      setNestHover(false);
+    }
+    return clearNestTimer;
+  }, [draggedId]);
 
   function openIconPicker() {
     const rect = iconBtnRef.current?.getBoundingClientRect();
@@ -675,7 +736,9 @@ function CollectionNode({
   }
 
   return (
-    <div className={`node ${isDragging ? "dragging" : ""} ${isDragTarget ? "drag-over" : ""}`}>
+    <div
+      className={`node ${isDragging ? "dragging" : ""} ${isDragTarget && !nestHover ? "drag-over" : ""} ${nestHover ? "nest-target" : ""}`}
+    >
       <div
         className={`row ${isActive ? "active" : ""}`}
         style={{ paddingLeft: depth * 12 }}
@@ -691,11 +754,28 @@ function CollectionNode({
           e.preventDefault();
           onDragOver(e);
           setIsDragTarget(true);
+          // After a brief pause hovering over a valid target, switch to nest mode.
+          if (canNest && !nestHover && nestTimerRef.current === null) {
+            nestTimerRef.current = window.setTimeout(() => {
+              setNestHover(true);
+              nestTimerRef.current = null;
+              // If the target has children and is collapsed, auto-expand so the
+              // user can see where the item is about to land.
+              if (hasChildren && !open) onExpand(node.id);
+            }, 600);
+          }
         }}
-        onDragLeave={() => setIsDragTarget(false)}
-        onDrop={(e) => {
+        onDragLeave={() => {
           setIsDragTarget(false);
-          onDrop(e, node.id);
+          clearNestTimer();
+          setNestHover(false);
+        }}
+        onDrop={(e) => {
+          const shouldNest = nestHover && canNest;
+          setIsDragTarget(false);
+          clearNestTimer();
+          setNestHover(false);
+          onDrop(e, node.id, shouldNest);
         }}
       >
         <button
@@ -864,6 +944,7 @@ function CollectionNode({
               onChangeCollectionIcon={onChangeCollectionIcon}
               onReorderCollections={onReorderCollections}
               draggedId={draggedId}
+              blockedNestIds={blockedNestIds}
               onDragStart={onDragStart}
               onDragOver={onDragOver}
               onDrop={onDrop}
@@ -908,6 +989,15 @@ function CollectionNode({
       <style jsx>{`
         .node.dragging { opacity: 0.4; }
         .node.drag-over > .row { border-top: 2px solid var(--color-text); }
+        .node.nest-target > .row {
+          background: var(--color-bg-active);
+          box-shadow: inset 0 0 0 2px var(--color-text);
+          animation: nestPulse 700ms ease-in-out infinite alternate;
+        }
+        @keyframes nestPulse {
+          from { box-shadow: inset 0 0 0 2px var(--color-text); }
+          to   { box-shadow: inset 0 0 0 2px transparent; }
+        }
         .row {
           display: flex;
           align-items: center;

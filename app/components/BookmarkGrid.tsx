@@ -162,7 +162,11 @@ function BookmarkCard({
   onPin: () => Promise<void> | void;
   onTagClick: (tag: string) => void;
 }) {
-  const [imgOk, setImgOk] = useState(true);
+  // Cascade: try microlink screenshot first, then fall back to the saved
+  // og_image, then fall back to a text placeholder. When microlink rate-limits
+  // (common on bulk imports) the stored og_image is usually still good.
+  type ImgStage = "screenshot" | "og" | "fail";
+  const [imgStage, setImgStage] = useState<ImgStage>("screenshot");
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -207,10 +211,24 @@ function BookmarkCard({
 
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
-  const previewSrc = screenshotPreviewUrl(b.url, {
+  const screenshotSrc = screenshotPreviewUrl(b.url, {
     force: previewNonce !== null,
     cacheBust: previewNonce,
   });
+  const previewSrc =
+    imgStage === "screenshot"
+      ? screenshotSrc
+      : imgStage === "og"
+        ? b.og_image ?? null
+        : null;
+
+  function handleImgError() {
+    if (imgStage === "screenshot" && b.og_image) {
+      setImgStage("og");
+    } else {
+      setImgStage("fail");
+    }
+  }
 
   async function handleDelete(event: { stopPropagation: () => void }) {
     event.stopPropagation();
@@ -242,7 +260,7 @@ function BookmarkCard({
   function handleReloadPreview(event: { stopPropagation: () => void }) {
     event.stopPropagation();
     setMenuOpen(false);
-    setImgOk(true);
+    setImgStage("screenshot");
     setReloading(true);
     setPreviewNonce(Date.now());
   }
@@ -280,13 +298,14 @@ function BookmarkCard({
             style={{ background: tint }}
             onClick={(event) => event.stopPropagation()}
           >
-            {imgOk ? (
+            {previewSrc ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img
+                key={imgStage}
                 src={previewSrc}
-                alt={`Screenshot of ${host}`}
+                alt={`Preview of ${host}`}
                 draggable={false}
-                onError={() => setImgOk(false)}
+                onError={handleImgError}
                 onLoad={() => setReloading(false)}
                 loading="lazy"
               />

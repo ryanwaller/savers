@@ -402,6 +402,16 @@ export default function Home() {
     }
   }
 
+  async function handleReparentCollection(id: string, newParentId: string | null) {
+    if (id === newParentId) return;
+    try {
+      await api.updateCollection(id, { parent_id: newParentId });
+      await loadCollections();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to move collection");
+    }
+  }
+
   async function handleReorderCollections(ids: string[]) {
     const oldTree = treeRaw;
 
@@ -780,6 +790,7 @@ export default function Home() {
         onDeleteCollection={handleDeleteCollection}
         onChangeCollectionIcon={handleChangeCollectionIcon}
         onReorderCollections={handleReorderCollections}
+        onReparentCollection={handleReparentCollection}
         onSignOut={handleSignOut}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
