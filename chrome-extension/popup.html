@@ -8,14 +8,14 @@
   </head>
   <body>
     <main class="app">
-      <header class="header">
-        <div>
-          <h1>Savers</h1>
-          <p>Save the current tab fast.</p>
-        </div>
-      </header>
-
       <section class="panel">
+        <div class="top-actions">
+          <button id="open-app" class="btn btn-secondary" type="button">Open app</button>
+          <button id="save-bookmark" class="btn btn-primary" type="button">
+            Save bookmark
+          </button>
+        </div>
+
         <label class="field">
           <span class="label">App URL</span>
           <input id="app-url" type="url" placeholder="https://savers-production.up.railway.app" />
@@ -55,7 +55,7 @@
         <p id="ai-status" class="status ai-status" role="status"></p>
 
         <div class="inline-actions">
-          <button id="suggest-collection" class="btn btn-secondary" type="button">
+          <button id="suggest-collection" class="btn btn-secondary hidden" type="button">
             Suggest
           </button>
           <button id="show-create" class="btn btn-secondary" type="button">
@@ -87,13 +87,6 @@
         </label>
 
         <p id="status" class="status" role="status"></p>
-
-        <div class="footer">
-          <button id="open-app" class="btn btn-ghost" type="button">Open app</button>
-          <button id="save-bookmark" class="btn btn-primary" type="button">
-            Save bookmark
-          </button>
-        </div>
       </section>
     </main>
 

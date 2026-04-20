@@ -116,6 +116,16 @@ textarea { resize: vertical; }
     var(--color-bg);
 }
 
+.auth-shell-loading {
+  padding: 0;
+  justify-content: center;
+}
+
+.auth-loading-brand {
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .auth-card {
   width: min(420px, 100%);
   border: 1px solid var(--color-border);

@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
 import { api } from "@/lib/api";
@@ -715,13 +715,28 @@ export default function Home() {
     }
   }
 
-  if (authLoading || !user) {
+  if (authLoading) {
     return (
       <AuthScreen
         email={authEmail}
         googleSending={signingInWithGoogle}
         message={authMessage}
-        mode={authLoading ? "loading" : "signed_out"}
+        mode="loading"
+        sending={sendingAuthLink}
+        onEmailChange={setAuthEmail}
+        onGoogleSubmit={handleGoogleSignIn}
+        onSubmit={handleSendMagicLink}
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <AuthScreen
+        email={authEmail}
+        googleSending={signingInWithGoogle}
+        message={authMessage}
+        mode="signed_out"
         sending={sendingAuthLink}
         onEmailChange={setAuthEmail}
         onGoogleSubmit={handleGoogleSignIn}
@@ -780,7 +795,7 @@ export default function Home() {
                 onClick={() => setMobileSidebarOpen(true)}
                 aria-label="Open menu"
               >
-                <span aria-hidden>☰</span>
+                <List size={14} />
               </button>
               {canGoBack && (
                 <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
@@ -845,6 +860,13 @@ export default function Home() {
               <div className="mobile-actions">
                 {mobileSearchOpen ? (
                   <div className="mobile-search-row">
+                    <input
+                      autoFocus
+                      className="mobile-search-input"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
                     <button
                       className="circle-btn"
                       aria-label="Close search"
@@ -855,13 +877,6 @@ export default function Home() {
                     >
                       ×
                     </button>
-                    <input
-                      autoFocus
-                      className="mobile-search-input"
-                      placeholder="Search…"
-                      value={search}
-                      onChange={(e) => setSearch(e.target.value)}
-                    />
                   </div>
                 ) : (
                   <>
@@ -926,6 +941,7 @@ export default function Home() {
 
       {showAdd && (
         <AddBookmarkModal
+          existingBookmarks={allBookmarks}
           flat={flat}
           tree={tree}
           defaultCollectionId={defaultCollectionForAdd}
@@ -939,6 +955,7 @@ export default function Home() {
         <BookmarkDetail
           key={detail.id}
           bookmark={detail}
+          existingBookmarks={allBookmarks}
           flat={flat}
           tree={tree}
           onCreateCollection={handleCreateCollection}
@@ -1039,7 +1056,6 @@ export default function Home() {
           .mobile-menu-btn {
             display: inline-flex;
             margin-right: 8px;
-            font-size: 16px;
           }
           .sidebar-resizer {
             display: none;
@@ -1066,8 +1082,8 @@ export default function Home() {
           flex: 1 1 auto;
         }
         .crumb-back {
-          width: 22px;
-          height: 22px;
+          width: 32px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1075,6 +1091,8 @@ export default function Home() {
           border-radius: 999px;
           color: var(--color-text-muted);
           flex-shrink: 0;
+          font-size: 16px;
+          line-height: 1;
         }
         .crumb-back:hover {
           color: var(--color-text);

@@ -4,6 +4,13 @@ import "./globals.css";
 export const metadata: Metadata = {
   title: "Savers",
   description: "A quiet place to save the things you find.",
+  icons: {
+    icon: [
+      { url: "/savers-mark.svg", type: "image/svg+xml" },
+    ],
+    shortcut: ["/savers-mark.svg"],
+    apple: ["/savers-mark.svg"],
+  },
 };
 
 export const viewport: Viewport = {

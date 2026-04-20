@@ -21,6 +21,14 @@ export default function AuthScreen({
   onGoogleSubmit,
   onSubmit,
 }: AuthScreenProps) {
+  if (mode === "loading") {
+    return (
+      <div className="auth-shell auth-shell-loading">
+        <div className="auth-loading-brand">Savers</div>
+      </div>
+    );
+  }
+
   return (
     <div className="auth-shell">
       <div className="auth-card">
@@ -32,49 +40,44 @@ export default function AuthScreen({
             machines once you sign in.
           </p>
         </div>
+        <form
+          className="auth-form"
+          onSubmit={(event) => {
+            event.preventDefault();
+            void onSubmit();
+          }}
+        >
+          <label className="auth-field">
+            <span>Email</span>
+            <input
+              type="email"
+              value={email}
+              onChange={(event) => onEmailChange(event.target.value)}
+              placeholder="you@example.com"
+              autoComplete="email"
+              required
+            />
+          </label>
 
-        {mode === "loading" ? (
-          <div className="auth-status">Checking your session…</div>
-        ) : (
-          <form
-            className="auth-form"
-            onSubmit={(event) => {
-              event.preventDefault();
-              void onSubmit();
-            }}
-          >
-            <label className="auth-field">
-              <span>Email</span>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => onEmailChange(event.target.value)}
-                placeholder="you@example.com"
-                autoComplete="email"
-                required
-              />
-            </label>
+          <div className="auth-actions">
+            <button className="btn btn-primary auth-submit" type="submit" disabled={sending}>
+              {sending ? "Sending link…" : "Email me a sign-in link"}
+            </button>
 
-            <div className="auth-actions">
-              <button className="btn btn-primary auth-submit" type="submit" disabled={sending}>
-                {sending ? "Sending link…" : "Email me a sign-in link"}
+            {onGoogleSubmit && (
+              <button
+                className="btn auth-google"
+                type="button"
+                disabled={googleSending}
+                onClick={() => {
+                  void onGoogleSubmit();
+                }}
+              >
+                {googleSending ? "Opening Google…" : "Continue with Google"}
               </button>
-
-              {onGoogleSubmit && (
-                <button
-                  className="btn auth-google"
-                  type="button"
-                  disabled={googleSending}
-                  onClick={() => {
-                    void onGoogleSubmit();
-                  }}
-                >
-                  {googleSending ? "Opening Google…" : "Continue with Google"}
-                </button>
-              )}
-            </div>
-          </form>
-        )}
+            )}
+          </div>
+        </form>
 
         {message && <div className="auth-message small">{message}</div>}
       </div>

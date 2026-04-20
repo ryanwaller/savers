@@ -1,13 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { api, domainOf } from "@/lib/api";
+import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
 
 type Props = {
   bookmark: Bookmark;
+  existingBookmarks: Bookmark[];
   flat: Collection[];
   tree: Collection[];
   onCreateCollection: (name: string, parentId: string | null) => Promise<Collection>;
@@ -19,6 +20,7 @@ type Props = {
 
 export default function BookmarkDetail({
   bookmark,
+  existingBookmarks,
   flat,
   tree,
   onCreateCollection,
@@ -48,6 +50,10 @@ export default function BookmarkDetail({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiApplying, setAiApplying] = useState(false);
   const [aiDismissed, setAiDismissed] = useState(false);
+  const [aiStatus, setAiStatus] = useState<string | null>(null);
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,47 +67,63 @@ export default function BookmarkDetail({
   useEffect(() => {
     setAiSuggestion(null);
     setAiDismissed(false);
+    setAiStatus(null);
+    setShowCreateCollection(false);
+    setNewCollectionName("");
   }, [bookmark.id]);
 
-  useEffect(() => {
+  const runSuggest = useCallback(async () => {
     if (!tree.length) return;
+    setAiLoading(true);
+    setAiStatus("Suggesting a collection…");
+    try {
+      const { suggestion } = await api.categorize({
+        url: bookmark.url,
+        title: title.trim() || bookmark.title,
+        description: description.trim() || bookmark.description,
+        collections: tree,
+      });
 
-    let cancelled = false;
-
-    const run = async () => {
-      setAiLoading(true);
-      try {
-        const { suggestion } = await api.categorize({
-          url: bookmark.url,
-          title: title.trim() || bookmark.title,
-          description: description.trim() || bookmark.description,
-          collections: tree,
-        });
-
-        if (cancelled) return;
-        if (
-          !suggestion ||
-          suggestion.confidence === "low" ||
-          (suggestion.collection_id && suggestion.collection_id === collectionId)
-        ) {
-          setAiSuggestion(null);
-          return;
-        }
-
-        setAiSuggestion(suggestion);
-      } catch {
-        if (!cancelled) setAiSuggestion(null);
-      } finally {
-        if (!cancelled) setAiLoading(false);
+      if (
+        !suggestion ||
+        suggestion.confidence === "low" ||
+        (suggestion.collection_id && suggestion.collection_id === collectionId)
+      ) {
+        setAiSuggestion(null);
+        setAiStatus("No clear suggestion.");
+        return;
       }
-    };
 
-    const timer = window.setTimeout(run, 250);
-    return () => {
-      cancelled = true;
-      window.clearTimeout(timer);
-    };
-  }, [bookmark.url, bookmark.title, bookmark.description, collectionId, description, title, tree]);
+      setAiSuggestion(suggestion);
+      setAiDismissed(false);
+      setAiStatus("Suggestion ready.");
+    } catch (e) {
+      setAiSuggestion(null);
+      setAiStatus(
+        `Suggestion failed: ${e instanceof Error ? e.message : "unknown error"}`
+      );
+    } finally {
+      setAiLoading(false);
+    }
+  }, [bookmark.description, bookmark.title, bookmark.url, collectionId, description, title, tree]);
+
+  async function createInlineCollection() {
+    const name = newCollectionName.trim();
+    if (!name) return;
+    setCreatingCollection(true);
+    setError(null);
+    try {
+      const created = await onCreateCollection(name, null);
+      setCollectionId(created.id);
+      setNewCollectionName("");
+      setShowCreateCollection(false);
+      setAiStatus(`Created ${created.name}.`);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create collection");
+    } finally {
+      setCreatingCollection(false);
+    }
+  }
 
   async function save() {
     setSaving(true);
@@ -177,6 +199,7 @@ export default function BookmarkDetail({
     setError(null);
     try {
       let nextCollectionId = aiSuggestion.collection_id;
+      let pathLabel = aiSuggestion.collection_path;
 
       if (!nextCollectionId && aiSuggestion.proposed_collection_name) {
         const created = await onCreateCollection(
@@ -184,6 +207,9 @@ export default function BookmarkDetail({
           aiSuggestion.proposed_parent_collection_id ?? null
         );
         nextCollectionId = created.id;
+        pathLabel = aiSuggestion.proposed_parent_collection_path
+          ? `${aiSuggestion.proposed_parent_collection_path} / ${created.name}`
+          : created.name;
       }
 
       if (!nextCollectionId) return;
@@ -194,6 +220,7 @@ export default function BookmarkDetail({
       setCollectionId(updated.collection_id);
       setAiSuggestion(null);
       setAiDismissed(false);
+      setAiStatus(pathLabel ? `Using ${pathLabel}.` : "Suggestion applied.");
       onPatched(updated);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to apply suggestion");
@@ -203,6 +230,13 @@ export default function BookmarkDetail({
   }
 
   const host = domainOf(bookmark.url);
+  const duplicateBookmarks = useMemo(() => {
+    const canonical = canonicalBookmarkUrl(bookmark.url);
+    return existingBookmarks.filter(
+      (candidate) =>
+        candidate.id !== bookmark.id && canonicalBookmarkUrl(candidate.url) === canonical
+    );
+  }, [bookmark.id, bookmark.url, existingBookmarks]);
   const showAiSuggestion = !aiDismissed && !!aiSuggestion;
   const aiTargetLabel = aiSuggestion?.collection_path
     ? aiSuggestion.collection_path
@@ -246,6 +280,29 @@ export default function BookmarkDetail({
             </a>
           </div>
 
+          {duplicateBookmarks.length > 0 && (
+            <div className="duplicate-card">
+              <div className="duplicate-title">Duplicate warning</div>
+              <div className="duplicate-copy">
+                {duplicateBookmarks.length === 1
+                  ? "There is 1 other saved copy of this page."
+                  : `There are ${duplicateBookmarks.length} other saved copies of this page.`}
+              </div>
+              <div className="duplicate-list small muted">
+                {duplicateBookmarks.slice(0, 3).map((item) => (
+                  <div key={item.id} className="duplicate-item">
+                    {item.title || domainOf(item.url)}
+                  </div>
+                ))}
+                {duplicateBookmarks.length > 3 && (
+                  <div className="duplicate-item">
+                    +{duplicateBookmarks.length - 3} more
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
           <label className="field">
             <div className="label">Title</div>
             <input value={title} onChange={(e) => setTitle(e.target.value)} />
@@ -268,6 +325,73 @@ export default function BookmarkDetail({
               onChange={setCollectionId}
               onCreateCollection={onCreateCollection}
             />
+
+            {aiStatus && <div className="ai-status small muted">{aiStatus}</div>}
+
+            <div className="ai-actions">
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => void runSuggest()}
+                disabled={aiLoading}
+              >
+                {aiLoading ? "Suggesting…" : "Suggest"}
+              </button>
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => {
+                  setShowCreateCollection((value) => !value);
+                  setNewCollectionName("");
+                }}
+                disabled={creatingCollection}
+              >
+                + New collection
+              </button>
+            </div>
+
+            {showCreateCollection && (
+              <div className="create-wrap">
+                <input
+                  autoFocus
+                  placeholder="Collection name"
+                  value={newCollectionName}
+                  onChange={(event) => setNewCollectionName(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      void createInlineCollection();
+                    }
+                    if (event.key === "Escape") {
+                      event.preventDefault();
+                      setShowCreateCollection(false);
+                      setNewCollectionName("");
+                    }
+                  }}
+                />
+                <div className="ai-actions">
+                  <button
+                    type="button"
+                    className="btn btn-small"
+                    onClick={() => void createInlineCollection()}
+                    disabled={creatingCollection || !newCollectionName.trim()}
+                  >
+                    {creatingCollection ? "Creating…" : "Create"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-small btn-ghost"
+                    onClick={() => {
+                      setShowCreateCollection(false);
+                      setNewCollectionName("");
+                    }}
+                    disabled={creatingCollection}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
 
           {showAiSuggestion && aiTargetLabel && (
@@ -295,10 +419,6 @@ export default function BookmarkDetail({
                 </button>
               </div>
             </div>
-          )}
-
-          {aiLoading && !showAiSuggestion && (
-            <div className="small muted">Suggesting…</div>
           )}
 
           <label className="field">
@@ -430,12 +550,20 @@ export default function BookmarkDetail({
         }
         .title { font-size: 12px; }
         .close {
-          font-size: 18px;
-          color: var(--color-text-muted);
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-size: 16px;
           line-height: 1;
-          padding: 0 6px;
+          flex-shrink: 0;
         }
-        .close:hover { color: var(--color-text); }
+        .close:hover { border-color: var(--color-border-strong); }
         .body {
           padding: 14px 16px;
           display: flex;
@@ -484,6 +612,9 @@ export default function BookmarkDetail({
           font-size: 12px;
           color: var(--color-text-muted);
         }
+        .ai-status {
+          margin-top: 4px;
+        }
         .ai-copy {
           font-size: 12px;
           color: var(--color-text);
@@ -496,6 +627,40 @@ export default function BookmarkDetail({
           display: flex;
           gap: 8px;
           flex-wrap: wrap;
+        }
+        .create-wrap {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          margin-top: 8px;
+        }
+        .duplicate-card {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 10px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius);
+          background: var(--color-bg-secondary);
+        }
+        .duplicate-title {
+          font-size: 12px;
+          color: var(--color-text);
+          font-weight: 500;
+        }
+        .duplicate-copy {
+          font-size: 12px;
+          color: var(--color-text);
+        }
+        .duplicate-list {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .duplicate-item {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .tag-editor {
           min-height: 32px;

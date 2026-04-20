@@ -1,11 +1,19 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { api, domainOf, normalizeUrl, screenshotPreviewUrl, tintForDomain } from "@/lib/api";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  api,
+  canonicalBookmarkUrl,
+  domainOf,
+  normalizeUrl,
+  screenshotPreviewUrl,
+  tintForDomain,
+} from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import CollectionPicker from "./CollectionPicker";
 
 type Props = {
+  existingBookmarks: Bookmark[];
   flat: Collection[];
   tree: Collection[];
   defaultCollectionId: string | null;
@@ -15,6 +23,7 @@ type Props = {
 };
 
 export default function AddBookmarkModal({
+  existingBookmarks,
   flat,
   tree,
   defaultCollectionId,
@@ -152,11 +161,21 @@ export default function AddBookmarkModal({
 
   async function applySuggestion() {
     if (!aiSuggestion) return;
+    const u = normalizeUrl(url);
+    if (!u) {
+      setError("URL is required");
+      return;
+    }
+    try {
+      new URL(u);
+    } catch {
+      setError("Enter a valid URL");
+      return;
+    }
     setAiApplying(true);
     setError(null);
     try {
       let nextCollectionId = aiSuggestion.collection_id;
-      let pathLabel = aiSuggestion.collection_path;
 
       if (!nextCollectionId && aiSuggestion.proposed_collection_name) {
         const created = await onCreateCollection(
@@ -164,20 +183,35 @@ export default function AddBookmarkModal({
           aiSuggestion.proposed_parent_collection_id ?? null
         );
         nextCollectionId = created.id;
-        pathLabel = aiSuggestion.proposed_parent_collection_path
-          ? `${aiSuggestion.proposed_parent_collection_path} / ${created.name}`
-          : created.name;
       }
 
       if (!nextCollectionId) return;
 
-      setCollectionId(nextCollectionId);
-      setAiSuggestion(null);
-      setAiDismissed(false);
-      setAiStatus(pathLabel ? `Using ${pathLabel}.` : "Suggestion applied.");
+      // Ensure metadata is in-hand before saving, so the bookmark gets a preview
+      // even if the user accepts the suggestion before the debounce fires.
+      const og =
+        lastFetchedRef.current === u ? null : await fetchMetadata(true);
+
+      const tagArray = tags
+        .split(",")
+        .map((t) => t.trim())
+        .filter(Boolean);
+
+      const { bookmark } = await api.createBookmark({
+        url: u,
+        title: title.trim() || og?.title || null,
+        description: description.trim() || og?.description || null,
+        og_image: ogImage ?? og?.og_image ?? null,
+        favicon: favicon ?? og?.favicon ?? null,
+        tags: tagArray,
+        notes: notes.trim() || null,
+        collection_id: nextCollectionId,
+      });
+
+      // Close the modal — bookmark is safely persisted in the suggested collection.
+      onCreated(bookmark);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Failed to apply suggestion");
-    } finally {
       setAiApplying(false);
     }
   }
@@ -247,6 +281,11 @@ export default function AddBookmarkModal({
   const normalizedUrl = url.trim() ? normalizeUrl(url) : "";
   const host = normalizedUrl ? domainOf(normalizedUrl) : "";
   const tint = normalizedUrl ? tintForDomain(normalizedUrl, isDark) : "var(--color-bg-secondary)";
+  const duplicateBookmarks = useMemo(() => {
+    if (!normalizedUrl) return [];
+    const canonical = canonicalBookmarkUrl(normalizedUrl);
+    return existingBookmarks.filter((bookmark) => canonicalBookmarkUrl(bookmark.url) === canonical);
+  }, [existingBookmarks, normalizedUrl]);
 
   const showAiSuggestion = !aiDismissed && !!aiSuggestion;
   const aiTargetLabel = aiSuggestion?.collection_path
@@ -305,6 +344,31 @@ export default function AddBookmarkModal({
               {fetching ? "Fetching preview…" : "Press Enter or Tab to fetch preview."}
             </div>
           </label>
+
+          {duplicateBookmarks.length > 0 && (
+            <div className="duplicate-card">
+              <div className="duplicate-title">
+                Duplicate warning
+              </div>
+              <div className="duplicate-copy">
+                {duplicateBookmarks.length === 1
+                  ? "This page is already saved once."
+                  : `This page is already saved ${duplicateBookmarks.length} times.`}
+              </div>
+              <div className="duplicate-list small muted">
+                {duplicateBookmarks.slice(0, 3).map((bookmark) => (
+                  <div key={bookmark.id} className="duplicate-item">
+                    {bookmark.title || domainOf(bookmark.url)}
+                  </div>
+                ))}
+                {duplicateBookmarks.length > 3 && (
+                  <div className="duplicate-item">
+                    +{duplicateBookmarks.length - 3} more
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {url && (
             <div className="preview">
@@ -520,12 +584,20 @@ export default function AddBookmarkModal({
         }
         .title { font-size: 12px; }
         .close {
-          font-size: 18px;
-          color: var(--color-text-muted);
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-size: 16px;
           line-height: 1;
-          padding: 0 6px;
+          flex-shrink: 0;
         }
-        .close:hover { color: var(--color-text); }
+        .close:hover { border-color: var(--color-border-strong); }
         .body {
           padding: 14px 16px;
           display: flex;
@@ -594,6 +666,34 @@ export default function AddBookmarkModal({
           border: 1px solid var(--color-border);
           border-radius: var(--radius);
           background: var(--color-bg-secondary);
+        }
+        .duplicate-card {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 10px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius);
+          background: var(--color-bg-secondary);
+        }
+        .duplicate-title {
+          font-size: 12px;
+          color: var(--color-text);
+          font-weight: 500;
+        }
+        .duplicate-copy {
+          font-size: 12px;
+          color: var(--color-text);
+        }
+        .duplicate-list {
+          display: flex;
+          flex-direction: column;
+          gap: 2px;
+        }
+        .duplicate-item {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
         }
         .ai-title {
           font-size: 12px;

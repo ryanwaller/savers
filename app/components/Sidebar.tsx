@@ -40,6 +40,7 @@ type Props = {
   totals: { all: number; unsorted: number; pinned: number };
   allTags: string[];
   activeTag: string | null;
+  userEmail?: string | null;
   onTagClick: (tag: string | null) => void;
   selection: Selection;
   onSelect: (s: Selection) => void;
@@ -48,6 +49,7 @@ type Props = {
   onDeleteCollection: (id: string) => Promise<void>;
   onChangeCollectionIcon: (id: string, iconName: string | null) => Promise<void>;
   onReorderCollections: (ids: string[]) => Promise<void>;
+  onSignOut?: () => void | Promise<void>;
   onCloseMobile?: () => void;
 };
 
@@ -56,6 +58,7 @@ export default function Sidebar({
   totals,
   allTags,
   activeTag,
+  userEmail,
   onTagClick,
   selection,
   onSelect,
@@ -64,6 +67,7 @@ export default function Sidebar({
   onDeleteCollection,
   onChangeCollectionIcon,
   onReorderCollections,
+  onSignOut,
   onCloseMobile,
 }: Props) {
   const [addingRoot, setAddingRoot] = useState(false);
@@ -134,7 +138,7 @@ export default function Sidebar({
       <div className="sidebar-head">
         <div className="sidebar-brand">
           {/* Match the public Savers mark used on savers.com */}
-          <img className="sidebar-brand-mark" src="/favicon.ico" alt="" draggable={false} />
+          <img className="sidebar-brand-mark" src="/savers-mark.svg" alt="" draggable={false} />
           <span>Savers</span>
         </div>
         <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
@@ -240,40 +244,61 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-foot">
-        {addingRoot ? (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              skipRootBlurRef.current = true;
-              void submitNewRoot();
-            }}
-          >
-            <input
-              autoFocus
-              className="sidebar-input"
-              placeholder="Collection name"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              onBlur={() => {
-                if (skipRootBlurRef.current) {
-                  skipRootBlurRef.current = false;
-                  return;
-                }
-                void submitNewRoot();
-              }}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                  setAddingRoot(false);
-                  setNewName("");
-                }
-              }}
-            />
-          </form>
-        ) : (
-          <button className="sidebar-new" onClick={() => setAddingRoot(true)}>
-            + New collection
-          </button>
-        )}
+        <div className="sidebar-foot-row">
+          <div className="sidebar-foot-primary">
+            {addingRoot ? (
+              <form
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  skipRootBlurRef.current = true;
+                  void submitNewRoot();
+                }}
+              >
+                <input
+                  autoFocus
+                  className="sidebar-input"
+                  placeholder="Collection name"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                  onBlur={() => {
+                    if (skipRootBlurRef.current) {
+                      skipRootBlurRef.current = false;
+                      return;
+                    }
+                    void submitNewRoot();
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Escape") {
+                      setAddingRoot(false);
+                      setNewName("");
+                    }
+                  }}
+                />
+              </form>
+            ) : (
+              <button className="sidebar-new" onClick={() => setAddingRoot(true)}>
+                + New collection
+              </button>
+            )}
+          </div>
+
+          {onSignOut && (
+            <div className="mobile-account" title={userEmail ?? "Signed in"}>
+              <span className="mobile-account-state">
+                {userEmail ?? "Signed in"}
+              </span>
+              <button
+                className="mobile-signout"
+                onClick={() => {
+                  void onSignOut();
+                  onCloseMobile?.();
+                }}
+              >
+                Sign out
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       <style jsx>{`
@@ -313,14 +338,25 @@ export default function Sidebar({
         }
         .mobile-close {
           display: none;
-          font-size: 24px;
+          width: 32px;
+          height: 32px;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-size: 16px;
           line-height: 1;
-          color: var(--color-text-muted);
-          padding: 4px;
+          flex-shrink: 0;
         }
+        .mobile-close:hover { border-color: var(--color-border-strong); }
         @media (max-width: 768px) {
+          .sidebar-head {
+            padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+          }
           .mobile-close {
-            display: block;
+            display: inline-flex;
           }
         }
         .sidebar-brand-mark {
@@ -381,6 +417,12 @@ export default function Sidebar({
           border-top: 1px solid var(--color-border);
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
+        .sidebar-foot-row {
+          display: block;
+        }
+        .sidebar-foot-primary {
+          min-width: 0;
+        }
         .sidebar-new {
           display: block;
           width: 100%;
@@ -397,6 +439,54 @@ export default function Sidebar({
         .sidebar-input {
           width: 100%;
           font-size: 12px;
+        }
+        .mobile-account {
+          display: none;
+        }
+        @media (max-width: 768px) {
+          .sidebar-foot-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+          .sidebar-foot-primary {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .sidebar-new {
+            width: auto;
+            white-space: nowrap;
+          }
+          .mobile-account {
+            display: inline-flex;
+            align-items: center;
+            justify-content: flex-end;
+            gap: 8px;
+            min-width: 0;
+            margin-left: auto;
+            flex: 0 1 auto;
+          }
+          .mobile-account-state {
+            max-width: 120px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-size: 12px;
+            color: var(--color-text-muted);
+          }
+          .mobile-signout {
+            height: 26px;
+            padding: 0 10px;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            background: var(--color-bg);
+            color: var(--color-text);
+            font-size: 12px;
+            white-space: nowrap;
+          }
+          .mobile-signout:hover {
+            background: var(--color-bg-hover);
+          }
         }
       `}</style>
     </aside>
@@ -456,13 +546,21 @@ function SidebarItem({
         .item.active .leading { color: var(--color-text); }
         .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .count {
-          width: 32px;
-          text-align: right;
+          margin-left: auto;
+          min-width: 34px;
+          height: 22px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
           font-size: 12px;
-          color: var(--color-text-muted);
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum" 1;
           flex-shrink: 0;
+          white-space: nowrap;
         }
       `}</style>
     </button>
@@ -860,34 +958,44 @@ function CollectionNode({
         }
         .tail {
           position: relative;
-          width: 32px;
-          height: 18px;
+          width: 40px;
+          height: 22px;
           flex-shrink: 0;
         }
         .tail-count {
           position: absolute;
-          inset: 0;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          height: 22px;
+          padding: 0 10px;
           display: inline-flex;
           align-items: center;
-          justify-content: flex-end;
+          justify-content: center;
           font-size: 12px;
-          color: var(--color-text-muted);
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum" 1;
           transition: opacity 120ms ease;
+          white-space: nowrap;
         }
         .more {
           position: absolute;
-          inset: 0;
+          top: 0;
+          right: 0;
+          width: 22px;
+          height: 22px;
           z-index: 1;
           display: inline-flex;
           align-items: center;
-          justify-content: flex-end;
-          padding: 0 4px;
+          justify-content: center;
+          padding: 0;
           font-size: 12px;
           color: var(--color-text-muted);
           opacity: 0;
-          border-radius: 3px;
+          border-radius: 999px;
           transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
         }
         .row:hover .tail-count,

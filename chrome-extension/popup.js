@@ -260,6 +260,8 @@ function renderSuggestion() {
   els.aiSuggestionCopy.textContent = copy;
   els.applyAiSuggestion.textContent = actionLabel;
   els.aiSuggestion.classList.remove("hidden");
+  // Active suggestion means no need for a manual Suggest button.
+  els.suggestCollection.classList.add("hidden");
 }
 
 function clearSuggestion() {
@@ -267,6 +269,8 @@ function clearSuggestion() {
   els.aiSuggestionCopy.textContent = "";
   els.aiSuggestion.classList.add("hidden");
   els.applyAiSuggestion.textContent = "Use suggestion";
+  // Surface the manual Suggest button as a fallback.
+  els.suggestCollection.classList.remove("hidden");
 }
 
 async function applySuggestion() {
