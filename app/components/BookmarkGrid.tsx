@@ -3,7 +3,13 @@
 import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { domainOf, previewImageUrl, screenshotPreviewUrl, tintForDomain } from "@/lib/api";
+import {
+  domainOf,
+  previewImageUrl,
+  screenshotPreviewUrl,
+  storedPreviewUrl,
+  tintForDomain,
+} from "@/lib/api";
 import CollectionIcon from "./CollectionIcon";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -174,7 +180,9 @@ function BookmarkCard({
   const [pinning, setPinning] = useState(false);
   const [previewNonce, setPreviewNonce] = useState<number | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
-  const [previewStage, setPreviewStage] = useState<"microlink" | "fallback" | "fail">("microlink");
+  const [previewStage, setPreviewStage] = useState<"stored" | "microlink" | "fallback" | "fail">(
+    "microlink"
+  );
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
 
@@ -214,6 +222,9 @@ function BookmarkCard({
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
   const effectivePreviewVersion = previewNonce ?? b.preview_version ?? null;
+  const storedSrc = storedPreviewUrl(b.preview_path, {
+    previewVersion: effectivePreviewVersion,
+  });
   const microlinkSrc = screenshotPreviewUrl(b.url, {
     force: previewNonce !== null,
     cacheBust: effectivePreviewVersion,
@@ -225,12 +236,17 @@ function BookmarkCard({
     cacheBust: previewNonce,
     previewVersion: effectivePreviewVersion,
   });
-  const screenshotSrc = previewStage === "microlink" ? microlinkSrc : fallbackSrc;
+  const screenshotSrc =
+    previewStage === "stored"
+      ? storedSrc
+      : previewStage === "microlink"
+        ? microlinkSrc
+        : fallbackSrc;
 
   useEffect(() => {
     setPreviewFailed(false);
-    setPreviewStage("microlink");
-  }, [microlinkSrc, fallbackSrc]);
+    setPreviewStage(storedSrc ? "stored" : "microlink");
+  }, [storedSrc, microlinkSrc, fallbackSrc]);
 
   useEffect(() => {
     if (previewNonce !== null && b.preview_version === previewNonce) {
@@ -323,6 +339,10 @@ function BookmarkCard({
                 draggable={false}
                 onLoad={() => setReloading(false)}
                 onError={() => {
+                  if (previewStage === "stored") {
+                    setPreviewStage("microlink");
+                    return;
+                  }
                   if (previewStage === "microlink") {
                     setPreviewStage("fallback");
                     return;

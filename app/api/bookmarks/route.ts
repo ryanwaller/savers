@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { PREVIEW_BUCKET, storeBookmarkPreview } from '@/lib/preview-server'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -100,8 +101,21 @@ export async function POST(req: NextRequest) {
       .single()
 
     if (error) throw error
+    let bookmark = data
 
-    return NextResponse.json({ bookmark: data })
+    try {
+      const stored = await storeBookmarkPreview({
+        bookmarkId: data.id,
+        userId: user.id,
+        url: data.url,
+        previewVersion: data.preview_version ?? Date.now(),
+      })
+      bookmark = stored.bookmark
+    } catch (previewError) {
+      logUnexpectedError('Store bookmark preview error:', previewError)
+    }
+
+    return NextResponse.json({ bookmark })
   } catch (err) {
     logUnexpectedError('Save bookmark error:', err)
     if (err instanceof UnauthorizedError) {
@@ -177,7 +191,49 @@ export async function PATCH(req: NextRequest) {
       logUnexpectedError('Update bookmark error:', error)
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
-    return NextResponse.json({ bookmark: data })
+
+    const shouldRefreshPreview =
+      Object.prototype.hasOwnProperty.call(updates, 'preview_version') ||
+      Object.prototype.hasOwnProperty.call(updates, 'url')
+
+    let bookmark = data
+
+    if (shouldRefreshPreview) {
+      try {
+        const stored = await storeBookmarkPreview({
+          bookmarkId: data.id,
+          userId: user.id,
+          url: data.url,
+          force: Object.prototype.hasOwnProperty.call(updates, 'preview_version'),
+          previewVersion:
+            typeof data.preview_version === 'number' ? data.preview_version : Date.now(),
+          currentPreviewPath: data.preview_path ?? null,
+        })
+        bookmark = stored.bookmark
+      } catch (previewError) {
+        logUnexpectedError('Refresh bookmark preview error:', previewError)
+
+        if (Object.prototype.hasOwnProperty.call(updates, 'url')) {
+          const { data: clearedPreviewBookmark, error: clearError } = await supabaseAdmin
+            .from('bookmarks')
+            .update({
+              preview_path: null,
+              preview_provider: null,
+              preview_updated_at: null,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id)
+            .select()
+            .single()
+
+          if (!clearError && clearedPreviewBookmark) {
+            bookmark = clearedPreviewBookmark
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ bookmark })
   } catch (err) {
     logUnexpectedError('Update bookmark catch error:', err)
     if (err instanceof UnauthorizedError) {
@@ -197,6 +253,17 @@ export async function DELETE(req: NextRequest) {
     const id = req.nextUrl.searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
+    const { data: existingBookmark, error: existingError } = await supabaseAdmin
+      .from('bookmarks')
+      .select('preview_path')
+      .eq('id', id)
+      .eq('user_id', user.id)
+      .maybeSingle()
+
+    if (existingError) {
+      logUnexpectedError('Load bookmark before delete error:', existingError)
+    }
+
     const { error } = await supabaseAdmin
       .from('bookmarks')
       .delete()
@@ -206,6 +273,11 @@ export async function DELETE(req: NextRequest) {
       logUnexpectedError('Delete bookmark error:', error)
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
+
+    if (existingBookmark?.preview_path) {
+      void supabaseAdmin.storage.from(PREVIEW_BUCKET).remove([existingBookmark.preview_path])
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     logUnexpectedError('Delete bookmark catch error:', err)

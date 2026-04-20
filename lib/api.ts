@@ -212,6 +212,26 @@ export function previewImageUrl(
   return `/api/preview?${params.toString()}`;
 }
 
+export function storedPreviewUrl(
+  previewPath: string | null | undefined,
+  options?: { previewVersion?: string | number | null }
+): string | null {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  if (!supabaseUrl || !previewPath) return null;
+
+  const encodedPath = previewPath
+    .split("/")
+    .map((segment) => encodeURIComponent(segment))
+    .join("/");
+  const base = `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/bookmark-previews/${encodedPath}`;
+
+  if (options?.previewVersion === undefined || options.previewVersion === null) {
+    return base;
+  }
+
+  return `${base}?v=${encodeURIComponent(String(options.previewVersion))}`;
+}
+
 function hash(str: string): number {
   let h = 0;
   for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) | 0;
