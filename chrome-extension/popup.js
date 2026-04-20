@@ -189,7 +189,7 @@ async function suggestCollection(force = false) {
   if (state.aiSuggestion && !force) return;
 
   els.suggestCollection.disabled = true;
-  setAiStatus("Suggesting a collection…");
+  setAiStatus("Suggesting a collection…", "brat");
 
   try {
     const { collections } = await apiFetch("/api/collections", { method: "GET" });
@@ -220,7 +220,7 @@ async function suggestCollection(force = false) {
     ) {
       els.collectionSelect.value = state.aiSuggestion.collection_id;
     }
-    setAiStatus("Suggestion ready.", "success");
+    setAiStatus("");
   } catch (error) {
     clearSuggestion();
     setAiStatus(

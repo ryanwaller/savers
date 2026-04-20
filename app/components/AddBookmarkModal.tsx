@@ -762,6 +762,11 @@ export default function AddBookmarkModal({
             border: 0;
             border-radius: 0;
           }
+          .head {
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            height: auto;
+            min-height: 48px;
+          }
           .body :global(input),
           .body :global(textarea),
           .body :global(select) {

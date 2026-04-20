@@ -52,6 +52,15 @@ export default function Home() {
     }
     return Array.from(set).sort();
   }, [allBookmarks]);
+  const tagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const bookmark of allBookmarks) {
+      for (const tag of bookmark.tags ?? []) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [allBookmarks]);
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
@@ -756,7 +765,9 @@ export default function Home() {
         tree={tree}
         totals={totals}
         allTags={allTags}
+        tagCounts={tagCounts}
         activeTag={activeTag}
+        userEmail={user.email}
         onTagClick={handleTagClick}
         selection={selection}
         onSelect={(s) => {
@@ -769,6 +780,7 @@ export default function Home() {
         onDeleteCollection={handleDeleteCollection}
         onChangeCollectionIcon={handleChangeCollectionIcon}
         onReorderCollections={handleReorderCollections}
+        onSignOut={handleSignOut}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
@@ -1051,6 +1063,12 @@ export default function Home() {
         }
         .mobile-menu-btn {
           display: none;
+        }
+        @media (min-width: 769px) {
+          .mobile-menu-btn,
+          .mobile-actions {
+            display: none !important;
+          }
         }
         @media (max-width: 768px) {
           .mobile-menu-btn {

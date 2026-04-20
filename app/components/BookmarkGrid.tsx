@@ -57,7 +57,7 @@ export default function BookmarkGrid({
         }
         @media (max-width: 768px) {
           .grid {
-            grid-template-columns: repeat(2, 1fr);
+            grid-template-columns: repeat(2, minmax(0, 1fr));
             padding: 12px;
             gap: 12px;
           }
@@ -107,6 +107,15 @@ function CollectionCard({ c, onClick }: { c: Collection; onClick: () => void }) 
         }
         .folder:hover {
           border-color: var(--color-border-strong);
+        }
+        @media (max-width: 768px) {
+          .folder {
+            min-height: 0;
+          }
+          .folder-body {
+            padding: 8px 10px 10px;
+            gap: 3px;
+          }
         }
         .folder-thumb {
           aspect-ratio: 16 / 10;

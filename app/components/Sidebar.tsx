@@ -39,6 +39,7 @@ type Props = {
   tree: Collection[];
   totals: { all: number; unsorted: number; pinned: number };
   allTags: string[];
+  tagCounts: Record<string, number>;
   activeTag: string | null;
   userEmail?: string | null;
   onTagClick: (tag: string | null) => void;
@@ -57,6 +58,7 @@ export default function Sidebar({
   tree,
   totals,
   allTags,
+  tagCounts,
   activeTag,
   userEmail,
   onTagClick,
@@ -233,6 +235,7 @@ export default function Sidebar({
                   <SidebarItem
                     key={tag}
                     label={`#${tag}`}
+                    count={tagCounts[tag] ?? 0}
                     active={activeTag === tag}
                     onClick={() => onTagClick(tag === activeTag ? null : tag)}
                     indent={18}
@@ -353,7 +356,7 @@ export default function Sidebar({
         .mobile-close:hover { border-color: var(--color-border-strong); }
         @media (max-width: 768px) {
           .sidebar-head {
-            padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
           }
           .mobile-close {
             display: inline-flex;
@@ -643,6 +646,9 @@ function CollectionNode({
   const isDragging = draggedId === node.id;
 
   const totalInSubtree = useMemo(() => countSubtree(node), [node]);
+  // When expanded, show only the bookmarks that live directly on this node —
+  // the children render their own counts. Collapsed, show the subtree total.
+  const displayCount = hasChildren && open ? (node.bookmark_count ?? 0) : totalInSubtree;
 
   async function submitRename() {
     const n = editName.trim();
@@ -757,7 +763,7 @@ function CollectionNode({
           </button>
         )}
         <div className={`tail ${menuOpen ? "open" : ""}`}>
-          <span className="tail-count">{totalInSubtree || ""}</span>
+          <span className="tail-count">{displayCount || ""}</span>
           <button
             className="more"
             onClick={(e) => {
@@ -958,7 +964,7 @@ function CollectionNode({
         }
         .tail {
           position: relative;
-          width: 40px;
+          width: 54px;
           height: 22px;
           flex-shrink: 0;
         }
@@ -967,6 +973,7 @@ function CollectionNode({
           top: 0;
           right: 0;
           min-width: 34px;
+          max-width: 100%;
           height: 22px;
           padding: 0 10px;
           display: inline-flex;
@@ -985,24 +992,31 @@ function CollectionNode({
           position: absolute;
           top: 0;
           right: 0;
-          width: 22px;
+          min-width: 34px;
+          max-width: 100%;
           height: 22px;
+          padding: 0 10px;
           z-index: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          padding: 0;
           font-size: 12px;
-          color: var(--color-text-muted);
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
           opacity: 0;
           border-radius: 999px;
           transition: opacity 120ms ease, color 120ms ease, background 120ms ease;
+          white-space: nowrap;
         }
         .row:hover .tail-count,
         .tail.open .tail-count { opacity: 0; }
         .row:hover .more,
         .tail.open .more { opacity: 1; }
-        .more:hover { color: var(--color-text); background: var(--color-bg-active); }
+        .more:hover,
+        .tail.open .more {
+          color: rgba(255, 255, 255, 0.86);
+          background: rgba(0, 0, 0, 0.52);
+        }
         .menu {
           position: absolute;
           right: 0;

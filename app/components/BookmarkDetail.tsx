@@ -258,7 +258,9 @@ export default function BookmarkDetail({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title small muted">Bookmark</div>
-          <button className="close" onClick={onClose} aria-label="Close">×</button>
+          <button className="close" onClick={onClose} aria-label="Close">
+            <span className="close-glyph">×</span>
+          </button>
         </div>
 
         <div className="body">
@@ -534,6 +536,11 @@ export default function BookmarkDetail({
             font-size: 13px;
             padding: 8px 10px;
           }
+          .head {
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            height: auto;
+            min-height: 48px;
+          }
         }
         @keyframes slideIn {
           from { transform: translateX(30px); opacity: 0; }
@@ -562,6 +569,11 @@ export default function BookmarkDetail({
           font-size: 16px;
           line-height: 1;
           flex-shrink: 0;
+        }
+        .close-glyph {
+          display: block;
+          line-height: 1;
+          transform: translateY(-1px);
         }
         .close:hover { border-color: var(--color-border-strong); }
         .body {

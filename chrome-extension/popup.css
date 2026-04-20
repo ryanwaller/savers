@@ -200,3 +200,13 @@ select:focus {
   color: #9ce7b1;
 }
 
+.status.brat {
+  color: #8ace00;
+  font-weight: 600;
+}
+
+.ai-suggestion-label {
+  color: #8ace00;
+  font-weight: 600;
+}
+
