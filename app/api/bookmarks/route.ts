@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
+import { canonicalBookmarkUrl } from '@/lib/api'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { PREVIEW_BUCKET, storeBookmarkPreview } from '@/lib/preview-server'
 
@@ -252,7 +253,73 @@ export async function DELETE(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
+    const deleteDuplicates = req.nextUrl.searchParams.get('duplicates') === 'true'
     const id = req.nextUrl.searchParams.get('id')
+
+    if (deleteDuplicates) {
+      const { data: bookmarks, error: loadError } = await supabaseAdmin
+        .from('bookmarks')
+        .select('id, url, created_at, preview_path')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+
+      if (loadError) {
+        logUnexpectedError('Load bookmarks before duplicate delete error:', loadError)
+        return NextResponse.json({ error: getErrorMessage(loadError) }, { status: 500 })
+      }
+
+      const seenCanonicalUrls = new Set<string>()
+      const duplicateGroupKeys = new Set<string>()
+      const idsToDelete: string[] = []
+      const previewPathsToDelete: string[] = []
+
+      for (const bookmark of bookmarks ?? []) {
+        const canonicalUrl = canonicalBookmarkUrl(bookmark.url)
+
+        if (seenCanonicalUrls.has(canonicalUrl)) {
+          idsToDelete.push(bookmark.id)
+          duplicateGroupKeys.add(canonicalUrl)
+          if (bookmark.preview_path) {
+            previewPathsToDelete.push(bookmark.preview_path)
+          }
+          continue
+        }
+
+        seenCanonicalUrls.add(canonicalUrl)
+      }
+
+      if (idsToDelete.length === 0) {
+        return NextResponse.json({
+          ok: true,
+          deleted_ids: [],
+          deleted_count: 0,
+          duplicate_group_count: 0,
+        })
+      }
+
+      const { error: deleteError } = await supabaseAdmin
+        .from('bookmarks')
+        .delete()
+        .eq('user_id', user.id)
+        .in('id', idsToDelete)
+
+      if (deleteError) {
+        logUnexpectedError('Bulk duplicate delete error:', deleteError)
+        return NextResponse.json({ error: getErrorMessage(deleteError) }, { status: 500 })
+      }
+
+      if (previewPathsToDelete.length > 0) {
+        void supabaseAdmin.storage.from(PREVIEW_BUCKET).remove(previewPathsToDelete)
+      }
+
+      return NextResponse.json({
+        ok: true,
+        deleted_ids: idsToDelete,
+        deleted_count: idsToDelete.length,
+        duplicate_group_count: duplicateGroupKeys.size,
+      })
+    }
+
     if (!id) return NextResponse.json({ error: 'Missing id' }, { status: 400 })
 
     const { data: existingBookmark, error: existingError } = await supabaseAdmin

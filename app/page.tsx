@@ -16,6 +16,7 @@ import AISuggestionToast from "./components/AISuggestionToast";
 import DropZone from "./components/DropZone";
 import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
+import ConfirmDialog from "./components/ConfirmDialog";
 
 type Selection =
   | { kind: "all" }
@@ -69,6 +70,7 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
@@ -79,6 +81,8 @@ export default function Home() {
   } | null>(null);
   const [dropStatus, setDropStatus] = useState<string | null>(null);
   const [duplicateImportUrls, setDuplicateImportUrls] = useState<string[]>([]);
+  const [showDeleteDuplicates, setShowDeleteDuplicates] = useState(false);
+  const [deletingDuplicates, setDeletingDuplicates] = useState(false);
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
@@ -173,6 +177,7 @@ export default function Home() {
     setDetail(null);
     setToast(null);
     setLoadError(null);
+    setInitialDataLoaded(false);
   }, [user]);
 
   // Load preference on mount
@@ -235,74 +240,87 @@ export default function Home() {
       const { bookmarks } = await api.listBookmarks();
       allBookmarksRef.current = bookmarks;
       setAllBookmarks(bookmarks);
+      setLoadError(null);
       return bookmarks;
-    } catch {
-      /* swallow — the grid will show its own error if needed */
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load bookmarks");
     }
     return null;
-  }, [setAllBookmarks]);
+  }, []);
 
-  const loadVisibleBookmarks = useCallback(
-    async (showLoading = true) => {
+  const refreshFromServer = useCallback(
+    async (showLoading = false) => {
       if (showLoading) setLoadingBookmarks(true);
       try {
-        const params: { collection_id?: string } = {};
-        if (selection.kind === "unsorted") params.collection_id = "unsorted";
-        else if (selection.kind === "collection") params.collection_id = selection.id;
-        // Pinned view: fetch everything, then filter to pinned=true client-side.
-        const { bookmarks } = await api.listBookmarks(params);
-        const scoped =
-          selection.kind === "pinned" ? bookmarks.filter((b) => b.pinned) : bookmarks;
-        setBookmarks(sortPinnedFirst(filterBookmarks(scoped, search, activeTag)));
-        setLoadError(null);
-      } catch (e) {
-        setLoadError(e instanceof Error ? e.message : "Failed to load bookmarks");
+        await Promise.all([loadAllBookmarks(), loadCollections()]);
       } finally {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [selection, search, activeTag]
-  );
-
-  const refreshFromServer = useCallback(
-    async (showLoading = false) => {
-      await loadAllBookmarks();
-      await Promise.all([
-        loadCollections(),
-        loadVisibleBookmarks(showLoading),
-      ]);
-    },
-    [loadAllBookmarks, loadCollections, loadVisibleBookmarks]
+    [loadAllBookmarks, loadCollections]
   );
 
   // Initial load
   useEffect(() => {
     if (authLoading || !user) return;
+    let cancelled = false;
+
     (async () => {
-      await loadAllBookmarks();
-      await loadCollections();
+      setLoadingBookmarks(true);
+      try {
+        await Promise.all([loadAllBookmarks(), loadCollections()]);
+        if (!cancelled) {
+          setInitialDataLoaded(true);
+        }
+      } finally {
+        if (!cancelled) setLoadingBookmarks(false);
+      }
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [authLoading, user, loadAllBookmarks, loadCollections]);
 
   // Load bookmarks for the current view (with debounced search)
   const searchTimer = useRef<number | null>(null);
   useEffect(() => {
-    if (authLoading || !user) return;
+    if (authLoading || !user || !initialDataLoaded) return;
+    const syncVisibleBookmarks = () => {
+      const scoped = allBookmarksRef.current.filter((bookmark) => {
+        if (selection.kind === "unsorted") return bookmark.collection_id === null;
+        if (selection.kind === "pinned") return bookmark.pinned;
+        if (selection.kind === "collection") return bookmark.collection_id === selection.id;
+        return true;
+      });
+
+      setBookmarks(sortPinnedFirst(filterBookmarks(scoped, search, activeTag)));
+      setLoadingBookmarks(false);
+    };
+
     if (searchTimer.current) window.clearTimeout(searchTimer.current);
-    searchTimer.current = window.setTimeout(() => {
-      void loadVisibleBookmarks(true);
-    }, search ? 250 : 0);
+
+    if (!search.trim()) {
+      syncVisibleBookmarks();
+      return () => {
+        if (searchTimer.current) window.clearTimeout(searchTimer.current);
+      };
+    }
+
+    setLoadingBookmarks(true);
+    searchTimer.current = window.setTimeout(syncVisibleBookmarks, 180);
+
     return () => {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
     };
-  }, [authLoading, user, loadVisibleBookmarks, search]);
+  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
 
     const maybeRefresh = () => {
       const now = Date.now();
-      if (now - lastForegroundRefreshRef.current < 800) return;
+      if (now - lastForegroundRefreshRef.current < 15_000) return;
       lastForegroundRefreshRef.current = now;
       void refreshFromServer(false);
     };
@@ -328,6 +346,27 @@ export default function Home() {
     }),
     [allBookmarks]
   );
+
+  const duplicateSummary = useMemo(() => {
+    const seenCanonicalUrls = new Set<string>();
+    const duplicateGroups = new Set<string>();
+    let duplicateCount = 0;
+
+    for (const bookmark of allBookmarks) {
+      const canonicalUrl = canonicalBookmarkUrl(bookmark.url);
+      if (seenCanonicalUrls.has(canonicalUrl)) {
+        duplicateCount += 1;
+        duplicateGroups.add(canonicalUrl);
+        continue;
+      }
+      seenCanonicalUrls.add(canonicalUrl);
+    }
+
+    return {
+      duplicateCount,
+      duplicateGroupCount: duplicateGroups.size,
+    };
+  }, [allBookmarks]);
 
   const subCollections = useMemo<Collection[]>(() => {
     if (selection.kind !== "collection") return [];
@@ -590,6 +629,30 @@ export default function Home() {
       handleBookmarkDeleted(id);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleDeleteDuplicates() {
+    try {
+      setDeletingDuplicates(true);
+      const result = await api.deleteDuplicateBookmarks();
+      const deletedIds = new Set(result.deleted_ids);
+
+      if (deletedIds.size > 0) {
+        updateAllBookmarksState((prev) => prev.filter((bookmark) => !deletedIds.has(bookmark.id)));
+        setBookmarks((prev) => prev.filter((bookmark) => !deletedIds.has(bookmark.id)));
+        setDetail((prev) => (prev && deletedIds.has(prev.id) ? null : prev));
+        setDropStatus(
+          `Deleted ${result.deleted_count} duplicate bookmark${result.deleted_count === 1 ? "" : "s"}.`
+        );
+        window.setTimeout(() => setDropStatus(null), 2200);
+      }
+
+      setShowDeleteDuplicates(false);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete duplicates");
+    } finally {
+      setDeletingDuplicates(false);
     }
   }
 
@@ -945,6 +1008,11 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
+                {duplicateSummary.duplicateCount > 0 && (
+                  <button className="btn" onClick={() => setShowDeleteDuplicates(true)}>
+                    Delete duplicates ({duplicateSummary.duplicateCount})
+                  </button>
+                )}
                 <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
                   + Add bookmark
                 </button>
@@ -1083,6 +1151,16 @@ export default function Home() {
         onAddAnyway={async (urls) => {
           await handleDroppedUrls(urls, { allowDuplicates: true });
         }}
+      />
+
+      <ConfirmDialog
+        open={showDeleteDuplicates}
+        title="Delete duplicate bookmarks?"
+        description={`This will remove ${duplicateSummary.duplicateCount} older duplicate bookmark${duplicateSummary.duplicateCount === 1 ? "" : "s"} across ${duplicateSummary.duplicateGroupCount} URL group${duplicateSummary.duplicateGroupCount === 1 ? "" : "s"}, and keep the newest saved copy of each.`}
+        confirmLabel="Delete duplicates"
+        busy={deletingDuplicates}
+        onConfirm={handleDeleteDuplicates}
+        onCancel={() => setShowDeleteDuplicates(false)}
       />
 
       <style jsx>{`

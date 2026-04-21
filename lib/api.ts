@@ -75,6 +75,14 @@ export const api = {
   async deleteBookmark(id: string): Promise<{ ok: true }> {
     return j(await fetch(`/api/bookmarks?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
   },
+  async deleteDuplicateBookmarks(): Promise<{
+    ok: true;
+    deleted_ids: string[];
+    deleted_count: number;
+    duplicate_group_count: number;
+  }> {
+    return j(await fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
+  },
 
   async fetchMetadata(url: string): Promise<OGData> {
     return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));
