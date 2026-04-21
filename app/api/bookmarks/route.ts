@@ -177,7 +177,9 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })
     }
 
-    await ensureOwnedCollection(user.id, updates.collection_id ?? null)
+    if (updates.collection_id) {
+      await ensureOwnedCollection(user.id, updates.collection_id)
+    }
 
     const { data, error } = await supabaseAdmin
       .from('bookmarks')

@@ -129,6 +129,49 @@ export function normalizeUrl(input: string): string {
   return `https://${value}`;
 }
 
+export function isPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(normalizeUrl(url));
+    const host = parsed.hostname.toLowerCase();
+
+    // Block localhost and standard internal ranges
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "[::1]" ||
+      host === "0.0.0.0"
+    ) {
+      return false;
+    }
+
+    // RFC1918 Private ranges
+    if (
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    ) {
+      return false;
+    }
+
+    // Other reserved / internal patterns
+    if (
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      host.endsWith(".test") ||
+      host.endsWith(".invalid") ||
+      host.endsWith(".example") ||
+      host === "metadata.google.internal" || // GCP
+      host === "169.254.169.254" // AWS/Azure/GCP metadata
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 const TRACKING_QUERY_PARAMS = new Set([
   "fbclid",
   "gclid",

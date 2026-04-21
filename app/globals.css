@@ -37,7 +37,7 @@
 html, body {
   height: 100%;
   font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.45;
   color: var(--color-text);
   background: var(--color-bg);
@@ -51,7 +51,7 @@ body { overflow: hidden; }
 
 button, input, textarea, select {
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
   color: inherit;
 }
 

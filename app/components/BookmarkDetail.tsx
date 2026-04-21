@@ -749,7 +749,7 @@ export default function BookmarkDetail({
           .right :global(.btn) {
             flex: 1 1 140px;
             height: 40px;
-            font-size: 14px;
+            font-size: 13px;
           }
         }
       `}</style>

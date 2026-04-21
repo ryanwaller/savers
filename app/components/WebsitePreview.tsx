@@ -172,7 +172,7 @@ export default function WebsitePreview({
           display: block;
         }
         .identity-letter {
-          font-size: ${compact ? "16px" : "18px"};
+          font-size: ${compact ? "13px" : "13px"};
           font-weight: 700;
           color: var(--color-text);
         }
@@ -189,7 +189,7 @@ export default function WebsitePreview({
           color: var(--color-text-muted);
         }
         .title {
-          font-size: ${compact ? "15px" : "17px"};
+          font-size: ${compact ? "13px" : "13px"};
           line-height: 1.25;
           font-weight: 600;
           display: -webkit-box;

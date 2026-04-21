@@ -495,10 +495,9 @@ function BookmarkCard({
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: color-mix(in srgb, var(--color-bg) 94%, transparent);
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1;
           color: var(--color-text-muted);
-          box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18);
           opacity: 0;
           transform: translateY(6px) scale(0.92);
           pointer-events: none;
@@ -655,7 +654,7 @@ function BookmarkCard({
           width: 100%;
         }
         .title {
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1.4;
           font-weight: 600;
           display: -webkit-box;
@@ -756,7 +755,7 @@ function BookmarkCard({
           height: 24px;
           padding: 0;
           border-radius: 999px;
-          font-size: 14px;
+          font-size: 13px;
           font-weight: 500;
           line-height: 1;
           color: var(--color-text);

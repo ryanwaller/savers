@@ -974,7 +974,7 @@ function CollectionNode({
               top: pickerPos.top,
               left: pickerPos.left,
               zIndex: 1000,
-              boxShadow: "0 16px 40px rgba(0, 0, 0, 0.25)",
+              border: "1px solid var(--color-border)",
               borderRadius: "var(--radius-sm)",
             }}
           >

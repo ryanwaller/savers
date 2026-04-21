@@ -119,7 +119,6 @@ export default function DuplicateImportModal({ open, urls, onClose, onAddAnyway 
           border: 1px solid #ff8f8f;
           border-radius: var(--radius-lg);
           background: var(--color-bg);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
           overflow: hidden;
         }
         .dup-body {

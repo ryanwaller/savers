@@ -98,7 +98,7 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
                   title={name}
                   onClick={() => onPick(name)}
                 >
-                  <Component size={16} weight="regular" />
+                  <Component size={18} weight="regular" />
                 </button>
               ))}
             </div>
@@ -108,8 +108,8 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
 
       <style jsx>{`
         .icon-picker {
-          width: 280px;
-          max-height: 360px;
+          width: 320px;
+          max-height: 400px;
           display: flex;
           flex-direction: column;
           border: 1px solid var(--color-border);
@@ -145,11 +145,11 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
         }
         .body {
           overflow-y: auto;
-          padding: 4px 8px 8px;
+          padding: 4px 10px 10px;
           min-height: 0;
         }
         .group {
-          padding-top: 8px;
+          padding-top: 10px;
         }
         .group-label {
           font-size: 11px;
@@ -157,20 +157,22 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
           padding: 2px 4px;
           letter-spacing: 0.01em;
           font-weight: 500;
+          text-transform: uppercase;
         }
         .grid {
           display: grid;
-          grid-template-columns: repeat(8, 1fr);
-          gap: 2px;
-          padding-top: 4px;
+          grid-template-columns: repeat(7, 1fr);
+          gap: 4px;
+          padding-top: 6px;
         }
         .cell {
           aspect-ratio: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border-radius: 4px;
+          border-radius: 6px;
           color: var(--color-text-muted);
+          transition: background 120ms ease, color 120ms ease;
         }
         .cell:hover {
           background: var(--color-bg-hover);

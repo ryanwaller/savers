@@ -462,43 +462,48 @@ export default function Home() {
     }
   }
 
-  function handleBookmarkCreated(b: Bookmark) {
+  function handleBookmarksCreated(newBatch: Bookmark[]) {
+    if (newBatch.length === 0) return;
     setShowAdd(false);
 
-    updateAllBookmarksState((prev) => [b, ...prev]);
-    if (
-      selection.kind === "all" ||
-      (selection.kind === "unsorted" && b.collection_id === null) ||
-      (selection.kind === "collection" && selection.id === b.collection_id)
-    ) {
-      setBookmarks((prev) => [b, ...prev]);
-    }
+    updateAllBookmarksState((prev) => [...newBatch, ...prev]);
 
-    // Run AI categorization in the background — don't block the save.
-    if (tree.length > 0) {
+    setBookmarks((prev) => {
+      const filteredBatch = newBatch.filter(
+        (b) =>
+          selection.kind === "all" ||
+          (selection.kind === "unsorted" && b.collection_id === null) ||
+          (selection.kind === "collection" && selection.id === b.collection_id)
+      );
+      return [...filteredBatch, ...prev];
+    });
+
+    // Run AI categorization for the first few in the batch to avoid overloading.
+    const first = newBatch[0];
+    if (tree.length > 0 && first) {
       api
         .categorize({
-          url: b.url,
-          title: b.title,
-          description: b.description,
+          url: first.url,
+          title: first.title,
+          description: first.description,
           collections: tree,
         })
         .then(({ suggestion }) => {
           if (
             suggestion &&
             suggestion.confidence !== "low" &&
-            (
-              (suggestion.collection_id && suggestion.collection_id !== b.collection_id) ||
-              suggestion.proposed_collection_name
-            )
+            ((suggestion.collection_id && suggestion.collection_id !== first.collection_id) ||
+              suggestion.proposed_collection_name)
           ) {
-            setToast({ bookmark: b, suggestion });
+            setToast({ bookmark: first, suggestion });
           }
         })
-        .catch(() => {
-          /* silent: no toast means unsorted stays unsorted */
-        });
+        .catch(() => {});
     }
+  }
+
+  function handleBookmarkCreated(b: Bookmark) {
+    handleBookmarksCreated([b]);
   }
 
   async function handleMoveFromToast(collectionId: string) {
@@ -626,15 +631,8 @@ export default function Home() {
 
   async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
     const allowDuplicates = options?.allowDuplicates ?? false;
-    // Auto-save each dropped URL to the current view's collection
-    // (or Unsorted if we're looking at All / Unsorted).
-    const targetCollection =
-      selection.kind === "collection" ? selection.id : null;
+    const targetCollection = selection.kind === "collection" ? selection.id : null;
 
-    // Build a set of canonical URLs already in the library so we can skip
-    // duplicates on the client and surface them in a modal at the end.
-    // If allowDuplicates is true (force re-add path), skip the dedup filter
-    // entirely — the user has explicitly opted to add them anyway.
     const existingCanonical = new Set<string>();
     if (!allowDuplicates) {
       for (const bookmark of allBookmarksRef.current) {
@@ -642,6 +640,7 @@ export default function Home() {
       }
     }
     const duplicates: string[] = [];
+    const createdBatch: Bookmark[] = [];
 
     let okCount = 0;
     let failCount = 0;
@@ -655,16 +654,20 @@ export default function Home() {
         duplicates.push(url);
         continue;
       }
-      // Track within this batch too so identical URLs dropped together only
-      // save once and get counted as duplicates on the second hit. When
-      // force-adding, we skip this too so every entry actually saves.
       if (!allowDuplicates) {
         existingCanonical.add(canonical);
       }
       try {
-        // Best-effort metadata fetch (OG/title/description/favicon).
-        let meta: { title: string | null; description: string | null; og_image: string | null; favicon: string | null } = {
-          title: null, description: null, og_image: null, favicon: null,
+        let meta: {
+          title: string | null;
+          description: string | null;
+          og_image: string | null;
+          favicon: string | null;
+        } = {
+          title: null,
+          description: null,
+          og_image: null,
+          favicon: null,
         };
         try {
           meta = await api.fetchMetadata(url);
@@ -685,7 +688,7 @@ export default function Home() {
           collection_id: targetCollection,
         });
 
-        handleBookmarkCreated(bookmark);
+        createdBatch.push(bookmark);
         okCount += 1;
       } catch (e) {
         failCount += 1;
@@ -696,25 +699,23 @@ export default function Home() {
       }
     }
 
+    if (createdBatch.length > 0) {
+      handleBookmarksCreated(createdBatch);
+    }
+
     const dupCount = duplicates.length;
-    const dupSuffix =
-      dupCount > 0
-        ? ` ${dupCount} duplicate${dupCount === 1 ? "" : "s"} skipped.`
-        : "";
+    const dupSuffix = dupCount > 0 ? ` ${dupCount} duplicate${dupCount === 1 ? "" : "s"} skipped.` : "";
     if (failCount > 0 && okCount === 0 && dupCount === 0) {
       setDropStatus(`Save failed: ${lastError ?? "unknown error"}`);
     } else if (failCount > 0) {
       setDropStatus(`Saved ${okCount} of ${total}. ${failCount} failed.${dupSuffix}`);
     } else if (okCount === 0 && dupCount > 0) {
       setDropStatus(
-        dupCount === 1
-          ? "Already saved — nothing imported."
-          : `${dupCount} duplicates — nothing new imported.`
+        dupCount === 1 ? "Already saved — nothing imported." : `${dupCount} duplicates — nothing new imported.`
       );
     } else {
       setDropStatus(
-        (total === 1 ? "Saved." : `Saved ${okCount} bookmark${okCount === 1 ? "" : "s"}.`) +
-          dupSuffix
+        (total === 1 ? "Saved." : `Saved ${okCount} bookmark${okCount === 1 ? "" : "s"}.`) + dupSuffix
       );
     }
     if (dupCount > 0) {
@@ -1278,7 +1279,7 @@ export default function Home() {
           border-radius: 999px;
           border: 1px solid var(--color-border);
           background: var(--color-bg-secondary);
-          font-size: 14px;
+          font-size: 13px;
         }
         .circle-btn {
           width: 32px;

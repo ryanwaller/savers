@@ -52,13 +52,13 @@ const sections = [
 
 export default function PrivacyPage() {
   return (
-    <main className="min-h-screen overflow-y-auto bg-[var(--color-bg)] px-4 py-6 text-[12px] text-[var(--color-text)] sm:px-6 sm:py-8">
+    <main className="min-h-screen overflow-y-auto bg-[var(--color-bg)] px-4 py-6 text-[13px] text-[var(--color-text)] sm:px-6 sm:py-8">
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-4 pb-24">
         <div className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg-secondary)] p-5 sm:p-6">
           <div className="mb-4 flex items-center justify-between gap-4">
             <div>
               <div className="mb-1 text-[12px] text-[var(--color-text-muted)]">Savers</div>
-              <h1 className="text-[20px] font-medium leading-tight sm:text-[24px]">
+              <h1 className="text-[13px] font-semibold leading-tight">
                 Privacy Policy
               </h1>
             </div>
@@ -84,7 +84,7 @@ export default function PrivacyPage() {
             key={section.title}
             className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg)] p-5 sm:p-6"
           >
-            <h2 className="mb-3 text-[14px] font-medium">{section.title}</h2>
+            <h2 className="mb-3 text-[13px] font-semibold">{section.title}</h2>
             <div className="space-y-3 text-[var(--color-text-muted)]">
               {section.body.map((paragraph) => (
                 <p key={paragraph}>{paragraph}</p>
@@ -94,7 +94,7 @@ export default function PrivacyPage() {
         ))}
 
         <section className="rounded-[18px] border border-[var(--color-border)] bg-[var(--color-bg)] p-5 sm:p-6">
-          <h2 className="mb-3 text-[14px] font-medium">Contact</h2>
+          <h2 className="mb-3 text-[13px] font-semibold">Contact</h2>
           <p className="text-[var(--color-text-muted)]">
             Questions about privacy or deletion requests can be sent to{" "}
             <a className="underline underline-offset-2" href="mailto:ryan@othermeans.us">

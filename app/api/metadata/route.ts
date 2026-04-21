@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import * as cheerio from 'cheerio'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
+import { isPublicUrl } from '@/lib/api'
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url')
   if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 })
+
+  if (!isPublicUrl(url)) {
+    return NextResponse.json({ error: 'Invalid url' }, { status: 400 })
+  }
 
   try {
     await requireUser()

@@ -248,7 +248,6 @@ export default function CollectionPicker({
           display: flex;
           flex-direction: column;
           max-height: 260px;
-          box-shadow: 0 16px 40px rgba(0, 0, 0, 0.16);
         }
         .picker.down .panel { top: 32px; }
         .picker.up .panel { bottom: 32px; }

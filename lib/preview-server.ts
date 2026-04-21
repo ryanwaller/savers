@@ -1,6 +1,6 @@
 import "server-only";
 
-import { normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
+import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const PREVIEW_BUCKET = "bookmark-previews";
@@ -44,6 +44,7 @@ type FetchPreviewOptions = {
   url: string;
   force?: boolean;
   cacheBust?: string | number | null;
+  preferCompact?: boolean;
 };
 
 type StoreBookmarkPreviewOptions = {
@@ -67,6 +68,10 @@ export function normalizeRemotePreviewUrl(rawUrl: string): string {
 
   if (!["http:", "https:"].includes(parsed.protocol)) {
     throw new Error("Invalid protocol");
+  }
+
+  if (!isPublicUrl(normalizedUrl)) {
+    throw new Error("Non-public URLs are not allowed for preview generation");
   }
 
   return normalizedUrl;
@@ -105,14 +110,14 @@ function contentTypeToExtension(contentType: string) {
   return "jpg";
 }
 
-function apiFlashScreenshotUrl(url: string) {
+function apiFlashScreenshotUrl(url: string, compact = false) {
   const params = new URLSearchParams({
     access_key: APIFLASH_ACCESS_KEY ?? "",
     url,
-    width: "1440",
-    height: "900",
-    format: "jpeg",
-    quality: "80",
+    width: compact ? "1280" : "1440",
+    height: compact ? "800" : "900",
+    format: compact ? "webp" : "jpeg",
+    quality: compact ? "72" : "80",
     fresh: "true",
     wait_until: "page_loaded",
     no_cookie_banners: "true",
@@ -121,14 +126,17 @@ function apiFlashScreenshotUrl(url: string) {
   return `https://api.apiflash.com/v1/urltoimage?${params.toString()}`;
 }
 
-function screenshotOneUrl(url: string) {
+function screenshotOneUrl(url: string, compact = false) {
   const params = new URLSearchParams({
     access_key: SCREENSHOTONE_ACCESS_KEY ?? "",
     url,
-    viewport_width: "1440",
-    viewport_height: "900",
-    format: "jpg",
-    image_quality: "80",
+    viewport_width: compact ? "1280" : "1440",
+    viewport_height: compact ? "800" : "900",
+    format: compact ? "webp" : "jpg",
+    image_quality: compact ? "72" : "80",
+    image_width: compact ? "1200" : "1440",
+    image_height: compact ? "750" : "900",
+    device_scale_factor: "1",
     block_ads: "true",
     block_cookie_banners: "true",
     cache: "true",
@@ -155,41 +163,66 @@ function captureKitUrl(url: string) {
   return `https://api.capturekit.dev/v1/capture?${params.toString()}`;
 }
 
-function buildCandidates(url: string, force: boolean, cacheBust?: string | number | null) {
+function buildCandidates(
+  url: string,
+  force: boolean,
+  cacheBust?: string | number | null,
+  preferCompact = false
+) {
   const candidates: ImageCandidate[] = [];
 
-  if (force || Date.now() >= microlinkBackoffUntil) {
-    candidates.push({
-      kind: "microlink",
-      url: screenshotPreviewUrl(url, {
-        force,
-        cacheBust,
-      }),
-    });
-  }
+  const addApiFlash = () => {
+    if (APIFLASH_ACCESS_KEY && (force || Date.now() >= apiFlashBackoffUntil)) {
+      candidates.push({
+        kind: "apiflash",
+        url: apiFlashScreenshotUrl(url, preferCompact),
+      });
+    }
+  };
 
-  if (APIFLASH_ACCESS_KEY && (force || Date.now() >= apiFlashBackoffUntil)) {
-    candidates.push({
-      kind: "apiflash",
-      url: apiFlashScreenshotUrl(url),
-    });
-  }
+  const addScreenshotOne = () => {
+    if (SCREENSHOTONE_ACCESS_KEY && (force || Date.now() >= screenshotOneBackoffUntil)) {
+      candidates.push({
+        kind: "screenshotone",
+        url: screenshotOneUrl(url, preferCompact),
+      });
+    }
+  };
 
-  if (SCREENSHOTONE_ACCESS_KEY && (force || Date.now() >= screenshotOneBackoffUntil)) {
-    candidates.push({
-      kind: "screenshotone",
-      url: screenshotOneUrl(url),
-    });
-  }
+  const addMicrolink = () => {
+    if (force || Date.now() >= microlinkBackoffUntil) {
+      candidates.push({
+        kind: "microlink",
+        url: screenshotPreviewUrl(url, {
+          force,
+          cacheBust,
+        }),
+      });
+    }
+  };
 
-  if (CAPTUREKIT_ACCESS_KEY && (force || Date.now() >= captureKitBackoffUntil)) {
-    candidates.push({
-      kind: "capturekit",
-      url: captureKitUrl(url),
-      headers: {
-        "x-api-key": CAPTUREKIT_ACCESS_KEY,
-      },
-    });
+  const addCaptureKit = () => {
+    if (CAPTUREKIT_ACCESS_KEY && (force || Date.now() >= captureKitBackoffUntil)) {
+      candidates.push({
+        kind: "capturekit",
+        url: captureKitUrl(url),
+        headers: {
+          "x-api-key": CAPTUREKIT_ACCESS_KEY,
+        },
+      });
+    }
+  };
+
+  if (preferCompact) {
+    addApiFlash();
+    addScreenshotOne();
+    addMicrolink();
+    addCaptureKit();
+  } else {
+    addMicrolink();
+    addApiFlash();
+    addScreenshotOne();
+    addCaptureKit();
   }
 
   return candidates;
@@ -324,9 +357,10 @@ export async function fetchBestPreviewAsset({
   url,
   force = false,
   cacheBust,
+  preferCompact = false,
 }: FetchPreviewOptions): Promise<PreviewAsset> {
   const normalizedUrl = normalizeRemotePreviewUrl(url);
-  const candidates = buildCandidates(normalizedUrl, force, cacheBust);
+  const candidates = buildCandidates(normalizedUrl, force, cacheBust, preferCompact);
   let lastError: Error | null = null;
 
   for (const candidate of candidates) {
@@ -359,6 +393,7 @@ export async function storeBookmarkPreview({
     url,
     force,
     cacheBust: version,
+    preferCompact: true,
   });
 
   await ensurePreviewBucket();

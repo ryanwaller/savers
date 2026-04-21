@@ -82,7 +82,6 @@ export default function ConfirmDialog({
           border: 1px solid var(--color-border);
           border-radius: var(--radius-lg);
           background: var(--color-bg);
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
         }
         .confirm-body {
           padding: 16px;

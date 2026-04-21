@@ -156,16 +156,67 @@ import {
   Wrench,
   Hammer,
   Lifebuoy,
+  // New Additions
+  Bank,
+  CreditCard,
+  Coins,
+  Receipt,
+  Wallet,
+  Money,
+  TrendUp,
+  TrendDown,
+  Flower,
+  FlowerLotus,
+  Leaf,
+  Plant,
+  Cactus,
+  Waves,
+  Fire,
+  Park,
+  CookingPot,
+  ForkKnife,
+  Carrot,
+  Egg,
+  IceCream,
+  Presentation,
+  ProjectorScreen,
+  Desktop,
+  Student,
+  Certificate,
+  Trophy,
+  Medal,
+  Lamp,
+  Watch,
+  MagnifyingGlass,
+  Funnel,
+  Trash,
+  Paperclip,
+  Suitcase,
+  SuitcaseRolling,
+  MapPin,
+  NavigationArrow,
+  HeartBreak,
+  Infinity,
+  PlusCircle,
+  Article,
+  Newspaper,
+  Quotes,
+  PintGlass,
+  Sneaker,
+  HandHeart,
+  TShirt,
 } from "@phosphor-icons/react";
 
 export type IconCategory =
   | "General"
   | "Work"
+  | "Finance"
   | "Development"
   | "Design"
   | "Media"
   | "Social"
   | "Travel"
+  | "Nature"
   | "Weather"
   | "Food"
   | "Learning"
@@ -173,8 +224,10 @@ export type IconCategory =
   | "Games"
   | "Sports"
   | "Health"
+  | "Wellness"
   | "Animals"
-  | "Symbols";
+  | "Symbols"
+  | "Objects";
 
 export interface IconDef {
   name: string;
@@ -201,6 +254,8 @@ export const ICONS: IconDef[] = [
   { name: "Hash", Component: Hash, category: "General", keywords: ["hash", "hashtag", "number"] },
   { name: "Files", Component: Files, category: "General", keywords: ["files", "documents"] },
   { name: "File", Component: File, category: "General", keywords: ["file", "document"] },
+  { name: "Article", Component: Article, category: "General", keywords: ["article", "reading", "news"] },
+  { name: "Newspaper", Component: Newspaper, category: "General", keywords: ["news", "newspaper", "press"] },
   { name: "Bell", Component: Bell, category: "General", keywords: ["bell", "notification"] },
   { name: "Gift", Component: Gift, category: "General", keywords: ["gift", "present"] },
 
@@ -215,7 +270,19 @@ export const ICONS: IconDef[] = [
   { name: "PenNib", Component: PenNib, category: "Work", keywords: ["pen", "writing"] },
   { name: "PencilSimple", Component: PencilSimple, category: "Work", keywords: ["pencil", "edit", "writing"] },
   { name: "ChartBar", Component: ChartBar, category: "Work", keywords: ["chart", "analytics", "data"] },
+  { name: "Presentation", Component: Presentation, category: "Work", keywords: ["presentation", "slides", "meeting"] },
+  { name: "ProjectorScreen", Component: ProjectorScreen, category: "Work", keywords: ["projector", "meeting"] },
   { name: "Printer", Component: Printer, category: "Work", keywords: ["printer", "print"] },
+
+  // Finance
+  { name: "Bank", Component: Bank, category: "Finance", keywords: ["bank", "finance", "money"] },
+  { name: "CreditCard", Component: CreditCard, category: "Finance", keywords: ["credit card", "payment", "money"] },
+  { name: "Coins", Component: Coins, category: "Finance", keywords: ["coins", "money", "finance"] },
+  { name: "Receipt", Component: Receipt, category: "Finance", keywords: ["receipt", "bill", "invoice"] },
+  { name: "Wallet", Component: Wallet, category: "Finance", keywords: ["wallet", "money"] },
+  { name: "Money", Component: Money, category: "Finance", keywords: ["money", "cash", "finance"] },
+  { name: "TrendUp", Component: TrendUp, category: "Finance", keywords: ["trend", "up", "stocks", "growth"] },
+  { name: "TrendDown", Component: TrendDown, category: "Finance", keywords: ["trend", "down", "stocks", "loss"] },
 
   // Development
   { name: "Code", Component: Code, category: "Development", keywords: ["code", "programming", "development"] },
@@ -269,6 +336,10 @@ export const ICONS: IconDef[] = [
 
   // Travel
   { name: "Airplane", Component: Airplane, category: "Travel", keywords: ["airplane", "plane", "flight", "travel"] },
+  { name: "Suitcase", Component: Suitcase, category: "Travel", keywords: ["suitcase", "travel", "bag"] },
+  { name: "SuitcaseRolling", Component: SuitcaseRolling, category: "Travel", keywords: ["suitcase", "travel", "luggage"] },
+  { name: "MapPin", Component: MapPin, category: "Travel", keywords: ["map", "location", "pin"] },
+  { name: "NavigationArrow", Component: NavigationArrow, category: "Travel", keywords: ["navigation", "gps", "direction"] },
   { name: "Car", Component: Car, category: "Travel", keywords: ["car", "vehicle", "drive"] },
   { name: "CarSimple", Component: CarSimple, category: "Travel", keywords: ["car", "simple"] },
   { name: "Bicycle", Component: Bicycle, category: "Travel", keywords: ["bicycle", "bike", "cycling"] },
@@ -279,14 +350,22 @@ export const ICONS: IconDef[] = [
   { name: "MapTrifold", Component: MapTrifold, category: "Travel", keywords: ["map", "travel", "directions"] },
   { name: "Compass", Component: Compass, category: "Travel", keywords: ["compass", "direction"] },
   { name: "Globe", Component: Globe, category: "Travel", keywords: ["globe", "world", "earth"] },
-  { name: "Mountains", Component: Mountains, category: "Travel", keywords: ["mountains", "hiking", "outdoor"] },
-  { name: "Tree", Component: Tree, category: "Travel", keywords: ["tree", "nature"] },
-  { name: "TreePalm", Component: TreePalm, category: "Travel", keywords: ["palm", "tree", "tropical", "beach"] },
-  { name: "TreeEvergreen", Component: TreeEvergreen, category: "Travel", keywords: ["evergreen", "tree", "forest"] },
-  { name: "Tent", Component: Tent, category: "Travel", keywords: ["tent", "camping", "outdoor"] },
-  { name: "Anchor", Component: Anchor, category: "Travel", keywords: ["anchor", "boat", "nautical"] },
-  { name: "Binoculars", Component: Binoculars, category: "Travel", keywords: ["binoculars", "travel", "view"] },
-  { name: "Feather", Component: Feather, category: "Travel", keywords: ["feather", "bird", "light"] },
+
+  // Nature
+  { name: "Mountains", Component: Mountains, category: "Nature", keywords: ["mountains", "hiking", "outdoor"] },
+  { name: "Tree", Component: Tree, category: "Nature", keywords: ["tree", "nature"] },
+  { name: "TreePalm", Component: TreePalm, category: "Nature", keywords: ["palm", "tree", "tropical", "beach"] },
+  { name: "TreeEvergreen", Component: TreeEvergreen, category: "Nature", keywords: ["evergreen", "tree", "forest"] },
+  { name: "Flower", Component: Flower, category: "Nature", keywords: ["flower", "nature", "garden"] },
+  { name: "FlowerLotus", Component: FlowerLotus, category: "Nature", keywords: ["lotus", "flower", "yoga", "meditation"] },
+  { name: "Leaf", Component: Leaf, category: "Nature", keywords: ["leaf", "nature", "plant"] },
+  { name: "Plant", Component: Plant, category: "Nature", keywords: ["plant", "nature", "garden"] },
+  { name: "Cactus", Component: Cactus, category: "Nature", keywords: ["cactus", "nature", "desert"] },
+  { name: "Waves", Component: Waves, category: "Nature", keywords: ["waves", "ocean", "sea", "beach"] },
+  { name: "Fire", Component: Fire, category: "Nature", keywords: ["fire", "flame", "hot"] },
+  { name: "Park", Component: Park, category: "Nature", keywords: ["park", "nature", "outdoor"] },
+  { name: "Tent", Component: Tent, category: "Nature", keywords: ["tent", "camping", "outdoor"] },
+  { name: "Anchor", Component: Anchor, category: "Nature", keywords: ["anchor", "boat", "nautical"] },
 
   // Weather
   { name: "Sun", Component: Sun, category: "Weather", keywords: ["sun", "sunny", "day"] },
@@ -299,15 +378,23 @@ export const ICONS: IconDef[] = [
   { name: "Umbrella", Component: Umbrella, category: "Weather", keywords: ["umbrella", "rain"] },
 
   // Food
-  { name: "Coffee", Component: Coffee, category: "Food", keywords: ["coffee", "drink"] },
+  { name: "Coffee", Component: Coffee, category: "Food", keywords: ["coffee", "drink", "cafe"] },
   { name: "BowlFood", Component: BowlFood, category: "Food", keywords: ["food", "bowl", "meal"] },
+  { name: "CookingPot", Component: CookingPot, category: "Food", keywords: ["cook", "pot", "cooking", "recipe"] },
+  { name: "ForkKnife", Component: ForkKnife, category: "Food", keywords: ["eat", "restaurant", "food", "dining"] },
+  { name: "Carrot", Component: Carrot, category: "Food", keywords: ["carrot", "vegetable", "food", "healthy"] },
+  { name: "Egg", Component: Egg, category: "Food", keywords: ["egg", "food", "breakfast"] },
   { name: "Hamburger", Component: Hamburger, category: "Food", keywords: ["burger", "hamburger", "food"] },
   { name: "Pizza", Component: Pizza, category: "Food", keywords: ["pizza", "food"] },
   { name: "Cookie", Component: Cookie, category: "Food", keywords: ["cookie", "snack"] },
-  { name: "Wine", Component: Wine, category: "Food", keywords: ["wine", "drink"] },
+  { name: "IceCream", Component: IceCream, category: "Food", keywords: ["ice cream", "dessert", "sweet"] },
+  { name: "Wine", Component: Wine, category: "Food", keywords: ["wine", "drink", "alcohol"] },
+  { name: "PintGlass", Component: PintGlass, category: "Food", keywords: ["beer", "pint", "drink"] },
 
   // Learning
   { name: "GraduationCap", Component: GraduationCap, category: "Learning", keywords: ["graduation", "school", "education"] },
+  { name: "Student", Component: Student, category: "Learning", keywords: ["student", "learning", "education"] },
+  { name: "Certificate", Component: Certificate, category: "Learning", keywords: ["certificate", "award", "education"] },
   { name: "Book", Component: Book, category: "Learning", keywords: ["book", "reading"] },
   { name: "BookOpen", Component: BookOpen, category: "Learning", keywords: ["book", "open", "reading"] },
   { name: "Books", Component: Books, category: "Learning", keywords: ["books", "library", "reading"] },
@@ -322,6 +409,7 @@ export const ICONS: IconDef[] = [
   { name: "ShoppingCart", Component: ShoppingCart, category: "Shopping", keywords: ["shopping", "cart", "commerce"] },
   { name: "Storefront", Component: Storefront, category: "Shopping", keywords: ["storefront", "shop", "store"] },
   { name: "Handbag", Component: Handbag, category: "Shopping", keywords: ["handbag", "purse", "fashion"] },
+  { name: "TShirt", Component: TShirt, category: "Shopping", keywords: ["clothing", "shirt", "fashion"] },
   { name: "Ticket", Component: Ticket, category: "Shopping", keywords: ["ticket", "event"] },
 
   // Games
@@ -335,6 +423,8 @@ export const ICONS: IconDef[] = [
   { name: "Football", Component: Football, category: "Sports", keywords: ["football", "ball"] },
   { name: "Volleyball", Component: Volleyball, category: "Sports", keywords: ["volleyball", "ball"] },
   { name: "Barbell", Component: Barbell, category: "Sports", keywords: ["barbell", "gym", "weights", "fitness"] },
+  { name: "Trophy", Component: Trophy, category: "Sports", keywords: ["trophy", "winner", "award"] },
+  { name: "Medal", Component: Medal, category: "Sports", keywords: ["medal", "award", "winner"] },
   { name: "PersonSimpleRun", Component: PersonSimpleRun, category: "Sports", keywords: ["run", "running", "jog", "fitness"] },
 
   // Health
@@ -344,6 +434,10 @@ export const ICONS: IconDef[] = [
   { name: "Stethoscope", Component: Stethoscope, category: "Health", keywords: ["stethoscope", "doctor", "medical"] },
   { name: "Hospital", Component: Hospital, category: "Health", keywords: ["hospital", "medical"] },
   { name: "Bandaids", Component: Bandaids, category: "Health", keywords: ["bandaids", "medical"] },
+
+  // Wellness
+  { name: "HandHeart", Component: HandHeart, category: "Wellness", keywords: ["wellness", "care", "health"] },
+  { name: "Sneaker", Component: Sneaker, category: "Wellness", keywords: ["shoes", "fitness", "running"] },
 
   // Animals
   { name: "Horse", Component: Horse, category: "Animals", keywords: ["horse", "animal"] },
@@ -357,6 +451,16 @@ export const ICONS: IconDef[] = [
   { name: "SmileySad", Component: SmileySad, category: "Animals", keywords: ["sad", "face"] },
   { name: "SmileyWink", Component: SmileyWink, category: "Animals", keywords: ["wink", "face"] },
 
+  // Objects
+  { name: "Lamp", Component: Lamp, category: "Objects", keywords: ["lamp", "light", "home"] },
+  { name: "Watch", Component: Watch, category: "Objects", keywords: ["watch", "time", "accessory"] },
+  { name: "Binoculars", Component: Binoculars, category: "Objects", keywords: ["binoculars", "travel", "view"] },
+  { name: "MagnifyingGlass", Component: MagnifyingGlass, category: "Objects", keywords: ["search", "find", "zoom"] },
+  { name: "Funnel", Component: Funnel, category: "Objects", keywords: ["filter", "funnel"] },
+  { name: "Trash", Component: Trash, category: "Objects", keywords: ["delete", "trash", "remove"] },
+  { name: "Paperclip", Component: Paperclip, category: "Objects", keywords: ["attach", "paperclip", "file"] },
+  { name: "Quotes", Component: Quotes, category: "Objects", keywords: ["quote", "text"] },
+
   // Symbols / misc
   { name: "Lock", Component: Lock, category: "Symbols", keywords: ["lock", "secure", "password"] },
   { name: "Key", Component: Key, category: "Symbols", keywords: ["key", "password", "secret"] },
@@ -368,6 +472,9 @@ export const ICONS: IconDef[] = [
   { name: "CheckCircle", Component: CheckCircle, category: "Symbols", keywords: ["check", "done", "complete"] },
   { name: "Diamond", Component: Diamond, category: "Symbols", keywords: ["diamond", "premium", "valuable"] },
   { name: "Lightning", Component: Lightning, category: "Symbols", keywords: ["lightning", "fast", "quick", "zap"] },
+  { name: "HeartBreak", Component: HeartBreak, category: "Symbols", keywords: ["heart", "break", "sad"] },
+  { name: "Infinity", Component: Infinity, category: "Symbols", keywords: ["infinity", "forever", "math"] },
+  { name: "PlusCircle", Component: PlusCircle, category: "Symbols", keywords: ["add", "plus", "new"] },
   { name: "Gear", Component: Gear, category: "Symbols", keywords: ["gear", "settings", "config"] },
   { name: "Wrench", Component: Wrench, category: "Symbols", keywords: ["wrench", "tools", "fix"] },
   { name: "Hammer", Component: Hammer, category: "Symbols", keywords: ["hammer", "tools", "build"] },
@@ -387,11 +494,13 @@ export function iconComponentByName(name: string | null | undefined): Icon {
 export const ICON_CATEGORIES: IconCategory[] = [
   "General",
   "Work",
+  "Finance",
   "Development",
   "Design",
   "Media",
   "Social",
   "Travel",
+  "Nature",
   "Weather",
   "Food",
   "Learning",
@@ -399,6 +508,9 @@ export const ICON_CATEGORIES: IconCategory[] = [
   "Games",
   "Sports",
   "Health",
+  "Wellness",
   "Animals",
   "Symbols",
+  "Objects",
 ];
+
