@@ -76,8 +76,16 @@ export default function Home() {
     l: 380,
     xl: 480,
   };
+  // Mobile column counts: S = 3 across, M = 2 across, L/XL = 1 across.
+  const CARD_SIZE_COLS: Record<CardSize, number> = {
+    s: 3,
+    m: 2,
+    l: 1,
+    xl: 1,
+  };
   const [cardSize, setCardSize] = useState<CardSize>("m");
   const cardMinWidth = CARD_SIZE_PX[cardSize];
+  const cardCols = CARD_SIZE_COLS[cardSize];
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -1128,6 +1136,7 @@ export default function Home() {
           onClearCustomPreview={handleClearCustomPreview}
           onTagClick={handleTagClick}
           cardMinWidth={cardMinWidth}
+          cardCols={cardCols}
           loading={loadingBookmarks}
             emptyLabel={
               search || activeTag
@@ -1149,7 +1158,7 @@ export default function Home() {
               type="button"
               role="radio"
               aria-checked={cardSize === size}
-              className={`size-btn ${cardSize === size ? "size-btn-active" : ""}`}
+              className={`size-btn size-btn-${size} ${cardSize === size ? "size-btn-active" : ""}`}
               onClick={() => setCardSize(size)}
               title={`${size.toUpperCase()} previews`}
             >
@@ -1287,6 +1296,12 @@ export default function Home() {
         }
         @media (max-width: 768px) {
           .size-control {
+            position: fixed;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+            left: 50%;
+            transform: translateX(-50%);
+          }
+          .size-btn-xl {
             display: none;
           }
         }

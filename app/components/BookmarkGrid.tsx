@@ -27,6 +27,7 @@ type Props = {
   onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
+  cardCols?: number;
   loading?: boolean;
   emptyLabel?: string;
 };
@@ -43,18 +44,20 @@ export default function BookmarkGrid({
   onClearCustomPreview,
   onTagClick,
   cardMinWidth,
+  cardCols,
   loading,
   emptyLabel,
 }: Props) {
+  const gridStyle: CSSProperties | undefined =
+    cardMinWidth || cardCols
+      ? ({
+          ...(cardMinWidth ? { "--card-min": `${cardMinWidth}px` } : null),
+          ...(cardCols ? { "--card-cols": String(cardCols) } : null),
+        } as CSSProperties)
+      : undefined;
+
   return (
-    <div
-      className="grid"
-      style={
-        cardMinWidth
-          ? ({ "--card-min": `${cardMinWidth}px` } as CSSProperties)
-          : undefined
-      }
-    >
+    <div className="grid" style={gridStyle}>
       {subCollections.map((c) => (
         <CollectionCard key={c.id} c={c} onClick={() => onOpenCollection(c.id)} />
       ))}
@@ -84,8 +87,9 @@ export default function BookmarkGrid({
         }
         @media (max-width: 768px) {
           .grid {
-            grid-template-columns: repeat(2, minmax(0, 1fr));
+            grid-template-columns: repeat(var(--card-cols, 2), minmax(0, 1fr));
             padding: 12px;
+            padding-bottom: 80px;
             gap: 12px;
           }
         }
