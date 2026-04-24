@@ -68,10 +68,16 @@ export default function Home() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
-  const MIN_CARD_WIDTH = 220;
-  const MAX_CARD_WIDTH = 460;
-  const DEFAULT_CARD_WIDTH = 300;
-  const [cardMinWidth, setCardMinWidth] = useState(DEFAULT_CARD_WIDTH);
+  const CARD_SIZES = ["s", "m", "l", "xl"] as const;
+  type CardSize = (typeof CARD_SIZES)[number];
+  const CARD_SIZE_PX: Record<CardSize, number> = {
+    s: 220,
+    m: 300,
+    l: 380,
+    xl: 480,
+  };
+  const [cardSize, setCardSize] = useState<CardSize>("m");
+  const cardMinWidth = CARD_SIZE_PX[cardSize];
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -204,17 +210,16 @@ export default function Home() {
   // Load/save card size preference
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = window.localStorage.getItem("savers.grid.cardMinWidth");
-    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
-    if (Number.isFinite(parsed)) {
+    const raw = window.localStorage.getItem("savers.grid.cardSize");
+    if (raw && (CARD_SIZES as readonly string[]).includes(raw)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
-      setCardMinWidth(Math.min(MAX_CARD_WIDTH, Math.max(MIN_CARD_WIDTH, parsed)));
+      setCardSize(raw as CardSize);
     }
   }, []);
   useEffect(() => {
     if (typeof window === "undefined") return;
-    window.localStorage.setItem("savers.grid.cardMinWidth", String(cardMinWidth));
-  }, [cardMinWidth]);
+    window.localStorage.setItem("savers.grid.cardSize", cardSize);
+  }, [cardSize]);
 
   useEffect(() => {
     if (!resizingSidebar) return;
@@ -1137,20 +1142,20 @@ export default function Home() {
             }
           />
         </section>
-        <div className="size-control" aria-label="Preview size">
-          <span className="size-glyph size-glyph-sm" aria-hidden="true" />
-          <input
-            className="size-slider"
-            type="range"
-            min={MIN_CARD_WIDTH}
-            max={MAX_CARD_WIDTH}
-            step={20}
-            value={cardMinWidth}
-            onChange={(event) => setCardMinWidth(Number(event.target.value))}
-            aria-label="Preview size"
-            title="Preview size"
-          />
-          <span className="size-glyph size-glyph-lg" aria-hidden="true" />
+        <div className="size-control" role="radiogroup" aria-label="Preview size">
+          {CARD_SIZES.map((size) => (
+            <button
+              key={size}
+              type="button"
+              role="radio"
+              aria-checked={cardSize === size}
+              className={`size-btn ${cardSize === size ? "size-btn-active" : ""}`}
+              onClick={() => setCardSize(size)}
+              title={`${size.toUpperCase()} previews`}
+            >
+              {size.toUpperCase()}
+            </button>
+          ))}
         </div>
       </main>
 
@@ -1235,19 +1240,18 @@ export default function Home() {
         }
         .size-control {
           position: absolute;
-          left: 16px;
+          left: 50%;
+          transform: translateX(-50%);
           bottom: 16px;
           z-index: 6;
+          height: 32px;
           display: inline-flex;
-          align-items: center;
-          gap: 10px;
-          padding: 6px 12px;
+          align-items: stretch;
+          padding: 2px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
-          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
-          opacity: 0.55;
+          background: var(--color-bg);
+          opacity: 0.7;
           transition: opacity 140ms ease, border-color 140ms ease;
         }
         .size-control:hover,
@@ -1255,61 +1259,31 @@ export default function Home() {
           opacity: 1;
           border-color: var(--color-border-strong);
         }
-        .size-glyph {
-          display: inline-block;
-          border: 1.5px solid var(--color-text-muted);
-          border-radius: 3px;
-          background: transparent;
-          flex-shrink: 0;
-        }
-        .size-glyph-sm {
-          width: 10px;
-          height: 8px;
-        }
-        .size-glyph-lg {
-          width: 16px;
-          height: 12px;
-        }
-        .size-slider {
-          appearance: none;
-          -webkit-appearance: none;
-          width: 120px;
-          height: 18px;
-          background: transparent;
-          cursor: pointer;
-          margin: 0;
-        }
-        .size-slider::-webkit-slider-runnable-track {
-          height: 2px;
-          background: var(--color-border-strong);
-          border-radius: 2px;
-        }
-        .size-slider::-moz-range-track {
-          height: 2px;
-          background: var(--color-border-strong);
-          border-radius: 2px;
-        }
-        .size-slider::-webkit-slider-thumb {
-          appearance: none;
-          -webkit-appearance: none;
-          width: 12px;
-          height: 12px;
-          border-radius: 999px;
-          background: var(--color-text);
+        .size-btn {
+          min-width: 32px;
+          padding: 0 10px;
           border: none;
-          margin-top: -5px;
-          cursor: pointer;
-        }
-        .size-slider::-moz-range-thumb {
-          width: 12px;
-          height: 12px;
+          background: transparent;
+          color: var(--color-text-muted);
+          font-size: 11px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
           border-radius: 999px;
-          background: var(--color-text);
-          border: none;
           cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 120ms ease, color 120ms ease;
         }
-        .size-slider:focus-visible {
-          outline: none;
+        .size-btn:hover {
+          color: var(--color-text);
+        }
+        .size-btn-active {
+          background: var(--color-text);
+          color: var(--color-bg);
+        }
+        .size-btn-active:hover {
+          color: var(--color-bg);
         }
         @media (max-width: 768px) {
           .size-control {
