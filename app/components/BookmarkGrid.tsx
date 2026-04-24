@@ -699,6 +699,22 @@ function BookmarkCard({
             box-shadow: none;
           }
         }
+        @media (max-width: 768px) {
+          .actions {
+            top: 5px;
+            right: 5px;
+            gap: 3px;
+          }
+          .action-btn {
+            width: 22px;
+            height: 22px;
+            font-size: 11px;
+          }
+          .action-btn :global(svg) {
+            width: 10px;
+            height: 10px;
+          }
+        }
         .action-btn:hover:not(:disabled) {
           color: var(--color-text);
           border-color: var(--color-border-strong);
