@@ -102,6 +102,82 @@ textarea { resize: vertical; min-height: 56px; }
   line-height: 1.4;
 }
 
+.tags-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.suggest-btn {
+  font-family: inherit;
+  font-size: 11px;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg);
+  color: var(--color-text);
+  line-height: 1;
+  cursor: pointer;
+}
+.suggest-btn:hover:not(:disabled) {
+  border-color: var(--color-border-strong);
+  background: var(--color-bg-hover);
+}
+.suggest-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.tag-proposals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  padding: 4px 0 2px;
+}
+
+.tag-proposal {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px dashed var(--color-border-strong);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  overflow: hidden;
+  line-height: 1;
+}
+
+.tag-proposal-add,
+.tag-proposal-skip {
+  font-family: inherit;
+  font-size: 12px;
+  border: 0;
+  background: transparent;
+  color: var(--color-text);
+  cursor: pointer;
+  line-height: 1;
+}
+.tag-proposal-add {
+  padding: 4px 8px;
+}
+.tag-proposal-add:hover {
+  background: var(--color-bg-hover);
+}
+.tag-proposal-skip {
+  padding: 0 7px;
+  color: var(--color-text-muted);
+  border-left: 1px dashed var(--color-border-strong);
+}
+.tag-proposal-skip:hover {
+  background: var(--color-bg-hover);
+  color: var(--color-text);
+}
+.tag-proposals-status {
+  padding: 2px 4px;
+  font-size: 12px;
+  color: var(--color-text-muted);
+}
+
 .settings {
   display: flex;
   flex-direction: column;

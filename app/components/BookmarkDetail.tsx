@@ -55,6 +55,9 @@ export default function BookmarkDetail({
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [tagProposals, setTagProposals] = useState<string[]>([]);
+  const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
+  const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -70,6 +73,8 @@ export default function BookmarkDetail({
     setAiStatus(null);
     setShowCreateCollection(false);
     setNewCollectionName("");
+    setTagProposals([]);
+    setTagSuggestStatus(null);
   }, [bookmark.id]);
 
   const runSuggest = useCallback(async () => {
@@ -179,6 +184,46 @@ export default function BookmarkDetail({
     const nextTags = tags.filter((tag) => tag !== tagToRemove);
     setTags(nextTags);
     await patchTags(nextTags);
+  }
+
+  async function runTagSuggest() {
+    if (tagSuggestLoading) return;
+    setTagSuggestLoading(true);
+    setTagSuggestStatus("Reading the page…");
+    try {
+      const { tags: proposed } = await api.suggestTags({
+        url: bookmark.url,
+        title: title.trim() || bookmark.title,
+        description: description.trim() || bookmark.description,
+        existing_tags: tags,
+      });
+      const fresh = proposed.filter(
+        (t) => !tags.some((existing) => existing.toLowerCase() === t.toLowerCase())
+      );
+      setTagProposals(fresh);
+      setTagSuggestStatus(
+        fresh.length ? null : "No new tags to suggest."
+      );
+    } catch (e) {
+      setTagProposals([]);
+      setTagSuggestStatus(
+        `Couldn't suggest tags: ${e instanceof Error ? e.message : "unknown error"}`
+      );
+    } finally {
+      setTagSuggestLoading(false);
+    }
+  }
+
+  async function acceptProposal(tag: string) {
+    setTagProposals((prev) => prev.filter((t) => t !== tag));
+    const nextTags = buildNextTags(tag);
+    if (!nextTags) return;
+    setTags(nextTags);
+    await patchTags(nextTags);
+  }
+
+  function dismissProposal(tag: string) {
+    setTagProposals((prev) => prev.filter((t) => t !== tag));
   }
 
   async function doDelete() {
@@ -424,7 +469,54 @@ export default function BookmarkDetail({
           )}
 
           <label className="field">
-            <div className="label">Tags <span className="small muted">(press Enter)</span></div>
+            <div className="label tags-label">
+              <span>Tags <span className="small muted">(press Enter)</span></span>
+              <button
+                type="button"
+                className="tag-suggest-btn"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void runTagSuggest();
+                }}
+                disabled={tagSuggestLoading}
+                title="Suggest tags from the page content"
+              >
+                {tagSuggestLoading ? "Suggesting…" : "Suggest"}
+              </button>
+            </div>
+            {(tagProposals.length > 0 || tagSuggestStatus) && (
+              <div className="tag-proposals">
+                {tagProposals.map((tag) => (
+                  <span key={tag} className="tag-proposal">
+                    <button
+                      type="button"
+                      className="tag-proposal-add"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void acceptProposal(tag);
+                      }}
+                      title={`Add "${tag}"`}
+                    >
+                      + {tag}
+                    </button>
+                    <button
+                      type="button"
+                      className="tag-proposal-skip"
+                      aria-label={`Skip ${tag}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        dismissProposal(tag);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {tagSuggestStatus && (
+                  <span className="tag-proposals-status small muted">{tagSuggestStatus}</span>
+                )}
+              </div>
+            )}
             <div className={`tag-editor ${tagSaving ? "busy" : ""}`}>
               {tags.map((tag) => (
                 <span key={tag} className="tag-pill">
@@ -674,6 +766,67 @@ export default function BookmarkDetail({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .tags-label {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .tag-suggest-btn {
+          font-size: 11px;
+          padding: 3px 8px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          line-height: 1;
+        }
+        .tag-suggest-btn:hover:not(:disabled) {
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .tag-suggest-btn:disabled {
+          opacity: 0.6;
+          cursor: default;
+        }
+        .tag-proposals {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+          padding: 4px 0 2px;
+        }
+        .tag-proposal {
+          display: inline-flex;
+          align-items: stretch;
+          border: 1px dashed var(--color-border-strong);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          overflow: hidden;
+          line-height: 1;
+        }
+        .tag-proposal-add {
+          padding: 4px 8px;
+          font-size: 12px;
+          color: var(--color-text);
+          line-height: 1;
+        }
+        .tag-proposal-add:hover {
+          background: var(--color-bg-hover);
+        }
+        .tag-proposal-skip {
+          padding: 0 7px;
+          font-size: 12px;
+          color: var(--color-text-muted);
+          border-left: 1px dashed var(--color-border-strong);
+        }
+        .tag-proposal-skip:hover {
+          background: var(--color-bg-hover);
+          color: var(--color-text);
+        }
+        .tag-proposals-status {
+          padding: 2px 4px;
         }
         .tag-editor {
           min-height: 32px;

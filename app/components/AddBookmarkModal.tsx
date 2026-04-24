@@ -60,6 +60,64 @@ export default function AddBookmarkModal({
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
 
+  // Tag suggestion state
+  const [tagProposals, setTagProposals] = useState<string[]>([]);
+  const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
+  const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
+
+  function parseTags(raw: string): string[] {
+    return raw
+      .split(",")
+      .map((t) => t.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function appendTag(tag: string) {
+    const existing = parseTags(tags);
+    if (existing.some((t) => t === tag.toLowerCase())) return;
+    const next = existing.length ? `${tags.replace(/,\s*$/, "")}, ${tag}` : tag;
+    setTags(next);
+  }
+
+  async function runTagSuggest() {
+    if (tagSuggestLoading) return;
+    const candidateUrl = url.trim();
+    if (!candidateUrl) {
+      setTagSuggestStatus("Paste a URL first.");
+      return;
+    }
+    setTagSuggestLoading(true);
+    setTagSuggestStatus("Reading the page…");
+    try {
+      const { tags: proposed } = await api.suggestTags({
+        url: candidateUrl,
+        title: title.trim() || null,
+        description: description.trim() || null,
+        existing_tags: parseTags(tags),
+      });
+      const existing = new Set(parseTags(tags));
+      const fresh = proposed.filter((t) => !existing.has(t.toLowerCase()));
+      setTagProposals(fresh);
+      setTagSuggestStatus(fresh.length ? null : "No new tags to suggest.");
+    } catch (e) {
+      setTagProposals([]);
+      setTagSuggestStatus(
+        `Couldn't suggest tags: ${e instanceof Error ? e.message : "unknown error"}`
+      );
+    } finally {
+      setTagSuggestLoading(false);
+    }
+  }
+
+  function acceptProposal(tag: string) {
+    appendTag(tag);
+    setTagProposals((prev) => prev.filter((t) => t !== tag));
+  }
+
+  function dismissProposal(tag: string) {
+    setTagProposals((prev) => prev.filter((t) => t !== tag));
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
@@ -543,7 +601,58 @@ export default function AddBookmarkModal({
           </div>
 
           <label className="field">
-            <div className="label">Tags <span className="small muted">(comma separated)</span></div>
+            <div className="label tags-label">
+              <span>Tags <span className="small muted">(comma separated)</span></span>
+              <button
+                type="button"
+                className="tag-suggest-btn"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void runTagSuggest();
+                }}
+                disabled={tagSuggestLoading || !url.trim()}
+                title={
+                  url.trim()
+                    ? "Suggest tags from the page content"
+                    : "Add a URL to suggest tags"
+                }
+              >
+                {tagSuggestLoading ? "Suggesting…" : "Suggest"}
+              </button>
+            </div>
+            {(tagProposals.length > 0 || tagSuggestStatus) && (
+              <div className="tag-proposals">
+                {tagProposals.map((tag) => (
+                  <span key={tag} className="tag-proposal">
+                    <button
+                      type="button"
+                      className="tag-proposal-add"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        acceptProposal(tag);
+                      }}
+                      title={`Add "${tag}"`}
+                    >
+                      + {tag}
+                    </button>
+                    <button
+                      type="button"
+                      className="tag-proposal-skip"
+                      aria-label={`Skip ${tag}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        dismissProposal(tag);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {tagSuggestStatus && (
+                  <span className="tag-proposals-status small muted">{tagSuggestStatus}</span>
+                )}
+              </div>
+            )}
             <input
               placeholder="design, inspiration"
               value={tags}
@@ -572,6 +681,67 @@ export default function AddBookmarkModal({
       </div>
 
       <style jsx>{`
+        .tags-label {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+        }
+        .tag-suggest-btn {
+          font-size: 11px;
+          padding: 3px 8px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          line-height: 1;
+        }
+        .tag-suggest-btn:hover:not(:disabled) {
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .tag-suggest-btn:disabled {
+          opacity: 0.6;
+          cursor: default;
+        }
+        .tag-proposals {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: center;
+          padding: 4px 0 2px;
+        }
+        .tag-proposal {
+          display: inline-flex;
+          align-items: stretch;
+          border: 1px dashed var(--color-border-strong);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          overflow: hidden;
+          line-height: 1;
+        }
+        .tag-proposal-add {
+          padding: 4px 8px;
+          font-size: 12px;
+          color: var(--color-text);
+          line-height: 1;
+        }
+        .tag-proposal-add:hover {
+          background: var(--color-bg-hover);
+        }
+        .tag-proposal-skip {
+          padding: 0 7px;
+          font-size: 12px;
+          color: var(--color-text-muted);
+          border-left: 1px dashed var(--color-border-strong);
+        }
+        .tag-proposal-skip:hover {
+          background: var(--color-bg-hover);
+          color: var(--color-text);
+        }
+        .tag-proposals-status {
+          padding: 2px 4px;
+        }
         .backdrop {
           position: fixed;
           inset: 0;

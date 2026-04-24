@@ -3,6 +3,9 @@ const DEFAULT_API_BASE = "https://savers-production.up.railway.app";
 const urlInput = document.getElementById("url");
 const titleInput = document.getElementById("title");
 const notesInput = document.getElementById("notes");
+const tagsInput = document.getElementById("tags");
+const suggestTagsBtn = document.getElementById("suggestTags");
+const tagProposalsEl = document.getElementById("tagProposals");
 const collectionSelect = document.getElementById("collection");
 const apiBaseInput = document.getElementById("apiBase");
 const statusEl = document.getElementById("status");
@@ -13,6 +16,8 @@ const resultEl = document.getElementById("result");
 
 let collectionPaths = [];
 let apiBase = DEFAULT_API_BASE;
+let tagProposals = [];
+let tagSuggestStatus = null;
 
 function normalizeBaseUrl(input) {
   const value = (input || "").trim();
@@ -135,7 +140,7 @@ async function save(ev) {
       og_image: meta.og_image,
       favicon: meta.favicon,
       notes: notesInput.value.trim() || null,
-      tags: [],
+      tags: parseTags(tagsInput.value),
       collection_id: collectionSelect.value || null,
     };
 
@@ -206,6 +211,119 @@ async function save(ev) {
   }
 }
 
+function parseTags(raw) {
+  return (raw || "")
+    .split(",")
+    .map((t) => t.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function appendTag(tag) {
+  const existing = parseTags(tagsInput.value);
+  if (existing.some((t) => t === tag.toLowerCase())) return;
+  const trimmed = (tagsInput.value || "").replace(/,\s*$/, "");
+  tagsInput.value = trimmed ? `${trimmed}, ${tag}` : tag;
+}
+
+function renderTagProposals() {
+  tagProposalsEl.innerHTML = "";
+  if (!tagProposals.length && !tagSuggestStatus) {
+    tagProposalsEl.hidden = true;
+    return;
+  }
+  tagProposalsEl.hidden = false;
+
+  for (const tag of tagProposals) {
+    const wrap = document.createElement("span");
+    wrap.className = "tag-proposal";
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "tag-proposal-add";
+    addBtn.textContent = `+ ${tag}`;
+    addBtn.title = `Add "${tag}"`;
+    addBtn.addEventListener("click", () => {
+      appendTag(tag);
+      tagProposals = tagProposals.filter((t) => t !== tag);
+      renderTagProposals();
+    });
+    wrap.appendChild(addBtn);
+
+    const skipBtn = document.createElement("button");
+    skipBtn.type = "button";
+    skipBtn.className = "tag-proposal-skip";
+    skipBtn.textContent = "×";
+    skipBtn.setAttribute("aria-label", `Skip ${tag}`);
+    skipBtn.addEventListener("click", () => {
+      tagProposals = tagProposals.filter((t) => t !== tag);
+      renderTagProposals();
+    });
+    wrap.appendChild(skipBtn);
+
+    tagProposalsEl.appendChild(wrap);
+  }
+
+  if (tagSuggestStatus) {
+    const status = document.createElement("span");
+    status.className = "tag-proposals-status";
+    status.textContent = tagSuggestStatus;
+    tagProposalsEl.appendChild(status);
+  }
+}
+
+async function suggestTags() {
+  const url = urlInput.value.trim();
+  if (!url) {
+    tagProposals = [];
+    tagSuggestStatus = "No URL detected.";
+    renderTagProposals();
+    return;
+  }
+
+  suggestTagsBtn.disabled = true;
+  const previousLabel = suggestTagsBtn.textContent;
+  suggestTagsBtn.textContent = "Suggesting…";
+  tagSuggestStatus = "Reading the page…";
+  renderTagProposals();
+
+  try {
+    const res = await fetchJson(`${apiBase}/api/suggest-tags`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url,
+        title: titleInput.value.trim() || null,
+        existing_tags: parseTags(tagsInput.value),
+      }),
+    });
+
+    if (res.status === 401) {
+      tagProposals = [];
+      tagSuggestStatus = "Sign in on Savers first.";
+      renderTagProposals();
+      return;
+    }
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    const data = await res.json();
+    const existing = new Set(parseTags(tagsInput.value));
+    tagProposals = (Array.isArray(data.tags) ? data.tags : []).filter(
+      (t) => !existing.has(String(t).toLowerCase())
+    );
+    tagSuggestStatus = tagProposals.length ? null : "No new tags to suggest.";
+    renderTagProposals();
+  } catch (e) {
+    tagProposals = [];
+    tagSuggestStatus = `Couldn't suggest tags: ${e.message || "unknown error"}`;
+    renderTagProposals();
+  } finally {
+    suggestTagsBtn.disabled = false;
+    suggestTagsBtn.textContent = previousLabel;
+  }
+}
+
 apiBaseInput.addEventListener("change", () => {
   void saveConfig().then(() => loadCollections()).catch((error) => {
     console.error(error);
@@ -213,6 +331,7 @@ apiBaseInput.addEventListener("change", () => {
   });
 });
 
+suggestTagsBtn.addEventListener("click", () => void suggestTags());
 cancelBtn.addEventListener("click", () => window.close());
 form.addEventListener("submit", save);
 

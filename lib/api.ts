@@ -122,6 +122,21 @@ export const api = {
       })
     );
   },
+
+  async suggestTags(payload: {
+    url: string;
+    title?: string | null;
+    description?: string | null;
+    existing_tags?: string[];
+  }): Promise<{ tags: string[] }> {
+    return j(
+      await fetch("/api/suggest-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    );
+  },
 };
 
 // Stable domain -> placeholder tint (neutral warm/cool grays, no vivid color)
