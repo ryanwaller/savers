@@ -111,9 +111,7 @@ textarea { resize: vertical; }
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background:
-    radial-gradient(circle at top, rgba(255, 255, 255, 0.08), transparent 35%),
-    var(--color-bg);
+  background: var(--color-bg);
 }
 
 .auth-shell-loading {

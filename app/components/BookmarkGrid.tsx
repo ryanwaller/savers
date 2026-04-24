@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
@@ -25,6 +26,7 @@ type Props = {
   onUploadCustomPreview: (id: string, file: File) => Promise<Bookmark> | Bookmark;
   onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
+  cardMinWidth?: number;
   loading?: boolean;
   emptyLabel?: string;
 };
@@ -40,11 +42,19 @@ export default function BookmarkGrid({
   onUploadCustomPreview,
   onClearCustomPreview,
   onTagClick,
+  cardMinWidth,
   loading,
   emptyLabel,
 }: Props) {
   return (
-    <div className="grid">
+    <div
+      className="grid"
+      style={
+        cardMinWidth
+          ? ({ "--card-min": `${cardMinWidth}px` } as CSSProperties)
+          : undefined
+      }
+    >
       {subCollections.map((c) => (
         <CollectionCard key={c.id} c={c} onClick={() => onOpenCollection(c.id)} />
       ))}
@@ -67,9 +77,10 @@ export default function BookmarkGrid({
       <style jsx>{`
         .grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+          grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 300px), 1fr));
           gap: 20px;
           padding: 20px;
+          padding-bottom: 80px;
         }
         @media (max-width: 768px) {
           .grid {

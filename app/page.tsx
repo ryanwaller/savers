@@ -68,6 +68,10 @@ export default function Home() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
+  const MIN_CARD_WIDTH = 220;
+  const MAX_CARD_WIDTH = 460;
+  const DEFAULT_CARD_WIDTH = 300;
+  const [cardMinWidth, setCardMinWidth] = useState(DEFAULT_CARD_WIDTH);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -196,6 +200,21 @@ export default function Home() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("savers.sidebar.width", String(sidebarWidth));
   }, [sidebarWidth]);
+
+  // Load/save card size preference
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.grid.cardMinWidth");
+    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(parsed)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCardMinWidth(Math.min(MAX_CARD_WIDTH, Math.max(MIN_CARD_WIDTH, parsed)));
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.grid.cardMinWidth", String(cardMinWidth));
+  }, [cardMinWidth]);
 
   useEffect(() => {
     if (!resizingSidebar) return;
@@ -1103,6 +1122,7 @@ export default function Home() {
           onUploadCustomPreview={handleUploadCustomPreview}
           onClearCustomPreview={handleClearCustomPreview}
           onTagClick={handleTagClick}
+          cardMinWidth={cardMinWidth}
           loading={loadingBookmarks}
             emptyLabel={
               search || activeTag
@@ -1117,6 +1137,21 @@ export default function Home() {
             }
           />
         </section>
+        <div className="size-control" aria-label="Preview size">
+          <span className="size-glyph size-glyph-sm" aria-hidden="true" />
+          <input
+            className="size-slider"
+            type="range"
+            min={MIN_CARD_WIDTH}
+            max={MAX_CARD_WIDTH}
+            step={20}
+            value={cardMinWidth}
+            onChange={(event) => setCardMinWidth(Number(event.target.value))}
+            aria-label="Preview size"
+            title="Preview size"
+          />
+          <span className="size-glyph size-glyph-lg" aria-hidden="true" />
+        </div>
       </main>
 
       {showAdd && (
@@ -1196,6 +1231,90 @@ export default function Home() {
           min-width: 0;
           background: var(--color-bg);
           overflow-x: hidden;
+          position: relative;
+        }
+        .size-control {
+          position: absolute;
+          left: 16px;
+          bottom: 16px;
+          z-index: 6;
+          display: inline-flex;
+          align-items: center;
+          gap: 10px;
+          padding: 6px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          opacity: 0.55;
+          transition: opacity 140ms ease, border-color 140ms ease;
+        }
+        .size-control:hover,
+        .size-control:focus-within {
+          opacity: 1;
+          border-color: var(--color-border-strong);
+        }
+        .size-glyph {
+          display: inline-block;
+          border: 1.5px solid var(--color-text-muted);
+          border-radius: 3px;
+          background: transparent;
+          flex-shrink: 0;
+        }
+        .size-glyph-sm {
+          width: 10px;
+          height: 8px;
+        }
+        .size-glyph-lg {
+          width: 16px;
+          height: 12px;
+        }
+        .size-slider {
+          appearance: none;
+          -webkit-appearance: none;
+          width: 120px;
+          height: 18px;
+          background: transparent;
+          cursor: pointer;
+          margin: 0;
+        }
+        .size-slider::-webkit-slider-runnable-track {
+          height: 2px;
+          background: var(--color-border-strong);
+          border-radius: 2px;
+        }
+        .size-slider::-moz-range-track {
+          height: 2px;
+          background: var(--color-border-strong);
+          border-radius: 2px;
+        }
+        .size-slider::-webkit-slider-thumb {
+          appearance: none;
+          -webkit-appearance: none;
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          background: var(--color-text);
+          border: none;
+          margin-top: -5px;
+          cursor: pointer;
+        }
+        .size-slider::-moz-range-thumb {
+          width: 12px;
+          height: 12px;
+          border-radius: 999px;
+          background: var(--color-text);
+          border: none;
+          cursor: pointer;
+        }
+        .size-slider:focus-visible {
+          outline: none;
+        }
+        @media (max-width: 768px) {
+          .size-control {
+            display: none;
+          }
         }
         .sidebar-resizer {
           width: 10px;
