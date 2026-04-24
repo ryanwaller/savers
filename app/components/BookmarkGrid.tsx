@@ -612,6 +612,16 @@ function BookmarkCard({
         </button>
         {menuOpen && (
           <div className="menu" onClick={(event) => event.stopPropagation()}>
+            <button
+              className="menu-item menu-item-pin"
+              onClick={(event) => {
+                setMenuOpen(false);
+                handleTogglePin(event);
+              }}
+              disabled={pinning}
+            >
+              {b.pinned ? "Unpin" : "Pin"}
+            </button>
             <button className="menu-item" onClick={handleEdit}>
               Edit
             </button>
@@ -703,7 +713,10 @@ function BookmarkCard({
           .actions {
             top: 5px;
             right: 5px;
-            gap: 3px;
+            gap: 0;
+          }
+          .pin-btn {
+            display: none;
           }
           .action-btn {
             width: 22px;
