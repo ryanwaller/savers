@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { storeCustomPreview } from "@/lib/preview-server";
+import { removePreviewObjects, storeCustomPreview } from "@/lib/preview-server";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -99,6 +99,76 @@ export async function POST(req: NextRequest) {
 
     console.error(
       `custom-preview upload failed ${getErrorMessage(error)} | ${getErrorDetails(error)}`
+    );
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { user } = await requireUser();
+    const supabaseAdmin = getSupabaseAdmin();
+
+    const { searchParams } = new URL(req.url);
+    const bookmarkId = searchParams.get("bookmark_id");
+
+    if (!bookmarkId) {
+      return NextResponse.json({ error: "Missing bookmark id" }, { status: 400 });
+    }
+
+    const { data: bookmark, error: bookmarkError } = await supabaseAdmin
+      .from("bookmarks")
+      .select("id, custom_preview_path")
+      .eq("id", bookmarkId)
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (bookmarkError) {
+      console.error(
+        `custom-preview clear lookup failed ${getErrorMessage(bookmarkError)} | ${getErrorDetails(bookmarkError)}`
+      );
+      return NextResponse.json({ error: getErrorMessage(bookmarkError) }, { status: 500 });
+    }
+
+    if (!bookmark) {
+      return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
+    }
+
+    const previewVersion = Date.now();
+    const previewUpdatedAt = new Date(previewVersion).toISOString();
+
+    const { data: updated, error: updateError } = await supabaseAdmin
+      .from("bookmarks")
+      .update({
+        custom_preview_path: null,
+        preview_provider: null,
+        preview_updated_at: previewUpdatedAt,
+        preview_version: previewVersion,
+      })
+      .eq("id", bookmarkId)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+
+    if (updateError) {
+      console.error(
+        `custom-preview clear update failed ${getErrorMessage(updateError)} | ${getErrorDetails(updateError)}`
+      );
+      return NextResponse.json({ error: getErrorMessage(updateError) }, { status: 500 });
+    }
+
+    if (bookmark.custom_preview_path) {
+      void removePreviewObjects([bookmark.custom_preview_path]);
+    }
+
+    return NextResponse.json({ bookmark: updated });
+  } catch (error) {
+    if (error instanceof UnauthorizedError) {
+      return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+
+    console.error(
+      `custom-preview clear failed ${getErrorMessage(error)} | ${getErrorDetails(error)}`
     );
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }

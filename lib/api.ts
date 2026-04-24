@@ -95,6 +95,14 @@ export const api = {
       })
     );
   },
+  async clearCustomPreview(bookmarkId: string): Promise<{ bookmark: Bookmark }> {
+    return j(
+      await fetch(
+        `/api/bookmarks/custom-preview?bookmark_id=${encodeURIComponent(bookmarkId)}`,
+        { method: "DELETE" }
+      )
+    );
+  },
 
   async fetchMetadata(url: string): Promise<OGData> {
     return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));

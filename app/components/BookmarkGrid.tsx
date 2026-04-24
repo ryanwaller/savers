@@ -10,6 +10,7 @@ import {
   storedPreviewUrl,
   tintForDomain,
 } from "@/lib/api";
+import { compressImageForPreview } from "@/lib/image-compress";
 import CollectionIcon from "./CollectionIcon";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -22,6 +23,7 @@ type Props = {
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
   onRefreshPreview: (id: string, version: number) => Promise<void> | void;
   onUploadCustomPreview: (id: string, file: File) => Promise<Bookmark> | Bookmark;
+  onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   loading?: boolean;
   emptyLabel?: string;
@@ -36,6 +38,7 @@ export default function BookmarkGrid({
   onPinBookmark,
   onRefreshPreview,
   onUploadCustomPreview,
+  onClearCustomPreview,
   onTagClick,
   loading,
   emptyLabel,
@@ -54,6 +57,7 @@ export default function BookmarkGrid({
           onPin={() => onPinBookmark(b.id, !b.pinned)}
           onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
           onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
+          onClearCustomPreview={() => onClearCustomPreview(b.id)}
           onTagClick={onTagClick}
         />
       ))}
@@ -168,6 +172,7 @@ function BookmarkCard({
   onPin,
   onRefreshPreview,
   onUploadCustomPreview,
+  onClearCustomPreview,
   onTagClick,
 }: {
   b: Bookmark;
@@ -176,6 +181,7 @@ function BookmarkCard({
   onPin: () => Promise<void> | void;
   onRefreshPreview: (version: number) => Promise<void> | void;
   onUploadCustomPreview: (file: File) => Promise<Bookmark> | Bookmark;
+  onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
 }) {
   const [isDark, setIsDark] = useState(false);
@@ -190,6 +196,8 @@ function BookmarkCard({
   );
   const [dropActive, setDropActive] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [undoPromptOpen, setUndoPromptOpen] = useState(false);
+  const [undoing, setUndoing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
@@ -384,14 +392,40 @@ function BookmarkCard({
     setUploadingPreview(true);
 
     try {
-      await onUploadCustomPreview(file);
+      const prepared = await compressImageForPreview(file);
+      await onUploadCustomPreview(prepared);
       setPreviewFailed(false);
       setPreviewNonce(null);
+      setUndoPromptOpen(true);
     } catch (error) {
       alert(error instanceof Error ? error.message : "Failed to upload image");
     } finally {
       setUploadingPreview(false);
     }
+  }
+
+  async function handleUndoCustomPreview(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    if (undoing) return;
+    setUndoing(true);
+    try {
+      await onClearCustomPreview();
+      setPreviewStage("microlink");
+      setPreviewFailed(false);
+      setPreviewNonce(null);
+      setUndoPromptOpen(false);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to undo");
+    } finally {
+      setUndoing(false);
+    }
+  }
+
+  function handleKeepCustomPreview(event: React.MouseEvent) {
+    event.preventDefault();
+    event.stopPropagation();
+    setUndoPromptOpen(false);
   }
 
   return (
@@ -455,6 +489,30 @@ function BookmarkCard({
                 <span className="drop-copy">
                   {uploadingPreview ? "Uploading image…" : "Drop image to replace preview"}
                 </span>
+              </span>
+            )}
+            {undoPromptOpen && !uploadingPreview && (
+              <span
+                className="undo-strip"
+                onClick={(event) => event.stopPropagation()}
+                onMouseDown={(event) => event.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="undo-btn undo-btn-secondary"
+                  onClick={handleUndoCustomPreview}
+                  disabled={undoing}
+                >
+                  {undoing ? "Undoing…" : "Undo"}
+                </button>
+                <button
+                  type="button"
+                  className="undo-btn undo-btn-primary"
+                  onClick={handleKeepCustomPreview}
+                  disabled={undoing}
+                >
+                  Keep
+                </button>
               </span>
             )}
           </a>
@@ -738,6 +796,46 @@ function BookmarkCard({
           padding: 7px 12px;
           font-size: 12px;
           color: var(--color-text);
+        }
+        .undo-strip {
+          position: absolute;
+          left: 8px;
+          right: 8px;
+          bottom: 8px;
+          display: flex;
+          gap: 6px;
+          justify-content: flex-end;
+          z-index: 3;
+        }
+        .undo-btn {
+          border-radius: 999px;
+          padding: 6px 12px;
+          font-size: 12px;
+          font-weight: 500;
+          border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
+          cursor: pointer;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          transition: opacity 120ms ease, transform 120ms ease;
+        }
+        .undo-btn:disabled {
+          opacity: 0.6;
+          cursor: not-allowed;
+        }
+        .undo-btn-secondary {
+          background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+          color: var(--color-text);
+        }
+        .undo-btn-secondary:hover:not(:disabled) {
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+        }
+        .undo-btn-primary {
+          background: var(--color-text);
+          color: var(--color-bg);
+          border-color: var(--color-text);
+        }
+        .undo-btn-primary:hover:not(:disabled) {
+          transform: translateY(-1px);
         }
         .body {
           padding: 14px 14px 16px;

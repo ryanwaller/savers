@@ -700,6 +700,14 @@ export default function Home() {
     return bookmark;
   }
 
+  async function handleClearCustomPreview(id: string) {
+    const { bookmark } = await api.clearCustomPreview(id);
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    return bookmark;
+  }
+
   async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
     const allowDuplicates = options?.allowDuplicates ?? false;
     const targetCollection = selection.kind === "collection" ? selection.id : null;
@@ -1093,6 +1101,7 @@ export default function Home() {
           onPinBookmark={handlePinBookmark}
           onRefreshPreview={handleRefreshPreview}
           onUploadCustomPreview={handleUploadCustomPreview}
+          onClearCustomPreview={handleClearCustomPreview}
           onTagClick={handleTagClick}
           loading={loadingBookmarks}
             emptyLabel={
