@@ -321,14 +321,31 @@ function BookmarkCard({
     }
   }
 
-  function getDroppedImageFile(event: React.DragEvent) {
+  // During dragenter/dragover/dragleave, browsers expose item metadata
+  // (kind + type) but NOT the actual files — `dataTransfer.files` is empty
+  // until the `drop` event fires. So we detect "is an image being dragged"
+  // by sniffing items/types here, and only read `.files` on drop itself.
+  function isImageDrag(event: React.DragEvent) {
+    const dt = event.dataTransfer;
+    if (!dt) return false;
+    const items = Array.from(dt.items ?? []);
+    if (items.length > 0) {
+      return items.some(
+        (item) => item.kind === "file" && item.type.startsWith("image/")
+      );
+    }
+    // Safari/older paths sometimes don't expose items — fall back to types.
+    const types = Array.from(dt.types ?? []);
+    return types.includes("Files");
+  }
+
+  function pickImageFile(event: React.DragEvent) {
     const files = Array.from(event.dataTransfer?.files ?? []);
     return files.find((file) => file.type.startsWith("image/")) ?? null;
   }
 
   function handlePreviewDragEnter(event: React.DragEvent) {
-    const file = getDroppedImageFile(event);
-    if (!file) return;
+    if (!isImageDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     dropDepthRef.current += 1;
@@ -336,8 +353,7 @@ function BookmarkCard({
   }
 
   function handlePreviewDragOver(event: React.DragEvent) {
-    const file = getDroppedImageFile(event);
-    if (!file) return;
+    if (!isImageDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     event.dataTransfer.dropEffect = "copy";
@@ -345,8 +361,7 @@ function BookmarkCard({
   }
 
   function handlePreviewDragLeave(event: React.DragEvent) {
-    const file = getDroppedImageFile(event);
-    if (!file) return;
+    if (!isImageDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     dropDepthRef.current -= 1;
@@ -357,13 +372,15 @@ function BookmarkCard({
   }
 
   async function handlePreviewDrop(event: React.DragEvent) {
-    const file = getDroppedImageFile(event);
-    if (!file || uploadingPreview) return;
-
+    if (!isImageDrag(event)) return;
     event.preventDefault();
     event.stopPropagation();
     dropDepthRef.current = 0;
     setDropActive(false);
+
+    const file = pickImageFile(event);
+    if (!file || uploadingPreview) return;
+
     setUploadingPreview(true);
 
     try {
