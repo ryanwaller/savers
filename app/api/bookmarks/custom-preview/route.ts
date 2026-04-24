@@ -8,7 +8,39 @@ function getErrorMessage(error: unknown) {
     return error.message;
   }
 
+  if (error && typeof error === "object") {
+    const message = "message" in error ? (error as { message?: unknown }).message : null;
+    const details = "details" in error ? (error as { details?: unknown }).details : null;
+    const hint = "hint" in error ? (error as { hint?: unknown }).hint : null;
+
+    const parts = [message, details, hint]
+      .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
+      .map((value) => value.trim());
+
+    if (parts.length > 0) {
+      return parts.join(" | ");
+    }
+  }
+
   return "Failed to upload preview";
+}
+
+function getErrorDetails(error: unknown) {
+  if (!error || typeof error !== "object") {
+    return typeof error === "string" ? error : null;
+  }
+
+  const record = error as Record<string, unknown>;
+  const details = {
+    name: typeof record.name === "string" ? record.name : undefined,
+    message: typeof record.message === "string" ? record.message : undefined,
+    details: typeof record.details === "string" ? record.details : undefined,
+    hint: typeof record.hint === "string" ? record.hint : undefined,
+    code: typeof record.code === "string" ? record.code : undefined,
+    status: typeof record.status === "number" ? record.status : undefined,
+  };
+
+  return JSON.stringify(details);
 }
 
 export async function POST(req: NextRequest) {
@@ -40,6 +72,9 @@ export async function POST(req: NextRequest) {
       .maybeSingle();
 
     if (bookmarkError) {
+      console.error(
+        `custom-preview lookup failed ${getErrorMessage(bookmarkError)} | ${getErrorDetails(bookmarkError)}`
+      );
       return NextResponse.json({ error: getErrorMessage(bookmarkError) }, { status: 500 });
     }
 
@@ -62,6 +97,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 });
     }
 
+    console.error(
+      `custom-preview upload failed ${getErrorMessage(error)} | ${getErrorDetails(error)}`
+    );
     return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

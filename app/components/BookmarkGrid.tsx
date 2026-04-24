@@ -691,9 +691,11 @@ function BookmarkCard({
           outline-offset: -1px;
         }
         .thumb :global(img) {
+          position: absolute;
+          top: 0;
+          left: 0;
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          height: auto;
           display: block;
           transition:
             filter 220ms ease,
