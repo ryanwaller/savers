@@ -26,6 +26,7 @@ export interface Bookmark {
   created_at: string
   preview_version?: number | null
   preview_path?: string | null
+  custom_preview_path?: string | null
   preview_provider?: string | null
   preview_updated_at?: string | null
   /** Pinned bookmarks sort first everywhere and populate the virtual "Pinned" collection. */

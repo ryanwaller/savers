@@ -15,31 +15,44 @@ export default function DropZone({ onUrls, children }: Props) {
   const depthRef = useRef(0);
   const internalDragRef = useRef(false);
 
+  const shouldHandleBookmarkDrop = useCallback((dt: DataTransfer | null | undefined) => {
+    if (!hasDroppableContent(dt)) return false;
+    if (!dt) return false;
+
+    const items = Array.from(dt.items || []);
+    const hasOnlyImageFiles =
+      items.length > 0 &&
+      items.every((item) => item.kind === "file") &&
+      items.some((item) => item.type.startsWith("image/"));
+
+    return !hasOnlyImageFiles;
+  }, []);
+
   const onEnter = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!hasDroppableContent(e.dataTransfer)) return;
+    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
     e.preventDefault();
     depthRef.current += 1;
     setActive(true);
-  }, []);
+  }, [shouldHandleBookmarkDrop]);
 
   const onOver = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!hasDroppableContent(e.dataTransfer)) return;
+    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-  }, []);
+  }, [shouldHandleBookmarkDrop]);
 
   const onLeave = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!hasDroppableContent(e.dataTransfer)) return;
+    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
     e.preventDefault();
     depthRef.current -= 1;
     if (depthRef.current <= 0) {
       depthRef.current = 0;
       setActive(false);
     }
-  }, []);
+  }, [shouldHandleBookmarkDrop]);
 
   const onDrop = useCallback(
     async (e: DragEvent) => {
@@ -50,14 +63,14 @@ export default function DropZone({ onUrls, children }: Props) {
         return;
       }
       if (!e.dataTransfer) return;
-      if (!hasDroppableContent(e.dataTransfer)) return;
+      if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
       e.preventDefault();
       depthRef.current = 0;
       setActive(false);
       const urls = await extractUrlsFromDataTransfer(e.dataTransfer);
       if (urls.length) onUrls(urls);
     },
-    [onUrls]
+    [onUrls, shouldHandleBookmarkDrop]
   );
 
   useEffect(() => {

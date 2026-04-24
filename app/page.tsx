@@ -692,6 +692,14 @@ export default function Home() {
     }
   }
 
+  async function handleUploadCustomPreview(id: string, file: File) {
+    const { bookmark } = await api.uploadCustomPreview(id, file);
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    return bookmark;
+  }
+
   async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
     const allowDuplicates = options?.allowDuplicates ?? false;
     const targetCollection = selection.kind === "collection" ? selection.id : null;
@@ -1081,11 +1089,12 @@ export default function Home() {
             subCollections={subCollections}
             onOpenCollection={(id) => setSelection({ kind: "collection", id })}
             onOpenBookmark={(b) => setDetail(b)}
-            onDeleteBookmark={handleDeleteBookmark}
-            onPinBookmark={handlePinBookmark}
-            onRefreshPreview={handleRefreshPreview}
-            onTagClick={handleTagClick}
-            loading={loadingBookmarks}
+          onDeleteBookmark={handleDeleteBookmark}
+          onPinBookmark={handlePinBookmark}
+          onRefreshPreview={handleRefreshPreview}
+          onUploadCustomPreview={handleUploadCustomPreview}
+          onTagClick={handleTagClick}
+          loading={loadingBookmarks}
             emptyLabel={
               search || activeTag
                 ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]

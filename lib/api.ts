@@ -83,6 +83,18 @@ export const api = {
   }> {
     return j(await fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
   },
+  async uploadCustomPreview(bookmarkId: string, file: File): Promise<{ bookmark: Bookmark }> {
+    const formData = new FormData();
+    formData.set("bookmark_id", bookmarkId);
+    formData.set("file", file);
+
+    return j(
+      await fetch("/api/bookmarks/custom-preview", {
+        method: "POST",
+        body: formData,
+      })
+    );
+  },
 
   async fetchMetadata(url: string): Promise<OGData> {
     return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));

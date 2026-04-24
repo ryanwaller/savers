@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
-import { PREVIEW_BUCKET, storeBookmarkPreview } from '@/lib/preview-server'
+import { removePreviewObjects, storeBookmarkPreview } from '@/lib/preview-server'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -259,7 +259,7 @@ export async function DELETE(req: NextRequest) {
     if (deleteDuplicates) {
       const { data: bookmarks, error: loadError } = await supabaseAdmin
         .from('bookmarks')
-        .select('id, url, created_at, preview_path')
+        .select('id, url, created_at, preview_path, custom_preview_path')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
 
@@ -281,6 +281,9 @@ export async function DELETE(req: NextRequest) {
           duplicateGroupKeys.add(canonicalUrl)
           if (bookmark.preview_path) {
             previewPathsToDelete.push(bookmark.preview_path)
+          }
+          if (bookmark.custom_preview_path) {
+            previewPathsToDelete.push(bookmark.custom_preview_path)
           }
           continue
         }
@@ -309,7 +312,7 @@ export async function DELETE(req: NextRequest) {
       }
 
       if (previewPathsToDelete.length > 0) {
-        void supabaseAdmin.storage.from(PREVIEW_BUCKET).remove(previewPathsToDelete)
+        void removePreviewObjects(previewPathsToDelete)
       }
 
       return NextResponse.json({
@@ -324,7 +327,7 @@ export async function DELETE(req: NextRequest) {
 
     const { data: existingBookmark, error: existingError } = await supabaseAdmin
       .from('bookmarks')
-      .select('preview_path')
+      .select('preview_path, custom_preview_path')
       .eq('id', id)
       .eq('user_id', user.id)
       .maybeSingle()
@@ -343,9 +346,7 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 
-    if (existingBookmark?.preview_path) {
-      void supabaseAdmin.storage.from(PREVIEW_BUCKET).remove([existingBookmark.preview_path])
-    }
+    void removePreviewObjects([existingBookmark?.preview_path, existingBookmark?.custom_preview_path])
 
     return NextResponse.json({ ok: true })
   } catch (err) {

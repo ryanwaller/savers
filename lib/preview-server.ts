@@ -56,6 +56,15 @@ type StoreBookmarkPreviewOptions = {
   currentPreviewPath?: string | null;
 };
 
+type StoreCustomPreviewOptions = {
+  bookmarkId: string;
+  userId: string;
+  fileName: string;
+  contentType: string;
+  body: ArrayBuffer;
+  currentCustomPreviewPath?: string | null;
+};
+
 export type PreviewAsset = {
   body: ArrayBuffer;
   contentType: string;
@@ -108,6 +117,10 @@ function contentTypeToExtension(contentType: string) {
   if (lower.includes("gif")) return "gif";
   if (lower.includes("avif")) return "avif";
   return "jpg";
+}
+
+function sanitizeSegment(value: string) {
+  return value.replace(/[^a-zA-Z0-9._-]+/g, "-").replace(/-+/g, "-").replace(/^-|-$/g, "");
 }
 
 function apiFlashScreenshotUrl(url: string, compact = false) {
@@ -353,6 +366,14 @@ async function ensurePreviewBucket() {
   await previewBucketReadyPromise;
 }
 
+export async function removePreviewObjects(paths: (string | null | undefined)[]) {
+  const validPaths = paths.filter((path): path is string => typeof path === "string" && path.length > 0);
+  if (validPaths.length === 0) return;
+
+  const supabaseAdmin = getSupabaseAdmin();
+  await supabaseAdmin.storage.from(PREVIEW_BUCKET).remove(Array.from(new Set(validPaths)));
+}
+
 export async function fetchBestPreviewAsset({
   url,
   force = false,
@@ -429,7 +450,7 @@ export async function storeBookmarkPreview({
   if (updateError) throw updateError;
 
   if (currentPreviewPath && currentPreviewPath !== previewPath) {
-    void supabaseAdmin.storage.from(PREVIEW_BUCKET).remove([currentPreviewPath]);
+    void removePreviewObjects([currentPreviewPath]);
   }
 
   return {
@@ -438,5 +459,70 @@ export async function storeBookmarkPreview({
     previewUrl: previewStoragePublicUrl(previewPath, version),
     previewUpdatedAt,
     provider: asset.provider,
+  };
+}
+
+export async function storeCustomPreview({
+  bookmarkId,
+  userId,
+  fileName,
+  contentType,
+  body,
+  currentCustomPreviewPath,
+}: StoreCustomPreviewOptions) {
+  if (!contentTypeIsImage(contentType)) {
+    throw new Error("Invalid image type");
+  }
+
+  if (body.byteLength > 10 * 1024 * 1024) {
+    throw new Error("Image must be 10 MB or smaller");
+  }
+
+  await ensurePreviewBucket();
+
+  const supabaseAdmin = getSupabaseAdmin();
+  const extension = contentTypeToExtension(contentType);
+  const safeBaseName = sanitizeSegment(fileName.replace(/\.[^.]+$/, "")) || "upload";
+  const previewVersion = Date.now();
+  const previewPath = `${userId}/${bookmarkId}/custom-${previewVersion}-${safeBaseName}.${extension}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from(PREVIEW_BUCKET)
+    .upload(previewPath, body, {
+      contentType,
+      upsert: true,
+      cacheControl: "31536000",
+    });
+
+  if (uploadError) throw uploadError;
+
+  const previewUpdatedAt = new Date(previewVersion).toISOString();
+  const { data: bookmark, error: updateError } = await supabaseAdmin
+    .from("bookmarks")
+    .update({
+      custom_preview_path: previewPath,
+      preview_provider: "custom-upload",
+      preview_updated_at: previewUpdatedAt,
+      preview_version: previewVersion,
+    })
+    .eq("id", bookmarkId)
+    .eq("user_id", userId)
+    .select()
+    .single();
+
+  if (updateError) {
+    await removePreviewObjects([previewPath]);
+    throw updateError;
+  }
+
+  if (currentCustomPreviewPath && currentCustomPreviewPath !== previewPath) {
+    void removePreviewObjects([currentCustomPreviewPath]);
+  }
+
+  return {
+    bookmark,
+    previewPath,
+    previewUrl: previewStoragePublicUrl(previewPath, previewVersion),
+    previewUpdatedAt,
   };
 }

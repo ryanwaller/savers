@@ -21,6 +21,7 @@ type Props = {
   onDeleteBookmark: (id: string) => Promise<void> | void;
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
   onRefreshPreview: (id: string, version: number) => Promise<void> | void;
+  onUploadCustomPreview: (id: string, file: File) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   loading?: boolean;
   emptyLabel?: string;
@@ -34,6 +35,7 @@ export default function BookmarkGrid({
   onDeleteBookmark,
   onPinBookmark,
   onRefreshPreview,
+  onUploadCustomPreview,
   onTagClick,
   loading,
   emptyLabel,
@@ -51,6 +53,7 @@ export default function BookmarkGrid({
           onDelete={() => onDeleteBookmark(b.id)}
           onPin={() => onPinBookmark(b.id, !b.pinned)}
           onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
+          onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
           onTagClick={onTagClick}
         />
       ))}
@@ -164,6 +167,7 @@ function BookmarkCard({
   onDelete,
   onPin,
   onRefreshPreview,
+  onUploadCustomPreview,
   onTagClick,
 }: {
   b: Bookmark;
@@ -171,6 +175,7 @@ function BookmarkCard({
   onDelete: () => Promise<void> | void;
   onPin: () => Promise<void> | void;
   onRefreshPreview: (version: number) => Promise<void> | void;
+  onUploadCustomPreview: (file: File) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
 }) {
   const [isDark, setIsDark] = useState(false);
@@ -180,11 +185,14 @@ function BookmarkCard({
   const [pinning, setPinning] = useState(false);
   const [previewNonce, setPreviewNonce] = useState<number | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
-  const [previewStage, setPreviewStage] = useState<"stored" | "microlink" | "fallback" | "fail">(
+  const [previewStage, setPreviewStage] = useState<"custom" | "stored" | "microlink" | "fallback" | "fail">(
     "microlink"
   );
+  const [dropActive, setDropActive] = useState(false);
+  const [uploadingPreview, setUploadingPreview] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
+  const dropDepthRef = useRef(0);
 
   // Close the card menu on any click outside .actions (or Escape).
   useEffect(() => {
@@ -222,6 +230,9 @@ function BookmarkCard({
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
   const effectivePreviewVersion = previewNonce ?? b.preview_version ?? null;
+  const customSrc = storedPreviewUrl(b.custom_preview_path, {
+    previewVersion: effectivePreviewVersion,
+  });
   const storedSrc = storedPreviewUrl(b.preview_path, {
     previewVersion: effectivePreviewVersion,
   });
@@ -237,7 +248,9 @@ function BookmarkCard({
     previewVersion: effectivePreviewVersion,
   });
   const screenshotSrc =
-    previewStage === "stored"
+    previewStage === "custom"
+      ? customSrc
+      : previewStage === "stored"
       ? storedSrc
       : previewStage === "microlink"
         ? microlinkSrc
@@ -245,8 +258,8 @@ function BookmarkCard({
 
   useEffect(() => {
     setPreviewFailed(false);
-    setPreviewStage(storedSrc ? "stored" : "microlink");
-  }, [storedSrc, microlinkSrc, fallbackSrc]);
+    setPreviewStage(customSrc ? "custom" : storedSrc ? "stored" : "microlink");
+  }, [customSrc, storedSrc, microlinkSrc, fallbackSrc]);
 
   useEffect(() => {
     if (previewNonce !== null && b.preview_version === previewNonce) {
@@ -308,6 +321,62 @@ function BookmarkCard({
     }
   }
 
+  function getDroppedImageFile(event: React.DragEvent) {
+    const files = Array.from(event.dataTransfer?.files ?? []);
+    return files.find((file) => file.type.startsWith("image/")) ?? null;
+  }
+
+  function handlePreviewDragEnter(event: React.DragEvent) {
+    const file = getDroppedImageFile(event);
+    if (!file) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dropDepthRef.current += 1;
+    setDropActive(true);
+  }
+
+  function handlePreviewDragOver(event: React.DragEvent) {
+    const file = getDroppedImageFile(event);
+    if (!file) return;
+    event.preventDefault();
+    event.stopPropagation();
+    event.dataTransfer.dropEffect = "copy";
+    setDropActive(true);
+  }
+
+  function handlePreviewDragLeave(event: React.DragEvent) {
+    const file = getDroppedImageFile(event);
+    if (!file) return;
+    event.preventDefault();
+    event.stopPropagation();
+    dropDepthRef.current -= 1;
+    if (dropDepthRef.current <= 0) {
+      dropDepthRef.current = 0;
+      setDropActive(false);
+    }
+  }
+
+  async function handlePreviewDrop(event: React.DragEvent) {
+    const file = getDroppedImageFile(event);
+    if (!file || uploadingPreview) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    dropDepthRef.current = 0;
+    setDropActive(false);
+    setUploadingPreview(true);
+
+    try {
+      await onUploadCustomPreview(file);
+      setPreviewFailed(false);
+      setPreviewNonce(null);
+    } catch (error) {
+      alert(error instanceof Error ? error.message : "Failed to upload image");
+    } finally {
+      setUploadingPreview(false);
+    }
+  }
+
   return (
     <div className="card-shell">
       <ConfirmDialog
@@ -322,13 +391,17 @@ function BookmarkCard({
       <div className="card" title={b.title ?? b.url}>
         <div className="thumb-wrap">
           <a
-            className="thumb thumb-link"
+            className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
             href={b.url}
             target="_blank"
             rel="noopener noreferrer"
             draggable={false}
             style={{ background: tint }}
             onClick={(event) => event.stopPropagation()}
+            onDragEnter={handlePreviewDragEnter}
+            onDragOver={handlePreviewDragOver}
+            onDragLeave={handlePreviewDragLeave}
+            onDrop={handlePreviewDrop}
           >
             {screenshotSrc && !previewFailed ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -339,6 +412,10 @@ function BookmarkCard({
                 draggable={false}
                 onLoad={() => setReloading(false)}
                 onError={() => {
+                  if (previewStage === "custom") {
+                    setPreviewStage(storedSrc ? "stored" : "microlink");
+                    return;
+                  }
                   if (previewStage === "stored") {
                     setPreviewStage("microlink");
                     return;
@@ -355,6 +432,13 @@ function BookmarkCard({
               />
             ) : (
               <span className="thumb-fallback small muted">Preview unavailable</span>
+            )}
+            {(dropActive || uploadingPreview) && (
+              <span className="drop-overlay">
+                <span className="drop-copy">
+                  {uploadingPreview ? "Uploading image…" : "Drop image to replace preview"}
+                </span>
+              </span>
             )}
           </a>
           {b.tags && b.tags.length > 0 && (
@@ -585,6 +669,10 @@ function BookmarkCard({
           align-items: center;
           justify-content: center;
         }
+        .thumb.is-drop-active {
+          outline: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
+          outline-offset: -1px;
+        }
         .thumb :global(img) {
           width: 100%;
           height: 100%;
@@ -610,6 +698,27 @@ function BookmarkCard({
         .thumb-fallback {
           padding: 0 12px;
           text-align: center;
+        }
+        .drop-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: color-mix(in srgb, var(--color-bg) 62%, transparent);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          z-index: 2;
+          padding: 12px;
+          text-align: center;
+        }
+        .drop-copy {
+          border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+          padding: 7px 12px;
+          font-size: 12px;
+          color: var(--color-text);
         }
         .body {
           padding: 14px 14px 16px;
