@@ -601,11 +601,17 @@ export default function AddBookmarkModal({
           </div>
 
           <label className="field">
-            <div className="label tags-label">
-              <span>Tags <span className="small muted">(comma separated)</span></span>
+            <div className="label">Tags <span className="small muted">(comma separated)</span></div>
+            <input
+              placeholder="design, inspiration"
+              value={tags}
+              onChange={(e) => setTags(e.target.value)}
+            />
+
+            <div className="ai-actions">
               <button
                 type="button"
-                className="tag-suggest-btn"
+                className="btn btn-small"
                 onClick={(event) => {
                   event.preventDefault();
                   void runTagSuggest();
@@ -620,6 +626,7 @@ export default function AddBookmarkModal({
                 {tagSuggestLoading ? "Suggesting…" : "Suggest"}
               </button>
             </div>
+
             {(tagProposals.length > 0 || tagSuggestStatus) && (
               <div className="tag-proposals">
                 {tagProposals.map((tag) => (
@@ -653,11 +660,6 @@ export default function AddBookmarkModal({
                 )}
               </div>
             )}
-            <input
-              placeholder="design, inspiration"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-            />
           </label>
 
           <label className="field">
@@ -681,29 +683,6 @@ export default function AddBookmarkModal({
       </div>
 
       <style jsx>{`
-        .tags-label {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .tag-suggest-btn {
-          font-size: 11px;
-          padding: 3px 8px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          line-height: 1;
-        }
-        .tag-suggest-btn:hover:not(:disabled) {
-          border-color: var(--color-border-strong);
-          background: var(--color-bg-hover);
-        }
-        .tag-suggest-btn:disabled {
-          opacity: 0.6;
-          cursor: default;
-        }
         .tag-proposals {
           display: flex;
           flex-wrap: wrap;

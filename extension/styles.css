@@ -102,31 +102,16 @@ textarea { resize: vertical; min-height: 56px; }
   line-height: 1.4;
 }
 
-.tags-label {
+.ai-actions {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 6px;
+  margin-top: 4px;
 }
 
-.suggest-btn {
-  font-family: inherit;
+.btn-small {
+  height: 24px;
+  padding: 0 9px;
   font-size: 11px;
-  padding: 3px 8px;
-  border: 1px solid var(--color-border);
-  border-radius: 999px;
-  background: var(--color-bg);
-  color: var(--color-text);
-  line-height: 1;
-  cursor: pointer;
-}
-.suggest-btn:hover:not(:disabled) {
-  border-color: var(--color-border-strong);
-  background: var(--color-bg-hover);
-}
-.suggest-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 
 .tag-proposals {

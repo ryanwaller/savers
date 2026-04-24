@@ -469,54 +469,7 @@ export default function BookmarkDetail({
           )}
 
           <label className="field">
-            <div className="label tags-label">
-              <span>Tags <span className="small muted">(press Enter)</span></span>
-              <button
-                type="button"
-                className="tag-suggest-btn"
-                onClick={(event) => {
-                  event.preventDefault();
-                  void runTagSuggest();
-                }}
-                disabled={tagSuggestLoading}
-                title="Suggest tags from the page content"
-              >
-                {tagSuggestLoading ? "Suggesting…" : "Suggest"}
-              </button>
-            </div>
-            {(tagProposals.length > 0 || tagSuggestStatus) && (
-              <div className="tag-proposals">
-                {tagProposals.map((tag) => (
-                  <span key={tag} className="tag-proposal">
-                    <button
-                      type="button"
-                      className="tag-proposal-add"
-                      onClick={(event) => {
-                        event.preventDefault();
-                        void acceptProposal(tag);
-                      }}
-                      title={`Add "${tag}"`}
-                    >
-                      + {tag}
-                    </button>
-                    <button
-                      type="button"
-                      className="tag-proposal-skip"
-                      aria-label={`Skip ${tag}`}
-                      onClick={(event) => {
-                        event.preventDefault();
-                        dismissProposal(tag);
-                      }}
-                    >
-                      ×
-                    </button>
-                  </span>
-                ))}
-                {tagSuggestStatus && (
-                  <span className="tag-proposals-status small muted">{tagSuggestStatus}</span>
-                )}
-              </div>
-            )}
+            <div className="label">Tags <span className="small muted">(press Enter)</span></div>
             <div className={`tag-editor ${tagSaving ? "busy" : ""}`}>
               {tags.map((tag) => (
                 <span key={tag} className="tag-pill">
@@ -553,6 +506,56 @@ export default function BookmarkDetail({
                 }}
               />
             </div>
+
+            <div className="ai-actions">
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={(event) => {
+                  event.preventDefault();
+                  void runTagSuggest();
+                }}
+                disabled={tagSuggestLoading}
+              >
+                {tagSuggestLoading ? "Suggesting…" : "Suggest"}
+              </button>
+            </div>
+
+            {(tagProposals.length > 0 || tagSuggestStatus) && (
+              <div className="tag-proposals">
+                {tagProposals.map((tag) => (
+                  <span key={tag} className="tag-proposal">
+                    <button
+                      type="button"
+                      className="tag-proposal-add"
+                      onClick={(event) => {
+                        event.preventDefault();
+                        void acceptProposal(tag);
+                      }}
+                      title={`Add "${tag}"`}
+                    >
+                      + {tag}
+                    </button>
+                    <button
+                      type="button"
+                      className="tag-proposal-skip"
+                      aria-label={`Skip ${tag}`}
+                      onClick={(event) => {
+                        event.preventDefault();
+                        dismissProposal(tag);
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                {tagSuggestStatus && (
+                  <span className="tag-proposals-status small muted">
+                    {tagSuggestStatus}
+                  </span>
+                )}
+              </div>
+            )}
           </label>
 
           <label className="field">
@@ -766,29 +769,6 @@ export default function BookmarkDetail({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-        }
-        .tags-label {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 8px;
-        }
-        .tag-suggest-btn {
-          font-size: 11px;
-          padding: 3px 8px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          line-height: 1;
-        }
-        .tag-suggest-btn:hover:not(:disabled) {
-          border-color: var(--color-border-strong);
-          background: var(--color-bg-hover);
-        }
-        .tag-suggest-btn:disabled {
-          opacity: 0.6;
-          cursor: default;
         }
         .tag-proposals {
           display: flex;
