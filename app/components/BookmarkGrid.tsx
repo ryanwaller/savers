@@ -72,6 +72,7 @@ export default function BookmarkGrid({
           onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
           onClearCustomPreview={() => onClearCustomPreview(b.id)}
           onTagClick={onTagClick}
+          cardCols={cardCols}
         />
       ))}
       {!loading && bookmarks.length === 0 && subCollections.length === 0 && (
@@ -189,6 +190,7 @@ function BookmarkCard({
   onUploadCustomPreview,
   onClearCustomPreview,
   onTagClick,
+  cardCols,
 }: {
   b: Bookmark;
   onEdit: () => void;
@@ -198,7 +200,11 @@ function BookmarkCard({
   onUploadCustomPreview: (file: File) => Promise<Bookmark> | Bookmark;
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
+  cardCols?: number;
 }) {
+  // On the smallest mobile preset (3 cols) there's no room for both a pin
+  // button and the overflow menu, so the pin moves into the menu.
+  const collapseActions = (cardCols ?? 0) >= 3;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -588,7 +594,10 @@ function BookmarkCard({
         </div>
       </div>
 
-      <div ref={actionsRef} className={`actions ${menuOpen ? "actions-open" : ""}`}>
+      <div
+        ref={actionsRef}
+        className={`actions ${menuOpen ? "actions-open" : ""} ${collapseActions ? "actions-collapsed" : ""}`}
+      >
         <button
           className={`action-btn pin-btn ${b.pinned ? "is-pinned" : ""}`}
           aria-label={b.pinned ? "Unpin bookmark" : "Pin bookmark"}
@@ -612,16 +621,18 @@ function BookmarkCard({
         </button>
         {menuOpen && (
           <div className="menu" onClick={(event) => event.stopPropagation()}>
-            <button
-              className="menu-item menu-item-pin"
-              onClick={(event) => {
-                setMenuOpen(false);
-                handleTogglePin(event);
-              }}
-              disabled={pinning}
-            >
-              {b.pinned ? "Unpin" : "Pin"}
-            </button>
+            {collapseActions && (
+              <button
+                className="menu-item menu-item-pin"
+                onClick={(event) => {
+                  setMenuOpen(false);
+                  handleTogglePin(event);
+                }}
+                disabled={pinning}
+              >
+                {b.pinned ? "Unpin" : "Pin"}
+              </button>
+            )}
             <button className="menu-item" onClick={handleEdit}>
               Edit
             </button>
@@ -711,19 +722,32 @@ function BookmarkCard({
         }
         @media (max-width: 768px) {
           .actions {
-            top: 5px;
-            right: 5px;
-            gap: 0;
-          }
-          .pin-btn {
-            display: none;
+            top: 6px;
+            right: 6px;
+            gap: 4px;
           }
           .action-btn {
+            width: 26px;
+            height: 26px;
+            font-size: 12px;
+          }
+          .action-btn :global(svg) {
+            width: 12px;
+            height: 12px;
+          }
+          /* Smallest (3-col) preset: collapse pin into the overflow menu. */
+          .actions-collapsed {
+            gap: 0;
+          }
+          .actions-collapsed .pin-btn {
+            display: none;
+          }
+          .actions-collapsed .action-btn {
             width: 22px;
             height: 22px;
             font-size: 11px;
           }
-          .action-btn :global(svg) {
+          .actions-collapsed .action-btn :global(svg) {
             width: 10px;
             height: 10px;
           }
