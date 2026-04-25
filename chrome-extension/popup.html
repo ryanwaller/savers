@@ -34,6 +34,15 @@
           <input id="bookmark-title" type="text" />
         </label>
 
+        <div class="field">
+          <span class="label">Tags <span class="muted-small">(comma separated)</span></span>
+          <input id="bookmark-tags" type="text" placeholder="design, inspiration" />
+          <div class="inline-actions tag-actions">
+            <button id="suggest-tags" class="btn btn-secondary" type="button">Suggest</button>
+          </div>
+          <div id="tag-proposals" class="tag-proposals hidden"></div>
+        </div>
+
         <label class="field">
           <span class="label">Collection</span>
           <select id="collection-select"></select>

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Savers Quick Add",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Save the current tab into Savers without opening the app.",
   "permissions": ["storage", "tabs", "contextMenus"],
   "host_permissions": [

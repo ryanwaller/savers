@@ -5,6 +5,9 @@ const els = {
   pageTitle: document.getElementById("page-title"),
   pageUrl: document.getElementById("page-url"),
   bookmarkTitle: document.getElementById("bookmark-title"),
+  bookmarkTags: document.getElementById("bookmark-tags"),
+  suggestTags: document.getElementById("suggest-tags"),
+  tagProposals: document.getElementById("tag-proposals"),
   bookmarkDescription: document.getElementById("bookmark-description"),
   collectionSelect: document.getElementById("collection-select"),
   aiSuggestion: document.getElementById("ai-suggestion"),
@@ -23,6 +26,9 @@ const els = {
   status: document.getElementById("status"),
   aiStatus: document.getElementById("ai-status"),
 };
+
+let tagProposals = [];
+let tagSuggestStatus = null;
 
 const state = {
   appUrl: DEFAULT_APP_URL,
@@ -125,6 +131,114 @@ function bindEvents() {
   els.saveBookmark.addEventListener("click", () => {
     void saveBookmark();
   });
+
+  els.suggestTags.addEventListener("click", () => {
+    void suggestTags();
+  });
+}
+
+function parseTags(raw) {
+  return String(raw || "")
+    .split(",")
+    .map((tag) => tag.trim().toLowerCase())
+    .filter(Boolean);
+}
+
+function appendTag(tag) {
+  const existing = parseTags(els.bookmarkTags.value);
+  if (existing.some((t) => t === tag.toLowerCase())) return;
+  const trimmed = (els.bookmarkTags.value || "").replace(/,\s*$/, "");
+  els.bookmarkTags.value = trimmed ? `${trimmed}, ${tag}` : tag;
+}
+
+function renderTagProposals() {
+  els.tagProposals.innerHTML = "";
+  if (!tagProposals.length && !tagSuggestStatus) {
+    els.tagProposals.classList.add("hidden");
+    return;
+  }
+  els.tagProposals.classList.remove("hidden");
+
+  for (const tag of tagProposals) {
+    const wrap = document.createElement("span");
+    wrap.className = "tag-proposal";
+
+    const addBtn = document.createElement("button");
+    addBtn.type = "button";
+    addBtn.className = "tag-proposal-add";
+    addBtn.textContent = `+ ${tag}`;
+    addBtn.title = `Add "${tag}"`;
+    addBtn.addEventListener("click", () => {
+      appendTag(tag);
+      tagProposals = tagProposals.filter((t) => t !== tag);
+      renderTagProposals();
+    });
+    wrap.appendChild(addBtn);
+
+    const skipBtn = document.createElement("button");
+    skipBtn.type = "button";
+    skipBtn.className = "tag-proposal-skip";
+    skipBtn.textContent = "×";
+    skipBtn.setAttribute("aria-label", `Skip ${tag}`);
+    skipBtn.addEventListener("click", () => {
+      tagProposals = tagProposals.filter((t) => t !== tag);
+      renderTagProposals();
+    });
+    wrap.appendChild(skipBtn);
+
+    els.tagProposals.appendChild(wrap);
+  }
+
+  if (tagSuggestStatus) {
+    const status = document.createElement("span");
+    status.className = "tag-proposals-status";
+    status.textContent = tagSuggestStatus;
+    els.tagProposals.appendChild(status);
+  }
+}
+
+async function suggestTags() {
+  if (!state.tabUrl) {
+    tagProposals = [];
+    tagSuggestStatus = "No URL detected.";
+    renderTagProposals();
+    return;
+  }
+
+  els.suggestTags.disabled = true;
+  const previousLabel = els.suggestTags.textContent;
+  els.suggestTags.textContent = "Suggesting…";
+  tagSuggestStatus = "Reading the page…";
+  renderTagProposals();
+
+  try {
+    const data = await apiFetch("/api/suggest-tags", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        url: state.tabUrl,
+        title: els.bookmarkTitle.value.trim() || state.tabTitle || null,
+        description: els.bookmarkDescription.value.trim() || null,
+        existing_tags: parseTags(els.bookmarkTags.value),
+      }),
+    });
+
+    const existing = new Set(parseTags(els.bookmarkTags.value));
+    tagProposals = (Array.isArray(data.tags) ? data.tags : []).filter(
+      (t) => !existing.has(String(t).toLowerCase())
+    );
+    tagSuggestStatus = tagProposals.length ? null : "No new tags to suggest.";
+    renderTagProposals();
+  } catch (error) {
+    tagProposals = [];
+    tagSuggestStatus = `Couldn't suggest tags: ${
+      error instanceof Error ? error.message : "unknown error"
+    }`;
+    renderTagProposals();
+  } finally {
+    els.suggestTags.disabled = false;
+    els.suggestTags.textContent = previousLabel;
+  }
 }
 
 async function loadCollections() {
@@ -358,7 +472,7 @@ async function saveBookmark() {
       description: els.bookmarkDescription.value.trim() || null,
       og_image: state.metadata?.og_image || null,
       favicon: state.metadata?.favicon || null,
-      tags: [],
+      tags: parseTags(els.bookmarkTags.value),
       notes: null,
       collection_id: els.collectionSelect.value || null,
     };

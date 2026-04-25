@@ -210,3 +210,74 @@ select:focus {
   font-weight: 600;
 }
 
+.muted-small {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 400;
+}
+
+.tag-actions {
+  margin-top: 6px;
+  margin-bottom: 0;
+}
+
+.tag-proposals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+  margin-top: 8px;
+}
+
+.tag-proposals.hidden {
+  display: none;
+}
+
+.tag-proposal {
+  display: inline-flex;
+  align-items: stretch;
+  border: 1px dashed var(--border-strong);
+  border-radius: 999px;
+  background: #141414;
+  overflow: hidden;
+  line-height: 1;
+}
+
+.tag-proposal-add,
+.tag-proposal-skip {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.tag-proposal-add {
+  padding: 5px 9px;
+  font-size: 12px;
+}
+
+.tag-proposal-add:hover {
+  background: #1c1c1c;
+}
+
+.tag-proposal-skip {
+  padding: 0 8px;
+  font-size: 12px;
+  color: var(--muted);
+  border-left: 1px dashed var(--border-strong);
+}
+
+.tag-proposal-skip:hover {
+  background: #1c1c1c;
+  color: var(--text);
+}
+
+.tag-proposals-status {
+  padding: 2px 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
