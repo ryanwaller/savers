@@ -186,6 +186,20 @@ export default function BookmarkDetail({
     await patchTags(nextTags);
   }
 
+  function pathFor(id: string | null): string | null {
+    if (!id) return null;
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const segments: string[] = [];
+    let current = byId.get(id);
+    let safety = 0;
+    while (current && safety < 50) {
+      segments.unshift(current.name);
+      current = current.parent_id ? byId.get(current.parent_id) : undefined;
+      safety += 1;
+    }
+    return segments.length ? segments.join(" / ") : null;
+  }
+
   async function runTagSuggest() {
     if (tagSuggestLoading) return;
     setTagSuggestLoading(true);
@@ -196,6 +210,7 @@ export default function BookmarkDetail({
         title: title.trim() || bookmark.title,
         description: description.trim() || bookmark.description,
         existing_tags: tags,
+        collection_path: pathFor(collectionId),
       });
       const fresh = proposed.filter(
         (t) => !tags.some((existing) => existing.toLowerCase() === t.toLowerCase())

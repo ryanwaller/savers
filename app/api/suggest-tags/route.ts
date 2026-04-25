@@ -37,7 +37,13 @@ export async function POST(req: NextRequest) {
   try {
     await requireUser()
     const body = await req.json().catch(() => ({}))
-    const { url, title: providedTitle, description: providedDescription, existing_tags } = body ?? {}
+    const {
+      url,
+      title: providedTitle,
+      description: providedDescription,
+      existing_tags,
+      collection_path: providedCollectionPath,
+    } = body ?? {}
 
     if (typeof url !== 'string' || !url.trim()) {
       return NextResponse.json({ error: 'Missing url' }, { status: 400 })
@@ -62,26 +68,42 @@ export async function POST(req: NextRequest) {
           .filter((t): t is string => Boolean(t))
       : []
 
+    const collectionPath =
+      typeof providedCollectionPath === 'string' && providedCollectionPath.trim()
+        ? providedCollectionPath.trim()
+        : null
+
     const existingLine = existing.length
       ? `\nExisting tags on this bookmark (do NOT repeat these): ${existing.join(', ')}`
       : ''
 
-    const prompt = `You are tagging a saved bookmark in a personal library. Suggest ${MIN_TAGS}–${MAX_TAGS} short tags that capture what this page IS and what makes it worth re-finding later.
+    const collectionLine = collectionPath
+      ? `\nThis bookmark is already filed under the collection "${collectionPath}". The collection path already implies its broad category, so do NOT return tags that just restate it (e.g. if the collection is "Design / Typographers", skip "typography", "type design", "fonts", "design", "portfolio").`
+      : ''
 
-Tagging guidance:
-- Lowercase, 1–3 words each. No "#" prefix, no quotes.
-- Mix BROAD topical tags ("design", "portfolio") with SPECIFIC concrete tags pulled from the actual page content (location, discipline, medium, named technique, named subject, era, genre).
-- If the page makes the creator's location, country, or city explicit (e.g. "Based in Lagos", "Brooklyn-based"), include that location as a tag.
-- If the page is a portfolio or about-page, include the discipline (e.g. "graphic design", "illustration", "branding").
-- Prefer tags this user could plausibly use again on a future bookmark — not one-off proper nouns unless they're meaningful (e.g. a studio name is fine).
-- Skip generic noise: "website", "page", "online", "html".
-- Skip anything you can't infer from the page content. Don't guess.
+    const prompt = `You are tagging a saved bookmark in a personal library. Return ${MIN_TAGS}–${MAX_TAGS} tags. Quality over quantity — fewer concrete tags beat more generic ones.
+
+Your job is to surface SPECIFIC FACTS about this page that a person would have to read it carefully to find. The user can already see the title, URL, and collection — restating those is useless.
+
+Prioritize, in order:
+1. Location of the creator (city, country, region) — e.g. "lagos", "brooklyn", "berlin", "japan". Look in headers, footers, about/contact sections, "Based in…" lines. ALWAYS include this if the page states it.
+2. Named studio, agency, or affiliation the creator is part of (e.g. "pentagram", "wieden+kennedy").
+3. Discipline or medium that's narrower than the collection (e.g. for a typographer: "variable fonts", "arabic type", "lettering"; not "typography").
+4. Languages, scripts, or cultural specificity (e.g. "arabic script", "japanese", "cyrillic").
+5. Named techniques, materials, eras, or movements ("risograph", "brutalist", "1990s").
+6. Notable subjects or recurring themes — only if the page makes them prominent.
+
+Hard rules:
+- Lowercase, 1–3 words each. No "#" prefix, no quotes, no proper-noun capitalization.
+- DO NOT return tags that restate the obvious category of the page (it's a portfolio, it's a website, it's design).
+- DO NOT guess. If the page doesn't state it, don't tag it. It is fine to return only 3 tags, or even zero.
+- Skip generic noise: "website", "page", "online", "blog", "portfolio", "design", "creative".${collectionLine}
 
 Bookmark:
 - URL: ${url}
 - Title: ${title ?? 'Unknown'}
 - Description: ${description ?? 'None'}
-- Page text excerpt:
+- Page text excerpt (this is your primary source of truth — extract specific facts from here):
 """
 ${content.body_text || '(no body text extracted)'}
 """${existingLine}

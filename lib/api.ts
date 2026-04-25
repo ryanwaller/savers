@@ -128,6 +128,7 @@ export const api = {
     title?: string | null;
     description?: string | null;
     existing_tags?: string[];
+    collection_path?: string | null;
   }): Promise<{ tags: string[] }> {
     return j(
       await fetch("/api/suggest-tags", {

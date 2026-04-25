@@ -17,6 +17,10 @@ export type PageContent = {
 const FETCH_TIMEOUT_MS = 8000;
 const BODY_TEXT_MAX_CHARS = 4000;
 
+// Note: we deliberately do NOT strip <header> or <footer> here. Designer
+// portfolios overwhelmingly put location ("Based in Lagos", "📍 Brooklyn")
+// and contact info in the footer or header — exactly the specific facts we
+// want the tag suggester to surface.
 const STRIP_SELECTORS = [
   "script",
   "style",
@@ -24,9 +28,6 @@ const STRIP_SELECTORS = [
   "template",
   "iframe",
   "svg",
-  "nav",
-  "header",
-  "footer",
   "form",
 ];
 
@@ -35,8 +36,8 @@ const STRIP_SELECTORS = [
 // to them we hoist their text up so it's not the first thing dropped when
 // we cap body_text length.
 const PRIORITY_SELECTORS = [
-  "main",
-  "article",
+  // Explicit about/bio/contact regions are the highest-signal source for
+  // location, discipline, and named studios on portfolio sites.
   '[id*="about" i]',
   '[class*="about" i]',
   '[id*="bio" i]',
@@ -45,7 +46,13 @@ const PRIORITY_SELECTORS = [
   '[class*="contact" i]',
   '[id*="info" i]',
   '[class*="info" i]',
+  // Footers/headers commonly carry "Based in <city>" and contact lines.
+  "footer",
+  "header",
+  "address",
   '[class*="hero" i]',
+  "main",
+  "article",
 ];
 
 function collapseWhitespace(value: string): string {
