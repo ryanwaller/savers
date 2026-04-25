@@ -45,24 +45,38 @@ export default function Home() {
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
+  // Tags in the sidebar are scoped to the current selection: in a specific
+  // collection we only surface tags actually attached to bookmarks in that
+  // collection. "All bookmarks" shows the full set.
+  const tagSourceBookmarks = useMemo(() => {
+    if (selection.kind === "all") return allBookmarks;
+    if (selection.kind === "unsorted")
+      return allBookmarks.filter((b) => b.collection_id === null);
+    if (selection.kind === "pinned")
+      return allBookmarks.filter((b) => b.pinned);
+    if (selection.kind === "collection")
+      return allBookmarks.filter((b) => b.collection_id === selection.id);
+    return allBookmarks;
+  }, [allBookmarks, selection]);
+
   const allTags = useMemo(() => {
     const set = new Set<string>();
-    for (const b of allBookmarks) {
+    for (const b of tagSourceBookmarks) {
       if (b.tags) {
         for (const t of b.tags) set.add(t);
       }
     }
     return Array.from(set).sort();
-  }, [allBookmarks]);
+  }, [tagSourceBookmarks]);
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const bookmark of allBookmarks) {
+    for (const bookmark of tagSourceBookmarks) {
       for (const tag of bookmark.tags ?? []) {
         counts[tag] = (counts[tag] ?? 0) + 1;
       }
     }
     return counts;
-  }, [allBookmarks]);
+  }, [tagSourceBookmarks]);
 
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
