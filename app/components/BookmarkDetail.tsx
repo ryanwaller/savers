@@ -59,6 +59,50 @@ export default function BookmarkDetail({
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
 
+  // Real-time autosuggest state
+  const [tagAutosuggestions, setTagAutosuggestions] = useState<string[]>([]);
+  const [collectionAutosuggestions, setCollectionAutosuggestions] = useState<Collection[]>([]);
+  const [activeTagIndex, setActiveTagIndex] = useState(-1);
+  const [activeCollectionIndex, setActiveCollectionIndex] = useState(-1);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of existingBookmarks) {
+      if (b.tags) {
+        for (const t of b.tags) set.add(t.trim().toLowerCase());
+      }
+    }
+    return Array.from(set).sort();
+  }, [existingBookmarks]);
+
+  useEffect(() => {
+    const trimmed = tagInput.trim().toLowerCase();
+    if (!trimmed) {
+      setTagAutosuggestions([]);
+      setActiveTagIndex(-1);
+      return;
+    }
+    const filtered = allTags.filter(
+      (t) => t.includes(trimmed) && !tags.some(existing => existing.toLowerCase() === t)
+    ).slice(0, 8);
+    setTagAutosuggestions(filtered);
+    setActiveTagIndex(filtered.length > 0 ? 0 : -1);
+  }, [tagInput, allTags, tags]);
+
+  useEffect(() => {
+    const trimmed = newCollectionName.trim().toLowerCase();
+    if (!trimmed) {
+      setCollectionAutosuggestions([]);
+      setActiveCollectionIndex(-1);
+      return;
+    }
+    const filtered = flat.filter(
+      (c) => c.name.toLowerCase().includes(trimmed)
+    ).slice(0, 8);
+    setCollectionAutosuggestions(filtered);
+    setActiveCollectionIndex(filtered.length > 0 ? 0 : -1);
+  }, [newCollectionName, flat]);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") onClose();
@@ -414,23 +458,73 @@ export default function BookmarkDetail({
 
             {showCreateCollection && (
               <div className="create-wrap">
-                <input
-                  autoFocus
-                  placeholder="Collection name"
-                  value={newCollectionName}
-                  onChange={(event) => setNewCollectionName(event.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter") {
-                      event.preventDefault();
-                      void createInlineCollection();
-                    }
-                    if (event.key === "Escape") {
-                      event.preventDefault();
-                      setShowCreateCollection(false);
-                      setNewCollectionName("");
-                    }
-                  }}
-                />
+                <div className="autosuggest-container">
+                  <input
+                    autoFocus
+                    placeholder="Collection name"
+                    value={newCollectionName}
+                    onChange={(event) => setNewCollectionName(event.target.value)}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setCollectionAutosuggestions([]);
+                      }, 200);
+                    }}
+                    onKeyDown={(event) => {
+                      if (collectionAutosuggestions.length > 0) {
+                        if (event.key === "ArrowDown") {
+                          event.preventDefault();
+                          setActiveCollectionIndex((prev) => (prev + 1) % collectionAutosuggestions.length);
+                        } else if (event.key === "ArrowUp") {
+                          event.preventDefault();
+                          setActiveCollectionIndex((prev) => (prev - 1 + collectionAutosuggestions.length) % collectionAutosuggestions.length);
+                        } else if (event.key === "Enter" || event.key === "Tab") {
+                          if (activeCollectionIndex >= 0) {
+                            event.preventDefault();
+                            const selected = collectionAutosuggestions[activeCollectionIndex];
+                            setCollectionId(selected.id);
+                            setShowCreateCollection(false);
+                            setNewCollectionName("");
+                            setCollectionAutosuggestions([]);
+                          } else if (event.key === "Enter") {
+                            event.preventDefault();
+                            void createInlineCollection();
+                          }
+                        } else if (event.key === "Escape") {
+                          setCollectionAutosuggestions([]);
+                        }
+                      } else {
+                        if (event.key === "Enter") {
+                          event.preventDefault();
+                          void createInlineCollection();
+                        }
+                        if (event.key === "Escape") {
+                          event.preventDefault();
+                          setShowCreateCollection(false);
+                          setNewCollectionName("");
+                        }
+                      }
+                    }}
+                  />
+                  {collectionAutosuggestions.length > 0 && (
+                    <div className="autosuggest-list">
+                      {collectionAutosuggestions.map((suggestion, index) => (
+                        <button
+                          key={suggestion.id}
+                          className={`autosuggest-item ${index === activeCollectionIndex ? "active" : ""}`}
+                          onClick={() => {
+                            setCollectionId(suggestion.id);
+                            setShowCreateCollection(false);
+                            setNewCollectionName("");
+                            setCollectionAutosuggestions([]);
+                          }}
+                          onMouseEnter={() => setActiveCollectionIndex(index)}
+                        >
+                          {suggestion.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="ai-actions">
                   <button
                     type="button"
@@ -500,26 +594,65 @@ export default function BookmarkDetail({
                   </button>
                 </span>
               ))}
-              <input
-                className="tag-input"
-                value={tagInput}
-                placeholder={tags.length ? "Add tag" : "Add a tag"}
-                onChange={(e) => setTagInput(e.target.value)}
-                onBlur={() => {
-                  if (tagInput.trim()) void commitTag(tagInput);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    void commitTag(tagInput);
-                    return;
-                  }
-                  if (e.key === "Backspace" && !tagInput && tags.length) {
-                    e.preventDefault();
-                    void removeTag(tags[tags.length - 1]);
-                  }
-                }}
-              />
+              <div className="autosuggest-container flex-grow">
+                <input
+                  className="tag-input"
+                  value={tagInput}
+                  placeholder={tags.length ? "Add tag" : "Add a tag"}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onBlur={() => {
+                    setTimeout(() => {
+                      if (tagInput.trim() && tagAutosuggestions.length === 0) void commitTag(tagInput);
+                      setTagAutosuggestions([]);
+                    }, 200);
+                  }}
+                  onKeyDown={(e) => {
+                    if (tagAutosuggestions.length > 0) {
+                      if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        setActiveTagIndex((prev) => (prev + 1) % tagAutosuggestions.length);
+                      } else if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        setActiveTagIndex((prev) => (prev - 1 + tagAutosuggestions.length) % tagAutosuggestions.length);
+                      } else if (e.key === "Enter" || e.key === "Tab") {
+                        if (activeTagIndex >= 0) {
+                          e.preventDefault();
+                          void commitTag(tagAutosuggestions[activeTagIndex]);
+                        } else if (e.key === "Enter") {
+                          e.preventDefault();
+                          void commitTag(tagInput);
+                        }
+                      } else if (e.key === "Escape") {
+                        setTagAutosuggestions([]);
+                      }
+                    } else {
+                      if (e.key === "Enter" || e.key === ",") {
+                        e.preventDefault();
+                        void commitTag(tagInput);
+                        return;
+                      }
+                      if (e.key === "Backspace" && !tagInput && tags.length) {
+                        e.preventDefault();
+                        void removeTag(tags[tags.length - 1]);
+                      }
+                    }
+                  }}
+                />
+                {tagAutosuggestions.length > 0 && (
+                  <div className="autosuggest-list">
+                    {tagAutosuggestions.map((suggestion, index) => (
+                      <button
+                        key={suggestion}
+                        className={`autosuggest-item ${index === activeTagIndex ? "active" : ""}`}
+                        onClick={() => void commitTag(suggestion)}
+                        onMouseEnter={() => setActiveTagIndex(index)}
+                      >
+                        {suggestion}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
 
             <div className="ai-actions">
@@ -608,6 +741,43 @@ export default function BookmarkDetail({
       </div>
 
       <style jsx>{`
+        .autosuggest-container {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+        }
+        .flex-grow {
+          flex: 1;
+        }
+        .autosuggest-list {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          z-index: 100;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          max-height: 200px;
+          overflow-y: auto;
+          margin-top: 2px;
+        }
+        .autosuggest-item {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 10px;
+          font-size: 12px;
+          border: none;
+          background: transparent;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+        .autosuggest-item:hover,
+        .autosuggest-item.active {
+          background: var(--color-bg-hover);
+        }
         .backdrop {
           position: fixed;
           inset: 0;

@@ -65,6 +65,58 @@ export default function AddBookmarkModal({
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
 
+  // Real-time autosuggest state
+  const [tagAutosuggestions, setTagAutosuggestions] = useState<string[]>([]);
+  const [collectionAutosuggestions, setCollectionAutosuggestions] = useState<Collection[]>([]);
+  const [activeTagIndex, setActiveTagIndex] = useState(-1);
+  const [activeCollectionIndex, setActiveCollectionIndex] = useState(-1);
+
+  const allTags = useMemo(() => {
+    const set = new Set<string>();
+    for (const b of existingBookmarks) {
+      if (b.tags) {
+        for (const t of b.tags) set.add(t.trim().toLowerCase());
+      }
+    }
+    return Array.from(set).sort();
+  }, [existingBookmarks]);
+
+  const currentTagPart = useMemo(() => {
+    if (!tags) return "";
+    const parts = tags.split(",");
+    const last = parts[parts.length - 1];
+    return last.trimStart(); // keep trailing space for better UX but trim start for matching
+  }, [tags]);
+
+  useEffect(() => {
+    const trimmed = currentTagPart.trim().toLowerCase();
+    if (!trimmed) {
+      setTagAutosuggestions([]);
+      setActiveTagIndex(-1);
+      return;
+    }
+    const existing = parseTags(tags);
+    const filtered = allTags.filter(
+      (t) => t.includes(trimmed) && !existing.includes(t)
+    ).slice(0, 8);
+    setTagAutosuggestions(filtered);
+    setActiveTagIndex(filtered.length > 0 ? 0 : -1);
+  }, [currentTagPart, allTags, tags]);
+
+  useEffect(() => {
+    const trimmed = newCollectionName.trim().toLowerCase();
+    if (!trimmed) {
+      setCollectionAutosuggestions([]);
+      setActiveCollectionIndex(-1);
+      return;
+    }
+    const filtered = flat.filter(
+      (c) => c.name.toLowerCase().includes(trimmed)
+    ).slice(0, 8);
+    setCollectionAutosuggestions(filtered);
+    setActiveCollectionIndex(filtered.length > 0 ? 0 : -1);
+  }, [newCollectionName, flat]);
+
   function parseTags(raw: string): string[] {
     return raw
       .split(",")
@@ -74,9 +126,18 @@ export default function AddBookmarkModal({
 
   function appendTag(tag: string) {
     const existing = parseTags(tags);
-    if (existing.some((t) => t === tag.toLowerCase())) return;
-    const next = existing.length ? `${tags.replace(/,\s*$/, "")}, ${tag}` : tag;
-    setTags(next);
+    if (existing.some((t) => t === tag.toLowerCase())) {
+      // Just clear the current part if it's already there
+      const parts = tags.split(",");
+      parts.pop();
+      setTags(parts.length ? parts.join(",") + "," : "");
+      return;
+    }
+    const parts = tags.split(",");
+    parts[parts.length - 1] = ` ${tag}`;
+    const next = parts.join(",") + ", ";
+    setTags(next.trimStart());
+    setTagAutosuggestions([]);
   }
 
   async function runTagSuggest() {
@@ -367,7 +428,9 @@ export default function AddBookmarkModal({
   const previewSrc = previewStage === "microlink" ? microlinkPreviewSrc : fallbackPreviewSrc;
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setImgOk(true);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setPreviewStage("microlink");
   }, [microlinkPreviewSrc, fallbackPreviewSrc]);
 
@@ -558,23 +621,73 @@ export default function AddBookmarkModal({
 
             {showCreateCollection && (
               <div className="create-wrap">
-                <input
-                  autoFocus
-                  placeholder="Collection name"
-                  value={newCollectionName}
-                  onChange={(e) => setNewCollectionName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      void createInlineCollection();
-                    }
-                    if (e.key === "Escape") {
-                      e.preventDefault();
-                      setShowCreateCollection(false);
-                      setNewCollectionName("");
-                    }
-                  }}
-                />
+                <div className="autosuggest-container">
+                  <input
+                    autoFocus
+                    placeholder="Collection name"
+                    value={newCollectionName}
+                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    onBlur={() => {
+                      setTimeout(() => {
+                        setCollectionAutosuggestions([]);
+                      }, 200);
+                    }}
+                    onKeyDown={(e) => {
+                      if (collectionAutosuggestions.length > 0) {
+                        if (e.key === "ArrowDown") {
+                          e.preventDefault();
+                          setActiveCollectionIndex((prev) => (prev + 1) % collectionAutosuggestions.length);
+                        } else if (e.key === "ArrowUp") {
+                          e.preventDefault();
+                          setActiveCollectionIndex((prev) => (prev - 1 + collectionAutosuggestions.length) % collectionAutosuggestions.length);
+                        } else if (e.key === "Enter" || e.key === "Tab") {
+                          if (activeCollectionIndex >= 0) {
+                            e.preventDefault();
+                            const selected = collectionAutosuggestions[activeCollectionIndex];
+                            setCollectionId(selected.id);
+                            setShowCreateCollection(false);
+                            setNewCollectionName("");
+                            setCollectionAutosuggestions([]);
+                          } else if (e.key === "Enter") {
+                            e.preventDefault();
+                            void createInlineCollection();
+                          }
+                        } else if (e.key === "Escape") {
+                          setCollectionAutosuggestions([]);
+                        }
+                      } else {
+                        if (e.key === "Enter") {
+                          e.preventDefault();
+                          void createInlineCollection();
+                        }
+                        if (e.key === "Escape") {
+                          e.preventDefault();
+                          setShowCreateCollection(false);
+                          setNewCollectionName("");
+                        }
+                      }
+                    }}
+                  />
+                  {collectionAutosuggestions.length > 0 && (
+                    <div className="autosuggest-list">
+                      {collectionAutosuggestions.map((suggestion, index) => (
+                        <button
+                          key={suggestion.id}
+                          className={`autosuggest-item ${index === activeCollectionIndex ? "active" : ""}`}
+                          onClick={() => {
+                            setCollectionId(suggestion.id);
+                            setShowCreateCollection(false);
+                            setNewCollectionName("");
+                            setCollectionAutosuggestions([]);
+                          }}
+                          onMouseEnter={() => setActiveCollectionIndex(index)}
+                        >
+                          {suggestion.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -602,11 +715,51 @@ export default function AddBookmarkModal({
 
           <label className="field">
             <div className="label">Tags <span className="small muted">(comma separated)</span></div>
-            <input
-              placeholder="design, inspiration"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-            />
+            <div className="autosuggest-container">
+              <input
+                placeholder="design, inspiration"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                onBlur={() => {
+                  setTimeout(() => {
+                    setTagAutosuggestions([]);
+                  }, 200);
+                }}
+                onKeyDown={(e) => {
+
+                  if (tagAutosuggestions.length > 0) {
+                    if (e.key === "ArrowDown") {
+                      e.preventDefault();
+                      setActiveTagIndex((prev) => (prev + 1) % tagAutosuggestions.length);
+                    } else if (e.key === "ArrowUp") {
+                      e.preventDefault();
+                      setActiveTagIndex((prev) => (prev - 1 + tagAutosuggestions.length) % tagAutosuggestions.length);
+                    } else if (e.key === "Enter" || e.key === "Tab") {
+                      if (activeTagIndex >= 0) {
+                        e.preventDefault();
+                        appendTag(tagAutosuggestions[activeTagIndex]);
+                      }
+                    } else if (e.key === "Escape") {
+                      setTagAutosuggestions([]);
+                    }
+                  }
+                }}
+              />
+              {tagAutosuggestions.length > 0 && (
+                <div className="autosuggest-list">
+                  {tagAutosuggestions.map((suggestion, index) => (
+                    <button
+                      key={suggestion}
+                      className={`autosuggest-item ${index === activeTagIndex ? "active" : ""}`}
+                      onClick={() => appendTag(suggestion)}
+                      onMouseEnter={() => setActiveTagIndex(index)}
+                    >
+                      {suggestion}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <div className="ai-actions">
               <button
@@ -683,6 +836,40 @@ export default function AddBookmarkModal({
       </div>
 
       <style jsx>{`
+        .autosuggest-container {
+          position: relative;
+          display: flex;
+          flex-direction: column;
+        }
+        .autosuggest-list {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          right: 0;
+          z-index: 100;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+          max-height: 200px;
+          overflow-y: auto;
+          margin-top: 2px;
+        }
+        .autosuggest-item {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 10px;
+          font-size: 12px;
+          border: none;
+          background: transparent;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+        .autosuggest-item:hover,
+        .autosuggest-item.active {
+          background: var(--color-bg-hover);
+        }
         .tag-proposals {
           display: flex;
           flex-wrap: wrap;
