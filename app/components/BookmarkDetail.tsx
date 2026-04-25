@@ -594,7 +594,7 @@ export default function BookmarkDetail({
                   </button>
                 </span>
               ))}
-              <div className="autosuggest-container flex-grow">
+              <div className="autosuggest-container tag-autosuggest-container">
                 <input
                   className="tag-input"
                   value={tagInput}
@@ -743,11 +743,10 @@ export default function BookmarkDetail({
       <style jsx>{`
         .autosuggest-container {
           position: relative;
-          display: flex;
-          flex-direction: column;
         }
-        .flex-grow {
-          flex: 1;
+        .tag-autosuggest-container {
+          flex: 1 1 96px;
+          min-width: 96px;
         }
         .autosuggest-list {
           position: absolute;

@@ -838,8 +838,6 @@ export default function AddBookmarkModal({
       <style jsx>{`
         .autosuggest-container {
           position: relative;
-          display: flex;
-          flex-direction: column;
         }
         .autosuggest-list {
           position: absolute;
