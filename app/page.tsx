@@ -17,6 +17,7 @@ import DropZone from "./components/DropZone";
 import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
+import ExportBookmarksButton from "./components/ExportBookmarksButton";
 
 type Selection =
   | { kind: "all" }
@@ -1074,6 +1075,8 @@ export default function Home() {
     >
       <Sidebar
         tree={tree}
+        flatCollections={flat}
+        allBookmarks={allBookmarks}
         totals={totals}
         allTags={allTags}
         tagCounts={tagCounts}
@@ -1164,6 +1167,7 @@ export default function Home() {
             <div className="top-right">
               <div className="desktop-actions">
                 <div className="session-chip" title={user.email ?? "Signed in"}>
+                  <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                   <span className="session-email">{user.email ?? "Signed in"}</span>
                   <button className="session-signout" onClick={handleSignOut}>
                     Sign out

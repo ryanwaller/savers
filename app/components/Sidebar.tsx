@@ -4,9 +4,10 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { PushPin } from "@phosphor-icons/react";
-import type { Collection } from "@/lib/types";
+import type { Bookmark, Collection } from "@/lib/types";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
+import ExportBookmarksButton from "./ExportBookmarksButton";
 
 const ICON_PICKER_WIDTH = 280;
 const ICON_PICKER_HEIGHT = 360;
@@ -37,6 +38,8 @@ type Selection =
 
 type Props = {
   tree: Collection[];
+  flatCollections: Collection[];
+  allBookmarks: Bookmark[];
   totals: { all: number; unsorted: number; pinned: number };
   allTags: string[];
   tagCounts: Record<string, number>;
@@ -57,6 +60,8 @@ type Props = {
 
 export default function Sidebar({
   tree,
+  flatCollections,
+  allBookmarks,
   totals,
   allTags,
   tagCounts,
@@ -395,6 +400,7 @@ export default function Sidebar({
 
           {onSignOut && (
             <div className="mobile-account" title={userEmail ?? "Signed in"}>
+              <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flatCollections} />
               <span className="mobile-account-state">
                 {userEmail ?? "Signed in"}
               </span>
