@@ -118,6 +118,83 @@ export default function Home() {
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
+  const mobileSidebarOpenRef = useRef(mobileSidebarOpen);
+  useEffect(() => {
+    mobileSidebarOpenRef.current = mobileSidebarOpen;
+  }, [mobileSidebarOpen]);
+
+  // Edge-swipe gesture: open the left sidebar by swiping right from the very
+  // left edge of the screen, close it by swiping left while it's open.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (!isTouch) return;
+
+    const EDGE_PX = 24; // how close to the left edge a swipe must start to open
+    const OPEN_THRESHOLD = 60; // horizontal px to register an open gesture
+    const CLOSE_THRESHOLD = 60; // horizontal px to register a close gesture
+    const SLOP = 18; // vertical wiggle allowed before we treat as a scroll
+
+    let startX = 0;
+    let startY = 0;
+    let tracking: "open" | "close" | null = null;
+
+    function onStart(event: TouchEvent) {
+      if (event.touches.length !== 1) {
+        tracking = null;
+        return;
+      }
+      const t = event.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      const sidebarOpen = mobileSidebarOpenRef.current;
+
+      if (!sidebarOpen && startX <= EDGE_PX) {
+        tracking = "open";
+      } else if (sidebarOpen) {
+        tracking = "close";
+      } else {
+        tracking = null;
+      }
+    }
+
+    function onMove(event: TouchEvent) {
+      if (!tracking) return;
+      const t = event.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+
+      // Cancel if the user is mostly scrolling vertically.
+      if (Math.abs(dy) > SLOP && Math.abs(dy) > Math.abs(dx)) {
+        tracking = null;
+        return;
+      }
+
+      if (tracking === "open" && dx > OPEN_THRESHOLD) {
+        setMobileSidebarOpen(true);
+        tracking = null;
+      } else if (tracking === "close" && dx < -CLOSE_THRESHOLD) {
+        setMobileSidebarOpen(false);
+        tracking = null;
+      }
+    }
+
+    function onEnd() {
+      tracking = null;
+    }
+
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchmove", onMove, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
+    document.addEventListener("touchcancel", onEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
 
   const updateAllBookmarksState = useCallback(
     (updater: (prev: Bookmark[]) => Bookmark[]) => {
