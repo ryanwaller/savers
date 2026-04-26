@@ -118,26 +118,43 @@ export default function Home() {
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
+  // Refs let the touch listeners read current state without re-attaching.
   const mobileSidebarOpenRef = useRef(mobileSidebarOpen);
   useEffect(() => {
     mobileSidebarOpenRef.current = mobileSidebarOpen;
   }, [mobileSidebarOpen]);
 
-  // Edge-swipe gesture: open the left sidebar by swiping right from the very
-  // left edge of the screen, close it by swiping left while it's open.
+  const swipeContextRef = useRef({
+    selectionKind: selection.kind,
+    showAdd: false,
+    detailOpen: false,
+  });
+  useEffect(() => {
+    swipeContextRef.current = {
+      selectionKind: selection.kind,
+      showAdd,
+      detailOpen: detail !== null,
+    };
+  }, [selection, showAdd, detail]);
+
+  // Edge-swipe gestures:
+  //   • Swipe right from the left edge → open the sidebar.
+  //   • Swipe left while the sidebar is open → close the sidebar.
+  //   • On the All-bookmarks view, swipe left from the right edge → open the
+  //     Add Bookmark modal (only when no other modal is already up).
   useEffect(() => {
     if (typeof window === "undefined") return;
     const isTouch = window.matchMedia("(pointer: coarse)").matches;
     if (!isTouch) return;
 
-    const EDGE_PX = 24; // how close to the left edge a swipe must start to open
+    const EDGE_PX = 24; // how close to the edge a swipe must start to open
     const OPEN_THRESHOLD = 60; // horizontal px to register an open gesture
     const CLOSE_THRESHOLD = 60; // horizontal px to register a close gesture
     const SLOP = 18; // vertical wiggle allowed before we treat as a scroll
 
     let startX = 0;
     let startY = 0;
-    let tracking: "open" | "close" | null = null;
+    let tracking: "open-left" | "close-left" | "open-add" | null = null;
 
     function onStart(event: TouchEvent) {
       if (event.touches.length !== 1) {
@@ -148,11 +165,20 @@ export default function Home() {
       startX = t.clientX;
       startY = t.clientY;
       const sidebarOpen = mobileSidebarOpenRef.current;
+      const ctx = swipeContextRef.current;
+      const viewportWidth = window.innerWidth;
 
-      if (!sidebarOpen && startX <= EDGE_PX) {
-        tracking = "open";
-      } else if (sidebarOpen) {
-        tracking = "close";
+      if (sidebarOpen) {
+        tracking = "close-left";
+      } else if (startX <= EDGE_PX) {
+        tracking = "open-left";
+      } else if (
+        startX >= viewportWidth - EDGE_PX &&
+        ctx.selectionKind === "all" &&
+        !ctx.showAdd &&
+        !ctx.detailOpen
+      ) {
+        tracking = "open-add";
       } else {
         tracking = null;
       }
@@ -170,11 +196,14 @@ export default function Home() {
         return;
       }
 
-      if (tracking === "open" && dx > OPEN_THRESHOLD) {
+      if (tracking === "open-left" && dx > OPEN_THRESHOLD) {
         setMobileSidebarOpen(true);
         tracking = null;
-      } else if (tracking === "close" && dx < -CLOSE_THRESHOLD) {
+      } else if (tracking === "close-left" && dx < -CLOSE_THRESHOLD) {
         setMobileSidebarOpen(false);
+        tracking = null;
+      } else if (tracking === "open-add" && dx < -OPEN_THRESHOLD) {
+        setShowAdd(true);
         tracking = null;
       }
     }
