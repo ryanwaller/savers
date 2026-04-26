@@ -80,6 +80,7 @@ export default function Sidebar({
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(true);
   const [tagsExpanded, setTagsExpanded] = useState(true);
+  const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
   const rootNestTimerRef = useRef<number | null>(null);
 
@@ -105,6 +106,14 @@ export default function Sidebar({
     return clearRootNestTimer;
   }, [draggedId]);
   const [collapsedCollectionIds, setCollapsedCollectionIds] = useState<string[]>([]);
+
+  const sortedTags = useMemo(() => {
+    const tags = [...allTags];
+    if (tagSortOrder === 'count') {
+      return tags.sort((a, b) => (tagCounts[b] ?? 0) - (tagCounts[a] ?? 0));
+    }
+    return tags.sort((a, b) => a.localeCompare(b));
+  }, [allTags, tagCounts, tagSortOrder]);
 
   async function submitNewRoot() {
     const n = newName.trim();
@@ -310,15 +319,27 @@ export default function Sidebar({
           {allTags.length > 0 && (
             <>
               <div className="sidebar-divider" style={{ margin: "12px 4px 8px" }} />
-              <button
-                className="sidebar-label collapsible"
-                onClick={() => setTagsExpanded(!tagsExpanded)}
-              >
-                <span className="caret">{tagsExpanded ? "▾" : "▸"}</span>
-                Tags
-              </button>
+              <div className="flex items-center justify-between px-1">
+                <button
+                  className="sidebar-label collapsible flex-1"
+                  onClick={() => setTagsExpanded(!tagsExpanded)}
+                >
+                  <span className="caret">{tagsExpanded ? "▾" : "▸"}</span>
+                  Tags
+                </button>
+                <button
+                  className="tag-sort-btn muted"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setTagSortOrder(prev => prev === 'alphabetical' ? 'count' : 'alphabetical');
+                  }}
+                  title={`Sort by ${tagSortOrder === 'alphabetical' ? 'count' : 'name'}`}
+                >
+                  {tagSortOrder === 'alphabetical' ? 'A→Z' : '#→'}
+                </button>
+              </div>
               {tagsExpanded &&
-                allTags.map((tag) => (
+                sortedTags.map((tag) => (
                   <SidebarItem
                     key={tag}
                     label={`#${tag}`}
@@ -455,6 +476,21 @@ export default function Sidebar({
           border-radius: 4px;
           flex-shrink: 0;
           display: block;
+        }
+        .flex { display: flex; }
+        .items-center { align-items: center; }
+        .justify-between { justify-content: space-between; }
+        .flex-1 { flex: 1; }
+        .px-1 { padding-left: 4px; padding-right: 4px; }
+        .tag-sort-btn {
+          font-size: 11px;
+          padding: 2px 6px;
+          border-radius: var(--radius-sm);
+          transition: color 120ms ease, background 120ms ease;
+        }
+        .tag-sort-btn:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
         }
         .sidebar-section {
           padding: 4px 6px;

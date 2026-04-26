@@ -66,7 +66,7 @@ export default function Home() {
         for (const t of b.tags) set.add(t);
       }
     }
-    return Array.from(set).sort();
+    return Array.from(set);
   }, [tagSourceBookmarks]);
   const tagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
