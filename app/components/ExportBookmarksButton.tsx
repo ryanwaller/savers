@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import JSZip from 'jszip';
 import type { Bookmark, Collection } from '@/lib/types';
+import { storedPreviewUrl, screenshotPreviewUrl, previewImageUrl } from '@/lib/api';
 
 interface Props {
   bookmarks: Bookmark[];
@@ -20,6 +21,16 @@ const escapeCSV = (field: string | undefined | null) => {
 export default function ExportBookmarksButton({ bookmarks, flatCollections }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-color-scheme: dark)");
+    setIsDark(mq.matches);
+    const h = (e: MediaQueryListEvent) => setIsDark(e.matches);
+    mq.addEventListener?.("change", h);
+    return () => mq.removeEventListener?.("change", h);
+  }, []);
 
   const handleExport = async () => {
     if (!bookmarks.length) return;
@@ -34,9 +45,20 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
 
       for (let i = 0; i < bookmarks.length; i++) {
         const b = bookmarks[i];
-        const imageUrl = b.og_image;
+        
+        // Determine the effective image URL using the same logic as BookmarkGrid
+        const customSrc = storedPreviewUrl(b.custom_preview_path, { previewVersion: b.preview_version });
+        const storedSrc = storedPreviewUrl(b.preview_path, { previewVersion: b.preview_version });
+        const microlinkSrc = screenshotPreviewUrl(b.url, { cacheBust: b.preview_version });
+        const fallbackSrc = previewImageUrl(b.url, {
+          ogImage: b.og_image,
+          favicon: b.favicon,
+          previewVersion: b.preview_version,
+        });
+
+        const imageUrl = customSrc || storedSrc || microlinkSrc || fallbackSrc;
+        
         const imgExt = imageUrl?.split('.').pop()?.split('?')[0] || 'png';
-        // Sanitize extension to ensure it's not too long or weird
         const safeExt = imgExt.length > 4 ? 'png' : imgExt;
         const imgName = `bookmark_${i}.${safeExt}`;
         
@@ -110,19 +132,21 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
         .export-wrap { display: flex; align-items: center; gap: 8px; }
         .error-msg { font-size: 11px; color: #ef4444; }
         .export-btn {
-          display: flex;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 28px;
-          height: 28px;
-          border-radius: var(--radius-sm);
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
           color: var(--color-text-muted);
-          transition: background 120ms ease, color 120ms ease;
-          border: 1px solid transparent;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
         }
         .export-btn:hover:not(:disabled) {
-          background: var(--color-bg-hover);
           color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
         }
         .export-btn:disabled { opacity: 0.5; cursor: not-allowed; }
         .icon { width: 14px; height: 14px; }

@@ -1166,8 +1166,8 @@ export default function Home() {
           <div className="top-row top-row-secondary">
             <div className="top-right">
               <div className="desktop-actions">
+                <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                 <div className="session-chip" title={user.email ?? "Signed in"}>
-                  <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                   <span className="session-email">{user.email ?? "Signed in"}</span>
                   <button className="session-signout" onClick={handleSignOut}>
                     Sign out

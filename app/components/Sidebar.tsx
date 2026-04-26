@@ -399,20 +399,22 @@ export default function Sidebar({
           </div>
 
           {onSignOut && (
-            <div className="mobile-account" title={userEmail ?? "Signed in"}>
+            <div className="mobile-account-wrap">
               <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flatCollections} />
-              <span className="mobile-account-state">
-                {userEmail ?? "Signed in"}
-              </span>
-              <button
-                className="mobile-signout"
-                onClick={() => {
-                  void onSignOut();
-                  onCloseMobile?.();
-                }}
-              >
-                Sign out
-              </button>
+              <div className="mobile-account" title={userEmail ?? "Signed in"}>
+                <span className="mobile-account-state">
+                  {userEmail ?? "Signed in"}
+                </span>
+                <button
+                  className="mobile-signout"
+                  onClick={() => {
+                    void onSignOut();
+                    onCloseMobile?.();
+                  }}
+                >
+                  Sign out
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -586,7 +588,17 @@ export default function Sidebar({
         .mobile-account {
           display: none;
         }
+        .mobile-account-wrap {
+          display: none;
+        }
         @media (max-width: 768px) {
+          .mobile-account-wrap {
+            display: flex;
+            align-items: center;
+            padding: 8px 12px;
+            gap: 12px;
+            border-top: 1px solid var(--color-border);
+          }
           .sidebar-foot-row {
             display: flex;
             align-items: center;
@@ -606,8 +618,7 @@ export default function Sidebar({
             justify-content: flex-end;
             gap: 8px;
             min-width: 0;
-            margin-left: auto;
-            flex: 0 1 auto;
+            flex: 1;
           }
           .mobile-account-state {
             max-width: 120px;
