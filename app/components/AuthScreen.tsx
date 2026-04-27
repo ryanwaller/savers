@@ -1,5 +1,14 @@
 "use client";
 
+import type { CSSProperties } from "react";
+
+const AUTH_BUTTON_STYLE: CSSProperties = {
+  height: 48,
+  minHeight: 48,
+  fontSize: 14,
+  width: "100%",
+};
+
 type AuthScreenProps = {
   email: string;
   googleSending?: boolean;
@@ -56,7 +65,12 @@ export default function AuthScreen({
           </label>
 
           <div className="auth-actions">
-            <button className="btn btn-primary auth-submit" type="submit" disabled={sending}>
+            <button
+              className="btn btn-primary auth-submit"
+              type="submit"
+              disabled={sending}
+              style={AUTH_BUTTON_STYLE}
+            >
               {sending ? "Sending link…" : "Email me a sign-in link"}
             </button>
 
@@ -68,6 +82,7 @@ export default function AuthScreen({
                 onClick={() => {
                   void onGoogleSubmit();
                 }}
+                style={AUTH_BUTTON_STYLE}
               >
                 {googleSending ? "Opening Google…" : "Continue with Google"}
               </button>
