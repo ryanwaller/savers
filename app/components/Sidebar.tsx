@@ -222,23 +222,9 @@ export default function Sidebar({
           <img className="sidebar-brand-mark" src="/savers-mark.svg" alt="" draggable={false} />
           <span>Savers</span>
         </div>
-        <div className="sidebar-head-actions">
-          {onSignOut && (
-            <button
-              className="mobile-close mobile-signout-icon"
-              onClick={() => {
-                void onSignOut();
-                onCloseMobile?.();
-              }}
-              aria-label="Sign out"
-            >
-              <SignOut size={16} />
-            </button>
-          )}
-          <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
-            ×
-          </button>
-        </div>
+        <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
+          ×
+        </button>
       </div>
 
       <div className="sidebar-scroll">

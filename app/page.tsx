@@ -1059,6 +1059,18 @@ export default function Home() {
       const oauthUrl = new URL(data.url);
       oauthUrl.searchParams.set("redirect_to", redirectTo);
 
+      // TEMP DEBUG: surface what we're actually sending to Supabase so we can
+      // see if redirectTo is being honored.
+      if (native) {
+        const debug = `redirectTo: ${redirectTo}\n\noauthUrl: ${oauthUrl.toString()}`;
+        // eslint-disable-next-line no-alert
+        const proceed = window.confirm(`${debug}\n\nProceed?`);
+        if (!proceed) {
+          setSigningInWithGoogle(false);
+          return;
+        }
+      }
+
       await openOAuthUrl(oauthUrl.toString());
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
@@ -1767,7 +1779,7 @@ export default function Home() {
             top: 0;
             z-index: 30;
             background: var(--color-bg);
-            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px 14px;
             gap: 10px;
           }
           .crumbs {
