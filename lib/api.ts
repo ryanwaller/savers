@@ -123,6 +123,35 @@ export const api = {
     );
   },
 
+  async listTokens(): Promise<{
+    tokens: Array<{
+      id: string;
+      name: string;
+      prefix: string;
+      last_used_at: string | null;
+      created_at: string;
+    }>;
+  }> {
+    return j(await fetch("/api/tokens", { cache: "no-store" }));
+  },
+  async createToken(name: string): Promise<{
+    token: string;
+    record: { id: string; name: string; prefix: string; created_at: string };
+  }> {
+    return j(
+      await fetch("/api/tokens", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      })
+    );
+  },
+  async deleteToken(id: string): Promise<{ ok: true }> {
+    return j(
+      await fetch(`/api/tokens?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+    );
+  },
+
   async suggestTags(payload: {
     url: string;
     title?: string | null;

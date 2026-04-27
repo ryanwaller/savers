@@ -55,6 +55,7 @@ type Props = {
   onReorderCollections: (ids: string[]) => Promise<void>;
   onReparentCollection: (id: string, newParentId: string | null) => Promise<void>;
   onSignOut?: () => void | Promise<void>;
+  onOpenSettings?: () => void;
   onCloseMobile?: () => void;
 };
 
@@ -77,6 +78,7 @@ export default function Sidebar({
   onReorderCollections,
   onReparentCollection,
   onSignOut,
+  onOpenSettings,
   onCloseMobile,
 }: Props) {
   const [addingRoot, setAddingRoot] = useState(false);
@@ -405,15 +407,28 @@ export default function Sidebar({
                 <span className="mobile-account-state">
                   {userEmail ?? "Signed in"}
                 </span>
-                <button
-                  className="mobile-signout"
-                  onClick={() => {
-                    void onSignOut();
-                    onCloseMobile?.();
-                  }}
-                >
-                  Sign out
-                </button>
+                <div className="mobile-account-actions">
+                  {onOpenSettings && (
+                    <button
+                      className="mobile-signout"
+                      onClick={() => {
+                        onOpenSettings();
+                        onCloseMobile?.();
+                      }}
+                    >
+                      Settings
+                    </button>
+                  )}
+                  <button
+                    className="mobile-signout"
+                    onClick={() => {
+                      void onSignOut();
+                      onCloseMobile?.();
+                    }}
+                  >
+                    Sign out
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -627,6 +642,10 @@ export default function Sidebar({
             white-space: nowrap;
             font-size: 12px;
             color: var(--color-text-muted);
+          }
+          .mobile-account-actions {
+            display: inline-flex;
+            gap: 6px;
           }
           .mobile-signout {
             height: 30px;

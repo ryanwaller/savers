@@ -18,6 +18,7 @@ import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ExportBookmarksButton from "./components/ExportBookmarksButton";
+import SettingsModal from "./components/SettingsModal";
 
 type Selection =
   | { kind: "all" }
@@ -107,6 +108,7 @@ export default function Home() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [detail, setDetail] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState<{
     bookmark: Bookmark;
@@ -1096,6 +1098,7 @@ export default function Home() {
         onReorderCollections={handleReorderCollections}
         onReparentCollection={handleReparentCollection}
         onSignOut={handleSignOut}
+        onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setMobileSidebarOpen(false)}
       />
 
@@ -1169,6 +1172,12 @@ export default function Home() {
                 <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                 <div className="session-chip" title={user.email ?? "Signed in"}>
                   <span className="session-email">{user.email ?? "Signed in"}</span>
+                  <button
+                    className="session-signout"
+                    onClick={() => setShowSettings(true)}
+                  >
+                    Settings
+                  </button>
                   <button className="session-signout" onClick={handleSignOut}>
                     Sign out
                   </button>
@@ -1334,6 +1343,11 @@ export default function Home() {
       {dropStatus && (
         <div className="drop-status small" role="status">{dropStatus}</div>
       )}
+
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+      />
 
       <DuplicateImportModal
         open={duplicateImportUrls.length > 0}
