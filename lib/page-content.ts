@@ -59,11 +59,43 @@ function collapseWhitespace(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
+// Instagram blocks unauthenticated scrapers on the main URL, but its
+// public `/embed/` endpoint returns og:title/og:description for public
+// posts. Rewrite the fetch URL transparently when it looks like one of
+// the post-style Instagram URLs.
+function rewriteFetchUrl(originalUrl: string): string {
+  try {
+    const u = new URL(originalUrl);
+    if (
+      (u.hostname === "instagram.com" || u.hostname === "www.instagram.com") &&
+      /^\/(p|reel|tv)\/[^\/]+\/?$/.test(u.pathname) &&
+      !u.pathname.endsWith("/embed/") &&
+      !u.pathname.endsWith("/embed")
+    ) {
+      const trailing = u.pathname.endsWith("/") ? "" : "/";
+      return `${u.origin}${u.pathname}${trailing}embed/`;
+    }
+  } catch {
+    // ignore
+  }
+  return originalUrl;
+}
+
 export async function fetchPageContent(url: string): Promise<PageContent | null> {
+  const fetchUrl = rewriteFetchUrl(url);
+
   let res: Response;
   try {
-    res = await fetch(url, {
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; Savers/1.0)" },
+    res = await fetch(fetchUrl, {
+      headers: {
+        // Use a browser-ish UA so social sites that gate scrapers don't
+        // immediately bounce us. Instagram /embed/ in particular returns
+        // a thin "you must enable JS" page when the UA looks like a bot.
+        "User-Agent":
+          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
     });
   } catch {
