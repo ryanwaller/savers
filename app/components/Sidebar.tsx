@@ -629,7 +629,7 @@ export default function Sidebar({
             color: var(--color-text-muted);
           }
           .mobile-signout {
-            height: 26px;
+            height: 30px;
             padding: 0 10px;
             border: 1px solid var(--color-border);
             border-radius: 999px;

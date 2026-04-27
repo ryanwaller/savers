@@ -1610,8 +1610,8 @@ export default function Home() {
           font-size: 13px;
         }
         .circle-btn {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1634,7 +1634,7 @@ export default function Home() {
           gap: 8px;
           min-width: 0;
           padding: 0 0 0 10px;
-          height: 28px;
+          height: 30px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg-secondary);

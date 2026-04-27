@@ -132,8 +132,8 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
         .export-wrap { display: flex; align-items: center; gap: 8px; }
         .error-msg { font-size: 11px; color: #ef4444; }
         .export-btn {
-          width: 32px;
-          height: 32px;
+          width: 30px;
+          height: 30px;
           display: inline-flex;
           align-items: center;
           justify-content: center;

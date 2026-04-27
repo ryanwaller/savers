@@ -79,7 +79,7 @@ textarea { resize: vertical; }
   align-items: center;
   justify-content: center;
   gap: 6px;
-  height: 26px;
+  height: 30px;
   padding: 0 10px;
   border: 1px solid var(--color-border);
   border-radius: var(--radius-sm);
