@@ -11,8 +11,8 @@
 // Setup (one time, in Xcode):
 //   1. Drag this file into the App target in your Capacitor iOS project.
 //      In the dialog, ensure the App target is checked.
-//   2. Capacitor auto-discovers the plugin via @objc(...) — no
-//      registerPlugin() call or Podfile entry needed.
+//   2. Capacitor 7 discovers the plugin via the CAPBridgedPlugin protocol —
+//      no registerPlugin() call or Podfile entry needed.
 //   3. Build & run.
 //
 // Usage from JS:
@@ -21,17 +21,19 @@
 //     authenticate(opts: { url: string; callbackScheme: string }):
 //       Promise<{ url: string }>;
 //   }>("AuthSession");
-//   const { url } = await AuthSession.authenticate({
-//     url: oauthUrl,
-//     callbackScheme: "savers",
-//   });
 
 import Foundation
 import Capacitor
 import AuthenticationServices
 
-@objc(AuthSession)
-public class AuthSessionPlugin: CAPPlugin {
+@objc(AuthSessionPlugin)
+public class AuthSessionPlugin: CAPPlugin, CAPBridgedPlugin {
+    public let identifier = "AuthSessionPlugin"
+    public let jsName = "AuthSession"
+    public let pluginMethods: [CAPPluginMethod] = [
+        CAPPluginMethod(name: "authenticate", returnType: CAPPluginReturnPromise),
+    ]
+
     private var currentSession: ASWebAuthenticationSession?
 
     @objc func authenticate(_ call: CAPPluginCall) {
@@ -40,7 +42,8 @@ public class AuthSessionPlugin: CAPPlugin {
             call.reject("Missing or invalid 'url'.")
             return
         }
-        guard let callbackScheme = call.getString("callbackScheme"), !callbackScheme.isEmpty else {
+        guard let callbackScheme = call.getString("callbackScheme"),
+              !callbackScheme.isEmpty else {
             call.reject("Missing 'callbackScheme'.")
             return
         }
