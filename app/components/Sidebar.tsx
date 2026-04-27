@@ -345,17 +345,27 @@ export default function Sidebar({
                   {tagSortOrder === 'alphabetical' ? 'A→Z' : '#→'}
                 </button>
               </div>
-              {tagsExpanded &&
-                sortedTags.map((tag) => (
-                  <SidebarItem
-                    key={tag}
-                    label={`#${tag}`}
-                    count={tagCounts[tag] ?? 0}
-                    active={activeTag === tag}
-                    onClick={() => onTagClick(tag === activeTag ? null : tag)}
-                    indent={18}
-                  />
-                ))}
+              {tagsExpanded && (
+                <div className="tag-pills">
+                  {sortedTags.map((tag) => {
+                    const isActive = activeTag === tag;
+                    const count = tagCounts[tag] ?? 0;
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`tag-pill ${isActive ? "active" : ""}`}
+                        onClick={() =>
+                          onTagClick(tag === activeTag ? null : tag)
+                        }
+                      >
+                        <span className="tag-pill-name">{tag}</span>
+                        <span className="tag-pill-count">{count}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </>
           )}
         </div>
@@ -519,6 +529,51 @@ export default function Sidebar({
         .tag-sort-btn:hover {
           color: var(--color-text);
           background: var(--color-bg-hover);
+        }
+        .tag-pills {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          padding: 4px 4px 8px;
+        }
+        .tag-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+          font-size: 12px;
+          line-height: 1.2;
+          cursor: pointer;
+          max-width: 100%;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          transition: background 120ms ease, border-color 120ms ease;
+        }
+        .tag-pill:hover {
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-strong);
+        }
+        .tag-pill.active {
+          background: var(--color-text);
+          color: var(--color-bg);
+          border-color: var(--color-text);
+        }
+        .tag-pill-name {
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .tag-pill-count {
+          font-size: 11px;
+          color: var(--color-text-muted);
+          font-feature-settings: "tnum" 1;
+        }
+        .tag-pill.active .tag-pill-count {
+          color: var(--color-bg-secondary);
         }
         .sidebar-section {
           padding: 4px 6px;

@@ -12,6 +12,7 @@ import {
   tintForDomain,
 } from "@/lib/api";
 import { compressImageForPreview } from "@/lib/image-compress";
+import { openExternalLink, isNative as isNativeShell } from "@/lib/capacitor-bridge";
 import CollectionIcon from "./CollectionIcon";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -469,7 +470,13 @@ function BookmarkCard({
             rel="noopener noreferrer"
             draggable={false}
             style={{ background: tint }}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (isNativeShell()) {
+                event.preventDefault();
+                void openExternalLink(b.url);
+              }
+            }}
             onDragEnter={handlePreviewDragEnter}
             onDragOver={handlePreviewDragOver}
             onDragLeave={handlePreviewDragLeave}

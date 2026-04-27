@@ -92,6 +92,20 @@ export async function openOAuthUrl(url: string): Promise<void> {
 }
 
 /**
+ * Open a normal external link. In the iOS Capacitor shell, use
+ * SFSafariViewController so links open inside the app instead of
+ * jumping the user out to Chrome. On desktop, do the standard
+ * window.open in a new tab.
+ */
+export async function openExternalLink(url: string): Promise<void> {
+  if (!isNative()) {
+    window.open(url, "_blank", "noopener,noreferrer");
+    return;
+  }
+  await Browser.open({ url, presentationStyle: "popover" });
+}
+
+/**
  * Wires up the Capacitor URL-scheme listener that turns
  * savers://auth/callback?... into an in-WebView load of /auth/callback?...
  * so the session cookie lands in the right cookie jar.

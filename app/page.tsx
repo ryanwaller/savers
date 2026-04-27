@@ -1797,8 +1797,9 @@ export default function Home() {
             top: 0;
             z-index: 30;
             background: var(--color-bg);
-            padding: calc(env(safe-area-inset-top, 0px) + 12px) 12px 14px;
+            padding: calc(env(safe-area-inset-top, 0px) + 14px) 14px 18px;
             gap: 10px;
+            min-height: 64px;
           }
           .crumbs {
             min-width: 0;
