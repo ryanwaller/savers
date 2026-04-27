@@ -19,6 +19,12 @@ import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ExportBookmarksButton from "./components/ExportBookmarksButton";
 import SettingsModal from "./components/SettingsModal";
+import {
+  isNative as isNativeShell,
+  NATIVE_REDIRECT,
+  openOAuthUrl,
+  registerAuthDeepLinkHandler,
+} from "@/lib/capacitor-bridge";
 
 type Selection =
   | { kind: "all" }
@@ -121,6 +127,13 @@ export default function Home() {
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
+  // Inside the iOS Capacitor shell, register a one-time URL listener so
+  // OAuth callbacks coming back via savers://auth/callback get translated
+  // into in-WebView /auth/callback loads.
+  useEffect(() => {
+    registerAuthDeepLinkHandler();
+  }, []);
+
   // Refs let the touch listeners read current state without re-attaching.
   const mobileSidebarOpenRef = useRef(mobileSidebarOpen);
   useEffect(() => {
@@ -972,10 +985,17 @@ export default function Home() {
       const redirectBase = getAuthRedirectBase();
       const supabase = getSupabaseBrowserClient();
 
+      // Inside the iOS shell, route the callback through our custom URL
+      // scheme so the email link comes back into the app. On desktop, use
+      // the normal https callback.
+      const emailRedirectTo = isNativeShell()
+        ? NATIVE_REDIRECT
+        : `${redirectBase}/auth/callback`;
+
       const { error } = await supabase.auth.signInWithOtp({
         email,
         options: {
-          emailRedirectTo: `${redirectBase}/auth/callback`,
+          emailRedirectTo,
         },
       });
 
@@ -1012,11 +1032,19 @@ export default function Home() {
       const redirectBase = getAuthRedirectBase();
       const supabase = getSupabaseBrowserClient();
 
+      // On iOS Capacitor, Google blocks OAuth inside WKWebView. Route the
+      // OAuth flow through SFSafariViewController and have Supabase return
+      // via savers://auth/callback (handled by registerAuthDeepLinkHandler).
+      const native = isNativeShell();
+      const redirectTo = native
+        ? NATIVE_REDIRECT
+        : `${redirectBase}/auth/callback?next=/`;
+
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
           skipBrowserRedirect: true,
-          redirectTo: `${redirectBase}/auth/callback?next=/`,
+          redirectTo,
         },
       });
 
@@ -1029,9 +1057,9 @@ export default function Home() {
       }
 
       const oauthUrl = new URL(data.url);
-      oauthUrl.searchParams.set("redirect_to", `${redirectBase}/auth/callback?next=/`);
+      oauthUrl.searchParams.set("redirect_to", redirectTo);
 
-      window.location.assign(oauthUrl.toString());
+      await openOAuthUrl(oauthUrl.toString());
     } catch (error) {
       setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
       setSigningInWithGoogle(false);
