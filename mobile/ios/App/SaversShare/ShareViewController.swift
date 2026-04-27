@@ -67,7 +67,8 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func handleShare() async {
-        guard let url = await extractURL() else {
+        let payload = await extractShareContent()
+        guard let url = payload.url else {
             await showFinal(message: "No URL found in this share.", isError: true)
             return
         }
@@ -86,7 +87,12 @@ final class ShareViewController: UIViewController {
         }
 
         do {
-            try await postBookmark(url: url, title: nil, token: token)
+            try await postBookmark(
+                url: url,
+                title: payload.title,
+                description: payload.description,
+                token: token
+            )
             await showFinal(message: "Saved.", isError: false)
         } catch BookmarkSaveError.unauthorized {
             await showFinal(
@@ -103,32 +109,90 @@ final class ShareViewController: UIViewController {
         }
     }
 
-    private func extractURL() async -> URL? {
-        guard let item = (extensionContext?.inputItems.first as? NSExtensionItem),
-              let attachments = item.attachments
-        else { return nil }
+    struct ShareContent {
+        var url: URL?
+        var title: String?
+        var description: String?
+    }
 
-        for provider in attachments {
-            // Most modern share targets advertise the URL UTType.
-            if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
-                if let url: URL = await loadItem(
-                    from: provider, type: UTType.url.identifier
-                ) {
-                    return url
-                }
+    private func extractShareContent() async -> ShareContent {
+        var result = ShareContent()
+        guard let items = extensionContext?.inputItems as? [NSExtensionItem] else {
+            return result
+        }
+
+        // Some hosts (Instagram, Threads, Twitter/X) provide the post's
+        // caption / description as the NSExtensionItem's `attributedTitle`
+        // or `contentText`, plus the URL as a separate attachment. Capture
+        // the text first so we can fall back to it if the URL itself
+        // doesn't yield a good title.
+        for item in items {
+            if let attributed = item.attributedContentText?.string,
+               !attributed.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               result.description == nil {
+                result.description = attributed
             }
-            // Some apps share plain text containing a URL (e.g. SMS).
-            if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
-                if let text: String = await loadItem(
-                    from: provider, type: UTType.plainText.identifier
-                ),
-                    let url = URL(string: text.trimmingCharacters(in: .whitespacesAndNewlines))
-                {
-                    return url
+            if let attributedTitle = item.attributedTitle?.string,
+               !attributedTitle.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+               result.title == nil {
+                result.title = attributedTitle
+            }
+            // attributedContentText is not always populated — some hosts use
+            // userInfo instead.
+            if let userInfo = item.userInfo,
+               result.description == nil,
+               let text = userInfo["NSExtensionItemAttributedContentTextKey"] as? String,
+               !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                result.description = text
+            }
+
+            for provider in item.attachments ?? [] {
+                if result.url == nil,
+                   provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
+                    if let u: URL = await loadItem(
+                        from: provider, type: UTType.url.identifier
+                    ) {
+                        result.url = u
+                    }
+                }
+
+                if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
+                    if let text: String = await loadItem(
+                        from: provider, type: UTType.plainText.identifier
+                    ) {
+                        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+                        if result.url == nil,
+                           let u = URL(string: trimmed),
+                           ["http", "https"].contains((u.scheme ?? "").lowercased()) {
+                            result.url = u
+                        } else if !trimmed.isEmpty {
+                            // Treat free-form text as the description if we
+                            // don't have one yet — Instagram captions land
+                            // here.
+                            if result.description == nil {
+                                result.description = trimmed
+                            }
+                        }
+                    }
                 }
             }
         }
-        return nil
+
+        // Promote the first line of the description into a title when the
+        // host didn't supply one explicitly. Most apps share captions like
+        // "Big news! …\n\nReally exciting stuff.\n\nhttps://example.com" —
+        // first line is a usable headline.
+        if result.title == nil, let desc = result.description {
+            let firstLine = desc.split(whereSeparator: \.isNewline).first.map(String.init) ?? desc
+            let cleaned = firstLine
+                .trimmingCharacters(in: .whitespacesAndNewlines)
+                .prefix(140)
+            if !cleaned.isEmpty {
+                result.title = String(cleaned)
+            }
+        }
+
+        return result
     }
 
     private func loadItem<T>(from provider: NSItemProvider, type: String) async -> T? {
@@ -172,7 +236,12 @@ final class ShareViewController: UIViewController {
         case server(String)
     }
 
-    private func postBookmark(url: URL, title: String?, token: String) async throws {
+    private func postBookmark(
+        url: URL,
+        title: String?,
+        description: String?,
+        token: String
+    ) async throws {
         guard let endpoint = URL(string: "\(Config.apiBase)/api/bookmarks") else {
             throw BookmarkSaveError.server("Invalid API base.")
         }
@@ -184,7 +253,14 @@ final class ShareViewController: UIViewController {
         request.timeoutInterval = 15
 
         var body: [String: Any] = ["url": url.absoluteString]
-        if let title { body["title"] = title }
+        if let title, !title.isEmpty { body["title"] = title }
+        if let description, !description.isEmpty {
+            body["description"] = description
+            // Also store as notes — captions from social shares often
+            // contain enough context that the user wants to keep around
+            // verbatim, not just as a 1-line description.
+            body["notes"] = description
+        }
         request.httpBody = try JSONSerialization.data(withJSONObject: body, options: [])
 
         let (data, response) = try await URLSession.shared.data(for: request)
