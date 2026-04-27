@@ -412,32 +412,30 @@ export default function Sidebar({
 
           {onSignOut && (
             <div className="mobile-account-wrap">
-              <div className="mobile-account" title={userEmail ?? "Signed in"}>
-                <span className="mobile-account-state">
+              <div className="mobile-session-chip" title={userEmail ?? "Signed in"}>
+                <span className="mobile-session-email">
                   {userEmail ?? "Signed in"}
                 </span>
-                <div className="mobile-account-actions">
-                  {onOpenSettings && (
-                    <button
-                      className="mobile-signout"
-                      onClick={() => {
-                        onOpenSettings();
-                        onCloseMobile?.();
-                      }}
-                    >
-                      Settings
-                    </button>
-                  )}
+                {onOpenSettings && (
                   <button
-                    className="mobile-signout"
+                    className="mobile-session-btn"
                     onClick={() => {
-                      void onSignOut();
+                      onOpenSettings();
                       onCloseMobile?.();
                     }}
                   >
-                    Sign out
+                    Settings
                   </button>
-                </div>
+                )}
+                <button
+                  className="mobile-session-btn"
+                  onClick={() => {
+                    void onSignOut();
+                    onCloseMobile?.();
+                  }}
+                >
+                  Sign out
+                </button>
               </div>
             </div>
           )}
@@ -503,8 +501,11 @@ export default function Sidebar({
         .mobile-close:hover { border-color: var(--color-border-strong); }
         @media (max-width: 768px) {
           .sidebar-head {
-            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
-            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
+            padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px;
+            min-height: calc(env(safe-area-inset-top, 0px) + 60px);
+          }
+          .sidebar-scroll {
+            padding-top: 8px;
           }
           .mobile-close {
             display: inline-flex;
@@ -661,9 +662,6 @@ export default function Sidebar({
           width: 100%;
           font-size: 12px;
         }
-        .mobile-account {
-          display: none;
-        }
         .mobile-account-wrap {
           display: none;
         }
@@ -671,7 +669,7 @@ export default function Sidebar({
           .mobile-account-wrap {
             display: flex;
             align-items: center;
-            padding: 12px 16px;
+            padding: 12px 16px 0;
             gap: 12px;
             border-top: 1px solid var(--color-border);
           }
@@ -689,37 +687,42 @@ export default function Sidebar({
             width: 100%;
             text-align: left;
           }
-          .mobile-account {
-            display: inline-flex;
+
+          .mobile-session-chip {
+            display: flex;
             align-items: center;
-            justify-content: flex-end;
-            gap: 8px;
-            min-width: 0;
-            flex: 1;
+            width: 100%;
+            height: 32px;
+            border: 1px solid var(--color-border);
+            border-radius: 999px;
+            background: var(--color-bg-secondary);
+            overflow: hidden;
           }
-          .mobile-account-state {
-            max-width: 120px;
+          .mobile-session-email {
+            flex: 1 1 auto;
+            min-width: 0;
+            padding: 0 12px;
+            font-size: 12px;
+            color: var(--color-text-muted);
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
-            font-size: 12px;
-            color: var(--color-text-muted);
           }
-          .mobile-account-actions {
-            display: inline-flex;
-            gap: 6px;
-          }
-          .mobile-signout {
-            height: 30px;
-            padding: 0 10px;
-            border: 1px solid var(--color-border);
-            border-radius: 999px;
-            background: var(--color-bg);
+          .mobile-session-btn {
+            height: 100%;
+            padding: 0 14px;
+            border: 0;
+            border-left: 1px solid var(--color-border);
+            background: transparent;
             color: var(--color-text);
             font-size: 12px;
             white-space: nowrap;
+            flex-shrink: 0;
           }
-          .mobile-signout:hover {
+          .mobile-session-btn:last-of-type {
+            border-radius: 0 999px 999px 0;
+          }
+          .mobile-session-btn:hover {
             background: var(--color-bg-hover);
           }
         }

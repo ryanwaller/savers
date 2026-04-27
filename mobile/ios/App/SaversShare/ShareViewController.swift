@@ -13,48 +13,36 @@ import MobileCoreServices
 final class ShareViewController: UIViewController {
     // MARK: - UI
 
-    private let card = UIView()
+    private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
     private let label = UILabel()
-    private let activity = UIActivityIndicatorView(style: .medium)
 
     override func viewDidLoad() {
         super.viewDidLoad()
 
-        view.backgroundColor = UIColor.black.withAlphaComponent(0.4)
-
-        card.translatesAutoresizingMaskIntoConstraints = false
-        card.backgroundColor = UIColor(white: 0.07, alpha: 1.0)
-        card.layer.cornerRadius = 14
-        card.layer.cornerCurve = .continuous
-        card.layer.borderWidth = 1
-        card.layer.borderColor = UIColor(white: 0.18, alpha: 1.0).cgColor
-        view.addSubview(card)
+        // Make the entire backdrop a soft blur instead of an opaque black
+        // overlay; the user can still see the host app underneath.
+        view.backgroundColor = .clear
+        blurView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(blurView)
 
         label.translatesAutoresizingMaskIntoConstraints = false
         label.text = "Saving to Savers…"
         label.textColor = .white
-        label.font = .systemFont(ofSize: 14, weight: .medium)
+        label.font = .systemFont(ofSize: 16, weight: .semibold)
         label.textAlignment = .center
         label.numberOfLines = 0
-        card.addSubview(label)
-
-        activity.translatesAutoresizingMaskIntoConstraints = false
-        activity.color = .white
-        activity.startAnimating()
-        card.addSubview(activity)
+        view.addSubview(label)
 
         NSLayoutConstraint.activate([
-            card.centerXAnchor.constraint(equalTo: view.centerXAnchor),
-            card.centerYAnchor.constraint(equalTo: view.centerYAnchor),
-            card.widthAnchor.constraint(equalToConstant: 240),
+            blurView.topAnchor.constraint(equalTo: view.topAnchor),
+            blurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+            blurView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            blurView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
 
-            label.topAnchor.constraint(equalTo: card.topAnchor, constant: 18),
-            label.leadingAnchor.constraint(equalTo: card.leadingAnchor, constant: 16),
-            label.trailingAnchor.constraint(equalTo: card.trailingAnchor, constant: -16),
-
-            activity.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 12),
-            activity.centerXAnchor.constraint(equalTo: card.centerXAnchor),
-            activity.bottomAnchor.constraint(equalTo: card.bottomAnchor, constant: -18),
+            label.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
+            label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
+            label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
         ])
     }
 
@@ -218,8 +206,6 @@ final class ShareViewController: UIViewController {
 
     @MainActor
     private func showFinal(message: String, isError: Bool) async {
-        activity.stopAnimating()
-        activity.isHidden = true
         label.text = message
         label.textColor = isError ? UIColor(red: 1.0, green: 0.5, blue: 0.5, alpha: 1.0) : .white
 

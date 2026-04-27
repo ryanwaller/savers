@@ -1682,8 +1682,8 @@ export default function Home() {
           font-size: 13px;
         }
         .circle-btn {
-          width: 30px;
-          height: 30px;
+          width: 32px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
