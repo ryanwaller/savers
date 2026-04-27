@@ -185,11 +185,11 @@ textarea { resize: vertical; }
   flex-wrap: nowrap;
 }
 
-.auth-actions .btn {
+.auth-card .auth-actions .btn {
   flex: 1 1 0;
   width: 100%;
-  height: 32px;
-  font-size: 13px;
+  height: 48px !important;
+  font-size: 14px;
 }
 
 .auth-status,
