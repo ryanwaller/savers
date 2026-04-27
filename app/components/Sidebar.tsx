@@ -412,7 +412,6 @@ export default function Sidebar({
 
           {onSignOut && (
             <div className="mobile-account-wrap">
-              <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flatCollections} />
               <div className="mobile-account" title={userEmail ?? "Signed in"}>
                 <span className="mobile-account-state">
                   {userEmail ?? "Signed in"}
@@ -465,10 +464,11 @@ export default function Sidebar({
         }
         .sidebar-head {
           min-height: 54px;
-          padding: 14px;
+          padding: 0 16px;
           display: flex;
           align-items: center;
           justify-content: space-between;
+          gap: 12px;
           border-bottom: 1px solid var(--color-border);
           box-sizing: border-box;
         }
@@ -495,14 +495,16 @@ export default function Sidebar({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
-          font-size: 16px;
+          font-size: 18px;
           line-height: 1;
+          padding-bottom: 2px;
           flex-shrink: 0;
         }
         .mobile-close:hover { border-color: var(--color-border-strong); }
         @media (max-width: 768px) {
           .sidebar-head {
-            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
           }
           .mobile-close {
             display: inline-flex;
@@ -669,10 +671,11 @@ export default function Sidebar({
           .mobile-account-wrap {
             display: flex;
             align-items: center;
-            padding: 8px 4px 0;
-            gap: 8px;
+            padding: 12px 16px;
+            gap: 12px;
             border-top: 1px solid var(--color-border);
           }
+
           .sidebar-foot-row {
             display: flex;
             flex-direction: column;

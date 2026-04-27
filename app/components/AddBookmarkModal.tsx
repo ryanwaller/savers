@@ -934,8 +934,9 @@ export default function AddBookmarkModal({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          height: 54px;
+          min-height: 54px;
           padding: 0 16px;
+          gap: 12px;
           border-bottom: 1px solid var(--color-border);
           box-sizing: border-box;
         }
@@ -950,8 +951,9 @@ export default function AddBookmarkModal({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
-          font-size: 16px;
+          font-size: 18px;
           line-height: 1;
+          padding-bottom: 2px;
           flex-shrink: 0;
         }
         .close:hover { border-color: var(--color-border-strong); }
@@ -1121,9 +1123,10 @@ export default function AddBookmarkModal({
             border-radius: 0;
           }
           .head {
-            padding: calc(env(safe-area-inset-top, 0px) + 8px) 12px 8px;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
             height: auto;
-            min-height: 48px;
+            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
+            box-sizing: border-box;
           }
           .body :global(input),
           .body :global(textarea),

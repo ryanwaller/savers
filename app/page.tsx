@@ -1280,7 +1280,6 @@ export default function Home() {
                   </div>
                 ) : (
                   <>
-                    <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                     <button
                       className="circle-btn"
                       aria-label="Search"
@@ -1704,13 +1703,16 @@ export default function Home() {
         .session-chip {
           display: inline-flex;
           align-items: center;
-          gap: 8px;
           min-width: 0;
           padding: 0 0 0 10px;
           height: 30px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg-secondary);
+          overflow: hidden;
+        }
+        .session-email {
+          margin-right: 4px;
         }
         .session-email {
           font-size: 12px;
