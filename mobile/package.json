@@ -1,0 +1,19 @@
+{
+  "name": "savers-mobile",
+  "version": "0.1.0",
+  "private": true,
+  "description": "iOS Capacitor shell for the Savers web app.",
+  "scripts": {
+    "open:ios": "cap open ios",
+    "sync:ios": "cap sync ios",
+    "add:ios": "cap add ios"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.4.4",
+    "@capacitor/ios": "^7.4.4",
+    "@capacitor/status-bar": "^7.0.4"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^7.4.4"
+  }
+}
