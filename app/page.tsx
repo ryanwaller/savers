@@ -1280,6 +1280,7 @@ export default function Home() {
                   </div>
                 ) : (
                   <>
+                    <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                     <button
                       className="circle-btn"
                       aria-label="Search"
@@ -1649,20 +1650,20 @@ export default function Home() {
         .top-right {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           min-width: 0;
           flex-shrink: 0;
         }
         .desktop-actions {
           display: flex;
           align-items: center;
-          gap: 10px;
+          gap: 12px;
           min-width: 0;
         }
         .mobile-actions {
           display: none;
           align-items: center;
-          gap: 8px;
+          gap: 12px;
           min-width: 0;
         }
         .mobile-search-row {
@@ -1725,6 +1726,8 @@ export default function Home() {
           border-left: 1px solid var(--color-border);
           color: var(--color-text);
           font-size: 12px;
+        }
+        .session-signout:last-of-type {
           border-radius: 0 999px 999px 0;
         }
         .session-signout:hover {
@@ -1797,9 +1800,13 @@ export default function Home() {
             top: 0;
             z-index: 30;
             background: var(--color-bg);
-            padding: calc(env(safe-area-inset-top, 0px) + 14px) 14px 18px;
-            gap: 10px;
-            min-height: 64px;
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+            gap: 12px;
+            display: flex;
+            align-items: center;
+            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
+            border-bottom: 1px solid var(--color-border);
+            box-sizing: border-box;
           }
           .crumbs {
             min-width: 0;
