@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PushPin } from "@phosphor-icons/react";
+import { PushPin, SignOut } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
@@ -222,9 +222,23 @@ export default function Sidebar({
           <img className="sidebar-brand-mark" src="/savers-mark.svg" alt="" draggable={false} />
           <span>Savers</span>
         </div>
-        <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
-          ×
-        </button>
+        <div className="sidebar-head-actions">
+          {onSignOut && (
+            <button
+              className="mobile-close mobile-signout-icon"
+              onClick={() => {
+                void onSignOut();
+                onCloseMobile?.();
+              }}
+              aria-label="Sign out"
+            >
+              <SignOut size={16} />
+            </button>
+          )}
+          <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
+            ×
+          </button>
+        </div>
       </div>
 
       <div className="sidebar-scroll">
@@ -470,6 +484,11 @@ export default function Sidebar({
           font-weight: 600;
           letter-spacing: -0.01em;
         }
+        .sidebar-head-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
         .mobile-close {
           display: none;
           width: 32px;
@@ -573,9 +592,8 @@ export default function Sidebar({
           color: var(--color-text-muted);
         }
         .sidebar-foot {
-          padding: 8px 8px 12px;
+          padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 24px);
           border-top: 1px solid var(--color-border);
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
         .sidebar-foot-row {
           display: block;
