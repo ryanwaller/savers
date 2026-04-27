@@ -610,22 +610,22 @@ export default function Sidebar({
           .mobile-account-wrap {
             display: flex;
             align-items: center;
-            padding: 8px 12px;
-            gap: 12px;
+            padding: 8px 4px 0;
+            gap: 8px;
             border-top: 1px solid var(--color-border);
           }
           .sidebar-foot-row {
             display: flex;
-            align-items: center;
-            gap: 10px;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 8px;
           }
           .sidebar-foot-primary {
-            flex: 1 1 auto;
             min-width: 0;
           }
           .sidebar-new {
-            width: auto;
-            white-space: nowrap;
+            width: 100%;
+            text-align: left;
           }
           .mobile-account {
             display: inline-flex;
