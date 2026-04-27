@@ -23,7 +23,6 @@ import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
   openOAuthUrl,
-  registerAuthDeepLinkHandler,
   runOAuthInAuthSession,
 } from "@/lib/capacitor-bridge";
 
@@ -128,12 +127,10 @@ export default function Home() {
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
-  // Inside the iOS Capacitor shell, register a one-time URL listener so
-  // OAuth callbacks coming back via savers://auth/callback get translated
-  // into in-WebView /auth/callback loads.
-  useEffect(() => {
-    registerAuthDeepLinkHandler();
-  }, []);
+  // (We previously registered an appUrlOpen handler for savers:// URLs,
+  // but ASWebAuthenticationSession now captures the OAuth callback
+  // natively, so the deep-link handler is no longer needed and can race
+  // with the in-app flow.)
 
   // Refs let the touch listeners read current state without re-attaching.
   const mobileSidebarOpenRef = useRef(mobileSidebarOpen);
@@ -1073,16 +1070,22 @@ export default function Home() {
           return;
         }
         const callback = new URL(callbackUrl);
-        // Forward the auth params to the in-WebView /auth/callback so the
-        // session cookie is set in the WebView's cookie jar.
-        const target = new URL("/auth/callback", window.location.origin);
-        for (const [k, v] of callback.searchParams.entries()) {
-          target.searchParams.set(k, v);
+        const code = callback.searchParams.get("code");
+        if (!code) {
+          throw new Error("Auth callback missing code parameter.");
         }
-        if (callback.hash) {
-          target.hash = callback.hash;
+        // Exchange the code for a session client-side. The Supabase JS
+        // client has the PKCE verifier in localStorage and writes the
+        // session into the WebView's cookie jar via @supabase/ssr.
+        // Capacitor's WebView blocks the cross-route navigation we'd need
+        // for the server-side /auth/callback path, so we do it here.
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          throw exchangeError;
         }
-        window.location.assign(target.toString());
+        // Reload so the rest of the app picks up the new session.
+        window.location.replace("/");
         return;
       }
 
