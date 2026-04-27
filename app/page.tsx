@@ -24,6 +24,7 @@ import {
   NATIVE_REDIRECT,
   openOAuthUrl,
   registerAuthDeepLinkHandler,
+  runOAuthInAuthSession,
 } from "@/lib/capacitor-bridge";
 
 type Selection =
@@ -1058,6 +1059,32 @@ export default function Home() {
 
       const oauthUrl = new URL(data.url);
       oauthUrl.searchParams.set("redirect_to", redirectTo);
+
+      if (native) {
+        // iOS: run inside ASWebAuthenticationSession so the redirect to
+        // savers://auth/callback is captured natively.
+        const callbackUrl = await runOAuthInAuthSession(
+          oauthUrl.toString(),
+          "savers"
+        );
+        if (!callbackUrl) {
+          // User cancelled the auth sheet.
+          setSigningInWithGoogle(false);
+          return;
+        }
+        const callback = new URL(callbackUrl);
+        // Forward the auth params to the in-WebView /auth/callback so the
+        // session cookie is set in the WebView's cookie jar.
+        const target = new URL("/auth/callback", window.location.origin);
+        for (const [k, v] of callback.searchParams.entries()) {
+          target.searchParams.set(k, v);
+        }
+        if (callback.hash) {
+          target.hash = callback.hash;
+        }
+        window.location.assign(target.toString());
+        return;
+      }
 
       await openOAuthUrl(oauthUrl.toString());
     } catch (error) {

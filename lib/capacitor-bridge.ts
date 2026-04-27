@@ -17,11 +17,53 @@
 //     forward the auth code to the in-app /auth/callback route, which
 //     exchanges it for a session in the WebView's cookie jar.
 
-import { Capacitor } from "@capacitor/core";
+import { Capacitor, registerPlugin } from "@capacitor/core";
 import { App as CapacitorApp } from "@capacitor/app";
 import { Browser } from "@capacitor/browser";
 
 export const NATIVE_REDIRECT = "savers://auth/callback";
+
+// Custom Capacitor plugin: ASWebAuthenticationSession. See
+// mobile/ios-plugins/AuthSessionPlugin.swift for the native side. We need
+// this because SFSafariViewController (used by @capacitor/browser) is
+// blocked by Apple from auto-launching custom URL schemes — exactly the
+// thing our OAuth callback relies on.
+interface AuthSessionPlugin {
+  authenticate(options: {
+    url: string;
+    callbackScheme: string;
+  }): Promise<{ url: string }>;
+}
+
+const AuthSession = registerPlugin<AuthSessionPlugin>("AuthSession");
+
+/**
+ * Run an OAuth flow inside ASWebAuthenticationSession. iOS captures the
+ * redirect to `callbackScheme://...` and returns the final callback URL
+ * here, without any URL-scheme bounce-through required.
+ *
+ * Falls back to a plain navigation on web.
+ */
+export async function runOAuthInAuthSession(
+  url: string,
+  callbackScheme = "savers"
+): Promise<string | null> {
+  if (!isNative()) {
+    window.location.assign(url);
+    return null;
+  }
+  try {
+    const result = await AuthSession.authenticate({ url, callbackScheme });
+    return result.url;
+  } catch (error) {
+    const message =
+      error && typeof error === "object" && "message" in error
+        ? String((error as { message: unknown }).message)
+        : String(error);
+    if (message === "USER_CANCELLED") return null;
+    throw error;
+  }
+}
 
 let listenerRegistered = false;
 
