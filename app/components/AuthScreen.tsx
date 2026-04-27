@@ -1,5 +1,7 @@
 "use client";
 
+import { useEffect, useState } from "react";
+
 type AuthScreenProps = {
   email: string;
   googleSending?: boolean;
@@ -76,7 +78,34 @@ export default function AuthScreen({
         </form>
 
         {message && <div className="auth-message small">{message}</div>}
+
+        <DebugOriginLine />
       </div>
+    </div>
+  );
+}
+
+function DebugOriginLine() {
+  const [origin, setOrigin] = useState<string>("");
+  const [native, setNative] = useState<string>("?");
+  useEffect(() => {
+    setOrigin(window.location.origin);
+    const w = window as unknown as {
+      Capacitor?: { isNativePlatform?: () => boolean; getPlatform?: () => string };
+    };
+    const cap = w.Capacitor;
+    if (cap?.isNativePlatform?.()) {
+      setNative(`yes (${cap.getPlatform?.() ?? "native"})`);
+    } else {
+      setNative("no");
+    }
+  }, []);
+  return (
+    <div
+      className="auth-message small"
+      style={{ opacity: 0.4, marginTop: 12, fontSize: 11 }}
+    >
+      origin: {origin || "(unknown)"} · native: {native}
     </div>
   );
 }
