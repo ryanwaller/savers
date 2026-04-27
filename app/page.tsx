@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { List, MagnifyingGlass, Plus, SignOut } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
@@ -1263,6 +1263,13 @@ export default function Home() {
                       onClick={() => setShowAdd(true)}
                     >
                       <Plus size={14} weight="bold" />
+                    </button>
+                    <button
+                      className="circle-btn"
+                      aria-label="Sign out"
+                      onClick={() => void handleSignOut()}
+                    >
+                      <SignOut size={14} />
                     </button>
                   </>
                 )}
