@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { fetchPageContent } from '@/lib/page-content'
 import { removePreviewObjects, storeBookmarkPreview } from '@/lib/preview-server'
 
 function getErrorMessage(error: unknown) {
@@ -85,15 +86,41 @@ export async function POST(req: NextRequest) {
 
     await ensureOwnedCollection(user.id, collection_id ?? null)
 
+    // Server-side metadata fill-in: if any of title / description / og_image
+    // / favicon weren't provided by the client (e.g. iOS Share Extension
+    // saving from Instagram, where the share sheet only passes the URL),
+    // fetch the page and use its OG tags. Best-effort — failures don't
+    // block the save.
+    let resolvedTitle = title ?? null
+    let resolvedDescription = description ?? null
+    let resolvedOgImage = og_image ?? null
+    let resolvedFavicon = favicon ?? null
+
+    const needsMetadata =
+      !resolvedTitle || !resolvedDescription || !resolvedOgImage || !resolvedFavicon
+    if (needsMetadata) {
+      try {
+        const fetched = await fetchPageContent(url)
+        if (fetched) {
+          resolvedTitle = resolvedTitle ?? fetched.title
+          resolvedDescription = resolvedDescription ?? fetched.description
+          resolvedOgImage = resolvedOgImage ?? fetched.og_image
+          resolvedFavicon = resolvedFavicon ?? fetched.favicon
+        }
+      } catch {
+        // ignore metadata fetch errors; we still save the bookmark.
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('bookmarks')
       .insert({
         user_id: user.id,
         url,
-        title: title ?? null,
-        description: description ?? null,
-        og_image: og_image ?? null,
-        favicon: favicon ?? null,
+        title: resolvedTitle,
+        description: resolvedDescription,
+        og_image: resolvedOgImage,
+        favicon: resolvedFavicon,
         collection_id: collection_id ?? null,
         tags: tags ?? [],
         notes: notes ?? null,
