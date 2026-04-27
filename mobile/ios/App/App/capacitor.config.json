@@ -1,0 +1,19 @@
+{
+	"appId": "us.othermeans.savers",
+	"appName": "Savers",
+	"webDir": "www",
+	"server": {
+		"url": "https://savers-production.up.railway.app",
+		"cleartext": false
+	},
+	"ios": {
+		"contentInset": "always",
+		"allowsLinkPreview": false,
+		"backgroundColor": "#0f0f0f"
+	},
+	"packageClassList": [
+		"AppPlugin",
+		"CAPBrowserPlugin",
+		"StatusBarPlugin"
+	]
+}
