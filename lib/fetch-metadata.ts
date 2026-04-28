@@ -6,55 +6,50 @@ type MetadataResult = {
   description: string | null;
 };
 
+const client = new Anthropic();
 const AI_TIMEOUT_MS = 10_000;
 
 function cleanText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
 
-function firstParagraph(html: string): string | null {
-  // Lightweight extraction from raw HTML as a last-resort fallback.
-  // Avoids a second cheerio parse when fetchPageContent already ran.
-  const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
-  if (!bodyMatch) return null;
-
-  const m = bodyMatch[1].match(
-    /<(?:p|h1|h2|h3|article|section|div)[^>]*>([\s\S]*?)<\/(?:p|h1|h2|h3|article|section|div)>/i
-  );
-  if (!m) return null;
-
-  const text = m[1]
-    .replace(/<[^>]+>/g, " ")
-    .replace(/&[a-z]+;/gi, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-  return text.slice(0, 300) || null;
-}
-
 export async function fetchMetadata(url: string): Promise<MetadataResult> {
-  // Step 1: scrape HTML metadata
+  console.log(`[refresh-metadata] Scraping ${url}`);
+
   const content: PageContent | null = await fetchPageContent(url);
 
-  const title = content?.title ?? null;
-  const scrapedDesc = content?.description ?? null;
+  if (!content) {
+    console.warn("[refresh-metadata] fetchPageContent returned null — page unreachable or empty");
+    return { title: null, description: null };
+  }
+
+  const title = content.title ?? null;
+  const scrapedDesc = content.description ?? null;
+
+  console.log(
+    `[refresh-metadata] Scrape result — title: ${title ? `"${title.slice(0, 60)}"` : "null"}, description: ${scrapedDesc ? `"${scrapedDesc.slice(0, 60)}"` : "null"}`
+  );
 
   if (title && scrapedDesc) {
+    console.log("[refresh-metadata] Both title and description found — skipping AI fallback");
     return { title, description: scrapedDesc };
   }
 
-  // Step 2: AI fallback for missing description
-  const aiDesc = scrapedDesc
-    ? null
-    : await generateDescription({
-        url,
-        title: title ?? undefined,
-        bodyText: content?.body_text ?? undefined,
-      });
+  if (!scrapedDesc) {
+    console.log("[refresh-metadata] Description missing, triggering AI fallback…");
+    const aiDesc = await generateDescription({
+      url,
+      title: title ?? undefined,
+      bodyText: content.body_text || undefined,
+    });
+    console.log(
+      `[refresh-metadata] AI fallback result: ${aiDesc ? `"${aiDesc.slice(0, 60)}"` : "null"}`
+    );
+    return { title, description: scrapedDesc ?? aiDesc };
+  }
 
-  return {
-    title,
-    description: scrapedDesc ?? aiDesc,
-  };
+  // title is missing but description exists
+  return { title, description: scrapedDesc };
 }
 
 async function generateDescription(params: {
@@ -62,14 +57,13 @@ async function generateDescription(params: {
   title?: string;
   bodyText?: string;
 }): Promise<string | null> {
-  const apiKey =
-    process.env.ANTHROPIC_API_KEY ?? process.env.ANTHROPIC_AUTH_TOKEN;
-  if (!apiKey) return null;
-
   const prompt = buildDescriptionPrompt(params);
-  if (!prompt) return null;
+  if (!prompt) {
+    console.warn("[refresh-metadata] Skipping AI — unable to build a prompt (no title, body, or useful context)");
+    return null;
+  }
 
-  const client = new Anthropic({ apiKey });
+  console.log(`[refresh-metadata] Calling Anthropic API (model: claude-3-haiku-20240307, max_tokens: 100)`);
 
   try {
     const response = await withTimeout(
@@ -77,44 +71,69 @@ async function generateDescription(params: {
         model: "claude-3-haiku-20240307",
         max_tokens: 100,
         temperature: 0.2,
-        messages: [
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
+        messages: [{ role: "user", content: prompt }],
       }),
       AI_TIMEOUT_MS
     );
 
     const block = response.content[0];
-    if (block?.type !== "text" || !block.text.trim()) return null;
+    if (block?.type !== "text") {
+      console.warn(`[refresh-metadata] Unexpected response type: ${block?.type ?? "none"}`);
+      return null;
+    }
 
     const result = block.text.trim();
-    // Guard against the model returning a refusal / nothing useful
-    if (result.length < 10 || result.length > 300) return null;
+    console.log(`[refresh-metadata] Claude response: "${result.slice(0, 120)}"`);
+
+    if (!result) {
+      console.warn("[refresh-metadata] Claude returned empty text");
+      return null;
+    }
+
+    if (result === "NONE" || result.length < 3) {
+      console.log("[refresh-metadata] Claude indicated no useful description possible");
+      return null;
+    }
+
+    if (result.length > 300) {
+      console.warn(`[refresh-metadata] Claude response too long (${result.length} chars), truncating`);
+      return result.slice(0, 300);
+    }
 
     return result;
-  } catch {
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    console.error(`[refresh-metadata] Anthropic API call failed: ${message}`);
     return null;
   }
 }
 
 function buildDescriptionPrompt(params: {
+  url: string;
   title?: string;
   bodyText?: string;
 }): string | null {
   const parts: string[] = [];
-  if (params.title) parts.push(`Title: ${cleanText(params.title)}`);
+
+  parts.push(`URL: ${params.url}`);
+
+  if (params.title) {
+    parts.push(`Title: ${cleanText(params.title)}`);
+  }
 
   const body = params.bodyText ? cleanText(params.bodyText).slice(0, 2000) : null;
-  if (body) parts.push(`Text: ${body}`);
+  if (body) {
+    parts.push(`Page text excerpt: ${body}`);
+  }
 
-  if (parts.length === 0) return null;
+  // We always have at least the URL, so parts.length >= 1
+  console.log(
+    `[refresh-metadata] Prompt built — ${params.title ? "title" : "no title"}, ${body ? `${body.length} chars body text` : "no body text"}`
+  );
 
   return `${parts.join("\n\n")}
 
-Write a single neutral sentence (no more than ~25 words) that describes what this page is about. Do not invent facts. If the page content is too thin to describe, reply with just the word "NONE".`;
+Write a single neutral sentence (no more than ~25 words) that describes what this web page is about. Base it only on the URL, title, and text excerpt above. Do not invent facts. If there is not enough information to describe the page, reply with just the word "NONE".`;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {

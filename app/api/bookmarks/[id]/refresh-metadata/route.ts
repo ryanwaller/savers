@@ -30,21 +30,24 @@ export async function POST(
       .maybeSingle();
 
     if (lookupError) {
-      console.error(`refresh-metadata lookup failed ${getErrorMessage(lookupError)}`);
+      console.error(`[refresh-metadata] DB lookup failed: ${getErrorMessage(lookupError)}`);
       return NextResponse.json({ error: getErrorMessage(lookupError) }, { status: 500 });
     }
 
     if (!bookmark) {
+      console.warn(`[refresh-metadata] Bookmark not found: ${id}`);
       return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
     }
 
     if (!isPublicUrl(bookmark.url)) {
+      console.warn(`[refresh-metadata] Non-public URL: ${bookmark.url}`);
       return NextResponse.json(
         { error: "Cannot refresh metadata for this URL" },
         { status: 400 }
       );
     }
 
+    console.log(`[refresh-metadata] Refreshing metadata for bookmark ${id} (${bookmark.url})`);
     const result = await fetchMetadata(bookmark.url);
 
     return NextResponse.json(result);
@@ -52,7 +55,7 @@ export async function POST(
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }
-    console.error(`refresh-metadata failed ${getErrorMessage(err)}`);
+    console.error(`[refresh-metadata] Unhandled error: ${getErrorMessage(err)}`);
     return NextResponse.json(
       { error: getErrorMessage(err) },
       { status: 500 }
