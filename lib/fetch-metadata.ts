@@ -63,12 +63,12 @@ async function generateDescription(params: {
     return null;
   }
 
-  console.log(`[refresh-metadata] Calling Anthropic API (model: claude-3-5-haiku-20241022, max_tokens: 100)`);
+  console.log(`[refresh-metadata] Calling Anthropic API (model: claude-sonnet-4-20250514, max_tokens: 100)`);
 
   try {
     const response = await withTimeout(
       client.messages.create({
-        model: "claude-3-5-haiku-20241022",
+        model: "claude-sonnet-4-20250514",
         max_tokens: 100,
         temperature: 0.2,
         messages: [{ role: "user", content: prompt }],
