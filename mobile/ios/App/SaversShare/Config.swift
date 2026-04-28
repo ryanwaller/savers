@@ -23,5 +23,5 @@ enum Config {
     ///
     /// Treat this like a password. Don't commit a populated value to a
     /// public repository.
-    static let apiToken = ""
+    static let apiToken = "svr_xeDOTONPvO7kdhJ1EeXKT-HPPRF5EsMCWhI2BoQB_6E"
 }

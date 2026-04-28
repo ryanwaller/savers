@@ -1044,6 +1044,11 @@ export default function BookmarkDetail({
         .fav { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
         .field { display: flex; flex-direction: column; gap: 5px; }
         .label { font-size: 12px; color: var(--color-text-muted); }
+        .btn-small {
+          height: 26px;
+          padding: 0 10px;
+          font-size: 12px;
+        }
         .ai-card {
           display: flex;
           flex-direction: column;

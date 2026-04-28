@@ -139,8 +139,8 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
           justify-content: center;
           border: 1px solid var(--color-border);
           border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text-muted);
+          background: var(--color-bg-secondary);
+          color: var(--color-text);
           transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
         }
         .export-btn:hover:not(:disabled) {
