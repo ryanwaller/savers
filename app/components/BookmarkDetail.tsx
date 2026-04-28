@@ -56,7 +56,6 @@ export default function BookmarkDetail({
   const [creatingCollection, setCreatingCollection] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
-  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [editingUrl, setEditingUrl] = useState(false);
   const [urlValue, setUrlValue] = useState("");
   const [urlSaving, setUrlSaving] = useState(false);
@@ -124,7 +123,6 @@ export default function BookmarkDetail({
     setNewCollectionName("");
     setTagProposals([]);
     setTagSuggestStatus(null);
-    setRefreshError(null);
     setEditingUrl(false);
     setUrlValue("");
     setUrlSaving(false);
@@ -284,17 +282,17 @@ export default function BookmarkDetail({
 
   async function handleRefresh() {
     setRefreshLoading(true);
-    setRefreshError(null);
+    setError(null);
     try {
       const result = await api.refreshMetadata(bookmark.id);
       if (!result.title && !result.description) {
-        setRefreshError("No metadata found on the page.");
+        setError("No metadata found on this page.");
         return;
       }
       if (result.title && !title.trim()) setTitle(result.title);
       if (result.description && !description.trim()) setDescription(result.description);
     } catch (e) {
-      setRefreshError(e instanceof Error ? e.message : "Refresh failed");
+      setError(e instanceof Error ? e.message : "Refresh failed");
     } finally {
       setRefreshLoading(false);
     }
@@ -516,32 +514,21 @@ export default function BookmarkDetail({
             </div>
           )}
 
-          {(!title.trim() || !description.trim()) && (
-            <div className="refresh-row">
-              <div className="refresh-hint small muted">
-                {!title.trim() && !description.trim()
-                  ? "Title and description are empty."
-                  : !title.trim()
-                    ? "Title is empty."
-                    : "Description is empty."}
-              </div>
-              <button
-                type="button"
-                className="btn btn-small"
-                onClick={() => void handleRefresh()}
-                disabled={refreshLoading}
-              >
-                {refreshLoading ? "Refreshing…" : "↻ Refresh metadata"}
-              </button>
-              {refreshError && (
-                <span className="refresh-error small muted">{refreshError}</span>
-              )}
-            </div>
-          )}
-
           <label className="field">
             <div className="label">Title</div>
             <input value={title} onChange={(e) => setTitle(e.target.value)} />
+            {!title.trim() && (
+              <div className="ai-actions">
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  onClick={() => void handleRefresh()}
+                  disabled={refreshLoading}
+                >
+                  {refreshLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+            )}
           </label>
 
           <label className="field">
@@ -551,6 +538,18 @@ export default function BookmarkDetail({
               value={description}
               onChange={(e) => setDescription(e.target.value)}
             />
+            {!description.trim() && (
+              <div className="ai-actions">
+                <button
+                  type="button"
+                  className="btn btn-small"
+                  onClick={() => void handleRefresh()}
+                  disabled={refreshLoading}
+                >
+                  {refreshLoading ? "Refreshing…" : "Refresh"}
+                </button>
+              </div>
+            )}
           </label>
 
           <div className="field">
@@ -1132,21 +1131,6 @@ export default function BookmarkDetail({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-        }
-        .refresh-row {
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-          padding: 10px 12px;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius);
-          background: var(--color-bg-secondary);
-        }
-        .refresh-hint {
-          color: var(--color-text-muted);
-        }
-        .refresh-error {
-          color: var(--color-text-muted);
         }
         .tag-proposals {
           display: flex;

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { isPublicUrl } from "@/lib/api";
-import { fetchPageContent } from "@/lib/page-content";
+import { fetchMetadata } from "@/lib/fetch-metadata";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -45,16 +45,9 @@ export async function POST(
       );
     }
 
-    const content = await fetchPageContent(bookmark.url);
+    const result = await fetchMetadata(bookmark.url);
 
-    if (!content) {
-      return NextResponse.json({ title: null, description: null });
-    }
-
-    return NextResponse.json({
-      title: content.title,
-      description: content.description,
-    });
+    return NextResponse.json(result);
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
