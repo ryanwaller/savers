@@ -549,6 +549,22 @@ export default function Home() {
     );
   }, [flat, collectionPaths, bulkMoveSearch]);
 
+  const bulkDepthMap = useMemo(() => {
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const depths = new Map<string, number>();
+    for (const c of flat) {
+      let depth = 0;
+      let cur: Collection | undefined = c;
+      while (cur?.parent_id) {
+        depth++;
+        cur = byId.get(cur.parent_id);
+        if (!cur) break;
+      }
+      depths.set(c.id, depth);
+    }
+    return depths;
+  }, [flat]);
+
   const totals = useMemo(
     () => ({
       all: allBookmarks.length,
@@ -1510,21 +1526,26 @@ export default function Home() {
                       >
                         Unsorted
                       </button>
-                      {bulkMoveCollections.map((c) => (
-                        <button
-                          key={c.id}
-                          className="bulk-move-opt"
-                          onClick={() => handleBulkMove(c.id)}
-                          title={collectionPaths.get(c.id)}
-                        >
-                          <span className="bulk-move-opt-icon">
-                            <CollectionIcon name={c.icon} size={12} />
-                          </span>
-                          <span className="bulk-move-opt-label">
-                            {collectionPaths.get(c.id)}
-                          </span>
-                        </button>
-                      ))}
+                      {bulkMoveCollections.map((c) => {
+                        const depth = bulkDepthMap.get(c.id) ?? 0;
+                        const isChild = depth > 0;
+                        return (
+                          <button
+                            key={c.id}
+                            className={`bulk-move-opt ${isChild ? "bulk-move-opt-child" : ""}`}
+                            style={{ paddingLeft: isChild ? `${8 + depth * 16}px` : undefined }}
+                            onClick={() => handleBulkMove(c.id)}
+                            title={collectionPaths.get(c.id)}
+                          >
+                            <span className="bulk-move-opt-icon">
+                              <CollectionIcon name={c.icon} size={12} />
+                            </span>
+                            <span className="bulk-move-opt-label">
+                              {isChild ? c.name : collectionPaths.get(c.id)}
+                            </span>
+                          </button>
+                        );
+                      })}
                       {bulkMoveCollections.length === 0 && (
                         <div className="bulk-move-empty">No collections match.</div>
                       )}
@@ -1718,6 +1739,12 @@ export default function Home() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .bulk-move-opt-child .bulk-move-opt-label {
+          color: var(--color-text-muted);
+        }
+        .bulk-move-opt-child:hover .bulk-move-opt-label {
+          color: var(--color-text);
         }
         .bulk-move-empty {
           padding: 8px;
