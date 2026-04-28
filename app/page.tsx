@@ -891,12 +891,16 @@ export default function Home() {
     let failCount = 0;
     let lastError: string | null = null;
     const total = urls.length;
-    setDropStatus(`Saving ${total} bookmark${total === 1 ? "" : "s"}…`);
+    let remaining = total;
+
+    setDropStatus(`Saving bookmarks… ${remaining} remaining`);
 
     for (const url of urls) {
       const canonical = canonicalBookmarkUrl(url);
       if (!allowDuplicates && existingCanonical.has(canonical)) {
         duplicates.push(url);
+        remaining -= 1;
+        setDropStatus(`Saving bookmarks… ${remaining} remaining`);
         continue;
       }
       if (!allowDuplicates) {
@@ -942,6 +946,8 @@ export default function Home() {
           console.warn("Drop save failed", url, e);
         }
       }
+      remaining -= 1;
+      setDropStatus(`Saving bookmarks… ${remaining} remaining`);
     }
 
     if (createdBatch.length > 0) {
@@ -953,20 +959,18 @@ export default function Home() {
     if (failCount > 0 && okCount === 0 && dupCount === 0) {
       setDropStatus(`Save failed: ${lastError ?? "unknown error"}`);
     } else if (failCount > 0) {
-      setDropStatus(`Saved ${okCount} of ${total}. ${failCount} failed.${dupSuffix}`);
+      setDropStatus(`${okCount} saved, ${failCount} failed.${dupSuffix}`);
     } else if (okCount === 0 && dupCount > 0) {
       setDropStatus(
         dupCount === 1 ? "Already saved — nothing imported." : `${dupCount} duplicates — nothing new imported.`
       );
     } else {
-      setDropStatus(
-        (total === 1 ? "Saved." : `Saved ${okCount} bookmark${okCount === 1 ? "" : "s"}.`) + dupSuffix
-      );
+      setDropStatus(`All bookmarks saved.${dupSuffix}`);
     }
     if (dupCount > 0) {
       setDuplicateImportUrls(duplicates);
     }
-    setTimeout(() => setDropStatus(null), failCount > 0 || dupCount > 0 ? 5000 : 1800);
+    setTimeout(() => setDropStatus(null), failCount > 0 || dupCount > 0 ? 5000 : 3000);
   }
 
   async function handleSendMagicLink() {
