@@ -47,6 +47,22 @@ export default function CollectionPicker({
 
   const paths = useMemo(() => pathMap(flat), [flat]);
   const byId = useMemo(() => new Map(flat.map((c) => [c.id, c])), [flat]);
+
+  const depthMap = useMemo(() => {
+    const depths = new Map<string, number>();
+    for (const c of flat) {
+      let depth = 0;
+      let cur: Collection | undefined = c;
+      while (cur?.parent_id) {
+        depth++;
+        cur = byId.get(cur.parent_id);
+        if (!cur) break;
+      }
+      depths.set(c.id, depth);
+    }
+    return depths;
+  }, [flat, byId]);
+
   const sorted = useMemo(
     () =>
       [...flat].sort((a, b) =>
@@ -197,22 +213,30 @@ export default function CollectionPicker({
                 Unsorted
               </button>
             )}
-            {filtered.map((c) => (
-              <button
-                key={c.id}
-                className={`opt ${value === c.id ? "on" : ""}`}
-                onClick={() => {
-                  onChange(c.id);
-                  setOpen(false);
-                }}
-                title={paths.get(c.id)}
-              >
-                <span className="opt-icon">
-                  <CollectionIcon name={c.icon} size={13} />
-                </span>
-                <span className="opt-label">{paths.get(c.id)}</span>
-              </button>
-            ))}
+            {filtered.map((c) => {
+              const depth = depthMap.get(c.id) ?? 0;
+              const isChild = depth > 0;
+
+              return (
+                <button
+                  key={c.id}
+                  className={`opt ${value === c.id ? "on" : ""} ${isChild ? "opt-child" : ""}`}
+                  style={{ paddingLeft: isChild ? `${8 + depth * 16}px` : undefined }}
+                  onClick={() => {
+                    onChange(c.id);
+                    setOpen(false);
+                  }}
+                  title={paths.get(c.id)}
+                >
+                  <span className="opt-icon">
+                    <CollectionIcon name={c.icon} size={13} />
+                  </span>
+                  <span className="opt-label">
+                    {isChild ? c.name : paths.get(c.id)}
+                  </span>
+                </button>
+              );
+            })}
             {filtered.length === 0 && (
               <div className="empty">No matches.</div>
             )}
@@ -316,6 +340,9 @@ export default function CollectionPicker({
         }
         .opt:hover .opt-icon,
         .opt.on .opt-icon { color: var(--color-text); }
+        .opt-child .opt-label { color: var(--color-text-muted); }
+        .opt-child:hover .opt-label,
+        .opt-child.on .opt-label { color: var(--color-text); }
         .trigger-label {
           display: inline-flex;
           align-items: center;
