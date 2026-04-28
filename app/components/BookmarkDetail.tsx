@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
+import { api, canonicalBookmarkUrl, cleanUrl, domainOf } from "@/lib/api";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -57,6 +57,9 @@ export default function BookmarkDetail({
   const [error, setError] = useState<string | null>(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
   const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [editingUrl, setEditingUrl] = useState(false);
+  const [urlValue, setUrlValue] = useState("");
+  const [urlSaving, setUrlSaving] = useState(false);
   const [tagProposals, setTagProposals] = useState<string[]>([]);
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
@@ -122,6 +125,9 @@ export default function BookmarkDetail({
     setTagProposals([]);
     setTagSuggestStatus(null);
     setRefreshError(null);
+    setEditingUrl(false);
+    setUrlValue("");
+    setUrlSaving(false);
   }, [bookmark.id]);
 
   const runSuggest = useCallback(async () => {
@@ -294,6 +300,32 @@ export default function BookmarkDetail({
     }
   }
 
+  function handleCleanUrl() {
+    const cleaned = cleanUrl(bookmark.url);
+    setUrlValue(cleaned);
+    setEditingUrl(true);
+    setError(null);
+  }
+
+  async function saveUrl() {
+    const next = urlValue.trim();
+    if (!next || next === bookmark.url) {
+      setEditingUrl(false);
+      return;
+    }
+    setUrlSaving(true);
+    setError(null);
+    try {
+      const { bookmark: updated } = await api.updateUrl(bookmark.id, next);
+      onPatched(updated);
+      setEditingUrl(false);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to update URL");
+    } finally {
+      setUrlSaving(false);
+    }
+  }
+
   async function acceptProposal(tag: string) {
     setTagProposals((prev) => prev.filter((t) => t !== tag));
     const nextTags = buildNextTags(tag);
@@ -389,22 +421,76 @@ export default function BookmarkDetail({
         </div>
 
         <div className="body">
-          <div className="site-row">
-            <div className="site-meta">
-              {bookmark.favicon && (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img className="fav" src={bookmark.favicon} alt="" />
-              )}
-              <span className="host muted">{host}</span>
-            </div>
-            <a
-              className="site-link"
-              href={bookmark.url}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open site <span className="ext small muted">↗</span>
-            </a>
+          <div className="field url-field">
+            <div className="label">URL</div>
+            {editingUrl ? (
+              <div className="url-edit-wrap">
+                <input
+                  autoFocus
+                  className="url-input"
+                  value={urlValue}
+                  onChange={(e) => setUrlValue(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") void saveUrl();
+                    if (e.key === "Escape") setEditingUrl(false);
+                  }}
+                />
+                <button
+                  className="btn btn-small"
+                  onClick={() => void saveUrl()}
+                  disabled={urlSaving}
+                >
+                  {urlSaving ? "Saving…" : "Save"}
+                </button>
+                <button
+                  className="btn btn-small btn-ghost"
+                  onClick={() => setEditingUrl(false)}
+                  disabled={urlSaving}
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <div className="url-row">
+                <div className="url-domain-wrap">
+                  {bookmark.favicon && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img className="fav" src={bookmark.favicon} alt="" />
+                  )}
+                  <span className="url-domain">{host}</span>
+                </div>
+                <div className="url-actions">
+                  <button
+                    className="icon-btn"
+                    aria-label="Edit URL"
+                    title="Edit URL"
+                    onClick={() => {
+                      setUrlValue(bookmark.url);
+                      setEditingUrl(true);
+                      setError(null);
+                    }}
+                  >
+                    ✏️
+                  </button>
+                  <button
+                    className="icon-btn"
+                    aria-label="Clean tracking params"
+                    title="Remove tracking parameters"
+                    onClick={handleCleanUrl}
+                  >
+                    🧹
+                  </button>
+                  <a
+                    className="site-link"
+                    href={bookmark.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open site <span className="ext small muted">↗</span>
+                  </a>
+                </div>
+              </div>
+            )}
           </div>
 
           {duplicateBookmarks.length > 0 && (
@@ -911,18 +997,64 @@ export default function BookmarkDetail({
           overflow-x: hidden;
           flex: 1;
         }
-        .site-row {
+        .url-field {
+          gap: 6px;
+        }
+        .url-row {
           display: flex;
           align-items: center;
           justify-content: space-between;
-          gap: 10px;
-          flex-wrap: wrap;
+          gap: 8px;
+          min-height: 30px;
         }
-        .site-meta {
-          min-width: 0;
+        .url-domain-wrap {
           display: flex;
           align-items: center;
           gap: 7px;
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+        .url-domain {
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .url-actions {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          flex-shrink: 0;
+        }
+        .icon-btn {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          width: 26px;
+          height: 26px;
+          font-size: 12px;
+          line-height: 1;
+          border: 1px solid transparent;
+          border-radius: 999px;
+          background: transparent;
+          color: var(--color-text-muted);
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .icon-btn:hover {
+          border-color: var(--color-border);
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
+        .url-edit-wrap {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-wrap: wrap;
+        }
+        .url-input {
+          flex: 1 1 200px;
+          min-width: 0;
         }
         .site-link {
           display: inline-flex;
@@ -931,9 +1063,9 @@ export default function BookmarkDetail({
           font-size: 12px;
           color: var(--color-text);
           white-space: nowrap;
+          margin-left: 4px;
         }
         .site-link:hover { color: var(--color-text-muted); }
-        .host { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .fav { width: 12px; height: 12px; border-radius: 2px; flex-shrink: 0; }
         .field { display: flex; flex-direction: column; gap: 5px; }
         .label { font-size: 12px; color: var(--color-text-muted); }

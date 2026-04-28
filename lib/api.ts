@@ -112,6 +112,16 @@ export const api = {
     );
   },
 
+  async updateUrl(bookmarkId: string, url: string): Promise<{ bookmark: Bookmark }> {
+    return j(
+      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/update-url`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      })
+    );
+  },
+
   async fetchMetadata(url: string): Promise<OGData> {
     return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
@@ -262,6 +272,31 @@ const TRACKING_QUERY_PARAMS = new Set([
   "ref_src",
   "si",
 ]);
+
+const CLEAN_URL_STRIP_PARAMS = new Set([
+  "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
+  "_ga", "_gl", "fbclid", "gclid",
+  "ref", "source", "medium", "campaign",
+  "igshid", "mc_cid", "mc_eid", "ref_src", "si",
+]);
+
+export function cleanUrl(input: string): string {
+  try {
+    const url = new URL(normalizeUrl(input));
+    const params = new URLSearchParams(url.search);
+    const cleaned = new URLSearchParams();
+
+    for (const [key, value] of params.entries()) {
+      if (CLEAN_URL_STRIP_PARAMS.has(key) || key.startsWith("utm_")) continue;
+      cleaned.append(key, value);
+    }
+
+    url.search = cleaned.toString();
+    return url.toString();
+  } catch {
+    return input;
+  }
+}
 
 export function canonicalBookmarkUrl(input: string): string {
   try {
