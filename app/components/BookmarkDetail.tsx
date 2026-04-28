@@ -55,6 +55,8 @@ export default function BookmarkDetail({
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
   const [tagProposals, setTagProposals] = useState<string[]>([]);
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
@@ -119,6 +121,7 @@ export default function BookmarkDetail({
     setNewCollectionName("");
     setTagProposals([]);
     setTagSuggestStatus(null);
+    setRefreshError(null);
   }, [bookmark.id]);
 
   const runSuggest = useCallback(async () => {
@@ -273,6 +276,24 @@ export default function BookmarkDetail({
     }
   }
 
+  async function handleRefresh() {
+    setRefreshLoading(true);
+    setRefreshError(null);
+    try {
+      const result = await api.refreshMetadata(bookmark.id);
+      if (!result.title && !result.description) {
+        setRefreshError("No metadata found on the page.");
+        return;
+      }
+      if (result.title && !title.trim()) setTitle(result.title);
+      if (result.description && !description.trim()) setDescription(result.description);
+    } catch (e) {
+      setRefreshError(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshLoading(false);
+    }
+  }
+
   async function acceptProposal(tag: string) {
     setTagProposals((prev) => prev.filter((t) => t !== tag));
     const nextTags = buildNextTags(tag);
@@ -406,6 +427,29 @@ export default function BookmarkDetail({
                   </div>
                 )}
               </div>
+            </div>
+          )}
+
+          {(!title.trim() || !description.trim()) && (
+            <div className="refresh-row">
+              <div className="refresh-hint small muted">
+                {!title.trim() && !description.trim()
+                  ? "Title and description are empty."
+                  : !title.trim()
+                    ? "Title is empty."
+                    : "Description is empty."}
+              </div>
+              <button
+                type="button"
+                className="btn btn-small"
+                onClick={() => void handleRefresh()}
+                disabled={refreshLoading}
+              >
+                {refreshLoading ? "Refreshing…" : "↻ Refresh metadata"}
+              </button>
+              {refreshError && (
+                <span className="refresh-error small muted">{refreshError}</span>
+              )}
             </div>
           )}
 
@@ -956,6 +1000,21 @@ export default function BookmarkDetail({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .refresh-row {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 10px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius);
+          background: var(--color-bg-secondary);
+        }
+        .refresh-hint {
+          color: var(--color-text-muted);
+        }
+        .refresh-error {
+          color: var(--color-text-muted);
         }
         .tag-proposals {
           display: flex;

@@ -104,6 +104,14 @@ export const api = {
     );
   },
 
+  async refreshMetadata(bookmarkId: string): Promise<{ title: string | null; description: string | null }> {
+    return j(
+      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/refresh-metadata`, {
+        method: "POST",
+      })
+    );
+  },
+
   async fetchMetadata(url: string): Promise<OGData> {
     return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
