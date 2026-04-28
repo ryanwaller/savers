@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { api, canonicalBookmarkUrl, cleanUrl, domainOf } from "@/lib/api";
+import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -298,13 +298,6 @@ export default function BookmarkDetail({
     }
   }
 
-  function handleCleanUrl() {
-    const cleaned = cleanUrl(bookmark.url);
-    setUrlValue(cleaned);
-    setEditingUrl(true);
-    setError(null);
-  }
-
   async function saveUrl() {
     const next = urlValue.trim();
     if (!next || next === bookmark.url) {
@@ -459,24 +452,14 @@ export default function BookmarkDetail({
                 </div>
                 <div className="url-actions">
                   <button
-                    className="icon-btn"
-                    aria-label="Edit URL"
-                    title="Edit URL"
+                    className="url-edit-btn"
                     onClick={() => {
                       setUrlValue(bookmark.url);
                       setEditingUrl(true);
                       setError(null);
                     }}
                   >
-                    ✏️
-                  </button>
-                  <button
-                    className="icon-btn"
-                    aria-label="Clean tracking params"
-                    title="Remove tracking parameters"
-                    onClick={handleCleanUrl}
-                  >
-                    🧹
+                    Edit URL
                   </button>
                   <a
                     className="site-link"
@@ -1025,25 +1008,18 @@ export default function BookmarkDetail({
           gap: 4px;
           flex-shrink: 0;
         }
-        .icon-btn {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 26px;
-          height: 26px;
+        .url-edit-btn {
           font-size: 12px;
-          line-height: 1;
-          border: 1px solid transparent;
-          border-radius: 999px;
-          background: transparent;
           color: var(--color-text-muted);
+          background: none;
+          border: none;
           cursor: pointer;
+          padding: 0;
+          white-space: nowrap;
           flex-shrink: 0;
         }
-        .icon-btn:hover {
-          border-color: var(--color-border);
+        .url-edit-btn:hover {
           color: var(--color-text);
-          background: var(--color-bg-hover);
         }
         .url-edit-wrap {
           display: flex;
