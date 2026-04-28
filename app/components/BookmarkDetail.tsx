@@ -857,8 +857,8 @@ export default function BookmarkDetail({
           position: relative;
         }
         .tag-autosuggest-container {
-          flex: 1 1 96px;
-          min-width: 96px;
+          flex: 1 1 0%;
+          min-width: 0;
         }
         .autosuggest-list {
           position: absolute;
@@ -1084,6 +1084,9 @@ export default function BookmarkDetail({
           gap: 8px;
           margin-top: 8px;
         }
+        .create-wrap input {
+          width: 100%;
+        }
         .duplicate-card {
           display: flex;
           flex-direction: column;
@@ -1191,8 +1194,7 @@ export default function BookmarkDetail({
           background: var(--color-bg-hover);
         }
         .tag-input {
-          flex: 1 1 96px;
-          min-width: 96px;
+          width: 100%;
           padding: 0;
           border: 0;
           background: transparent;

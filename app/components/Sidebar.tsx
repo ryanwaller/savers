@@ -760,6 +760,7 @@ function SidebarItem({
         .item {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 8px;
           width: 100%;
           min-width: 0;
@@ -784,7 +785,6 @@ function SidebarItem({
         .item.active .leading { color: var(--color-text); }
         .label { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .count {
-          margin-left: auto;
           min-width: 34px;
           height: 22px;
           padding: 0 10px;
