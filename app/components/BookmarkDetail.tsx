@@ -573,6 +573,7 @@ export default function BookmarkDetail({
                 <div className="autosuggest-container">
                   <input
                     autoFocus
+                    className="w-full"
                     placeholder="Collection name"
                     value={newCollectionName}
                     onChange={(event) => setNewCollectionName(event.target.value)}
@@ -708,7 +709,7 @@ export default function BookmarkDetail({
               ))}
               <div className="autosuggest-container tag-autosuggest-container">
                 <input
-                  className="tag-input"
+                  className="tag-input w-full"
                   value={tagInput}
                   placeholder={tags.length ? "Add tag" : "Add a tag"}
                   onChange={(e) => setTagInput(e.target.value)}
@@ -843,18 +844,19 @@ export default function BookmarkDetail({
           >
             {deleting ? "Deleting…" : "Delete"}
           </button>
-          <div className="right">
-            <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
-            <button className="btn btn-primary" onClick={save} disabled={saving}>
-              {saving ? "Saving…" : "Save"}
-            </button>
-          </div>
+          <div className="spacer" />
+          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving}>
+            {saving ? "Saving…" : "Save"}
+          </button>
         </div>
       </div>
 
       <style jsx>{`
         .autosuggest-container {
           position: relative;
+          display: block;
+          width: 100%;
         }
         .tag-autosuggest-container {
           flex: 1 1 0%;
@@ -1210,24 +1212,26 @@ export default function BookmarkDetail({
         }
         .foot {
           display: flex;
-          justify-content: space-between;
+          align-items: center;
           gap: 8px;
           padding: 10px 14px;
           border-top: 1px solid var(--color-border);
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
-        .right { display: flex; gap: 8px; }
+        .spacer { flex: 1; }
         .danger:hover { background: var(--color-bg-hover); }
         @media (max-width: 768px) {
-          .foot,
-          .right {
-            flex-wrap: wrap;
+          .foot {
+            gap: 6px;
+            padding: 8px 10px;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 10px);
           }
-          .foot :global(.btn),
-          .right :global(.btn) {
-            flex: 1 1 140px;
-            height: 40px;
-            font-size: 13px;
+          .foot :global(.btn) {
+            flex: 0 0 auto;
+            height: 34px;
+            padding: 0 10px;
+            font-size: 12px;
+            white-space: nowrap;
           }
         }
       `}</style>
