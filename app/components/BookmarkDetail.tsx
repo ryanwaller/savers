@@ -573,7 +573,7 @@ export default function BookmarkDetail({
                 <div className="autosuggest-container">
                   <input
                     autoFocus
-                    className="w-full"
+                    style={{ width: "100%", boxSizing: "border-box" }}
                     placeholder="Collection name"
                     value={newCollectionName}
                     onChange={(event) => setNewCollectionName(event.target.value)}
@@ -709,7 +709,8 @@ export default function BookmarkDetail({
               ))}
               <div className="autosuggest-container tag-autosuggest-container">
                 <input
-                  className="tag-input w-full"
+                  className="tag-input"
+                  style={{ width: "100%", boxSizing: "border-box" }}
                   value={tagInput}
                   placeholder={tags.length ? "Add tag" : "Add a tag"}
                   onChange={(e) => setTagInput(e.target.value)}
@@ -836,17 +837,18 @@ export default function BookmarkDetail({
           {error && <div className="error small">{error}</div>}
         </div>
 
-        <div className="foot">
+        <div className="foot" style={{ display: "flex", flexDirection: "row", flexWrap: "nowrap", alignItems: "center" }}>
           <button
             className="btn btn-ghost danger"
             onClick={() => setConfirmDeleteOpen(true)}
             disabled={deleting || saving}
+            style={{ flexShrink: 0 }}
           >
             {deleting ? "Deleting…" : "Delete"}
           </button>
-          <div className="spacer" />
-          <button className="btn" onClick={onClose} disabled={saving}>Cancel</button>
-          <button className="btn btn-primary" onClick={save} disabled={saving}>
+          <div style={{ flex: 1 }} />
+          <button className="btn" onClick={onClose} disabled={saving} style={{ flexShrink: 0 }}>Cancel</button>
+          <button className="btn btn-primary" onClick={save} disabled={saving} style={{ flexShrink: 0 }}>
             {saving ? "Saving…" : "Save"}
           </button>
         </div>
@@ -861,6 +863,7 @@ export default function BookmarkDetail({
         .tag-autosuggest-container {
           flex: 1 1 0%;
           min-width: 0;
+          width: 100%;
         }
         .autosuggest-list {
           position: absolute;
