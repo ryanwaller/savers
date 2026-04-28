@@ -112,6 +112,26 @@ export const api = {
     );
   },
 
+  async deleteBookmarks(ids: string[]): Promise<{ deleted: number }> {
+    return j(
+      await fetch("/api/bookmarks/bulk-delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      })
+    );
+  },
+
+  async moveBookmarks(ids: string[], collectionId: string | null): Promise<{ moved: number }> {
+    return j(
+      await fetch("/api/bookmarks/bulk-move", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, collectionId }),
+      })
+    );
+  },
+
   async updateUrl(bookmarkId: string, url: string): Promise<{ bookmark: Bookmark }> {
     return j(
       await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/update-url`, {

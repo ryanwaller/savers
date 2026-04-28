@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { CheckSquare, List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
@@ -108,6 +108,8 @@ export default function Home() {
   const [cardSize, setCardSize] = useState<CardSize>("m");
   const cardMinWidth = CARD_SIZE_PX[cardSize];
   const cardCols = CARD_SIZE_COLS[cardSize];
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -504,6 +506,19 @@ export default function Home() {
     };
   }, [user, refreshFromServer]);
 
+  // Esc to exit edit mode
+  useEffect(() => {
+    if (!isEditMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsEditMode(false);
+        setSelectedIds(new Set());
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isEditMode]);
+
   const totals = useMemo(
     () => ({
       all: allBookmarks.length,
@@ -789,12 +804,55 @@ export default function Home() {
     setBookmarks((prev) => prev.filter((x) => x.id !== id));
   }
 
+  function handleBookmarkMoved(id: string, targetCollectionId: string | null) {
+    updateAllBookmarksState((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, collection_id: targetCollectionId } : x))
+    );
+    if (selection.kind === "unsorted" && targetCollectionId !== null) {
+      setBookmarks((prev) => prev.filter((x) => x.id !== id));
+    } else if (selection.kind === "collection" && selection.id !== targetCollectionId) {
+      setBookmarks((prev) => prev.filter((x) => x.id !== id));
+    }
+  }
+
   async function handleDeleteBookmark(id: string) {
     try {
       await api.deleteBookmark(id);
       handleBookmarkDeleted(id);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.deleteBookmarks(ids);
+      for (const id of ids) handleBookmarkDeleted(id);
+      setSelectedIds(new Set());
+      setIsEditMode(false);
+      setDropStatus(`${ids.length} deleted.`);
+      setTimeout(() => setDropStatus(null), 3000);
+    } catch (e) {
+      setDropStatus(`Delete failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
+    }
+  }
+
+  async function handleBulkMove(collectionId: string | null) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.moveBookmarks(ids, collectionId);
+      for (const id of ids) handleBookmarkMoved(id, collectionId);
+      setSelectedIds(new Set());
+      setIsEditMode(false);
+      setDropStatus(`${ids.length} moved.`);
+      setTimeout(() => setDropStatus(null), 3000);
+    } catch (e) {
+      setDropStatus(`Move failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
     }
   }
 
@@ -893,14 +951,14 @@ export default function Home() {
     const total = urls.length;
     let remaining = total;
 
-    setDropStatus(`Saving bookmarks… ${remaining} remaining`);
+    setDropStatus(`${remaining} remaining`);
 
     for (const url of urls) {
       const canonical = canonicalBookmarkUrl(url);
       if (!allowDuplicates && existingCanonical.has(canonical)) {
         duplicates.push(url);
         remaining -= 1;
-        setDropStatus(`Saving bookmarks… ${remaining} remaining`);
+        setDropStatus(`${remaining} remaining`);
         continue;
       }
       if (!allowDuplicates) {
@@ -947,7 +1005,7 @@ export default function Home() {
         }
       }
       remaining -= 1;
-      setDropStatus(`Saving bookmarks… ${remaining} remaining`);
+      setDropStatus(`${remaining} remaining`);
     }
 
     if (createdBatch.length > 0) {
@@ -1231,6 +1289,17 @@ export default function Home() {
           <div className="top-row top-row-secondary">
             <div className="top-right">
               <div className="desktop-actions">
+                <button
+                  className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
+                  onClick={() => {
+                    setIsEditMode((v) => !v);
+                    setSelectedIds(new Set());
+                  }}
+                  title={isEditMode ? "Exit edit mode" : "Edit mode"}
+                  aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
+                >
+                  <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
+                </button>
                 <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                 <div className="session-chip" title={user.email ?? "Signed in"}>
                   <span className="session-email">{user.email ?? "Signed in"}</span>
@@ -1333,6 +1402,16 @@ export default function Home() {
           cardMinWidth={cardMinWidth}
           cardCols={cardCols}
           loading={loadingBookmarks}
+          isEditMode={isEditMode}
+          selectedIds={selectedIds}
+          onToggleSelect={(id) => {
+            setSelectedIds((prev) => {
+              const next = new Set(prev);
+              if (next.has(id)) next.delete(id);
+              else next.add(id);
+              return next;
+            });
+          }}
             emptyLabel={
               search || activeTag
                 ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
@@ -1346,7 +1425,27 @@ export default function Home() {
             }
           />
         </section>
-        <div className="size-control" role="radiogroup" aria-label="Preview size">
+        <div className="bottom-bar">
+          {isEditMode && selectedIds.size > 0 && (
+            <div className="bulk-actions">
+              <button
+                className="btn btn-ghost danger"
+                onClick={handleBulkDelete}
+              >
+                Delete {selectedIds.size}
+              </button>
+              <button
+                className="btn"
+                onClick={() => handleBulkMove(null)}
+              >
+                Move to Unsorted
+              </button>
+            </div>
+          )}
+          {dropStatus && (
+            <div className="drop-status small" role="status">{dropStatus}</div>
+          )}
+          <div className="size-control" role="radiogroup" aria-label="Preview size">
           {CARD_SIZES.map((size) => (
             <button
               key={size}
@@ -1360,6 +1459,7 @@ export default function Home() {
               {size.toUpperCase()}
             </button>
           ))}
+          </div>
         </div>
       </main>
 
@@ -1400,10 +1500,6 @@ export default function Home() {
           onMove={handleMoveFromToast}
           onDismiss={() => setToast(null)}
         />
-      )}
-
-      {dropStatus && (
-        <div className="drop-status small" role="status">{dropStatus}</div>
       )}
 
       <SettingsModal
@@ -1447,12 +1543,36 @@ export default function Home() {
           overflow-x: hidden;
           position: relative;
         }
-        .size-control {
+        .bottom-bar {
           position: absolute;
           left: 50%;
           transform: translateX(-50%);
           bottom: 16px;
           z-index: 6;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+        .drop-status {
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          padding: 6px 14px;
+          color: var(--color-text-muted);
+          white-space: nowrap;
+        }
+        .bulk-actions {
+          display: flex;
+          gap: 8px;
+        }
+        .bulk-actions :global(.btn) {
+          height: 32px;
+          padding: 0 12px;
+          font-size: 12px;
+          border-radius: 999px;
+        }
+        .size-control {
           height: 32px;
           display: inline-flex;
           align-items: stretch;
@@ -1495,11 +1615,9 @@ export default function Home() {
           color: var(--color-bg);
         }
         @media (max-width: 768px) {
-          .size-control {
+          .bottom-bar {
             position: fixed;
             bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
-            left: 50%;
-            transform: translateX(-50%);
           }
           .size-btn-xl {
             display: none;
@@ -1662,6 +1780,27 @@ export default function Home() {
           align-items: center;
           gap: 12px;
           min-width: 0;
+        }
+        .edit-toggle-btn {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-muted);
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+        }
+        .edit-toggle-btn:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .edit-toggle-active {
+          color: var(--color-text);
+          background: var(--color-bg-active);
         }
         .mobile-actions {
           display: none;
@@ -1881,18 +2020,6 @@ export default function Home() {
         .load-error-dismiss:hover {
           color: var(--color-text);
           background: var(--color-bg-hover);
-        }
-        .drop-status {
-          position: fixed;
-          left: 50%;
-          bottom: 24px;
-          transform: translateX(-50%);
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          padding: 6px 14px;
-          color: var(--color-text-muted);
-          z-index: 70;
         }
       `}</style>
     </div>

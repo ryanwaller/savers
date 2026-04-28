@@ -31,6 +31,9 @@ type Props = {
   cardCols?: number;
   loading?: boolean;
   emptyLabel?: string;
+  isEditMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 };
 
 export default function BookmarkGrid({
@@ -48,6 +51,9 @@ export default function BookmarkGrid({
   cardCols,
   loading,
   emptyLabel,
+  isEditMode,
+  selectedIds,
+  onToggleSelect,
 }: Props) {
   const gridStyle: CSSProperties | undefined =
     cardMinWidth || cardCols
@@ -74,6 +80,9 @@ export default function BookmarkGrid({
           onClearCustomPreview={() => onClearCustomPreview(b.id)}
           onTagClick={onTagClick}
           cardCols={cardCols}
+          isEditMode={isEditMode}
+          isSelected={selectedIds?.has(b.id) ?? false}
+          onToggleSelect={onToggleSelect}
         />
       ))}
       {!loading && bookmarks.length === 0 && subCollections.length === 0 && (
@@ -192,6 +201,9 @@ function BookmarkCard({
   onClearCustomPreview,
   onTagClick,
   cardCols,
+  isEditMode,
+  isSelected,
+  onToggleSelect,
 }: {
   b: Bookmark;
   onEdit: () => void;
@@ -202,6 +214,9 @@ function BookmarkCard({
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardCols?: number;
+  isEditMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }) {
   // On the smallest mobile preset (3 cols) there's no room for both a pin
   // button and the overflow menu, so the pin moves into the menu.
@@ -461,6 +476,23 @@ function BookmarkCard({
         onCancel={() => setConfirmDeleteOpen(false)}
         onConfirm={confirmDelete}
       />
+      {isEditMode && (
+        <button
+          type="button"
+          className={`select-btn ${isSelected ? "select-btn-on" : ""}`}
+          aria-label={isSelected ? "Deselect bookmark" : "Select bookmark"}
+          onClick={(e) => {
+            e.stopPropagation();
+            onToggleSelect?.(b.id);
+          }}
+        >
+          {isSelected && (
+            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+              <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+          )}
+        </button>
+      )}
       <div className="card" title={b.title ?? b.url}>
         <div className="thumb-wrap">
           <a
@@ -677,6 +709,36 @@ function BookmarkCard({
         }
         .card:hover {
           border-color: var(--color-border-strong);
+        }
+        .select-btn {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          z-index: 3;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: var(--color-text-muted);
+        }
+        .select-btn:hover {
+          background: var(--color-bg);
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+        }
+        .select-btn-on {
+          background: var(--color-text);
+          border-color: var(--color-text);
+          color: var(--color-bg);
+        }
+        .select-btn-on:hover {
+          opacity: 0.88;
         }
         .actions {
           position: absolute;
