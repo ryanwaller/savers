@@ -110,6 +110,9 @@ export default function Home() {
   const cardCols = CARD_SIZE_COLS[cardSize];
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showBulkMovePicker, setShowBulkMovePicker] = useState(false);
+  const [bulkMoveSearch, setBulkMoveSearch] = useState("");
+  const [bulkMoveBusy, setBulkMoveBusy] = useState(false);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -519,6 +522,33 @@ export default function Home() {
     return () => document.removeEventListener("keydown", onKey);
   }, [isEditMode]);
 
+  // Collection paths for the bulk move picker (same logic as CollectionPicker)
+  const collectionPaths = useMemo(() => {
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const cache = new Map<string, string>();
+    function resolve(id: string): string {
+      if (cache.has(id)) return cache.get(id)!;
+      const c = byId.get(id);
+      if (!c) return "";
+      const p = c.parent_id ? `${resolve(c.parent_id)} / ${c.name}` : c.name;
+      cache.set(id, p);
+      return p;
+    }
+    for (const c of flat) resolve(c.id);
+    return cache;
+  }, [flat]);
+
+  const bulkMoveCollections = useMemo(() => {
+    const sorted = [...flat].sort((a, b) =>
+      (collectionPaths.get(a.id) || "").localeCompare(collectionPaths.get(b.id) || "")
+    );
+    if (!bulkMoveSearch.trim()) return sorted;
+    const needle = bulkMoveSearch.toLowerCase();
+    return sorted.filter((c) =>
+      (collectionPaths.get(c.id) || "").toLowerCase().includes(needle)
+    );
+  }, [flat, collectionPaths, bulkMoveSearch]);
+
   const totals = useMemo(
     () => ({
       all: allBookmarks.length,
@@ -843,16 +873,22 @@ export default function Home() {
   async function handleBulkMove(collectionId: string | null) {
     const ids = Array.from(selectedIds);
     if (ids.length === 0) return;
+    setBulkMoveBusy(true);
     try {
       await api.moveBookmarks(ids, collectionId);
       for (const id of ids) handleBookmarkMoved(id, collectionId);
       setSelectedIds(new Set());
       setIsEditMode(false);
-      setDropStatus(`${ids.length} moved.`);
+      setShowBulkMovePicker(false);
+      setBulkMoveSearch("");
+      const label = collectionId ? collectionPaths.get(collectionId) ?? "collection" : "Unsorted";
+      setDropStatus(`${ids.length} moved to ${label}.`);
       setTimeout(() => setDropStatus(null), 3000);
     } catch (e) {
       setDropStatus(`Move failed: ${e instanceof Error ? e.message : "unknown"}`);
       setTimeout(() => setDropStatus(null), 5000);
+    } finally {
+      setBulkMoveBusy(false);
     }
   }
 
@@ -1434,12 +1470,68 @@ export default function Home() {
               >
                 Delete {selectedIds.size}
               </button>
-              <button
-                className="btn"
-                onClick={() => handleBulkMove(null)}
-              >
-                Move to Unsorted
-              </button>
+              <div className="bulk-move-wrap">
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setShowBulkMovePicker((v) => !v);
+                    setBulkMoveSearch("");
+                  }}
+                  disabled={bulkMoveBusy}
+                >
+                  {bulkMoveBusy ? "Moving…" : `Move ${selectedIds.size}`}
+                </button>
+                {showBulkMovePicker && (
+                  <div
+                    className="bulk-move-panel"
+                    onMouseLeave={() => setShowBulkMovePicker(false)}
+                  >
+                    <input
+                      autoFocus
+                      className="bulk-move-search"
+                      placeholder="Find collection…"
+                      value={bulkMoveSearch}
+                      onChange={(e) => setBulkMoveSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setShowBulkMovePicker(false);
+                          setBulkMoveSearch("");
+                        }
+                        if (e.key === "Enter" && bulkMoveCollections.length > 0) {
+                          e.preventDefault();
+                          handleBulkMove(bulkMoveCollections[0].id);
+                        }
+                      }}
+                    />
+                    <div className="bulk-move-list">
+                      <button
+                        className="bulk-move-opt"
+                        onClick={() => handleBulkMove(null)}
+                      >
+                        Unsorted
+                      </button>
+                      {bulkMoveCollections.map((c) => (
+                        <button
+                          key={c.id}
+                          className="bulk-move-opt"
+                          onClick={() => handleBulkMove(c.id)}
+                          title={collectionPaths.get(c.id)}
+                        >
+                          <span className="bulk-move-opt-icon">
+                            <CollectionIcon name={c.icon} size={12} />
+                          </span>
+                          <span className="bulk-move-opt-label">
+                            {collectionPaths.get(c.id)}
+                          </span>
+                        </button>
+                      ))}
+                      {bulkMoveCollections.length === 0 && (
+                        <div className="bulk-move-empty">No collections match.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           )}
           {dropStatus && (
@@ -1571,6 +1663,66 @@ export default function Home() {
           padding: 0 12px;
           font-size: 12px;
           border-radius: 999px;
+        }
+        .bulk-move-wrap {
+          position: relative;
+        }
+        .bulk-move-panel {
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 6px;
+          width: 260px;
+          max-height: 280px;
+          display: flex;
+          flex-direction: column;
+          z-index: 71;
+        }
+        .bulk-move-search {
+          font-size: 12px;
+          margin-bottom: 4px;
+          flex-shrink: 0;
+        }
+        .bulk-move-list {
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .bulk-move-opt {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          text-align: left;
+          padding: 5px 8px;
+          border-radius: 3px;
+          font-size: 12px;
+          cursor: pointer;
+          background: transparent;
+          border: none;
+          color: var(--color-text);
+        }
+        .bulk-move-opt:hover {
+          background: var(--color-bg-hover);
+        }
+        .bulk-move-opt-icon {
+          display: inline-flex;
+          align-items: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .bulk-move-opt-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bulk-move-empty {
+          padding: 8px;
+          font-size: 12px;
+          color: var(--color-text-muted);
         }
         .size-control {
           height: 32px;
