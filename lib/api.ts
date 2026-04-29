@@ -348,20 +348,16 @@ export function screenshotPreviewUrl(
   options?: { force?: boolean; cacheBust?: string | number | null }
 ): string {
   const normalized = normalizeUrl(url);
-  const params = new URLSearchParams({
-    url: normalized,
-    meta: "false",
-    screenshot: "true",
-    embed: "screenshot.url",
-    device: "macbook pro 13",
-  });
-
+  // Proxy through our server-side /api/preview so the browser sees an
+  // actual image content-type (Chrome's ORB blocks cross-origin responses
+  // from api.microlink.io because their fallback responses are JSON, which
+  // doesn't match the <img> request expectation).
+  const params = new URLSearchParams({ url: normalized });
   if (options?.force) params.set("force", "true");
   if (options?.cacheBust !== undefined && options?.cacheBust !== null) {
     params.set("cb", String(options.cacheBust));
   }
-
-  return `https://api.microlink.io/?${params.toString()}`;
+  return `/api/preview?${params.toString()}`;
 }
 
 export function previewImageUrl(
