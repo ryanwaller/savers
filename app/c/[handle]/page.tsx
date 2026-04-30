@@ -197,7 +197,12 @@ export default async function PublicCollectionPage({
             --public-border: #232323;
           }
         }
-        html, body { background: var(--public-bg); color: var(--public-text); }
+        html, body {
+          height: auto !important;
+          overflow: auto !important;
+          background: var(--public-bg);
+          color: var(--public-text);
+        }
         .public-shell {
           max-width: 1100px;
           margin: 0 auto;

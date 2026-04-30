@@ -327,7 +327,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       </div>
     );
   } else {
-    const total = queue.length;
     const previewSrc = screenshotPreviewUrl(current.url, {
       cacheBust: current.preview_version,
     });
@@ -456,26 +455,33 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           >
             Delete
           </button>
-          <span className="triage-progress muted">
-            {total === 1 ? "1 left" : `${total} left`}
-          </span>
         </div>
       </main>
     );
   }
 
+  const remaining = queue.length;
+  const showRemaining = step.kind === "ready" && current !== null;
+
   return (
     <div className="triage-backdrop" onClick={onClose}>
       <div className="triage-panel" onClick={(e) => e.stopPropagation()}>
         <header className="triage-head">
-          <button
-            className="triage-close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
           <span className="triage-head-title">Triage</span>
+          <div className="triage-head-right">
+            {showRemaining && (
+              <span className="triage-head-progress muted">
+                {remaining === 1 ? "1 left" : `${remaining} left`}
+              </span>
+            )}
+            <button
+              className="triage-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              ×
+            </button>
+          </div>
         </header>
         {body}
       </div>
@@ -496,7 +502,9 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.45);
+          background: rgba(0, 0, 0, 0.32);
+          backdrop-filter: blur(14px) saturate(120%);
+          -webkit-backdrop-filter: blur(14px) saturate(120%);
           display: flex;
           align-items: flex-start;
           justify-content: center;
@@ -505,7 +513,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           overflow-y: auto;
         }
         .triage-panel {
-          width: 640px;
+          width: 920px;
           max-width: 100%;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
@@ -529,54 +537,71 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-head {
           display: flex;
           align-items: center;
-          gap: 10px;
-          padding: 12px 14px;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 14px 16px;
           border-bottom: 1px solid var(--color-border);
-        }
-        .triage-close {
-          appearance: none;
-          background: transparent;
-          border: 0;
-          width: 28px;
-          height: 28px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
-          padding-bottom: 2px;
-        }
-        .triage-close:hover {
-          color: var(--color-text);
         }
         .triage-head-title {
           font-size: 13px;
           font-weight: 600;
           color: var(--color-text);
         }
+        .triage-head-right {
+          display: inline-flex;
+          align-items: center;
+          gap: 12px;
+        }
+        .triage-head-progress {
+          font-size: 13px;
+          font-feature-settings: "tnum" 1;
+        }
+        .triage-close {
+          appearance: none;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 1;
+          padding-bottom: 2px;
+        }
+        .triage-close:hover {
+          border-color: var(--color-border-strong);
+        }
         .triage-state {
-          padding: 56px 24px;
+          padding: 64px 24px;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 12px;
           text-align: center;
         }
+        .triage-state h2 {
+          font-size: 15px;
+          font-weight: 600;
+          margin: 0;
+        }
         .triage-empty-mark {
           font-size: 36px;
           opacity: 0.3;
         }
         .triage-main {
-          padding: 24px 24px 28px;
+          padding: 28px 28px 32px;
           display: flex;
           flex-direction: column;
           gap: 24px;
         }
         .triage-thumb {
           display: block;
-          aspect-ratio: 16 / 10;
+          aspect-ratio: 16 / 9;
+          max-height: 360px;
           background: var(--color-bg-secondary);
           border-radius: 8px;
           overflow: hidden;
@@ -603,7 +628,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 12px;
+          font-size: 13px;
         }
         .triage-favicon {
           width: 14px;
@@ -611,10 +636,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           border-radius: 2px;
         }
         .triage-title {
-          font-size: 20px;
+          font-size: 15px;
           font-weight: 600;
-          letter-spacing: -0.01em;
-          line-height: 1.25;
+          letter-spacing: -0.005em;
+          line-height: 1.35;
           margin: 0;
         }
         .triage-description {
@@ -749,11 +774,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         }
         .triage-action.danger:hover {
           color: #ff7a7a;
-        }
-        .triage-progress {
-          margin-left: auto;
-          font-size: 12px;
-          font-feature-settings: "tnum" 1;
         }
         .triage-error {
           color: #ff7a7a;
