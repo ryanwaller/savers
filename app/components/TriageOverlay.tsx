@@ -391,10 +391,11 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             const isPrimary =
               idx === 0 && suggestion?.collection_id === c.id;
             const isSelected = selectedCollection?.id === c.id;
+            const hasOtherSelected = selectedCollection !== null && !isSelected;
             return (
               <button
                 key={c.id}
-                className={`triage-choice ${isPrimary ? "primary" : ""} ${isSelected ? "selected" : ""}`}
+                className={`triage-choice ${isPrimary && !hasOtherSelected ? "primary" : ""} ${isSelected ? "selected" : ""}`}
                 onClick={() => setSelectedCollection(isSelected ? null : c)}
                 title={pathFor(c.id) ?? c.name}
               >
@@ -473,20 +474,21 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           >
             Delete
           </button>
-          <div className="triage-actions-spacer" />
-          <button
-            className="triage-action"
-            onClick={() => void handleSkip()}
-            title="Skip (S)"
-          >
-            Skip
-          </button>
-          <button
-            className="triage-action primary"
-            onClick={() => void handleFile(selectedCollection)}
-          >
-            Save
-          </button>
+          <div className="triage-actions-right">
+            <button
+              className="triage-action"
+              onClick={() => void handleSkip()}
+              title="Skip (S)"
+            >
+              Skip
+            </button>
+            <button
+              className="triage-action primary"
+              onClick={() => void handleFile(selectedCollection)}
+            >
+              Save
+            </button>
+          </div>
         </div>
       </main>
     );
@@ -759,11 +761,12 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          padding: 4px 10px;
+          padding: 6px 10px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg-secondary);
-          font-size: 12px;
+          font-size: 13px;
+          line-height: 1;
         }
         .triage-tag-remove {
           appearance: none;
@@ -782,13 +785,14 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           appearance: none;
           display: inline-flex;
           align-items: center;
-          padding: 4px 10px;
+          padding: 6px 10px;
           border: 1px dashed var(--color-border);
           border-radius: 999px;
           background: transparent;
           color: var(--color-text-muted);
           font: inherit;
-          font-size: 12px;
+          font-size: 13px;
+          line-height: 1;
           cursor: pointer;
         }
         .triage-tag-suggest:hover {
@@ -805,6 +809,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           color: var(--color-text);
           font: inherit;
           font-size: 13px;
+          line-height: 1;
           padding: 6px 10px;
         }
         .triage-tag-input::placeholder {
@@ -816,11 +821,14 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-actions {
           display: flex;
           align-items: center;
+          justify-content: space-between;
           gap: 8px;
           padding: 14px 16px;
         }
-        .triage-actions-spacer {
-          flex: 1;
+        .triage-actions-right {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
         }
         .triage-action {
           appearance: none;
