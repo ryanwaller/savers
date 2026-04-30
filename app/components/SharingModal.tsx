@@ -33,6 +33,7 @@ export default function SharingModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [slugDirty, setSlugDirty] = useState(false);
   const slugDirtyRef = useRef(false);
 
   useEffect(() => {
@@ -42,6 +43,7 @@ export default function SharingModal({
     setDescription(collection.public_description ?? "");
     setError(null);
     setCopied(false);
+    setSlugDirty(false);
     slugDirtyRef.current = false;
   }, [open, collection]);
 
@@ -84,6 +86,8 @@ export default function SharingModal({
       };
       onUpdate(updated);
       setIsPublic(json.collection.is_public);
+      setSlugDirty(false);
+      slugDirtyRef.current = false;
       if (json.collection.public_slug !== null) {
         setSlug(json.collection.public_slug);
         slugDirtyRef.current = false;
@@ -159,13 +163,26 @@ export default function SharingModal({
                     value={slug}
                     onChange={(e) => {
                       slugDirtyRef.current = true;
+                      setSlugDirty(true);
                       setSlug(e.target.value);
                     }}
-                    onBlur={() => {
-                      if (slugDirtyRef.current) void save(true);
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        void save(true);
+                      }
                     }}
                     disabled={saving}
                   />
+                  {slugDirty && (
+                    <button
+                      className="slug-save"
+                      onClick={() => void save(true)}
+                      disabled={saving}
+                    >
+                      {saving ? "…" : "Save"}
+                    </button>
+                  )}
                 </div>
                 <span className="hint small muted">
                   Lowercase letters, digits, and hyphens. Leave blank for the
@@ -334,6 +351,26 @@ export default function SharingModal({
           color: var(--color-text);
           font: inherit;
           outline: none;
+        }
+        .slug-save {
+          appearance: none;
+          flex-shrink: 0;
+          padding: 0 10px;
+          border: 0;
+          border-left: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          color: var(--color-text);
+          font: inherit;
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .slug-save:hover {
+          background: var(--color-bg-hover);
+        }
+        .slug-save:disabled {
+          opacity: 0.5;
+          cursor: default;
         }
         textarea {
           padding: 8px 10px;

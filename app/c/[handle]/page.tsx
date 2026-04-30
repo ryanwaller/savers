@@ -175,9 +175,6 @@ export default async function PublicCollectionPage({
         <a className="public-cta" href={`/?savers_ref=public_${collection.public_id}`}>
           Save this to your library →
         </a>
-        <span className="public-attribution muted small">
-          Saved in <a href="/" className="public-brand">Savers</a>
-        </span>
       </footer>
 
       <style>{`
