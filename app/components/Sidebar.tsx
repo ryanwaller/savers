@@ -775,7 +775,7 @@ export default function Sidebar({
           gap: 8px;
           width: 100%;
           min-width: 0;
-          padding: 5px 8px;
+          padding: 3px 8px;
           border-radius: var(--radius-sm);
           text-align: left;
           font-size: 12px;
@@ -1046,7 +1046,7 @@ function SmartCollectionItem({
           gap: 8px;
           flex: 1 1 auto;
           min-width: 0;
-          padding: 5px 8px;
+          padding: 3px 8px;
           text-align: left;
           font-size: 12px;
           color: var(--color-text);
@@ -1212,7 +1212,7 @@ function SidebarItem({
           gap: 8px;
           width: 100%;
           min-width: 0;
-          padding: 5px 8px;
+          padding: 3px 8px;
           border-radius: var(--radius-sm);
           text-align: left;
           font-size: 12px;
@@ -1697,7 +1697,7 @@ function CollectionNode({
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 5px 8px;
+          padding: 3px 8px;
           border-radius: var(--radius-sm);
           position: relative;
         }
