@@ -1745,32 +1745,34 @@ export default function Home() {
           {dropStatus && (
             <div className="drop-status small" role="status">{dropStatus}</div>
           )}
-          <div className="size-control" role="radiogroup" aria-label="Preview size">
-          {CARD_SIZES.map((size) => (
+          <div className="bottom-row">
+            <div className="size-control" role="radiogroup" aria-label="Preview size">
+            {CARD_SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                role="radio"
+                aria-checked={cardSize === size}
+                className={`size-btn size-btn-${size} ${cardSize === size ? "size-btn-active" : ""}`}
+                onClick={() => setCardSize(size)}
+                title={`${size.toUpperCase()} previews`}
+              >
+                {size.toUpperCase()}
+              </button>
+            ))}
+            </div>
             <button
-              key={size}
-              type="button"
-              role="radio"
-              aria-checked={cardSize === size}
-              className={`size-btn size-btn-${size} ${cardSize === size ? "size-btn-active" : ""}`}
-              onClick={() => setCardSize(size)}
-              title={`${size.toUpperCase()} previews`}
+              className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
+              onClick={() => {
+                setIsEditMode((v) => !v);
+                setSelectedIds(new Set());
+              }}
+              title={isEditMode ? "Exit edit mode" : "Edit mode"}
+              aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
             >
-              {size.toUpperCase()}
+              <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
             </button>
-          ))}
           </div>
-          <button
-            className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
-            onClick={() => {
-              setIsEditMode((v) => !v);
-              setSelectedIds(new Set());
-            }}
-            title={isEditMode ? "Exit edit mode" : "Edit mode"}
-            aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
-          >
-            <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
-          </button>
         </div>
       </main>
 
@@ -1935,6 +1937,11 @@ export default function Home() {
           z-index: 6;
           display: flex;
           flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+        .bottom-row {
+          display: flex;
           align-items: center;
           gap: 8px;
         }

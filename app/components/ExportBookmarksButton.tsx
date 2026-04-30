@@ -130,21 +130,22 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections, vari
           className="export-text-btn"
         >
           {icon}
-          {loading ? "Exporting…" : `Export ${bookmarks.length} bookmark${bookmarks.length === 1 ? "" : "s"} (ZIP)`}
+          {loading ? "Exporting…" : "Export bookmarks"}
         </button>
         <style jsx>{`
           .export-wrap { display: flex; align-items: center; gap: 8px; }
           .error-msg { font-size: 11px; color: #ef4444; }
           .export-text-btn {
+            appearance: none;
+            font: inherit;
             display: inline-flex;
             align-items: center;
-            gap: 8px;
-            padding: 6px 12px;
+            gap: 6px;
+            padding: 6px 10px;
             border: 1px solid var(--color-border);
             border-radius: 6px;
             background: var(--color-bg);
             color: var(--color-text);
-            font: inherit;
             font-size: 12px;
             cursor: pointer;
           }
