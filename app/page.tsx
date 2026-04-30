@@ -2248,7 +2248,12 @@ export default function Home() {
           border-radius: 999px;
           background: var(--color-bg-secondary);
           color: var(--color-text-muted);
-          transition: border-color 120ms ease, color 120ms ease, background 120ms ease;
+          opacity: 0.7;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease;
+        }
+        .edit-toggle-btn:hover,
+        .edit-toggle-active {
+          opacity: 1;
         }
         .edit-toggle-btn:hover {
           color: var(--color-text);
