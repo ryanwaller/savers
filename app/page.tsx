@@ -1759,18 +1759,18 @@ export default function Home() {
               {size.toUpperCase()}
             </button>
           ))}
-            <button
-              className={`size-btn ${isEditMode ? "size-btn-active" : ""}`}
-              onClick={() => {
-                setIsEditMode((v) => !v);
-                setSelectedIds(new Set());
-              }}
-              title={isEditMode ? "Exit edit mode" : "Edit mode"}
-              aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
-            >
-              <CheckSquare size={12} weight={isEditMode ? "fill" : "regular"} />
-            </button>
           </div>
+          <button
+            className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
+            onClick={() => {
+              setIsEditMode((v) => !v);
+              setSelectedIds(new Set());
+            }}
+            title={isEditMode ? "Exit edit mode" : "Edit mode"}
+            aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
+          >
+            <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
+          </button>
         </div>
       </main>
 
