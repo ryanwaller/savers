@@ -462,22 +462,10 @@ export default function SmartCollectionBuilderModal({
 
           {/* Live preview */}
           {previewCount !== null && (
-            <div className="preview">
-              <div className="preview-count">
-                <span className="preview-count-num">{previewCount}</span>
-                <span className="preview-count-label small muted">
-                  {previewCount === 1 ? "bookmark matches" : "bookmarks match"}
-                </span>
-              </div>
-              {previewSample.length > 0 && (
-                <div className="preview-sample">
-                  {previewSample.map((b) => (
-                    <div key={b.id} className="preview-sample-item small">
-                      <span className="preview-sample-title">{b.title || b.url}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
+            <div className="preview-hint">
+              {previewCount === 0
+                ? "No bookmarks match"
+                : `${previewCount} ${previewCount === 1 ? "bookmark matches" : "bookmarks match"}`}
             </div>
           )}
 
@@ -485,12 +473,22 @@ export default function SmartCollectionBuilderModal({
         </div>
 
         <div className="foot">
-          <button className="cancel-btn" onClick={onClose} disabled={saving}>
-            Cancel
-          </button>
-          <button className="save-btn" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : isEdit ? "Save changes" : "Create smart collection"}
-          </button>
+          <div className="foot-left">
+            {previewCount !== null && (
+              <span className="preview-hint">{previewCount === 0
+                ? "No bookmarks match"
+                : `${previewCount} ${previewCount === 1 ? "bookmark matches" : "bookmarks match"}`
+              }</span>
+            )}
+          </div>
+          <div className="foot-right">
+            <button className="cancel-btn" onClick={onClose} disabled={saving}>
+              Cancel
+            </button>
+            <button className="save-btn" onClick={save} disabled={saving}>
+              {saving ? "Saving…" : isEdit ? "Save changes" : "Create smart collection"}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -812,45 +810,28 @@ export default function SmartCollectionBuilderModal({
           flex: 1;
           padding: 2px 0;
         }
-        .preview {
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          padding: 10px 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .preview-count {
-          display: flex;
-          align-items: baseline;
-          gap: 6px;
-        }
-        .preview-count-num {
-          font-size: 20px;
-          font-weight: 600;
-          font-feature-settings: "tnum" 1;
-        }
-        .preview-sample {
-          display: flex;
-          flex-direction: column;
-          gap: 3px;
-        }
-        .preview-sample-item {
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-        }
-        .preview-sample-title {
-          color: var(--color-text);
+        .preview-hint {
+          font-size: 12px;
+          font-weight: 400;
+          color: #34c759;
         }
         .foot {
           display: flex;
           align-items: center;
-          justify-content: flex-end;
+          justify-content: space-between;
           gap: 8px;
           padding: 12px 16px;
           border-top: 1px solid var(--color-border);
+        }
+        .foot-left {
+          flex: 0 1 auto;
+          min-width: 0;
+        }
+        .foot-right {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex-shrink: 0;
         }
         .cancel-btn {
           height: 32px;

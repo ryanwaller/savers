@@ -103,9 +103,6 @@ export default function Sidebar({
   onEditSmartCollection,
   onDeleteSmartCollection,
 }: Props) {
-  const [addingRoot, setAddingRoot] = useState(false);
-  const [newName, setNewName] = useState("");
-  const skipRootBlurRef = useRef(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(true);
   const [smartCollectionsExpanded, setSmartCollectionsExpanded] = useState(true);
@@ -159,18 +156,6 @@ export default function Sidebar({
     }
     return tags.sort((a, b) => a.localeCompare(b));
   }, [allTags, tagCounts, tagSortOrder]);
-
-  async function submitNewRoot() {
-    const n = newName.trim();
-    if (!n) {
-      setAddingRoot(false);
-      setNewName("");
-      return;
-    }
-    await onCreateCollection(n, null);
-    setAddingRoot(false);
-    setNewName("");
-  }
 
   function handleDragOver(e: React.DragEvent) {
     e.preventDefault();
@@ -376,7 +361,10 @@ export default function Sidebar({
             </button>
             <button
               className="sidebar-new-smart"
-              onClick={() => setAddingRoot(true)}
+              onClick={() => {
+                const event = new CustomEvent("savers:new-collection");
+                window.dispatchEvent(event);
+              }}
               title="New collection"
             >
               +
@@ -415,7 +403,7 @@ export default function Sidebar({
                   onDrop={handleDrop}
                 />
               ))}
-              {tree.length === 0 && !addingRoot && (
+              {tree.length === 0 && (
                 <div className="sidebar-empty">No collections yet.</div>
               )}
             </>
@@ -524,36 +512,6 @@ export default function Sidebar({
       <div className="sidebar-foot">
         <div className="sidebar-foot-row">
           <div className="sidebar-foot-primary">
-            {addingRoot && (
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  skipRootBlurRef.current = true;
-                  void submitNewRoot();
-                }}
-              >
-                <input
-                  autoFocus
-                  className="sidebar-input"
-                  placeholder="Collection name"
-                  value={newName}
-                  onChange={(e) => setNewName(e.target.value)}
-                  onBlur={() => {
-                    if (skipRootBlurRef.current) {
-                      skipRootBlurRef.current = false;
-                      return;
-                    }
-                    void submitNewRoot();
-                  }}
-                  onKeyDown={(e) => {
-                    if (e.key === "Escape") {
-                      setAddingRoot(false);
-                      setNewName("");
-                    }
-                  }}
-                />
-              </form>
-            )}
           </div>
 
           {onSignOut && (
@@ -790,10 +748,6 @@ export default function Sidebar({
         }
         .sidebar-foot-primary {
           min-width: 0;
-        }
-        .sidebar-input {
-          width: 100%;
-          font-size: 12px;
         }
         .mobile-account-wrap {
           display: none;

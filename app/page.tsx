@@ -23,6 +23,7 @@ import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
+import CreateCollectionModal from "./components/CreateCollectionModal";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -143,6 +144,7 @@ export default function Home() {
   const [triageOpen, setTriageOpen] = useState(false);
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
 
   // Listen for smart collection builder events from Sidebar.
   useEffect(() => {
@@ -155,11 +157,14 @@ export default function Home() {
       setEditSmartCollection((e as CustomEvent).detail as SmartCollection);
       setSmartBuilderOpen(true);
     };
+    const onNewCollection = () => setShowCreateCollection(true);
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
+    window.addEventListener("savers:new-collection", onNewCollection);
     return () => {
       window.removeEventListener("savers:open-smart-builder", onOpen);
       window.removeEventListener("savers:edit-smart-collection", onEdit);
+      window.removeEventListener("savers:new-collection", onNewCollection);
     };
   }, []);
 
@@ -1795,6 +1800,14 @@ export default function Home() {
         }}
         onUpdated={() => {
           void loadSmartCollections();
+        }}
+      />
+
+      <CreateCollectionModal
+        open={showCreateCollection}
+        onClose={() => setShowCreateCollection(false)}
+        onCreated={() => {
+          void loadCollections();
         }}
       />
 
