@@ -883,6 +883,8 @@ export default function Sidebar({
         .unsorted-tail.open .unsorted-count { opacity: 0; }
         .unsorted-item:hover .unsorted-more,
         .unsorted-tail.open .unsorted-more { opacity: 1; }
+        .unsorted-more:hover,
+        .unsorted-more:active { opacity: 1; }
         .unsorted-menu {
           z-index: 102;
           min-width: 120px;
@@ -1057,6 +1059,7 @@ function CollectionNode({
   onDrop: (e: React.DragEvent, targetId: string, asChild?: boolean) => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
   const [editing, setEditing] = useState(false);
@@ -1067,6 +1070,7 @@ function CollectionNode({
   const [nestHover, setNestHover] = useState(false);
   const nestTimerRef = useRef<number | null>(null);
   const iconBtnRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const skipRenameBlurRef = useRef(false);
   const skipChildBlurRef = useRef(false);
@@ -1268,71 +1272,83 @@ function CollectionNode({
           <span className="tail-count">{displayCount || ""}</span>
           <button
             className="more"
+            ref={moreRef}
             onClick={(e) => {
               e.stopPropagation();
+              const rect = moreRef.current?.getBoundingClientRect();
+              if (rect) {
+                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+              }
               setMenuOpen((v) => !v);
             }}
             aria-label="Menu"
           >
             …
           </button>
-          {menuOpen && (
-            <div
-              className="menu"
-              ref={menuRef}
-              onMouseLeave={() => setMenuOpen(false)}
-            >
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  openIconPicker();
+          {menuOpen && menuPos &&
+            createPortal(
+              <div
+                className="menu"
+                ref={menuRef}
+                style={{
+                  position: "fixed",
+                  top: menuPos.top,
+                  right: menuPos.right,
                 }}
+                onMouseLeave={() => setMenuOpen(false)}
               >
-                Change icon
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  setAddingChild(true);
-                }}
-              >
-                New sub-collection
-              </button>
-              <button
-                onClick={() => {
-                  setMenuOpen(false);
-                  setEditing(true);
-                }}
-              >
-                Rename
-              </button>
-              {onShareCollection && (
                 <button
                   onClick={() => {
                     setMenuOpen(false);
-                    onShareCollection(node);
+                    openIconPicker();
                   }}
                 >
-                  {node.is_public ? "Sharing settings…" : "Share…"}
+                  Change icon
                 </button>
-              )}
-              <button
-                className="danger"
-                onClick={async () => {
-                  setMenuOpen(false);
-                  if (
-                    confirm(
-                      `Delete "${node.name}"? Sub-collections and bookmarks will be unsorted.`
-                    )
-                  ) {
-                    await onDeleteCollection(node.id);
-                  }
-                }}
-              >
-                Delete
-              </button>
-            </div>
-          )}
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setAddingChild(true);
+                  }}
+                >
+                  New sub-collection
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setEditing(true);
+                  }}
+                >
+                  Rename
+                </button>
+                {onShareCollection && (
+                  <button
+                    onClick={() => {
+                      setMenuOpen(false);
+                      onShareCollection(node);
+                    }}
+                  >
+                    {node.is_public ? "Sharing settings…" : "Share…"}
+                  </button>
+                )}
+                <button
+                  className="danger"
+                  onClick={async () => {
+                    setMenuOpen(false);
+                    if (
+                      confirm(
+                        `Delete "${node.name}"? Sub-collections and bookmarks will be unsorted.`
+                      )
+                    ) {
+                      await onDeleteCollection(node.id);
+                    }
+                  }}
+                >
+                  Delete
+                </button>
+              </div>,
+              document.body
+            )}
         </div>
       </div>
 
@@ -1556,14 +1572,13 @@ function CollectionNode({
         .row:hover .more,
         .tail.open .more { opacity: 1; }
         .more:hover,
+        .more:active,
         .tail.open .more {
           color: rgba(255, 255, 255, 0.86);
           background: rgba(0, 0, 0, 0.52);
         }
+        .more:active { opacity: 1; }
         .menu {
-          position: absolute;
-          right: 0;
-          top: 22px;
           z-index: 102;
           min-width: 160px;
           background: var(--color-bg);
