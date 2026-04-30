@@ -9,6 +9,11 @@ export interface Collection {
   icon: string | null
   children?: Collection[]
   bookmark_count?: number
+  /** Public sharing fields (set when the user publishes a collection). */
+  is_public?: boolean
+  public_id?: string | null
+  public_slug?: string | null
+  public_description?: string | null
 }
 
 export interface Bookmark {

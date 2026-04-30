@@ -54,6 +54,7 @@ type Props = {
   onChangeCollectionIcon: (id: string, iconName: string | null) => Promise<void>;
   onReorderCollections: (ids: string[]) => Promise<void>;
   onReparentCollection: (id: string, newParentId: string | null) => Promise<void>;
+  onShareCollection?: (collection: Collection) => void;
   onSignOut?: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onCloseMobile?: () => void;
@@ -77,6 +78,7 @@ export default function Sidebar({
   onChangeCollectionIcon,
   onReorderCollections,
   onReparentCollection,
+  onShareCollection,
   onSignOut,
   onOpenSettings,
   onCloseMobile,
@@ -244,12 +246,26 @@ export default function Sidebar({
             active={selection.kind === "all" && !activeTag}
             onClick={() => onSelect({ kind: "all" })}
           />
-          <SidebarItem
-            label="Unsorted"
-            count={totals.unsorted}
-            active={selection.kind === "unsorted"}
-            onClick={() => onSelect({ kind: "unsorted" })}
-          />
+          <div className={`unsorted-row ${totals.unsorted > 0 ? "has-pending" : ""}`}>
+            <SidebarItem
+              label="Unsorted"
+              count={totals.unsorted}
+              active={selection.kind === "unsorted"}
+              onClick={() => onSelect({ kind: "unsorted" })}
+            />
+            {totals.unsorted > 0 && (
+              <a
+                href="/triage"
+                className="triage-link"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onCloseMobile?.();
+                }}
+              >
+                Triage →
+              </a>
+            )}
+          </div>
         </div>
 
         <div className="sidebar-divider" />
@@ -310,6 +326,7 @@ export default function Sidebar({
                   onDeleteCollection={onDeleteCollection}
                   onChangeCollectionIcon={onChangeCollectionIcon}
                   onReorderCollections={onReorderCollections}
+                  onShareCollection={onShareCollection}
                   draggedId={draggedId}
                   blockedNestIds={blockedNestIds}
                   onDragStart={setDraggedId}
@@ -825,6 +842,7 @@ function CollectionNode({
   onDeleteCollection,
   onChangeCollectionIcon,
   onReorderCollections,
+  onShareCollection,
   draggedId,
   blockedNestIds,
   onDragStart,
@@ -844,6 +862,7 @@ function CollectionNode({
   onDeleteCollection: (id: string) => Promise<void>;
   onChangeCollectionIcon: (id: string, iconName: string | null) => Promise<void>;
   onReorderCollections: (ids: string[]) => Promise<void>;
+  onShareCollection?: (collection: Collection) => void;
   draggedId: string | null;
   blockedNestIds: Set<string>;
   onDragStart: (id: string) => void;
@@ -1039,9 +1058,12 @@ function CollectionNode({
           <button
             className="name"
             onClick={() => onSelect({ kind: "collection", id: node.id })}
-            title={node.name}
+            title={node.is_public ? `${node.name} · public` : node.name}
           >
             {node.name}
+            {node.is_public && (
+              <span className="public-dot" aria-hidden title="Public" />
+            )}
           </button>
         )}
         <div className={`tail ${menuOpen ? "open" : ""}`}>
@@ -1082,6 +1104,16 @@ function CollectionNode({
               >
                 Rename
               </button>
+              {onShareCollection && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onShareCollection(node);
+                  }}
+                >
+                  {node.is_public ? "Sharing settings…" : "Share…"}
+                </button>
+              )}
               <button
                 className="danger"
                 onClick={async () => {
@@ -1145,6 +1177,7 @@ function CollectionNode({
               onDeleteCollection={onDeleteCollection}
               onChangeCollectionIcon={onChangeCollectionIcon}
               onReorderCollections={onReorderCollections}
+              onShareCollection={onShareCollection}
               draggedId={draggedId}
               blockedNestIds={blockedNestIds}
               onDragStart={onDragStart}
@@ -1253,6 +1286,45 @@ function CollectionNode({
           text-overflow: ellipsis;
           white-space: nowrap;
           font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .public-dot {
+          flex-shrink: 0;
+          width: 6px;
+          height: 6px;
+          border-radius: 999px;
+          background: var(--color-text-muted);
+          opacity: 0.55;
+        }
+        .unsorted-row {
+          position: relative;
+        }
+        .unsorted-row.has-pending :global(.count) {
+          background: rgba(255, 176, 64, 0.16);
+          color: #d18a2a;
+        }
+        @media (prefers-color-scheme: dark) {
+          .unsorted-row.has-pending :global(.count) {
+            background: rgba(255, 176, 64, 0.18);
+            color: #f1b265;
+          }
+        }
+        .triage-link {
+          display: block;
+          margin: 2px 8px 6px 26px;
+          font-size: 11px;
+          color: var(--color-text-muted);
+          letter-spacing: 0.02em;
+          text-decoration: none;
+          padding: 3px 6px;
+          border-radius: var(--radius-sm);
+          width: fit-content;
+        }
+        .triage-link:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
         }
         .tail {
           position: relative;

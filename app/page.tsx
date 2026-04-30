@@ -19,6 +19,7 @@ import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
 import ExportBookmarksButton from "./components/ExportBookmarksButton";
 import SettingsModal from "./components/SettingsModal";
+import SharingModal from "./components/SharingModal";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -120,6 +121,7 @@ export default function Home() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
   const [detail, setDetail] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState<{
     bookmark: Bookmark;
@@ -1269,6 +1271,7 @@ export default function Home() {
         onChangeCollectionIcon={handleChangeCollectionIcon}
         onReorderCollections={handleReorderCollections}
         onReparentCollection={handleReparentCollection}
+        onShareCollection={(c) => setSharingCollection(c)}
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -1618,6 +1621,45 @@ export default function Home() {
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      <SharingModal
+        collection={sharingCollection}
+        open={sharingCollection !== null}
+        onClose={() => setSharingCollection(null)}
+        onUpdate={(updated) => {
+          setSharingCollection(updated);
+          // Reflect the change in our local trees so the sidebar's
+          // "public dot" affordance updates without a refresh.
+          const patch = (list: Collection[]): Collection[] =>
+            list.map((c) =>
+              c.id === updated.id
+                ? {
+                    ...c,
+                    is_public: updated.is_public,
+                    public_id: updated.public_id,
+                    public_slug: updated.public_slug,
+                    public_description: updated.public_description,
+                  }
+                : c.children
+                ? { ...c, children: patch(c.children) }
+                : c
+            );
+          setTreeRaw((prev) => patch(prev));
+          setFlat((prev) =>
+            prev.map((c) =>
+              c.id === updated.id
+                ? {
+                    ...c,
+                    is_public: updated.is_public,
+                    public_id: updated.public_id,
+                    public_slug: updated.public_slug,
+                    public_description: updated.public_description,
+                  }
+                : c
+            )
+          );
+        }}
       />
 
       <DuplicateImportModal
