@@ -343,36 +343,45 @@ export default function Sidebar({
         <div className="sidebar-divider" />
 
         <div className="sidebar-section">
-          <button
-            className={`sidebar-label collapsible ${rootNestHover ? "root-nest-target" : ""}`}
-            onClick={() => setCollectionsExpanded(!collectionsExpanded)}
-            onDragOver={(e) => {
-              if (!canDragToRoot) return;
-              e.preventDefault();
-              if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
-              if (!rootNestHover && rootNestTimerRef.current === null) {
-                rootNestTimerRef.current = window.setTimeout(() => {
-                  setRootNestHover(true);
-                  rootNestTimerRef.current = null;
-                }, 600);
-              }
-            }}
-            onDragLeave={() => {
-              clearRootNestTimer();
-              setRootNestHover(false);
-            }}
-            onDrop={(e) => {
-              const shouldPromote = rootNestHover && canDragToRoot;
-              clearRootNestTimer();
-              setRootNestHover(false);
-              if (shouldPromote) {
-                void handleDrop(e, null, true);
-              }
-            }}
-          >
-            <span className="caret">{collectionsExpanded ? "▾" : "▸"}</span>
-            Collections
-          </button>
+          <div className="flex items-center justify-between">
+            <button
+              className={`sidebar-label collapsible flex-1 ${rootNestHover ? "root-nest-target" : ""}`}
+              onClick={() => setCollectionsExpanded(!collectionsExpanded)}
+              onDragOver={(e) => {
+                if (!canDragToRoot) return;
+                e.preventDefault();
+                if (e.dataTransfer) e.dataTransfer.dropEffect = "move";
+                if (!rootNestHover && rootNestTimerRef.current === null) {
+                  rootNestTimerRef.current = window.setTimeout(() => {
+                    setRootNestHover(true);
+                    rootNestTimerRef.current = null;
+                  }, 600);
+                }
+              }}
+              onDragLeave={() => {
+                clearRootNestTimer();
+                setRootNestHover(false);
+              }}
+              onDrop={(e) => {
+                const shouldPromote = rootNestHover && canDragToRoot;
+                clearRootNestTimer();
+                setRootNestHover(false);
+                if (shouldPromote) {
+                  void handleDrop(e, null, true);
+                }
+              }}
+            >
+              <span className="caret">{collectionsExpanded ? "▾" : "▸"}</span>
+              Collections
+            </button>
+            <button
+              className="sidebar-new-smart"
+              onClick={() => setAddingRoot(true)}
+              title="New collection"
+            >
+              +
+            </button>
+          </div>
 
           {collectionsExpanded && (
             <>
@@ -445,59 +454,15 @@ export default function Sidebar({
                       selection.kind === "smart_collection" && selection.id === sc.id;
                     const count = smartCollectionCounts[sc.id] ?? 0;
                     return (
-                      <div key={sc.id} className={`smart-item ${isActive ? "active" : ""}`}>
-                        <button
-                          className="smart-item-btn"
-                          onClick={() => onSelect({ kind: "smart_collection", id: sc.id })}
-                        >
-                          <span className="smart-item-icon">
-                            <CollectionIcon name={sc.icon} size={14} />
-                          </span>
-                          <span className="smart-item-name">{sc.name}</span>
-                          <span className="smart-item-count">{count}</span>
-                        </button>
-                        {onEditSmartCollection && onDeleteSmartCollection && (
-                          <div className="smart-item-more-wrap">
-                            <button
-                              className="smart-item-more"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setSmartMenuOpen(smartMenuOpen === sc.id ? null : sc.id);
-                              }}
-                              aria-label="Menu"
-                            >
-                              …
-                            </button>
-                            {smartMenuOpen === sc.id && (
-                              <div
-                                className="smart-menu"
-                                onMouseLeave={() => setSmartMenuOpen(null)}
-                              >
-                                <button
-                                  onClick={() => {
-                                    setSmartMenuOpen(null);
-                                    const event = new CustomEvent("savers:edit-smart-collection", {
-                                      detail: sc,
-                                    });
-                                    window.dispatchEvent(event);
-                                  }}
-                                >
-                                  Edit
-                                </button>
-                                <button
-                                  className="danger"
-                                  onClick={() => {
-                                    setSmartMenuOpen(null);
-                                    onDeleteSmartCollection(sc.id);
-                                  }}
-                                >
-                                  Delete
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
+                      <SmartCollectionItem
+                        key={sc.id}
+                        sc={sc}
+                        count={count}
+                        isActive={isActive}
+                        onSelect={onSelect}
+                        onEdit={onEditSmartCollection}
+                        onDelete={onDeleteSmartCollection}
+                      />
                     );
                   })}
                 </div>
@@ -559,7 +524,7 @@ export default function Sidebar({
       <div className="sidebar-foot">
         <div className="sidebar-foot-row">
           <div className="sidebar-foot-primary">
-            {addingRoot ? (
+            {addingRoot && (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
@@ -588,10 +553,6 @@ export default function Sidebar({
                   }}
                 />
               </form>
-            ) : (
-              <button className="sidebar-new" onClick={() => setAddingRoot(true)}>
-                + New collection
-              </button>
             )}
           </div>
 
@@ -830,19 +791,6 @@ export default function Sidebar({
         .sidebar-foot-primary {
           min-width: 0;
         }
-        .sidebar-new {
-          display: block;
-          width: 100%;
-          text-align: left;
-          padding: 6px 8px;
-          border-radius: var(--radius-sm);
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-        .sidebar-new:hover {
-          background: var(--color-bg-hover);
-          color: var(--color-text);
-        }
         .sidebar-input {
           width: 100%;
           font-size: 12px;
@@ -868,11 +816,6 @@ export default function Sidebar({
           .sidebar-foot-primary {
             min-width: 0;
           }
-          .sidebar-new {
-            width: 100%;
-            text-align: left;
-          }
-
           .mobile-session-chip {
             display: flex;
             align-items: center;
@@ -1049,8 +992,8 @@ export default function Sidebar({
           }
         }
         .sidebar-new-smart {
-          width: 24px;
-          height: 24px;
+          width: 32px;
+          height: 32px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
@@ -1058,7 +1001,7 @@ export default function Sidebar({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text-muted);
-          font-size: 14px;
+          font-size: 16px;
           line-height: 1;
           cursor: pointer;
           flex-shrink: 0;
@@ -1070,6 +1013,112 @@ export default function Sidebar({
         .smart-list {
           padding: 2px 4px;
         }
+      `}</style>
+    </aside>
+  );
+}
+
+function SmartCollectionItem({
+  sc,
+  count,
+  isActive,
+  onSelect,
+  onEdit,
+  onDelete,
+}: {
+  sc: SmartCollection;
+  count: number;
+  isActive: boolean;
+  onSelect: (s: Selection) => void;
+  onEdit?: (id: string, updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json">>) => Promise<SmartCollection>;
+  onDelete?: (id: string) => Promise<void>;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  const hasMenu = onEdit && onDelete;
+
+  return (
+    <div className={`smart-item ${isActive ? "active" : ""}`}>
+      <button
+        className="smart-item-btn"
+        onClick={() => onSelect({ kind: "smart_collection", id: sc.id })}
+      >
+        <span className="smart-item-icon">
+          <CollectionIcon name={sc.icon} size={14} />
+        </span>
+        <span className="smart-item-name">{sc.name}</span>
+      </button>
+      {hasMenu ? (
+        <div className={`tail ${menuOpen ? "open" : ""}`}>
+          <span className="tail-count">{count}</span>
+          <button
+            className="more"
+            ref={moreRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = moreRef.current?.getBoundingClientRect();
+              if (rect) {
+                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+              }
+              setMenuOpen((v) => !v);
+            }}
+            aria-label="Menu"
+          >
+            …
+          </button>
+          {menuOpen && menuPos &&
+            createPortal(
+              <div
+                className="menu"
+                ref={menuRef}
+                style={{
+                  position: "fixed",
+                  top: menuPos.top,
+                  right: menuPos.right,
+                }}
+                onMouseLeave={() => setMenuOpen(false)}
+              >
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    const event = new CustomEvent("savers:edit-smart-collection", {
+                      detail: sc,
+                    });
+                    window.dispatchEvent(event);
+                  }}
+                >
+                  Edit
+                </button>
+                <button
+                  className="danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(sc.id);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>,
+              document.body
+            )}
+        </div>
+      ) : (
+        <span className="tail-count">{count}</span>
+      )}
+      <style jsx>{`
         .smart-item {
           display: flex;
           align-items: center;
@@ -1113,8 +1162,18 @@ export default function Sidebar({
           text-overflow: ellipsis;
           white-space: nowrap;
         }
-        .smart-item-count {
+        .tail {
+          position: relative;
+          width: 54px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .tail-count {
+          position: absolute;
+          top: 0;
+          right: 0;
           min-width: 34px;
+          max-width: 100%;
           height: 22px;
           padding: 0 10px;
           display: inline-flex;
@@ -1126,42 +1185,53 @@ export default function Sidebar({
           border-radius: 999px;
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum" 1;
-          flex-shrink: 0;
+          transition: opacity 120ms ease;
           white-space: nowrap;
         }
         @media (prefers-color-scheme: light) {
-          .smart-item-count {
+          .tail-count {
             color: rgba(0, 0, 0, 0.72);
             background: rgba(0, 0, 0, 0.12);
           }
         }
-        .smart-item-more-wrap {
-          position: relative;
-          flex-shrink: 0;
-        }
-        .smart-item-more {
-          width: 28px;
+        .more {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
           height: 22px;
+          padding: 0 10px;
+          z-index: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          opacity: 0;
           border-radius: 999px;
-          background: transparent;
-          border: 0;
-          color: var(--color-text-muted);
-          font-size: 14px;
-          line-height: 1;
-          cursor: pointer;
-          padding: 0;
+          transition: opacity 120ms ease;
+          white-space: nowrap;
         }
-        .smart-item-more:hover {
-          background: var(--color-bg-active);
-          color: var(--color-text);
+        @media (prefers-color-scheme: light) {
+          .more {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
         }
-        .smart-menu {
-          position: absolute;
-          top: 100%;
-          right: 0;
+        .smart-item:hover .tail-count,
+        .tail.open .tail-count { opacity: 0; }
+        .smart-item:hover .more,
+        .tail.open .more { opacity: 1; }
+        .more:hover,
+        .more:active,
+        .tail.open .more {
+          opacity: 1;
+          color: rgba(255, 255, 255, 0.86);
+          background: rgba(0, 0, 0, 0.52);
+        }
+        .menu {
           z-index: 102;
           min-width: 100px;
           background: var(--color-bg);
@@ -1170,7 +1240,7 @@ export default function Sidebar({
           padding: 4px;
           box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
         }
-        .smart-menu button {
+        .menu button {
           display: block;
           width: 100%;
           text-align: left;
@@ -1182,17 +1252,22 @@ export default function Sidebar({
           color: var(--color-text);
           cursor: pointer;
         }
-        .smart-menu button:hover {
+        .menu button:hover {
           background: var(--color-bg-hover);
         }
-        .smart-menu button.danger {
+        .menu button.danger {
           color: #d13030;
         }
-        .smart-menu button.danger:hover {
+        .menu button.danger:hover {
           background: #fce4ec;
         }
+        @media (prefers-color-scheme: dark) {
+          .menu button.danger:hover {
+            background: rgba(209, 48, 48, 0.18);
+          }
+        }
       `}</style>
-    </aside>
+    </div>
   );
 }
 
