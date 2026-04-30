@@ -821,17 +821,11 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         }
         @media (max-width: 768px) {
           .triage-backdrop {
-            padding: 0;
-            align-items: stretch;
+            padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px calc(env(safe-area-inset-bottom, 0px) + 16px);
           }
           .triage-panel {
-            border: 0;
-            border-radius: 0;
-            width: 100%;
-            min-height: 100dvh;
-          }
-          .triage-head {
-            padding: calc(env(safe-area-inset-top, 0px) + 10px) 14px 10px;
+            max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px);
+            overflow-y: auto;
           }
         }
       `}</style>

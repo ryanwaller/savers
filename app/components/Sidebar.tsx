@@ -254,20 +254,18 @@ export default function Sidebar({
               count={totals.unsorted}
               active={selection.kind === "unsorted"}
               onClick={() => onSelect({ kind: "unsorted" })}
+              sortAction={
+                totals.unsorted > 0 && onOpenTriage
+                  ? {
+                      label: "Sort",
+                      onClick: () => {
+                        onOpenTriage();
+                        onCloseMobile?.();
+                      },
+                    }
+                  : undefined
+              }
             />
-            {totals.unsorted > 0 && onOpenTriage && (
-              <button
-                type="button"
-                className="triage-link"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenTriage();
-                  onCloseMobile?.();
-                }}
-              >
-                Triage →
-              </button>
-            )}
           </div>
         </div>
 
@@ -758,6 +756,7 @@ function SidebarItem({
   onClick,
   leading,
   indent = 0,
+  sortAction,
 }: {
   label: string;
   count?: number;
@@ -765,6 +764,7 @@ function SidebarItem({
   onClick: () => void;
   leading?: ReactNode;
   indent?: number;
+  sortAction?: { label: string; onClick: () => void };
 }) {
   return (
     <button
@@ -775,6 +775,17 @@ function SidebarItem({
     >
       {leading && <span className="leading">{leading}</span>}
       <span className="label">{label}</span>
+      {sortAction && (
+        <span
+          className="sort-action"
+          onClick={(e) => {
+            e.stopPropagation();
+            sortAction.onClick();
+          }}
+        >
+          {sortAction.label}
+        </span>
+      )}
       {typeof count === "number" && <span className="count">{count}</span>}
       <style jsx>{`
         .item {
@@ -1304,30 +1315,36 @@ function CollectionNode({
         .unsorted-row {
           position: relative;
         }
+        .unsorted-row.has-pending :global(.label) {
+          color: #d13030;
+        }
         .unsorted-row.has-pending :global(.count) {
-          background: rgba(255, 176, 64, 0.16);
-          color: #d18a2a;
+          background: #fce4ec;
+          color: #c62828;
         }
         @media (prefers-color-scheme: dark) {
+          .unsorted-row.has-pending :global(.label) {
+            color: #ef5350;
+          }
           .unsorted-row.has-pending :global(.count) {
-            background: rgba(255, 176, 64, 0.18);
-            color: #f1b265;
+            background: rgba(198, 40, 40, 0.22);
+            color: #ef5350;
           }
         }
-        .triage-link {
-          display: block;
-          margin: 2px 8px 6px 26px;
+        .sort-action {
           font-size: 11px;
-          color: var(--color-text-muted);
-          letter-spacing: 0.02em;
-          text-decoration: none;
-          padding: 3px 6px;
-          border-radius: var(--radius-sm);
-          width: fit-content;
-        }
-        .triage-link:hover {
+          font-weight: 500;
           color: var(--color-text);
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          flex-shrink: 0;
+          line-height: 1.4;
+        }
+        .sort-action:hover {
           background: var(--color-bg-hover);
+          border-color: var(--color-border-strong);
         }
         .tail {
           position: relative;
