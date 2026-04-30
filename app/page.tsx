@@ -138,6 +138,41 @@ export default function Home() {
       window.history.replaceState({}, "", newUrl);
     }
   }, []);
+
+  // Handle ?savers_ref=public_<id> from shared collection pages.
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("savers_ref");
+    if (!ref?.startsWith("public_")) return;
+    const publicId = ref.slice("public_".length);
+
+    fetch("/api/public/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ public_id: publicId }),
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? "Import failed");
+        return json as { collection_id: string; already_owned: boolean };
+      })
+      .then(({ collection_id }) => {
+        setSelection({ kind: "collection", id: collection_id });
+        loadCollections();
+        loadAllBookmarks();
+      })
+      .catch(() => {
+        // If import fails (e.g. not found), just clean up the param.
+      })
+      .finally(() => {
+        params.delete("savers_ref");
+        const next = params.toString();
+        const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+        window.history.replaceState({}, "", newUrl);
+      });
+  }, [user]);
+
   const [detail, setDetail] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState<{
     bookmark: Bookmark;
