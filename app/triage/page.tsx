@@ -351,17 +351,9 @@ export default function TriagePage() {
         >
           ←
         </button>
-        <div className="triage-progress">
-          <div className="triage-progress-text small muted">
-            {total === 1 ? "1 to triage" : `${total} to triage`}
-          </div>
-          <div className="triage-progress-bar">
-            <span
-              className="triage-progress-fill"
-              style={{ width: `${100 - Math.min(95, total * 5)}%` } as CSSProperties}
-            />
-          </div>
-        </div>
+        <span className="triage-progress-text muted">
+          {total === 1 ? "1 to triage" : `${total} to triage`}
+        </span>
       </header>
 
       <main className="triage-main">
@@ -387,7 +379,7 @@ export default function TriagePage() {
         </a>
 
         <div className="triage-info">
-          <div className="triage-host muted small">
+          <div className="triage-host muted">
             {current.favicon && (
               // eslint-disable-next-line @next/next/no-img-element
               <img className="triage-favicon" src={current.favicon} alt="" />
@@ -400,87 +392,86 @@ export default function TriagePage() {
           )}
         </div>
 
-        <section className="triage-choices">
-          <div className="triage-choices-label small muted">
-            File in collection {aiPath && <span className="ai-hint">· AI: {aiPath}</span>}
-            {aiLoading && <span className="ai-hint"> · suggesting…</span>}
-          </div>
-          <div className="triage-choice-row">
-            {choiceCollections.map((c, idx) => (
+        <div className="triage-choice-row">
+          {choiceCollections.map((c, idx) => {
+            const isPrimary =
+              idx === 0 && suggestion?.collection_id === c.id;
+            return (
               <button
                 key={c.id}
-                className={`triage-choice ${idx === 0 && suggestion?.collection_id === c.id ? "primary" : ""}`}
+                className={`triage-choice ${isPrimary ? "primary" : ""}`}
                 onClick={() => void handleFile(c)}
+                title={pathFor(c.id) ?? c.name}
               >
-                <span className="triage-choice-key small muted">{idx + 1}</span>
+                <span className="triage-choice-key">{idx + 1}</span>
                 <span className="triage-choice-icon" aria-hidden>
                   <CollectionIcon name={c.icon} size={14} />
                 </span>
                 <span className="triage-choice-name">{c.name}</span>
-                {pathFor(c.id) && pathFor(c.id) !== c.name && (
-                  <span className="triage-choice-path small muted">
-                    {pathFor(c.id)}
+                {isPrimary && (
+                  <span className="triage-choice-ai" aria-hidden title="AI suggestion">
+                    ✦
                   </span>
                 )}
               </button>
-            ))}
-          </div>
-        </section>
+            );
+          })}
+        </div>
 
-        <section className="triage-tags">
-          <div className="triage-choices-label small muted">Tags</div>
-          <div className="triage-tag-row">
-            {tags.map((tag) => (
-              <span key={tag} className="triage-tag-pill">
-                <span>{tag}</span>
-                <button
-                  className="triage-tag-remove"
-                  onClick={() => removeTag(tag)}
-                  aria-label={`Remove tag ${tag}`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-            <input
-              className="triage-tag-input"
-              placeholder="Add tag"
-              value={tagInput}
-              onChange={(e) => setTagInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === ",") {
-                  e.preventDefault();
-                  commitTagInput();
-                }
-                if (e.key === "Backspace" && !tagInput && tags.length) {
-                  e.preventDefault();
-                  setTags((prev) => prev.slice(0, -1));
-                }
-              }}
-              onBlur={commitTagInput}
-            />
-          </div>
-        </section>
+        <div className="triage-tag-row">
+          {tags.map((tag) => (
+            <span key={tag} className="triage-tag-pill">
+              <span>{tag}</span>
+              <button
+                className="triage-tag-remove"
+                onClick={() => removeTag(tag)}
+                aria-label={`Remove tag ${tag}`}
+              >
+                ×
+              </button>
+            </span>
+          ))}
+          <input
+            className="triage-tag-input"
+            placeholder="Add a tag"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                commitTagInput();
+              }
+              if (e.key === "Backspace" && !tagInput && tags.length) {
+                e.preventDefault();
+                setTags((prev) => prev.slice(0, -1));
+              }
+            }}
+            onBlur={commitTagInput}
+          />
+        </div>
 
-        <section className="triage-actions">
-          <button className="triage-action" onClick={() => void handleSkip()}>
-            <kbd>S</kbd> Skip
+        <div className="triage-actions">
+          <button
+            className="triage-action"
+            onClick={() => void handleSkip()}
+            title="Skip (S)"
+          >
+            Skip
           </button>
-          <button className="triage-action" onClick={() => void handleFile(null)}>
+          <button
+            className="triage-action"
+            onClick={() => void handleFile(null)}
+          >
             Mark triaged
           </button>
           <button
             className="triage-action danger"
             onClick={() => void handleDelete()}
+            title="Delete (⌘⌫)"
           >
             Delete
           </button>
-        </section>
-
-        <p className="triage-shortcuts small muted">
-          <kbd>1</kbd>–<kbd>5</kbd> file · <kbd>Enter</kbd> accept AI ·{" "}
-          <kbd>S</kbd> skip · <kbd>⌫</kbd> delete · <kbd>⌘Z</kbd> undo
-        </p>
+        </div>
       </main>
 
       {undo && (
@@ -514,62 +505,52 @@ function TriageStyles() {
   return (
     <style jsx global>{`
       .triage-shell {
-        max-width: 880px;
+        max-width: 640px;
         margin: 0 auto;
-        padding: 24px 24px 96px;
+        padding: 32px 24px 120px;
         min-height: 100dvh;
         display: flex;
         flex-direction: column;
-        gap: 24px;
+        gap: 32px;
         font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
         color: var(--color-text);
       }
       .triage-head {
         display: flex;
         align-items: center;
-        gap: 16px;
+        gap: 12px;
       }
       .triage-back {
         appearance: none;
-        background: var(--color-bg);
-        border: 1px solid var(--color-border);
-        border-radius: 999px;
-        width: 32px;
-        height: 32px;
+        background: transparent;
+        border: 0;
+        width: 28px;
+        height: 28px;
         display: inline-flex;
         align-items: center;
         justify-content: center;
         color: var(--color-text-muted);
         cursor: pointer;
+        font-size: 18px;
+        line-height: 1;
       }
       .triage-back:hover {
-        border-color: var(--color-border-strong);
         color: var(--color-text);
       }
-      .triage-progress {
-        flex: 1;
+      .triage-progress-text {
+        font-size: 12px;
+        font-feature-settings: "tnum" 1;
+      }
+      .triage-main {
         display: flex;
         flex-direction: column;
-        gap: 6px;
-      }
-      .triage-progress-bar {
-        height: 3px;
-        background: var(--color-bg-secondary);
-        border-radius: 999px;
-        overflow: hidden;
-      }
-      .triage-progress-fill {
-        display: block;
-        height: 100%;
-        background: var(--color-text);
-        transition: width 200ms ease;
+        gap: 28px;
       }
       .triage-thumb {
         display: block;
-        aspect-ratio: 16 / 9;
+        aspect-ratio: 16 / 10;
         background: var(--color-bg-secondary);
-        border: 1px solid var(--color-border);
-        border-radius: 12px;
+        border-radius: 10px;
         overflow: hidden;
       }
       .triage-thumb img {
@@ -583,7 +564,7 @@ function TriageStyles() {
         align-items: center;
         justify-content: center;
         color: var(--color-text-muted);
-        font-size: 14px;
+        font-size: 13px;
       }
       .triage-info {
         display: flex;
@@ -594,6 +575,7 @@ function TriageStyles() {
         display: inline-flex;
         align-items: center;
         gap: 6px;
+        font-size: 12px;
       }
       .triage-favicon {
         width: 14px;
@@ -604,91 +586,89 @@ function TriageStyles() {
         font-size: 22px;
         font-weight: 600;
         letter-spacing: -0.01em;
+        line-height: 1.25;
         margin: 0;
       }
       .triage-description {
         font-size: 14px;
         line-height: 1.5;
         color: var(--color-text-muted);
-        margin: 0;
-        max-width: 64ch;
-      }
-      .triage-choices,
-      .triage-tags {
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-      }
-      .triage-choices-label {
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
-        font-size: 11px;
-      }
-      .ai-hint {
-        text-transform: none;
-        letter-spacing: 0;
+        margin: 4px 0 0;
+        max-width: 56ch;
       }
       .triage-choice-row {
         display: flex;
         flex-wrap: wrap;
-        gap: 8px;
+        gap: 6px;
       }
       .triage-choice {
         appearance: none;
         display: inline-flex;
         align-items: center;
         gap: 8px;
-        padding: 8px 12px;
+        padding: 7px 12px 7px 8px;
         border: 1px solid var(--color-border);
-        border-radius: 8px;
-        background: var(--color-bg-secondary);
+        border-radius: 999px;
+        background: var(--color-bg);
         color: var(--color-text);
         font: inherit;
         font-size: 13px;
         cursor: pointer;
+        transition: border-color 120ms ease, background 120ms ease;
       }
       .triage-choice:hover {
         border-color: var(--color-border-strong);
+        background: var(--color-bg-hover);
       }
       .triage-choice.primary {
         background: var(--color-text);
         color: var(--color-bg);
         border-color: var(--color-text);
       }
-      .triage-choice.primary .triage-choice-key,
-      .triage-choice.primary .triage-choice-path {
-        color: var(--color-bg-secondary);
+      .triage-choice.primary:hover {
+        opacity: 0.92;
+      }
+      .triage-choice.primary .triage-choice-key {
+        background: rgba(255, 255, 255, 0.18);
+        color: var(--color-bg);
       }
       .triage-choice-key {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        min-width: 16px;
-        font-size: 11px;
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: var(--color-bg-secondary);
+        color: var(--color-text-muted);
+        font-size: 10px;
         font-feature-settings: "tnum" 1;
+        flex-shrink: 0;
       }
       .triage-choice-icon {
         display: inline-flex;
         align-items: center;
+        color: inherit;
       }
-      .triage-choice-path {
+      .triage-choice-name {
+        white-space: nowrap;
+      }
+      .triage-choice-ai {
+        margin-left: 2px;
         font-size: 11px;
+        opacity: 0.7;
       }
       .triage-tag-row {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
         align-items: center;
-        padding: 6px 8px;
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        background: var(--color-bg);
       }
       .triage-tag-pill {
         display: inline-flex;
         align-items: center;
         gap: 4px;
-        padding: 3px 8px;
+        padding: 4px 10px;
         border: 1px solid var(--color-border);
         border-radius: 999px;
         background: var(--color-bg-secondary);
@@ -702,6 +682,10 @@ function TriageStyles() {
         cursor: pointer;
         font-size: 13px;
         line-height: 1;
+        padding: 0;
+      }
+      .triage-tag-remove:hover {
+        color: var(--color-text);
       }
       .triage-tag-input {
         flex: 1 1 120px;
@@ -711,55 +695,36 @@ function TriageStyles() {
         color: var(--color-text);
         font: inherit;
         font-size: 13px;
-        padding: 4px 6px;
+        padding: 4px 8px;
+      }
+      .triage-tag-input::placeholder {
+        color: var(--color-text-muted);
       }
       .triage-tag-input:focus {
         outline: none;
       }
       .triage-actions {
         display: flex;
-        flex-wrap: wrap;
         gap: 8px;
-        padding-top: 8px;
-        border-top: 1px solid var(--color-border);
+        margin-top: 4px;
       }
       .triage-action {
         appearance: none;
         padding: 8px 14px;
-        border: 1px solid var(--color-border);
-        border-radius: 8px;
-        background: var(--color-bg);
-        color: var(--color-text);
+        border: 0;
+        background: transparent;
+        color: var(--color-text-muted);
         font: inherit;
         font-size: 13px;
         cursor: pointer;
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
+        border-radius: 6px;
       }
       .triage-action:hover {
-        border-color: var(--color-border-strong);
+        color: var(--color-text);
+        background: var(--color-bg-hover);
       }
-      .triage-action.danger {
+      .triage-action.danger:hover {
         color: #ff7a7a;
-      }
-      .triage-action kbd {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 11px;
-        padding: 1px 5px;
-        border: 1px solid var(--color-border);
-        border-radius: 4px;
-        color: var(--color-text-muted);
-      }
-      .triage-shortcuts {
-        margin: 0;
-      }
-      .triage-shortcuts kbd {
-        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        font-size: 10px;
-        padding: 1px 4px;
-        border: 1px solid var(--color-border);
-        border-radius: 4px;
       }
       .triage-error {
         color: #ff7a7a;
@@ -793,17 +758,17 @@ function TriageStyles() {
       .triage-undo {
         position: fixed;
         left: 50%;
-        bottom: 20px;
+        bottom: 24px;
         transform: translateX(-50%);
         background: var(--color-text);
         color: var(--color-bg);
-        padding: 10px 14px;
+        padding: 10px 16px;
         border-radius: 999px;
         font-size: 13px;
         display: inline-flex;
         align-items: center;
-        gap: 12px;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
+        gap: 14px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
         z-index: 60;
       }
       .triage-undo-btn {
@@ -812,8 +777,13 @@ function TriageStyles() {
         border: 0;
         color: var(--color-bg);
         font: inherit;
+        font-size: 13px;
         text-decoration: underline;
         cursor: pointer;
+        padding: 0;
+      }
+      .muted {
+        color: var(--color-text-muted);
       }
     `}</style>
   );
