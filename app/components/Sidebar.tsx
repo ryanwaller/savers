@@ -55,6 +55,7 @@ type Props = {
   onReorderCollections: (ids: string[]) => Promise<void>;
   onReparentCollection: (id: string, newParentId: string | null) => Promise<void>;
   onShareCollection?: (collection: Collection) => void;
+  onOpenTriage?: () => void;
   onSignOut?: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onCloseMobile?: () => void;
@@ -79,6 +80,7 @@ export default function Sidebar({
   onReorderCollections,
   onReparentCollection,
   onShareCollection,
+  onOpenTriage,
   onSignOut,
   onOpenSettings,
   onCloseMobile,
@@ -253,17 +255,18 @@ export default function Sidebar({
               active={selection.kind === "unsorted"}
               onClick={() => onSelect({ kind: "unsorted" })}
             />
-            {totals.unsorted > 0 && (
-              <a
-                href="/triage"
+            {totals.unsorted > 0 && onOpenTriage && (
+              <button
+                type="button"
                 className="triage-link"
                 onClick={(e) => {
                   e.stopPropagation();
+                  onOpenTriage();
                   onCloseMobile?.();
                 }}
               >
                 Triage →
-              </a>
+              </button>
             )}
           </div>
         </div>

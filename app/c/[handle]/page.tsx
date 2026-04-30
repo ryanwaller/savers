@@ -136,19 +136,16 @@ export default async function PublicCollectionPage({
   return (
     <div className="public-shell">
       <header className="public-head">
-        <div className="public-mark-row">
+        <div className="public-head-row">
           <span className="public-icon" aria-hidden>
-            <CollectionIcon name={collection.icon} size={18} />
+            <CollectionIcon name={collection.icon} size={14} />
           </span>
           <h1 className="public-title">{collection.name}</h1>
+          <span className="public-count">{bookmarks.length}</span>
         </div>
         {collection.public_description && (
           <p className="public-desc">{collection.public_description}</p>
         )}
-        <div className="public-meta small muted">
-          {bookmarks.length} {bookmarks.length === 1 ? "bookmark" : "bookmarks"}
-          {children.length > 0 ? ` · ${children.length} sub-collections` : ""}
-        </div>
       </header>
 
       {children.length > 0 && (
@@ -209,42 +206,54 @@ export default async function PublicCollectionPage({
           color: var(--public-text);
         }
         .public-head {
-          margin-bottom: 32px;
+          margin-bottom: 28px;
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
         }
-        .public-mark-row {
+        .public-head-row {
           display: flex;
           align-items: center;
-          gap: 12px;
+          gap: 8px;
         }
         .public-icon {
           display: inline-flex;
-          width: 32px;
-          height: 32px;
           align-items: center;
           justify-content: center;
-          border: 1px solid var(--public-border);
-          border-radius: 8px;
-          background: var(--public-surface);
+          color: var(--public-muted);
         }
         .public-title {
-          font-size: 28px;
+          flex: 1 1 auto;
+          font-size: 14px;
           font-weight: 600;
-          letter-spacing: -0.01em;
+          letter-spacing: -0.005em;
           margin: 0;
+          line-height: 1.2;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .public-count {
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          min-width: 32px;
+          height: 22px;
+          padding: 0 10px;
+          border-radius: 999px;
+          background: var(--public-surface);
+          border: 1px solid var(--public-border);
+          color: var(--public-muted);
+          font-size: 12px;
+          font-feature-settings: "tnum" 1;
         }
         .public-desc {
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1.5;
           color: var(--public-muted);
           max-width: 56ch;
           margin: 0;
-        }
-        .public-meta {
-          font-size: 12px;
-          color: var(--public-muted);
         }
         .public-children {
           display: flex;

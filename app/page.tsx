@@ -20,6 +20,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import ExportBookmarksButton from "./components/ExportBookmarksButton";
 import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
+import TriageOverlay from "./components/TriageOverlay";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -122,6 +123,21 @@ export default function Home() {
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
+  const [triageOpen, setTriageOpen] = useState(false);
+
+  // Honor the ?triage=1 query param (used by the legacy /triage URL
+  // which now redirects here).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("triage") === "1") {
+      setTriageOpen(true);
+      params.delete("triage");
+      const next = params.toString();
+      const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, []);
   const [detail, setDetail] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState<{
     bookmark: Bookmark;
@@ -1272,6 +1288,7 @@ export default function Home() {
         onReorderCollections={handleReorderCollections}
         onReparentCollection={handleReparentCollection}
         onShareCollection={(c) => setSharingCollection(c)}
+        onOpenTriage={() => setTriageOpen(true)}
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setMobileSidebarOpen(false)}
@@ -1621,6 +1638,15 @@ export default function Home() {
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      <TriageOverlay
+        open={triageOpen}
+        onClose={() => setTriageOpen(false)}
+        onMutated={() => {
+          // Refresh local bookmark list after a triage mutation lands.
+          void loadAllBookmarks();
+        }}
       />
 
       <SharingModal
