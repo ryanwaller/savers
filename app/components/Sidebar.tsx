@@ -3,8 +3,8 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { PushPin, SignOut } from "@phosphor-icons/react";
-import type { Bookmark, Collection } from "@/lib/types";
+import { Funnel, PushPin, SignOut } from "@phosphor-icons/react";
+import type { Bookmark, Collection, SmartCollection } from "@/lib/types";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
 import ExportBookmarksButton from "./ExportBookmarksButton";
@@ -34,7 +34,8 @@ type Selection =
   | { kind: "all" }
   | { kind: "unsorted" }
   | { kind: "pinned" }
-  | { kind: "collection"; id: string };
+  | { kind: "collection"; id: string }
+  | { kind: "smart_collection"; id: string };
 
 type Props = {
   tree: Collection[];
@@ -59,6 +60,18 @@ type Props = {
   onSignOut?: () => void | Promise<void>;
   onOpenSettings?: () => void;
   onCloseMobile?: () => void;
+  smartCollections?: SmartCollection[];
+  smartCollectionCounts?: Record<string, number>;
+  onCreateSmartCollection?: (payload: {
+    name: string;
+    icon?: string | null;
+    query_json: SmartCollection["query_json"];
+  }) => Promise<SmartCollection>;
+  onEditSmartCollection?: (
+    id: string,
+    updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json">>
+  ) => Promise<SmartCollection>;
+  onDeleteSmartCollection?: (id: string) => Promise<void>;
 };
 
 export default function Sidebar({
@@ -84,12 +97,19 @@ export default function Sidebar({
   onSignOut,
   onOpenSettings,
   onCloseMobile,
+  smartCollections = [],
+  smartCollectionCounts = {},
+  onCreateSmartCollection,
+  onEditSmartCollection,
+  onDeleteSmartCollection,
 }: Props) {
   const [addingRoot, setAddingRoot] = useState(false);
   const [newName, setNewName] = useState("");
   const skipRootBlurRef = useRef(false);
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(true);
+  const [smartCollectionsExpanded, setSmartCollectionsExpanded] = useState(true);
+  const [smartMenuOpen, setSmartMenuOpen] = useState<string | null>(null);
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
@@ -388,6 +408,102 @@ export default function Sidebar({
               ))}
               {tree.length === 0 && !addingRoot && (
                 <div className="sidebar-empty">No collections yet.</div>
+              )}
+            </>
+          )}
+
+          {/* Smart Collections */}
+          {(smartCollections.length > 0 || onCreateSmartCollection) && (
+            <>
+              <div className="sidebar-divider" style={{ margin: "12px 4px 8px" }} />
+              <div className="flex items-center justify-between px-1">
+                <button
+                  className="sidebar-label collapsible flex-1"
+                  onClick={() => setSmartCollectionsExpanded(!smartCollectionsExpanded)}
+                >
+                  <span className="caret">{smartCollectionsExpanded ? "▾" : "▸"}</span>
+                  Smart Collections
+                </button>
+                {onCreateSmartCollection && (
+                  <button
+                    className="sidebar-new-smart"
+                    onClick={() => {
+                      // Open builder modal — we'll pass this through page.tsx
+                      const event = new CustomEvent("savers:open-smart-builder");
+                      window.dispatchEvent(event);
+                    }}
+                    title="New smart collection"
+                  >
+                    +
+                  </button>
+                )}
+              </div>
+              {smartCollectionsExpanded && smartCollections.length > 0 && (
+                <div className="smart-list">
+                  {smartCollections.map((sc) => {
+                    const isActive =
+                      selection.kind === "smart_collection" && selection.id === sc.id;
+                    const count = smartCollectionCounts[sc.id] ?? 0;
+                    return (
+                      <div key={sc.id} className={`smart-item ${isActive ? "active" : ""}`}>
+                        <button
+                          className="smart-item-btn"
+                          onClick={() => onSelect({ kind: "smart_collection", id: sc.id })}
+                        >
+                          <span className="smart-item-icon">
+                            <CollectionIcon name={sc.icon} size={14} />
+                          </span>
+                          <span className="smart-item-name">{sc.name}</span>
+                          <span className="smart-item-count">{count}</span>
+                        </button>
+                        {onEditSmartCollection && onDeleteSmartCollection && (
+                          <div className="smart-item-more-wrap">
+                            <button
+                              className="smart-item-more"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSmartMenuOpen(smartMenuOpen === sc.id ? null : sc.id);
+                              }}
+                              aria-label="Menu"
+                            >
+                              …
+                            </button>
+                            {smartMenuOpen === sc.id && (
+                              <div
+                                className="smart-menu"
+                                onMouseLeave={() => setSmartMenuOpen(null)}
+                              >
+                                <button
+                                  onClick={() => {
+                                    setSmartMenuOpen(null);
+                                    const event = new CustomEvent("savers:edit-smart-collection", {
+                                      detail: sc,
+                                    });
+                                    window.dispatchEvent(event);
+                                  }}
+                                >
+                                  Edit
+                                </button>
+                                <button
+                                  className="danger"
+                                  onClick={() => {
+                                    setSmartMenuOpen(null);
+                                    onDeleteSmartCollection(sc.id);
+                                  }}
+                                >
+                                  Delete
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+              {smartCollectionsExpanded && smartCollections.length === 0 && (
+                <div className="sidebar-empty">No smart collections yet.</div>
               )}
             </>
           )}
@@ -931,6 +1047,149 @@ export default function Sidebar({
             background: #fce4ec;
             color: #c62828;
           }
+        }
+        .sidebar-new-smart {
+          width: 24px;
+          height: 24px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text-muted);
+          font-size: 14px;
+          line-height: 1;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .sidebar-new-smart:hover {
+          border-color: var(--color-border-strong);
+          color: var(--color-text);
+        }
+        .smart-list {
+          padding: 2px 4px;
+        }
+        .smart-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 4px;
+          border-radius: var(--radius-sm);
+        }
+        .smart-item:hover {
+          background: var(--color-bg-hover);
+        }
+        .smart-item.active {
+          background: var(--color-bg-active);
+        }
+        .smart-item-btn {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          flex: 1 1 auto;
+          min-width: 0;
+          padding: 5px 8px;
+          text-align: left;
+          font-size: 12px;
+          color: var(--color-text);
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+          border-radius: var(--radius-sm);
+        }
+        .smart-item-icon {
+          display: inline-flex;
+          align-items: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .smart-item.active .smart-item-icon {
+          color: var(--color-text);
+        }
+        .smart-item-name {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .smart-item-count {
+          min-width: 34px;
+          height: 22px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum" 1;
+          flex-shrink: 0;
+          white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .smart-item-count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+        }
+        .smart-item-more-wrap {
+          position: relative;
+          flex-shrink: 0;
+        }
+        .smart-item-more {
+          width: 28px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          background: transparent;
+          border: 0;
+          color: var(--color-text-muted);
+          font-size: 14px;
+          line-height: 1;
+          cursor: pointer;
+          padding: 0;
+        }
+        .smart-item-more:hover {
+          background: var(--color-bg-active);
+          color: var(--color-text);
+        }
+        .smart-menu {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          z-index: 102;
+          min-width: 100px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 4px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        }
+        .smart-menu button {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 10px;
+          border-radius: var(--radius-sm);
+          font-size: 12px;
+          background: transparent;
+          border: 0;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+        .smart-menu button:hover {
+          background: var(--color-bg-hover);
+        }
+        .smart-menu button.danger {
+          color: #d13030;
+        }
+        .smart-menu button.danger:hover {
+          background: #fce4ec;
         }
       `}</style>
     </aside>

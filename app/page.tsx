@@ -4,8 +4,9 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
+import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
@@ -21,6 +22,7 @@ import ExportBookmarksButton from "./components/ExportBookmarksButton";
 import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
+import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -32,7 +34,8 @@ type Selection =
   | { kind: "all" }
   | { kind: "unsorted" }
   | { kind: "pinned" }
-  | { kind: "collection"; id: string };
+  | { kind: "collection"; id: string }
+  | { kind: "smart_collection"; id: string };
 
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
@@ -51,6 +54,7 @@ export default function Home() {
   const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
   const tree = useMemo(() => annotateCounts(treeRaw, allBookmarks), [treeRaw, allBookmarks]);
   const [flat, setFlat] = useState<Collection[]>([]);
+  const [smartCollections, setSmartCollections] = useState<SmartCollection[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [search, setSearch] = useState("");
@@ -66,8 +70,21 @@ export default function Home() {
       return allBookmarks.filter((b) => b.pinned);
     if (selection.kind === "collection")
       return allBookmarks.filter((b) => b.collection_id === selection.id);
+    if (selection.kind === "smart_collection") {
+      const sc = smartCollections.find((s) => s.id === selection.id);
+      if (sc) return allBookmarks.filter((b) => evaluateFilter(b, sc.query_json));
+      return [];
+    }
     return allBookmarks;
-  }, [allBookmarks, selection]);
+  }, [allBookmarks, selection, smartCollections]);
+
+  const smartCollectionCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const sc of smartCollections) {
+      counts[sc.id] = allBookmarks.filter((b) => evaluateFilter(b, sc.query_json)).length;
+    }
+    return counts;
+  }, [allBookmarks, smartCollections]);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -124,6 +141,27 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
+  const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
+  const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
+
+  // Listen for smart collection builder events from Sidebar.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpen = () => {
+      setEditSmartCollection(null);
+      setSmartBuilderOpen(true);
+    };
+    const onEdit = (e: Event) => {
+      setEditSmartCollection((e as CustomEvent).detail as SmartCollection);
+      setSmartBuilderOpen(true);
+    };
+    window.addEventListener("savers:open-smart-builder", onOpen);
+    window.addEventListener("savers:edit-smart-collection", onEdit);
+    return () => {
+      window.removeEventListener("savers:open-smart-builder", onOpen);
+      window.removeEventListener("savers:edit-smart-collection", onEdit);
+    };
+  }, []);
 
   // Honor the ?triage=1 query param (used by the legacy /triage URL
   // which now redirects here).
@@ -462,6 +500,16 @@ export default function Home() {
     }
   }, []);
 
+  const loadSmartCollections = useCallback(async () => {
+    try {
+      const data = await api.listSmartCollections();
+      setSmartCollections(data.smart_collections);
+    } catch (e) {
+      // Smart collections are non-critical; don't set a blocking error.
+      console.error("Failed to load smart collections:", e);
+    }
+  }, []);
+
   const loadAllBookmarks = useCallback(async () => {
     try {
       const { bookmarks } = await api.listBookmarks();
@@ -479,12 +527,12 @@ export default function Home() {
     async (showLoading = false) => {
       if (showLoading) setLoadingBookmarks(true);
       try {
-        await Promise.all([loadAllBookmarks(), loadCollections()]);
+        await Promise.all([loadAllBookmarks(), loadCollections(), loadSmartCollections()]);
       } finally {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [loadAllBookmarks, loadCollections]
+    [loadAllBookmarks, loadCollections, loadSmartCollections]
   );
 
   // Initial load
@@ -495,7 +543,7 @@ export default function Home() {
     (async () => {
       setLoadingBookmarks(true);
       try {
-        await Promise.all([loadAllBookmarks(), loadCollections()]);
+        await Promise.all([loadAllBookmarks(), loadCollections(), loadSmartCollections()]);
         if (!cancelled) {
           setInitialDataLoaded(true);
         }
@@ -507,7 +555,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, loadAllBookmarks, loadCollections]);
+  }, [authLoading, user, loadAllBookmarks, loadCollections, loadSmartCollections]);
 
   // Load bookmarks for the current view (with debounced search)
   const searchTimer = useRef<number | null>(null);
@@ -518,6 +566,11 @@ export default function Home() {
         if (selection.kind === "unsorted") return bookmark.collection_id === null;
         if (selection.kind === "pinned") return bookmark.pinned;
         if (selection.kind === "collection") return bookmark.collection_id === selection.id;
+        if (selection.kind === "smart_collection") {
+          const sc = smartCollections.find((s) => s.id === selection.id);
+          if (sc) return evaluateFilter(bookmark, sc.query_json);
+          return false;
+        }
         return true;
       });
 
@@ -540,7 +593,7 @@ export default function Home() {
     return () => {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
     };
-  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded]);
+  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded, smartCollections]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
@@ -675,6 +728,13 @@ export default function Home() {
         { label: "Pinned", icon: null, isCollection: false, selection: { kind: "pinned" } as Selection },
       ];
     }
+    if (selection.kind === "smart_collection") {
+      const sc = smartCollections.find((s) => s.id === selection.id);
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: sc?.name ?? "Smart Collection", icon: sc?.icon, isCollection: false, selection: { kind: "smart_collection", id: selection.id } as Selection },
+      ];
+    }
 
     const path = pathToCollections(tree, selection.id) ?? [];
     return [
@@ -686,7 +746,7 @@ export default function Home() {
         selection: { kind: "collection", id: item.id } as Selection,
       })),
     ];
-  }, [selection, tree]);
+  }, [selection, tree, smartCollections]);
   const canGoBack = breadcrumbItems.length > 1;
 
   const defaultCollectionForAdd =
@@ -736,6 +796,37 @@ export default function Home() {
       await Promise.all([loadCollections(), loadAllBookmarks()]);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleCreateSmartCollection(payload: {
+    name: string;
+    icon?: string | null;
+    query_json: SmartCollection["query_json"];
+  }): Promise<SmartCollection> {
+    const { smart_collection } = await api.createSmartCollection(payload);
+    await loadSmartCollections();
+    return smart_collection;
+  }
+
+  async function handleUpdateSmartCollection(
+    id: string,
+    updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json">>
+  ): Promise<SmartCollection> {
+    const { smart_collection } = await api.updateSmartCollection(id, updates);
+    await loadSmartCollections();
+    return smart_collection;
+  }
+
+  async function handleDeleteSmartCollection(id: string) {
+    try {
+      await api.deleteSmartCollection(id);
+      if (selection.kind === "smart_collection" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await loadSmartCollections();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete smart collection");
     }
   }
 
@@ -1330,6 +1421,11 @@ export default function Home() {
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setMobileSidebarOpen(false)}
+        smartCollections={smartCollections}
+        smartCollectionCounts={smartCollectionCounts}
+        onCreateSmartCollection={handleCreateSmartCollection}
+        onEditSmartCollection={handleUpdateSmartCollection}
+        onDeleteSmartCollection={handleDeleteSmartCollection}
       />
 
       <div
@@ -1684,6 +1780,21 @@ export default function Home() {
         onMutated={() => {
           // Refresh local bookmark list after a triage mutation lands.
           void loadAllBookmarks();
+        }}
+      />
+
+      <SmartCollectionBuilderModal
+        open={smartBuilderOpen}
+        onClose={() => {
+          setSmartBuilderOpen(false);
+          setEditSmartCollection(null);
+        }}
+        editSmartCollection={editSmartCollection}
+        onCreated={() => {
+          void loadSmartCollections();
+        }}
+        onUpdated={() => {
+          void loadSmartCollections();
         }}
       />
 

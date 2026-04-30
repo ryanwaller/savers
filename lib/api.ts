@@ -1,4 +1,4 @@
-import type { Bookmark, Collection, OGData, AISuggestion } from "./types";
+import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup } from "./types";
 
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) {
@@ -202,6 +202,54 @@ export const api = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
+      })
+    );
+  },
+
+  async listSmartCollections(): Promise<{ smart_collections: SmartCollection[] }> {
+    return j(await fetch("/api/smart-collections", { cache: "no-store" }));
+  },
+  async createSmartCollection(payload: {
+    name: string;
+    icon?: string | null;
+    query_json: FilterGroup;
+  }): Promise<{ smart_collection: SmartCollection }> {
+    return j(
+      await fetch("/api/smart-collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+    );
+  },
+  async updateSmartCollection(
+    id: string,
+    updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json" | "position">>
+  ): Promise<{ smart_collection: SmartCollection }> {
+    return j(
+      await fetch("/api/smart-collections", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...updates }),
+      })
+    );
+  },
+  async deleteSmartCollection(id: string): Promise<{ ok: true }> {
+    return j(
+      await fetch(`/api/smart-collections?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      })
+    );
+  },
+  async previewSmartCollection(query_json: FilterGroup): Promise<{
+    count: number;
+    sample: { id: string; title: string | null; url: string; tags: string[] }[];
+  }> {
+    return j(
+      await fetch("/api/smart-collections/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query_json }),
       })
     );
   },

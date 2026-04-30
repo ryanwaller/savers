@@ -45,6 +45,38 @@ export interface OGData {
   favicon: string | null
 }
 
+// --- Smart Collections ---
+
+export type FilterOperator =
+  | 'contains' | 'not_contains' | 'equals'
+  | 'starts_with' | 'after' | 'before';
+
+export type FilterProperty =
+  | 'tags' | 'title' | 'url' | 'domain' | 'created_at' | 'pinned';
+
+export interface FilterCondition {
+  property: FilterProperty;
+  operator: FilterOperator;
+  value: string | string[] | boolean;
+}
+
+export interface FilterGroup {
+  and?: (FilterCondition | FilterGroup)[];
+  or?: (FilterCondition | FilterGroup)[];
+}
+
+export interface SmartCollection {
+  id: string;
+  user_id: string;
+  name: string;
+  icon: string | null;
+  query_json: FilterGroup;
+  position: number;
+  created_at: string;
+}
+
+// ---
+
 export interface AISuggestion {
   collection_id: string | null
   collection_name?: string | null
