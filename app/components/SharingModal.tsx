@@ -156,7 +156,7 @@ export default function SharingModal({
               <label className="field">
                 <span className="label">Vanity slug (optional)</span>
                 <div className="slug-row">
-                  <span className="slug-prefix muted small">{baseOrigin}/c/</span>
+                  <span className="slug-prefix muted small">c/</span>
                   <input
                     placeholder="typographers"
                     value={slug}
@@ -252,15 +252,22 @@ export default function SharingModal({
           font-size: 13px;
         }
         .close {
-          background: transparent;
-          border: 0;
-          font-size: 22px;
-          line-height: 1;
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
           color: var(--color-text-muted);
           cursor: pointer;
-          padding: 4px 8px;
+          font-size: 18px;
+          line-height: 1;
+          padding-bottom: 2px;
         }
         .close:hover {
+          border-color: var(--color-border-strong);
           color: var(--color-text);
         }
         .body {

@@ -140,12 +140,23 @@ export default function Home() {
   }, []);
 
   // Handle ?savers_ref=public_<id> from shared collection pages.
+  const importAttemptedRef = useRef(false);
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("savers_ref");
     if (!ref?.startsWith("public_")) return;
+
+    // Clean the param from the URL immediately so reloads don't re-import.
+    params.delete("savers_ref");
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+
     const publicId = ref.slice("public_".length);
+    // Prevent double-import from strict-mode double-firing.
+    if (importAttemptedRef.current) return;
+    importAttemptedRef.current = true;
 
     fetch("/api/public/import", {
       method: "POST",
@@ -162,15 +173,7 @@ export default function Home() {
         loadCollections();
         loadAllBookmarks();
       })
-      .catch(() => {
-        // If import fails (e.g. not found), just clean up the param.
-      })
-      .finally(() => {
-        params.delete("savers_ref");
-        const next = params.toString();
-        const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
-        window.history.replaceState({}, "", newUrl);
-      });
+      .catch(() => {});
   }, [user]);
 
   const [detail, setDetail] = useState<Bookmark | null>(null);

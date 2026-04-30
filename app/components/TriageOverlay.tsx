@@ -761,7 +761,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 4px;
-          padding: 6px 10px;
+          padding: 7px 10px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg-secondary);
@@ -785,7 +785,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           appearance: none;
           display: inline-flex;
           align-items: center;
-          padding: 6px 10px;
+          padding: 7px 10px;
           border: 1px dashed var(--color-border);
           border-radius: 999px;
           background: transparent;
@@ -803,6 +803,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-tag-input {
           flex: 1 1 120px;
           min-width: 100px;
+          height: 30px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 6px;
@@ -810,7 +811,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           font: inherit;
           font-size: 13px;
           line-height: 1;
-          padding: 6px 10px;
+          padding: 0 10px;
         }
         .triage-tag-input::placeholder {
           color: var(--color-text-muted);
