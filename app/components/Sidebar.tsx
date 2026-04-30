@@ -941,8 +941,11 @@ function SmartCollectionItem({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [pickingIcon, setPickingIcon] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
   const moreRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
+  const iconBtnRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -954,7 +957,29 @@ function SmartCollectionItem({
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
 
+  // Reposition icon picker on resize/scroll while open.
+  useEffect(() => {
+    if (!pickingIcon) return;
+    const reflow = () => {
+      const rect = iconBtnRef.current?.getBoundingClientRect();
+      if (rect) setPickerPos(placePicker(rect));
+    };
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
+    return () => {
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
+    };
+  }, [pickingIcon]);
+
   const hasMenu = onEdit && onDelete;
+
+  function openIconPicker() {
+    const rect = iconBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPickerPos(placePicker(rect));
+    setPickingIcon(true);
+  }
 
   return (
     <div className={`smart-item ${isActive ? "active" : ""}`}>
@@ -962,9 +987,23 @@ function SmartCollectionItem({
         className="smart-item-btn"
         onClick={() => onSelect({ kind: "smart_collection", id: sc.id })}
       >
-        <span className="smart-item-icon">
+        <button
+          ref={iconBtnRef}
+          type="button"
+          className="smart-item-icon"
+          aria-label={`Change icon for ${sc.name}`}
+          title="Change icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (pickingIcon) {
+              setPickingIcon(false);
+            } else {
+              openIconPicker();
+            }
+          }}
+        >
           <CollectionIcon name={sc.icon} size={14} />
-        </span>
+        </button>
         <span className="smart-item-name">{sc.name}</span>
       </button>
       {hasMenu ? (
@@ -1000,6 +1039,14 @@ function SmartCollectionItem({
                 <button
                   onClick={() => {
                     setMenuOpen(false);
+                    openIconPicker();
+                  }}
+                >
+                  Change icon
+                </button>
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
                     const event = new CustomEvent("savers:edit-smart-collection", {
                       detail: sc,
                     });
@@ -1024,6 +1071,31 @@ function SmartCollectionItem({
       ) : (
         <span className="tail-count">{count}</span>
       )}
+
+      {pickingIcon && pickerPos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: pickerPos.top,
+              left: pickerPos.left,
+              zIndex: 1000,
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <IconPicker
+              value={sc.icon}
+              onPick={async (name) => {
+                setPickingIcon(false);
+                if (onEdit) await onEdit(sc.id, { icon: name });
+              }}
+              onClose={() => setPickingIcon(false)}
+            />
+          </div>,
+          document.body
+        )}
+
       <style jsx>{`
         .smart-item {
           display: flex;
@@ -1045,7 +1117,7 @@ function SmartCollectionItem({
           gap: 4px;
           flex: 1 1 auto;
           min-width: 0;
-          padding: 3px 8px 3px 30px;
+          padding: 3px 8px 3px 26px;
           text-align: left;
           font-size: 12px;
           color: var(--color-text);
@@ -1055,13 +1127,21 @@ function SmartCollectionItem({
           border-radius: var(--radius-sm);
         }
         .smart-item-icon {
+          width: 18px;
+          height: 18px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 18px;
-          height: 18px;
           color: var(--color-text-muted);
           flex-shrink: 0;
+          border-radius: 4px;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
+        }
+        .smart-item-icon:hover {
+          background: var(--color-bg-active);
+          color: var(--color-text);
         }
         .smart-item.active .smart-item-icon {
           color: var(--color-text);
