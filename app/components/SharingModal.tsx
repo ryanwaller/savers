@@ -147,7 +147,7 @@ export default function SharingModal({
               {shareUrl && (
                 <div className="link-row">
                   <code className="link">{shareUrl}</code>
-                  <button className="btn" onClick={copyLink}>
+                  <button className="copy-btn" onClick={copyLink}>
                     {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
@@ -172,15 +172,13 @@ export default function SharingModal({
                     }}
                     disabled={saving}
                   />
-                  {slugDirty && (
-                    <button
-                      className="slug-save"
-                      onClick={() => void save(true)}
-                      disabled={saving}
-                    >
-                      {saving ? "…" : "Save"}
-                    </button>
-                  )}
+                  <button
+                    className={`slug-save ${slugDirty ? "" : "idle"}`}
+                    onClick={() => void save(true)}
+                    disabled={saving || !slugDirty}
+                  >
+                    {saving ? "…" : "Save"}
+                  </button>
                 </div>
                 <span className="hint small muted">
                   Lowercase letters, digits, and hyphens. Leave blank for the
@@ -201,15 +199,13 @@ export default function SharingModal({
                   }}
                   disabled={saving}
                 />
-                {descDirty && (
-                  <button
-                    className="desc-save"
-                    onClick={() => void save(true)}
-                    disabled={saving}
-                  >
-                    {saving ? "…" : "Save"}
-                  </button>
-                )}
+                <button
+                  className={`desc-save ${descDirty ? "" : "idle"}`}
+                  onClick={() => void save(true)}
+                  disabled={saving || !descDirty}
+                >
+                  {saving ? "…" : "Save"}
+                </button>
               </label>
             </>
           )}
@@ -334,6 +330,26 @@ export default function SharingModal({
           word-break: break-all;
           user-select: all;
         }
+        .copy-btn {
+          appearance: none;
+          flex-shrink: 0;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          height: 34px;
+          padding: 0 12px;
+          border: 1px solid var(--color-border);
+          border-radius: 6px;
+          background: var(--color-text);
+          color: var(--color-bg);
+          font: inherit;
+          font-size: 12px;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .copy-btn:hover {
+          opacity: 0.88;
+        }
         .field {
           display: flex;
           flex-direction: column;
@@ -380,11 +396,12 @@ export default function SharingModal({
           cursor: pointer;
           white-space: nowrap;
         }
-        .slug-save:hover {
+        .slug-save:hover:not(:disabled) {
           background: var(--color-bg-hover);
         }
-        .slug-save:disabled {
-          opacity: 0.5;
+        .slug-save:disabled,
+        .slug-save.idle {
+          opacity: 0.45;
           cursor: default;
         }
         .desc-save {
@@ -400,11 +417,12 @@ export default function SharingModal({
           cursor: pointer;
           margin-top: 4px;
         }
-        .desc-save:hover {
+        .desc-save:hover:not(:disabled) {
           background: var(--color-bg-hover);
         }
-        .desc-save:disabled {
-          opacity: 0.5;
+        .desc-save:disabled,
+        .desc-save.idle {
+          opacity: 0.45;
           cursor: default;
         }
         textarea {
@@ -428,16 +446,6 @@ export default function SharingModal({
         }
         .error {
           color: #ff7a7a;
-        }
-        .btn {
-          appearance: none;
-          font: inherit;
-          padding: 8px 12px;
-          border-radius: 6px;
-          border: 1px solid var(--color-border);
-          background: var(--color-text);
-          color: var(--color-bg);
-          cursor: pointer;
         }
         @media (max-width: 768px) {
           .backdrop {
