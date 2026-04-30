@@ -40,6 +40,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
   const [aiLoading, setAiLoading] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
+  const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [undo, setUndo] = useState<UndoState>(null);
   const undoTimerRef = useRef<number | null>(null);
 
@@ -77,6 +78,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     setTags(current?.tags ?? []);
     setTagInput("");
     setSuggestion(null);
+    setSuggestedTags([]);
     if (!current || !open) return;
     let cancelled = false;
     setAiLoading(true);
@@ -94,6 +96,17 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       .finally(() => {
         if (!cancelled) setAiLoading(false);
       });
+    void api
+      .suggestTags({
+        url: current.url,
+        title: current.title,
+        description: current.description,
+        existing_tags: current.tags ?? [],
+      })
+      .then((res) => {
+        if (!cancelled) setSuggestedTags(res.tags ?? []);
+      })
+      .catch(() => {});
     return () => {
       cancelled = true;
     };
@@ -136,12 +149,12 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       out.push(c);
       if (out.length >= 1 + RECENT_COLLECTION_LIMIT) break;
     }
-    if (out.length < 5) {
+    if (out.length < 6) {
       for (const c of flat) {
         if (ids.has(c.id) || c.parent_id) continue;
         ids.add(c.id);
         out.push(c);
-        if (out.length >= 5) break;
+        if (out.length >= 6) break;
       }
     }
     return out;
@@ -250,7 +263,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       ) {
         return;
       }
-      if (event.key >= "1" && event.key <= "5") {
+      if (event.key >= "1" && event.key <= "6") {
         const idx = parseInt(event.key, 10) - 1;
         const target = choiceCollections[idx];
         if (target) {
@@ -366,7 +379,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             )}
             <span>{domainOf(current.url)}</span>
           </div>
-          <h1 className="triage-title">{current.title || current.url}</h1>
           {current.description && (
             <p className="triage-description">{current.description}</p>
           )}
@@ -415,6 +427,22 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
               </button>
             </span>
           ))}
+          {suggestedTags
+            .filter((t) => !tags.includes(t))
+            .slice(0, 6)
+            .map((tag) => (
+              <button
+                key={`suggest-${tag}`}
+                className="triage-tag-suggest"
+                onClick={() => {
+                  setTags((prev) =>
+                    prev.includes(tag) ? prev : [...prev, tag]
+                  );
+                }}
+              >
+                +{tag}
+              </button>
+            ))}
           <input
             className="triage-tag-input"
             placeholder="Add a tag"
@@ -467,7 +495,9 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     <div className="triage-backdrop" onClick={onClose}>
       <div className="triage-panel" onClick={(e) => e.stopPropagation()}>
         <header className="triage-head">
-          <span className="triage-head-title">Triage</span>
+          <span className="triage-head-title">
+            {current ? trimTitle(current) : step.kind === "empty" ? "Inbox zero" : "Triage"}
+          </span>
           <div className="triage-head-right">
             {showRemaining && (
               <span className="triage-head-progress muted">
@@ -502,7 +532,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.32);
+          background: rgba(0, 0, 0, 0.48);
           backdrop-filter: blur(14px) saturate(120%);
           -webkit-backdrop-filter: blur(14px) saturate(120%);
           display: flex;
@@ -546,6 +576,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           font-size: 13px;
           font-weight: 600;
           color: var(--color-text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          min-width: 0;
         }
         .triage-head-right {
           display: inline-flex;
@@ -603,6 +637,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           aspect-ratio: 16 / 9;
           max-height: 360px;
           background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
           border-radius: 8px;
           overflow: hidden;
         }
@@ -735,15 +770,34 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-tag-remove:hover {
           color: var(--color-text);
         }
+        .triage-tag-suggest {
+          appearance: none;
+          display: inline-flex;
+          align-items: center;
+          padding: 4px 10px;
+          border: 1px dashed var(--color-border);
+          border-radius: 999px;
+          background: transparent;
+          color: var(--color-text-muted);
+          font: inherit;
+          font-size: 12px;
+          cursor: pointer;
+        }
+        .triage-tag-suggest:hover {
+          border-color: var(--color-border-strong);
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
         .triage-tag-input {
           flex: 1 1 120px;
           min-width: 100px;
-          background: transparent;
-          border: 0;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 6px;
           color: var(--color-text);
           font: inherit;
           font-size: 13px;
-          padding: 4px 8px;
+          padding: 6px 10px;
         }
         .triage-tag-input::placeholder {
           color: var(--color-text-muted);
@@ -760,23 +814,24 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-action {
           appearance: none;
           padding: 8px 12px;
-          border: 0;
-          background: transparent;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg);
           color: var(--color-text-muted);
           font: inherit;
           font-size: 13px;
           cursor: pointer;
-          border-radius: 6px;
+          border-radius: 999px;
         }
         .triage-action:hover {
           color: var(--color-text);
-          background: var(--color-bg-hover);
+          border-color: var(--color-border-strong);
         }
         .triage-action.danger:hover {
-          color: #ff7a7a;
+          color: #d13030;
+          border-color: #d13030;
         }
         .triage-error {
-          color: #ff7a7a;
+          color: #d13030;
         }
         .triage-btn {
           appearance: none;
