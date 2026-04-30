@@ -289,7 +289,7 @@ export default function Sidebar({
                         onClick={(e) => {
                           e.stopPropagation();
                           setUnsortedMenuOpen(false);
-                          onOpenTriage();
+                          onOpenTriage?.();
                           onCloseMobile?.();
                         }}
                       >
