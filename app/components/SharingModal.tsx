@@ -226,7 +226,7 @@ export default function SharingModal({
           padding: 24px;
         }
         .panel {
-          width: 480px;
+          width: 560px;
           max-width: 100%;
           max-height: 86vh;
           background: var(--color-bg);

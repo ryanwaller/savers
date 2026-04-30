@@ -174,7 +174,7 @@ export default async function PublicCollectionPage({
 
       <footer className="public-foot">
         <a className="public-cta" href={`/?savers_ref=public_${collection.public_id}`}>
-          Save this to your library →
+          Save this collection
         </a>
       </footer>
 
@@ -300,8 +300,7 @@ export default async function PublicCollectionPage({
           padding-top: 24px;
           display: flex;
           align-items: center;
-          gap: 16px;
-          flex-wrap: wrap;
+          justify-content: center;
         }
         .public-cta {
           font-size: 14px;
