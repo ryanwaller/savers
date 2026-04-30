@@ -1045,7 +1045,7 @@ function SmartCollectionItem({
           gap: 4px;
           flex: 1 1 auto;
           min-width: 0;
-          padding: 3px 8px 3px 34px;
+          padding: 3px 8px 3px 30px;
           text-align: left;
           font-size: 12px;
           color: var(--color-text);
