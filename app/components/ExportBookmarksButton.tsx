@@ -8,6 +8,7 @@ import { storedPreviewUrl, screenshotPreviewUrl, previewImageUrl } from '@/lib/a
 interface Props {
   bookmarks: Bookmark[];
   flatCollections: Collection[];
+  variant?: "icon" | "button";
 }
 
 const escapeCSV = (field: string | undefined | null) => {
@@ -18,7 +19,7 @@ const escapeCSV = (field: string | undefined | null) => {
     : str;
 };
 
-export default function ExportBookmarksButton({ bookmarks, flatCollections }: Props) {
+export default function ExportBookmarksButton({ bookmarks, flatCollections, variant = "icon" }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isDark, setIsDark] = useState(false);
@@ -108,6 +109,63 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
     }
   };
 
+  const icon = loading ? (
+    <svg className="spinner" fill="none" viewBox="0 0 24 24">
+      <circle className="op-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+      <path className="op-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+    </svg>
+  ) : (
+    <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+    </svg>
+  );
+
+  if (variant === "button") {
+    return (
+      <div className="export-wrap">
+        {error && <span className="error-msg">{error}</span>}
+        <button
+          onClick={handleExport}
+          disabled={loading}
+          className="export-text-btn"
+        >
+          {icon}
+          {loading ? "Exporting…" : `Export ${bookmarks.length} bookmark${bookmarks.length === 1 ? "" : "s"} (ZIP)`}
+        </button>
+        <style jsx>{`
+          .export-wrap { display: flex; align-items: center; gap: 8px; }
+          .error-msg { font-size: 11px; color: #ef4444; }
+          .export-text-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            border: 1px solid var(--color-border);
+            border-radius: 6px;
+            background: var(--color-bg);
+            color: var(--color-text);
+            font: inherit;
+            font-size: 12px;
+            cursor: pointer;
+          }
+          .export-text-btn:hover:not(:disabled) {
+            border-color: var(--color-border-strong);
+            background: var(--color-bg-hover);
+          }
+          .export-text-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+          .icon { width: 14px; height: 14px; }
+          .spinner { width: 14px; height: 14px; animation: spin 1s linear infinite; }
+          .op-25 { opacity: 0.25; }
+          .op-75 { opacity: 0.75; }
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="export-wrap">
       {error && <span className="error-msg">{error}</span>}
@@ -117,16 +175,7 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections }: Pr
         className="export-btn"
         title="Export bookmarks as CSV + images"
       >
-        {loading ? (
-          <svg className="spinner" fill="none" viewBox="0 0 24 24">
-            <circle className="op-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-            <path className="op-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-          </svg>
-        ) : (
-          <svg className="icon" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-          </svg>
-        )}
+        {icon}
       </button>
       <style jsx>{`
         .export-wrap { display: flex; align-items: center; gap: 8px; }

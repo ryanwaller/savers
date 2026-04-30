@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
+import type { Bookmark, Collection } from "@/lib/types";
+import ExportBookmarksButton from "./ExportBookmarksButton";
 
 type TokenRow = {
   id: string;
@@ -14,9 +16,11 @@ type TokenRow = {
 type Props = {
   open: boolean;
   onClose: () => void;
+  bookmarks: Bookmark[];
+  flatCollections: Collection[];
 };
 
-export default function SettingsModal({ open, onClose }: Props) {
+export default function SettingsModal({ open, onClose, bookmarks, flatCollections }: Props) {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -104,6 +108,14 @@ export default function SettingsModal({ open, onClose }: Props) {
         </div>
 
         <div className="body">
+          <section className="section">
+            <div className="section-title">Export</div>
+            <p className="small muted">
+              Download all bookmarks as a ZIP with CSV and preview images.
+            </p>
+            <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
+          </section>
+
           <section className="section">
             <div className="section-title">API tokens</div>
             <p className="small muted">

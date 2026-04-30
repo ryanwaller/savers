@@ -18,7 +18,6 @@ import DropZone from "./components/DropZone";
 import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
-import ExportBookmarksButton from "./components/ExportBookmarksButton";
 import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
@@ -1541,18 +1540,6 @@ export default function Home() {
           <div className="top-row top-row-secondary">
             <div className="top-right">
               <div className="desktop-actions">
-                <button
-                  className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
-                  onClick={() => {
-                    setIsEditMode((v) => !v);
-                    setSelectedIds(new Set());
-                  }}
-                  title={isEditMode ? "Exit edit mode" : "Edit mode"}
-                  aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
-                >
-                  <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
-                </button>
-                <ExportBookmarksButton bookmarks={allBookmarks} flatCollections={flat} />
                 <div className="session-chip" title={user.email ?? "Signed in"}>
                   <span className="session-email">{user.email ?? "Signed in"}</span>
                   <button
@@ -1772,6 +1759,17 @@ export default function Home() {
               {size.toUpperCase()}
             </button>
           ))}
+            <button
+              className={`size-btn ${isEditMode ? "size-btn-active" : ""}`}
+              onClick={() => {
+                setIsEditMode((v) => !v);
+                setSelectedIds(new Set());
+              }}
+              title={isEditMode ? "Exit edit mode" : "Edit mode"}
+              aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
+            >
+              <CheckSquare size={12} weight={isEditMode ? "fill" : "regular"} />
+            </button>
           </div>
         </div>
       </main>
@@ -1818,6 +1816,8 @@ export default function Home() {
       <SettingsModal
         open={showSettings}
         onClose={() => setShowSettings(false)}
+        bookmarks={allBookmarks}
+        flatCollections={flat}
       />
 
       <TriageOverlay
