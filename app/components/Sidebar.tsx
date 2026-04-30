@@ -1042,10 +1042,10 @@ function SmartCollectionItem({
         .smart-item-btn {
           display: flex;
           align-items: center;
-          gap: 8px;
+          gap: 4px;
           flex: 1 1 auto;
           min-width: 0;
-          padding: 3px 8px;
+          padding: 3px 8px 3px 34px;
           text-align: left;
           font-size: 12px;
           color: var(--color-text);
