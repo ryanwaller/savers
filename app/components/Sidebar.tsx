@@ -110,11 +110,7 @@ export default function Sidebar({
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
-  const [unsortedMenuOpen, setUnsortedMenuOpen] = useState(false);
-  const [unsortedMenuPos, setUnsortedMenuPos] = useState<{ top: number; right: number } | null>(null);
   const rootNestTimerRef = useRef<number | null>(null);
-  const unsortedMenuRef = useRef<HTMLDivElement>(null);
-  const unsortedMoreRef = useRef<HTMLButtonElement>(null);
 
   function clearRootNestTimer() {
     if (rootNestTimerRef.current !== null) {
@@ -138,15 +134,6 @@ export default function Sidebar({
     return clearRootNestTimer;
   }, [draggedId]);
 
-  useEffect(() => {
-    if (!unsortedMenuOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (unsortedMenuRef.current?.contains(e.target as Node)) return;
-      setUnsortedMenuOpen(false);
-    };
-    document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
-  }, [unsortedMenuOpen]);
   const [collapsedCollectionIds, setCollapsedCollectionIds] = useState<string[]>([]);
 
   const sortedTags = useMemo(() => {
@@ -275,50 +262,20 @@ export default function Sidebar({
             >
               <span className="unsorted-label">Unsorted</span>
               {typeof totals.unsorted === "number" && (
-                <span className={`unsorted-tail ${unsortedMenuOpen ? "open" : ""}`}>
+                <span className="unsorted-tail">
                   <span className="unsorted-count">{totals.unsorted}</span>
                   {totals.unsorted > 0 && onOpenTriage && (
                     <button
-                      className="unsorted-more"
-                      ref={unsortedMoreRef}
+                      className="unsorted-sort"
                       onClick={(e) => {
                         e.stopPropagation();
-                        const rect = unsortedMoreRef.current?.getBoundingClientRect();
-                        if (rect) {
-                          setUnsortedMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
-                        }
-                        setUnsortedMenuOpen((v) => !v);
+                        onOpenTriage?.();
+                        onCloseMobile?.();
                       }}
-                      aria-label="Menu"
                     >
-                      …
+                      Sort
                     </button>
                   )}
-                  {unsortedMenuOpen && unsortedMenuPos &&
-                    createPortal(
-                      <div
-                        className="unsorted-menu"
-                        ref={unsortedMenuRef}
-                        style={{
-                          position: "fixed",
-                          top: unsortedMenuPos.top,
-                          right: unsortedMenuPos.right,
-                        }}
-                        onMouseLeave={() => setUnsortedMenuOpen(false)}
-                      >
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setUnsortedMenuOpen(false);
-                            onOpenTriage?.();
-                            onCloseMobile?.();
-                          }}
-                        >
-                          Sort
-                        </button>
-                      </div>,
-                      document.body
-                    )}
                 </span>
               )}
             </button>
@@ -862,17 +819,17 @@ export default function Sidebar({
           font-variant-numeric: tabular-nums;
           font-feature-settings: "tnum" 1;
           white-space: nowrap;
+          transition: opacity 140ms ease;
         }
         .unsorted-row.has-pending .unsorted-count {
           background: #fce4ec;
           color: #c62828;
         }
-        .unsorted-more {
+        .unsorted-sort {
           position: absolute;
           top: 0;
           right: 0;
-          min-width: 34px;
-          max-width: 100%;
+          min-width: 44px;
           height: 22px;
           padding: 0 10px;
           z-index: 1;
@@ -887,41 +844,16 @@ export default function Sidebar({
           border: 0;
           cursor: pointer;
           white-space: nowrap;
+          transition: opacity 140ms ease;
         }
-        .unsorted-row.has-pending .unsorted-more {
-          background: rgba(198, 40, 40, 0.28);
+        .unsorted-row.has-pending .unsorted-sort {
+          background: #fce4ec;
           color: #c62828;
         }
-        .unsorted-item:hover .unsorted-count,
-        .unsorted-tail.open .unsorted-count { opacity: 0; }
-        .unsorted-item:hover .unsorted-more,
-        .unsorted-tail.open .unsorted-more { opacity: 1; }
-        .unsorted-more:hover,
-        .unsorted-more:active { opacity: 1; }
-        .unsorted-menu {
-          z-index: 102;
-          min-width: 120px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          padding: 4px;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
-        }
-        .unsorted-menu button {
-          display: block;
-          width: 100%;
-          text-align: left;
-          padding: 6px 10px;
-          border-radius: var(--radius-sm);
-          font-size: 12px;
-          background: transparent;
-          border: 0;
-          color: var(--color-text);
-          cursor: pointer;
-        }
-        .unsorted-menu button:hover {
-          background: var(--color-bg-hover);
-        }
+        .unsorted-item:hover .unsorted-count { opacity: 0; }
+        .unsorted-item:hover .unsorted-sort { opacity: 1; }
+        .unsorted-sort:hover,
+        .unsorted-sort:active { opacity: 1; }
         @media (prefers-color-scheme: dark) {
           .unsorted-row.has-pending .unsorted-label {
             color: #ef5350;
@@ -930,7 +862,7 @@ export default function Sidebar({
             background: rgba(198, 40, 40, 0.22);
             color: #ef5350;
           }
-          .unsorted-row.has-pending .unsorted-more {
+          .unsorted-row.has-pending .unsorted-sort {
             background: rgba(198, 40, 40, 0.22);
             color: #ef5350;
           }
@@ -944,25 +876,44 @@ export default function Sidebar({
             background: #fce4ec;
             color: #c62828;
           }
+          .unsorted-sort {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+          .unsorted-row.has-pending .unsorted-sort {
+            background: #fce4ec;
+            color: #c62828;
+          }
         }
         .sidebar-new-smart {
-          width: 32px;
-          height: 32px;
+          min-width: 34px;
+          height: 22px;
+          padding: 0 10px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          border: 1px solid var(--color-border);
           border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text-muted);
-          font-size: 16px;
+          border: 0;
+          background: rgba(0, 0, 0, 0.52);
+          color: rgba(255, 255, 255, 0.78);
+          font-size: 14px;
           line-height: 1;
           cursor: pointer;
           flex-shrink: 0;
         }
         .sidebar-new-smart:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
+          background: rgba(0, 0, 0, 0.62);
+          color: #fff;
+        }
+        @media (prefers-color-scheme: light) {
+          .sidebar-new-smart {
+            background: rgba(0, 0, 0, 0.12);
+            color: rgba(0, 0, 0, 0.72);
+          }
+          .sidebar-new-smart:hover {
+            background: rgba(0, 0, 0, 0.18);
+            color: rgba(0, 0, 0, 0.85);
+          }
         }
         .smart-list {
           padding: 2px 4px;

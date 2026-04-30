@@ -127,7 +127,7 @@ export default function CreateCollectionModal({
           padding: 24px;
         }
         .panel {
-          width: 400px;
+          width: 560px;
           max-width: 100%;
           max-height: 86vh;
           background: var(--color-bg);
