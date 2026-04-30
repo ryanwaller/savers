@@ -30,6 +30,6 @@ export function getScreenshotQueue(): Queue<ScreenshotJobData> {
 export async function enqueueScreenshot(job: ScreenshotJobData): Promise<void> {
   if (!process.env.REDIS_URL) return; // Redis not configured — skip silently
   await getScreenshotQueue().add("capture", job, {
-    jobId: `screenshot-${job.bookmarkId}`,
+    jobId: `screenshot-${job.bookmarkId}-${Date.now()}`,
   });
 }

@@ -623,6 +623,47 @@ export default function Home() {
     };
   }, [user, refreshFromServer]);
 
+  // Poll for pending screenshots so previews update in real time
+  // without requiring a page reload.
+  useEffect(() => {
+    if (!user || !initialDataLoaded) return;
+
+    const hasPending = () =>
+      allBookmarksRef.current.some(
+        (b) => b.screenshot_status === "pending" || b.screenshot_status === "processing"
+      );
+
+    if (!hasPending()) return;
+
+    const POLL_MS = 4000;
+    const timer = setInterval(async () => {
+      if (!hasPending()) {
+        clearInterval(timer);
+        return;
+      }
+      try {
+        const fresh = await api.listBookmarks();
+        const freshById = new Map(fresh.bookmarks.map((b) => [b.id, b]));
+        updateAllBookmarksState((prev) =>
+          prev.map((b) => {
+            const updated = freshById.get(b.id);
+            return updated ?? b;
+          })
+        );
+        // Re-check if we still have pending bookmarks
+        if (!fresh.bookmarks.some(
+          (b) => b.screenshot_status === "pending" || b.screenshot_status === "processing"
+        )) {
+          clearInterval(timer);
+        }
+      } catch {
+        // Silently retry on next interval
+      }
+    }, POLL_MS);
+
+    return () => clearInterval(timer);
+  }, [user, initialDataLoaded, updateAllBookmarksState]);
+
   // Esc to exit edit mode
   useEffect(() => {
     if (!isEditMode) return;

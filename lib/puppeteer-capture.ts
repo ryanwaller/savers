@@ -24,7 +24,7 @@ export const PUPPETEER_LAUNCH_OPTIONS = {
   ],
   defaultViewport: {
     width: 1280,
-    height: 800,
+    height: 900,
     deviceScaleFactor: 1,
   },
   timeout: 30000,
@@ -64,8 +64,8 @@ export async function captureScreenshot(
 
     const buffer = await page.screenshot({
       type: "jpeg",
-      quality: 80,
-      fullPage: true,
+      quality: 92,
+      fullPage: false,
       captureBeyondViewport: false,
     });
 
