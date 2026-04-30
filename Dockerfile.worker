@@ -49,4 +49,4 @@ COPY . .
 
 ENV NODE_ENV=production
 
-CMD ["node", "node_modules/.bin/tsx", "workers/screenshot-worker.ts"]
+CMD ["./node_modules/.bin/tsx", "workers/screenshot-worker.ts"]

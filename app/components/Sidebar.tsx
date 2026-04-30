@@ -799,7 +799,6 @@ export default function Sidebar({
           position: relative;
           height: 22px;
           flex-shrink: 0;
-          overflow: hidden;
         }
         .unsorted-count {
           position: relative;
@@ -896,24 +895,24 @@ export default function Sidebar({
           justify-content: center;
           border-radius: 999px;
           border: 0;
-          background: rgba(0, 0, 0, 0.52);
-          color: rgba(255, 255, 255, 0.78);
+          background: #fff;
+          color: rgba(0, 0, 0, 0.72);
           font-size: 12px;
           line-height: 1;
           cursor: pointer;
           flex-shrink: 0;
         }
         .sidebar-new-smart:hover {
-          background: rgba(0, 0, 0, 0.62);
-          color: #fff;
+          background: #f0f0f0;
+          color: rgba(0, 0, 0, 0.85);
         }
-        @media (prefers-color-scheme: light) {
+        @media (prefers-color-scheme: dark) {
           .sidebar-new-smart {
-            background: rgba(0, 0, 0, 0.12);
+            background: #fff;
             color: rgba(0, 0, 0, 0.72);
           }
           .sidebar-new-smart:hover {
-            background: rgba(0, 0, 0, 0.18);
+            background: #f0f0f0;
             color: rgba(0, 0, 0, 0.85);
           }
         }
@@ -1058,6 +1057,9 @@ function SmartCollectionItem({
         .smart-item-icon {
           display: inline-flex;
           align-items: center;
+          justify-content: center;
+          width: 18px;
+          height: 18px;
           color: var(--color-text-muted);
           flex-shrink: 0;
         }
