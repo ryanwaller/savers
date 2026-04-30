@@ -93,6 +93,7 @@ export default function Sidebar({
   const [tagsExpanded, setTagsExpanded] = useState(true);
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
+  const [unsortedMenuOpen, setUnsortedMenuOpen] = useState(false);
   const rootNestTimerRef = useRef<number | null>(null);
 
   function clearRootNestTimer() {
@@ -116,6 +117,13 @@ export default function Sidebar({
     }
     return clearRootNestTimer;
   }, [draggedId]);
+
+  useEffect(() => {
+    if (!unsortedMenuOpen) return;
+    const onDown = () => setUnsortedMenuOpen(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [unsortedMenuOpen]);
   const [collapsedCollectionIds, setCollapsedCollectionIds] = useState<string[]>([]);
 
   const sortedTags = useMemo(() => {
@@ -254,18 +262,35 @@ export default function Sidebar({
               count={totals.unsorted}
               active={selection.kind === "unsorted"}
               onClick={() => onSelect({ kind: "unsorted" })}
-              sortAction={
-                totals.unsorted > 0 && onOpenTriage
-                  ? {
-                      label: "Sort",
-                      onClick: () => {
+            />
+            {totals.unsorted > 0 && onOpenTriage && (
+              <div className="unsorted-more-wrap">
+                <button
+                  className="more"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setUnsortedMenuOpen((v) => !v);
+                  }}
+                  aria-label="Menu"
+                >
+                  …
+                </button>
+                {unsortedMenuOpen && (
+                  <div className="menu" onMouseLeave={() => setUnsortedMenuOpen(false)}>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setUnsortedMenuOpen(false);
                         onOpenTriage();
                         onCloseMobile?.();
-                      },
-                    }
-                  : undefined
-              }
-            />
+                      }}
+                    >
+                      Sort
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
@@ -763,20 +788,62 @@ export default function Sidebar({
             color: #ef5350;
           }
         }
-        .sort-action {
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--color-text);
-          padding: 2px 8px;
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          flex-shrink: 0;
-          line-height: 1.4;
+        .unsorted-more-wrap {
+          position: absolute;
+          right: 8px;
+          top: 50%;
+          transform: translateY(-50%);
+          display: inline-flex;
+          align-items: center;
         }
-        .sort-action:hover {
+        .unsorted-row.has-pending .unsorted-more-wrap {
+          right: 42px;
+        }
+        .more {
+          width: 24px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          border: 0;
+          border-radius: var(--radius-sm);
+          color: var(--color-text-muted);
+          cursor: pointer;
+          font-size: 14px;
+          padding: 0;
+        }
+        .more:hover {
           background: var(--color-bg-hover);
-          border-color: var(--color-border-strong);
+          color: var(--color-text);
+        }
+        .menu {
+          position: absolute;
+          top: 100%;
+          right: 0;
+          margin-top: 4px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 4px;
+          z-index: 101;
+          min-width: 120px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+        }
+        .menu button {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 10px;
+          border-radius: var(--radius-sm);
+          font-size: 12px;
+          background: transparent;
+          border: 0;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+        .menu button:hover {
+          background: var(--color-bg-hover);
         }
       `}</style>
     </aside>
@@ -790,7 +857,6 @@ function SidebarItem({
   onClick,
   leading,
   indent = 0,
-  sortAction,
 }: {
   label: string;
   count?: number;
@@ -798,7 +864,6 @@ function SidebarItem({
   onClick: () => void;
   leading?: ReactNode;
   indent?: number;
-  sortAction?: { label: string; onClick: () => void };
 }) {
   return (
     <button
@@ -809,17 +874,6 @@ function SidebarItem({
     >
       {leading && <span className="leading">{leading}</span>}
       <span className="label">{label}</span>
-      {sortAction && (
-        <span
-          className="sort-action"
-          onClick={(e) => {
-            e.stopPropagation();
-            sortAction.onClick();
-          }}
-        >
-          {sortAction.label}
-        </span>
-      )}
       {typeof count === "number" && <span className="count">{count}</span>}
       <style jsx>{`
         .item {
@@ -948,6 +1002,13 @@ function CollectionNode({
     }
     return clearNestTimer;
   }, [draggedId]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = () => setMenuOpen(false);
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
 
   function openIconPicker() {
     const rect = iconBtnRef.current?.getBoundingClientRect();

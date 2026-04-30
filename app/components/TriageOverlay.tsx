@@ -41,6 +41,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
   const [tagInput, setTagInput] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
+  const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
   const undoTimerRef = useRef<number | null>(null);
 
@@ -79,6 +80,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     setTagInput("");
     setSuggestion(null);
     setSuggestedTags([]);
+    setSelectedCollection(null);
     if (!current || !open) return;
     let cancelled = false;
     setAiLoading(true);
@@ -268,7 +270,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         const target = choiceCollections[idx];
         if (target) {
           event.preventDefault();
-          void handleFile(target);
+          setSelectedCollection((prev) => prev?.id === target.id ? null : target);
         }
         return;
       }
@@ -276,7 +278,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         const target = choiceCollections[0];
         if (target) {
           event.preventDefault();
-          void handleFile(target);
+          setSelectedCollection((prev) => prev?.id === target.id ? null : target);
         }
       }
       if (event.key === "s" || event.key === "S") {
@@ -388,11 +390,12 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           {choiceCollections.map((c, idx) => {
             const isPrimary =
               idx === 0 && suggestion?.collection_id === c.id;
+            const isSelected = selectedCollection?.id === c.id;
             return (
               <button
                 key={c.id}
-                className={`triage-choice ${isPrimary ? "primary" : ""}`}
-                onClick={() => void handleFile(c)}
+                className={`triage-choice ${isPrimary ? "primary" : ""} ${isSelected ? "selected" : ""}`}
+                onClick={() => setSelectedCollection(isSelected ? null : c)}
                 title={pathFor(c.id) ?? c.name}
               >
                 <span className="triage-choice-key">{idx + 1}</span>
@@ -480,7 +483,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           </button>
           <button
             className="triage-action primary"
-            onClick={() => void handleFile(null)}
+            onClick={() => void handleFile(selectedCollection)}
           >
             Save
           </button>
@@ -628,7 +631,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           opacity: 0.3;
         }
         .triage-main {
-          padding: 28px 28px 32px;
+          padding: 28px 28px 0;
           display: flex;
           flex-direction: column;
           gap: 24px;
@@ -715,6 +718,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         }
         .triage-choice.primary:hover {
           opacity: 0.92;
+        }
+        .triage-choice.selected {
+          border-color: var(--color-text);
+          box-shadow: 0 0 0 1px var(--color-text);
         }
         .triage-choice.primary .triage-choice-key {
           background: rgba(255, 255, 255, 0.18);
@@ -810,7 +817,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           display: flex;
           align-items: center;
           gap: 8px;
-          margin-top: 4px;
+          padding: 14px 16px;
         }
         .triage-actions-spacer {
           flex: 1;
@@ -847,11 +854,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-action.danger {
           border-color: transparent;
           color: var(--color-text-muted);
-          opacity: 0;
-          transition: opacity 120ms ease;
-        }
-        .triage-actions:hover .triage-action.danger {
-          opacity: 1;
         }
         .triage-action.danger:hover {
           color: #d13030;
