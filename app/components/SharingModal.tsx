@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { Collection } from "@/lib/types";
 
 type Props = {
@@ -34,7 +34,7 @@ export default function SharingModal({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [slugDirty, setSlugDirty] = useState(false);
-  const slugDirtyRef = useRef(false);
+  const [descDirty, setDescDirty] = useState(false);
 
   useEffect(() => {
     if (!open || !collection) return;
@@ -44,7 +44,7 @@ export default function SharingModal({
     setError(null);
     setCopied(false);
     setSlugDirty(false);
-    slugDirtyRef.current = false;
+    setDescDirty(false);
   }, [open, collection]);
 
   if (!open || !collection) return null;
@@ -87,10 +87,9 @@ export default function SharingModal({
       onUpdate(updated);
       setIsPublic(json.collection.is_public);
       setSlugDirty(false);
-      slugDirtyRef.current = false;
+      setDescDirty(false);
       if (json.collection.public_slug !== null) {
         setSlug(json.collection.public_slug);
-        slugDirtyRef.current = false;
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't update sharing.");
@@ -162,7 +161,6 @@ export default function SharingModal({
                     placeholder="typographers"
                     value={slug}
                     onChange={(e) => {
-                      slugDirtyRef.current = true;
                       setSlugDirty(true);
                       setSlug(e.target.value);
                     }}
@@ -197,10 +195,21 @@ export default function SharingModal({
                   placeholder="What this collection is for. Shows on the public page."
                   value={description}
                   maxLength={280}
-                  onChange={(e) => setDescription(e.target.value)}
-                  onBlur={() => void save(true)}
+                  onChange={(e) => {
+                    setDescDirty(true);
+                    setDescription(e.target.value);
+                  }}
                   disabled={saving}
                 />
+                {descDirty && (
+                  <button
+                    className="desc-save"
+                    onClick={() => void save(true)}
+                    disabled={saving}
+                  >
+                    {saving ? "…" : "Save"}
+                  </button>
+                )}
               </label>
             </>
           )}
@@ -333,7 +342,6 @@ export default function SharingModal({
           border: 1px solid var(--color-border);
           border-radius: 6px;
           background: var(--color-bg);
-          overflow: hidden;
         }
         .slug-prefix {
           display: inline-flex;
@@ -369,6 +377,26 @@ export default function SharingModal({
           background: var(--color-bg-hover);
         }
         .slug-save:disabled {
+          opacity: 0.5;
+          cursor: default;
+        }
+        .desc-save {
+          appearance: none;
+          align-self: flex-end;
+          padding: 4px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 4px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text);
+          font: inherit;
+          font-size: 12px;
+          cursor: pointer;
+          margin-top: 4px;
+        }
+        .desc-save:hover {
+          background: var(--color-bg-hover);
+        }
+        .desc-save:disabled {
           opacity: 0.5;
           cursor: default;
         }

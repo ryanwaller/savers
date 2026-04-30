@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { headers } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { storedPreviewUrl } from "@/lib/api";
 import CollectionIcon from "@/app/components/CollectionIcon";
 
 type Bookmark = {
@@ -297,10 +298,8 @@ export default async function PublicCollectionPage({
         .public-foot {
           margin-top: 64px;
           padding-top: 24px;
-          border-top: 1px solid var(--public-border);
           display: flex;
           align-items: center;
-          justify-content: space-between;
           gap: 16px;
           flex-wrap: wrap;
         }
@@ -338,11 +337,10 @@ function PublicCard({
   bookmark: Bookmark;
   origin: string;
 }) {
-  // Use the same /api/preview proxy the authenticated grid uses, but
-  // anonymous-friendly: we'll fall through to og_image / favicon if the
-  // private proxy isn't hit. For v1 we just use og_image directly to
-  // avoid any auth concerns.
-  const previewSrc = bookmark.og_image ?? null;
+  const previewSrc =
+    storedPreviewUrl(bookmark.preview_path, { previewVersion: bookmark.preview_version }) ??
+    bookmark.og_image ??
+    null;
   const host = (() => {
     try {
       return new URL(bookmark.url).hostname.replace(/^www\./, "");
