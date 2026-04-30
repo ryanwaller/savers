@@ -257,40 +257,49 @@ export default function Sidebar({
             onClick={() => onSelect({ kind: "all" })}
           />
           <div className={`unsorted-row ${totals.unsorted > 0 ? "has-pending" : ""}`}>
-            <SidebarItem
-              label="Unsorted"
-              count={totals.unsorted}
-              active={selection.kind === "unsorted"}
+            <button
+              className={`unsorted-item ${selection.kind === "unsorted" ? "active" : ""}`}
               onClick={() => onSelect({ kind: "unsorted" })}
-            />
-            {totals.unsorted > 0 && onOpenTriage && (
-              <div className="unsorted-more-wrap">
-                <button
-                  className="more"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setUnsortedMenuOpen((v) => !v);
-                  }}
-                  aria-label="Menu"
-                >
-                  …
-                </button>
-                {unsortedMenuOpen && (
-                  <div className="menu" onMouseLeave={() => setUnsortedMenuOpen(false)}>
+              title="Unsorted"
+            >
+              <span className="unsorted-label">Unsorted</span>
+              {typeof totals.unsorted === "number" && (
+                <span className={`unsorted-tail ${unsortedMenuOpen ? "open" : ""}`}>
+                  <span className="unsorted-count">{totals.unsorted}</span>
+                  {totals.unsorted > 0 && onOpenTriage && (
                     <button
+                      className="unsorted-more"
                       onClick={(e) => {
                         e.stopPropagation();
-                        setUnsortedMenuOpen(false);
-                        onOpenTriage();
-                        onCloseMobile?.();
+                        setUnsortedMenuOpen((v) => !v);
                       }}
+                      onMouseDown={(e) => e.stopPropagation()}
+                      aria-label="Menu"
                     >
-                      Sort
+                      …
                     </button>
-                  </div>
-                )}
-              </div>
-            )}
+                  )}
+                  {unsortedMenuOpen && (
+                    <div
+                      className="unsorted-menu"
+                      onMouseLeave={() => setUnsortedMenuOpen(false)}
+                      onMouseDown={(e) => e.stopPropagation()}
+                    >
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setUnsortedMenuOpen(false);
+                          onOpenTriage();
+                          onCloseMobile?.();
+                        }}
+                      >
+                        Sort
+                      </button>
+                    </div>
+                  )}
+                </span>
+              )}
+            </button>
           </div>
         </div>
 
@@ -772,65 +781,104 @@ export default function Sidebar({
         .unsorted-row {
           position: relative;
         }
-        .unsorted-row.has-pending :global(.label) {
+        .unsorted-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          width: 100%;
+          min-width: 0;
+          padding: 5px 8px;
+          border-radius: var(--radius-sm);
+          text-align: left;
+          font-size: 12px;
+          color: var(--color-text);
+          background: transparent;
+          border: 0;
+          cursor: pointer;
+        }
+        .unsorted-item:hover { background: var(--color-bg-hover); }
+        .unsorted-item.active { background: var(--color-bg-active); }
+        .unsorted-label {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .unsorted-row.has-pending .unsorted-label {
           color: #d13030;
         }
-        .unsorted-row.has-pending :global(.count) {
-          background: #fce4ec;
-          color: #c62828;
-        }
-        @media (prefers-color-scheme: dark) {
-          .unsorted-row.has-pending :global(.label) {
-            color: #ef5350;
-          }
-          .unsorted-row.has-pending :global(.count) {
-            background: rgba(198, 40, 40, 0.22);
-            color: #ef5350;
-          }
-        }
-        .unsorted-more-wrap {
-          position: absolute;
-          right: 8px;
-          top: 50%;
-          transform: translateY(-50%);
-          display: inline-flex;
-          align-items: center;
-        }
-        .unsorted-row.has-pending .unsorted-more-wrap {
-          right: 42px;
-        }
-        .more {
-          width: 24px;
+        .unsorted-tail {
+          position: relative;
+          width: 54px;
           height: 22px;
+          flex-shrink: 0;
+        }
+        .unsorted-count {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          background: transparent;
-          border: 0;
-          border-radius: var(--radius-sm);
-          color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 14px;
-          padding: 0;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum" 1;
+          white-space: nowrap;
         }
-        .more:hover {
-          background: var(--color-bg-hover);
-          color: var(--color-text);
+        .unsorted-row.has-pending .unsorted-count {
+          background: #fce4ec;
+          color: #c62828;
         }
-        .menu {
+        .unsorted-more {
           position: absolute;
-          top: 100%;
+          top: 0;
           right: 0;
-          margin-top: 4px;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          opacity: 0;
+          border-radius: 999px;
+          border: 0;
+          cursor: pointer;
+          white-space: nowrap;
+        }
+        .unsorted-row.has-pending .unsorted-more {
+          background: rgba(198, 40, 40, 0.28);
+          color: #c62828;
+        }
+        .unsorted-item:hover .unsorted-count,
+        .unsorted-tail.open .unsorted-count { opacity: 0; }
+        .unsorted-item:hover .unsorted-more,
+        .unsorted-tail.open .unsorted-more { opacity: 1; }
+        .unsorted-menu {
+          position: absolute;
+          right: 0;
+          top: 22px;
+          z-index: 102;
+          min-width: 120px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           padding: 4px;
-          z-index: 101;
-          min-width: 120px;
-          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.14);
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
         }
-        .menu button {
+        .unsorted-menu button {
           display: block;
           width: 100%;
           text-align: left;
@@ -842,8 +890,31 @@ export default function Sidebar({
           color: var(--color-text);
           cursor: pointer;
         }
-        .menu button:hover {
+        .unsorted-menu button:hover {
           background: var(--color-bg-hover);
+        }
+        @media (prefers-color-scheme: dark) {
+          .unsorted-row.has-pending .unsorted-label {
+            color: #ef5350;
+          }
+          .unsorted-row.has-pending .unsorted-count {
+            background: rgba(198, 40, 40, 0.22);
+            color: #ef5350;
+          }
+          .unsorted-row.has-pending .unsorted-more {
+            background: rgba(198, 40, 40, 0.22);
+            color: #ef5350;
+          }
+        }
+        @media (prefers-color-scheme: light) {
+          .unsorted-count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+          .unsorted-row.has-pending .unsorted-count {
+            background: #fce4ec;
+            color: #c62828;
+          }
         }
       `}</style>
     </aside>
@@ -1183,12 +1254,17 @@ function CollectionNode({
               e.stopPropagation();
               setMenuOpen((v) => !v);
             }}
+            onMouseDown={(e) => e.stopPropagation()}
             aria-label="Menu"
           >
-            ⋯
+            …
           </button>
           {menuOpen && (
-            <div className="menu" onMouseLeave={() => setMenuOpen(false)}>
+            <div
+              className="menu"
+              onMouseLeave={() => setMenuOpen(false)}
+              onMouseDown={(e) => e.stopPropagation()}
+            >
               <button
                 onClick={() => {
                   setMenuOpen(false);
@@ -1471,7 +1547,7 @@ function CollectionNode({
           position: absolute;
           right: 0;
           top: 22px;
-          z-index: 10;
+          z-index: 102;
           min-width: 160px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
