@@ -464,6 +464,14 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
 
         <div className="triage-actions">
           <button
+            className="triage-action danger"
+            onClick={() => void handleDelete()}
+            title="Delete (⌘⌫)"
+          >
+            Delete
+          </button>
+          <div className="triage-actions-spacer" />
+          <button
             className="triage-action"
             onClick={() => void handleSkip()}
             title="Skip (S)"
@@ -471,17 +479,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             Skip
           </button>
           <button
-            className="triage-action"
+            className="triage-action primary"
             onClick={() => void handleFile(null)}
           >
-            Mark triaged
-          </button>
-          <button
-            className="triage-action danger"
-            onClick={() => void handleDelete()}
-            title="Delete (⌘⌫)"
-          >
-            Delete
+            Save
           </button>
         </div>
       </main>
@@ -536,7 +537,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           backdrop-filter: blur(14px) saturate(120%);
           -webkit-backdrop-filter: blur(14px) saturate(120%);
           display: flex;
-          align-items: flex-start;
+          align-items: center;
           justify-content: center;
           padding: 48px 24px;
           z-index: 70;
@@ -808,27 +809,53 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
         .triage-actions {
           display: flex;
           align-items: center;
-          gap: 4px;
+          gap: 8px;
           margin-top: 4px;
+        }
+        .triage-actions-spacer {
+          flex: 1;
         }
         .triage-action {
           appearance: none;
-          padding: 8px 12px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 6px;
+          height: 30px;
+          padding: 0 10px;
           border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
           background: var(--color-bg);
-          color: var(--color-text-muted);
+          color: var(--color-text);
           font: inherit;
-          font-size: 13px;
+          font-size: 12px;
+          line-height: 1;
+          white-space: nowrap;
           cursor: pointer;
-          border-radius: 999px;
         }
         .triage-action:hover {
-          color: var(--color-text);
-          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .triage-action.primary {
+          background: var(--color-text);
+          color: var(--color-bg);
+          border-color: var(--color-text);
+        }
+        .triage-action.primary:hover {
+          opacity: 0.88;
+        }
+        .triage-action.danger {
+          border-color: transparent;
+          color: var(--color-text-muted);
+          opacity: 0;
+          transition: opacity 120ms ease;
+        }
+        .triage-actions:hover .triage-action.danger {
+          opacity: 1;
         }
         .triage-action.danger:hover {
           color: #d13030;
-          border-color: #d13030;
+          background: var(--color-bg-hover);
         }
         .triage-error {
           color: #d13030;

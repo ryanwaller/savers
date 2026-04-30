@@ -744,6 +744,40 @@ export default function Sidebar({
             background: var(--color-bg-hover);
           }
         }
+        .unsorted-row {
+          position: relative;
+        }
+        .unsorted-row.has-pending :global(.label) {
+          color: #d13030;
+        }
+        .unsorted-row.has-pending :global(.count) {
+          background: #fce4ec;
+          color: #c62828;
+        }
+        @media (prefers-color-scheme: dark) {
+          .unsorted-row.has-pending :global(.label) {
+            color: #ef5350;
+          }
+          .unsorted-row.has-pending :global(.count) {
+            background: rgba(198, 40, 40, 0.22);
+            color: #ef5350;
+          }
+        }
+        .sort-action {
+          font-size: 11px;
+          font-weight: 500;
+          color: var(--color-text);
+          padding: 2px 8px;
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          border: 1px solid var(--color-border);
+          flex-shrink: 0;
+          line-height: 1.4;
+        }
+        .sort-action:hover {
+          background: var(--color-bg-hover);
+          border-color: var(--color-border-strong);
+        }
       `}</style>
     </aside>
   );
@@ -1306,45 +1340,10 @@ function CollectionNode({
         }
         .public-dot {
           flex-shrink: 0;
-          width: 6px;
-          height: 6px;
+          width: 8px;
+          height: 8px;
           border-radius: 999px;
-          background: var(--color-text-muted);
-          opacity: 0.55;
-        }
-        .unsorted-row {
-          position: relative;
-        }
-        .unsorted-row.has-pending :global(.label) {
-          color: #d13030;
-        }
-        .unsorted-row.has-pending :global(.count) {
-          background: #fce4ec;
-          color: #c62828;
-        }
-        @media (prefers-color-scheme: dark) {
-          .unsorted-row.has-pending :global(.label) {
-            color: #ef5350;
-          }
-          .unsorted-row.has-pending :global(.count) {
-            background: rgba(198, 40, 40, 0.22);
-            color: #ef5350;
-          }
-        }
-        .sort-action {
-          font-size: 11px;
-          font-weight: 500;
-          color: var(--color-text);
-          padding: 2px 8px;
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          border: 1px solid var(--color-border);
-          flex-shrink: 0;
-          line-height: 1.4;
-        }
-        .sort-action:hover {
-          background: var(--color-bg-hover);
-          border-color: var(--color-border-strong);
+          background: #34c759;
         }
         .tail {
           position: relative;
