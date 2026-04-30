@@ -94,7 +94,10 @@ export default function Sidebar({
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
   const [unsortedMenuOpen, setUnsortedMenuOpen] = useState(false);
+  const [unsortedMenuPos, setUnsortedMenuPos] = useState<{ top: number; right: number } | null>(null);
   const rootNestTimerRef = useRef<number | null>(null);
+  const unsortedMenuRef = useRef<HTMLDivElement>(null);
+  const unsortedMoreRef = useRef<HTMLButtonElement>(null);
 
   function clearRootNestTimer() {
     if (rootNestTimerRef.current !== null) {
@@ -120,7 +123,10 @@ export default function Sidebar({
 
   useEffect(() => {
     if (!unsortedMenuOpen) return;
-    const onDown = () => setUnsortedMenuOpen(false);
+    const onDown = (e: MouseEvent) => {
+      if (unsortedMenuRef.current?.contains(e.target as Node)) return;
+      setUnsortedMenuOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [unsortedMenuOpen]);
@@ -269,34 +275,45 @@ export default function Sidebar({
                   {totals.unsorted > 0 && onOpenTriage && (
                     <button
                       className="unsorted-more"
+                      ref={unsortedMoreRef}
                       onClick={(e) => {
                         e.stopPropagation();
+                        const rect = unsortedMoreRef.current?.getBoundingClientRect();
+                        if (rect) {
+                          setUnsortedMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+                        }
                         setUnsortedMenuOpen((v) => !v);
                       }}
-                      onMouseDown={(e) => e.stopPropagation()}
                       aria-label="Menu"
                     >
                       …
                     </button>
                   )}
-                  {unsortedMenuOpen && (
-                    <div
-                      className="unsorted-menu"
-                      onMouseLeave={() => setUnsortedMenuOpen(false)}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setUnsortedMenuOpen(false);
-                          onOpenTriage?.();
-                          onCloseMobile?.();
+                  {unsortedMenuOpen && unsortedMenuPos &&
+                    createPortal(
+                      <div
+                        className="unsorted-menu"
+                        ref={unsortedMenuRef}
+                        style={{
+                          position: "fixed",
+                          top: unsortedMenuPos.top,
+                          right: unsortedMenuPos.right,
                         }}
+                        onMouseLeave={() => setUnsortedMenuOpen(false)}
                       >
-                        Sort
-                      </button>
-                    </div>
-                  )}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setUnsortedMenuOpen(false);
+                            onOpenTriage?.();
+                            onCloseMobile?.();
+                          }}
+                        >
+                          Sort
+                        </button>
+                      </div>,
+                      document.body
+                    )}
                 </span>
               )}
             </button>
@@ -867,9 +884,6 @@ export default function Sidebar({
         .unsorted-item:hover .unsorted-more,
         .unsorted-tail.open .unsorted-more { opacity: 1; }
         .unsorted-menu {
-          position: absolute;
-          right: 0;
-          top: 22px;
           z-index: 102;
           min-width: 120px;
           background: var(--color-bg);
@@ -1053,6 +1067,7 @@ function CollectionNode({
   const [nestHover, setNestHover] = useState(false);
   const nestTimerRef = useRef<number | null>(null);
   const iconBtnRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   const skipRenameBlurRef = useRef(false);
   const skipChildBlurRef = useRef(false);
 
@@ -1076,7 +1091,10 @@ function CollectionNode({
 
   useEffect(() => {
     if (!menuOpen) return;
-    const onDown = () => setMenuOpen(false);
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    };
     document.addEventListener("mousedown", onDown);
     return () => document.removeEventListener("mousedown", onDown);
   }, [menuOpen]);
@@ -1254,7 +1272,6 @@ function CollectionNode({
               e.stopPropagation();
               setMenuOpen((v) => !v);
             }}
-            onMouseDown={(e) => e.stopPropagation()}
             aria-label="Menu"
           >
             …
@@ -1262,8 +1279,8 @@ function CollectionNode({
           {menuOpen && (
             <div
               className="menu"
+              ref={menuRef}
               onMouseLeave={() => setMenuOpen(false)}
-              onMouseDown={(e) => e.stopPropagation()}
             >
               <button
                 onClick={() => {
