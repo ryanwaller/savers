@@ -32,7 +32,7 @@ let screenshotOneBackoffUntil = 0;
 let captureKitBackoffUntil = 0;
 let previewBucketReadyPromise: Promise<void> | null = null;
 
-type ProviderKind = "microlink" | "apiflash" | "screenshotone" | "capturekit";
+type ProviderKind = "microlink" | "apiflash" | "screenshotone" | "capturekit" | "puppeteer";
 
 type ImageCandidate = {
   kind: ProviderKind;

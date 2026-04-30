@@ -3,7 +3,8 @@ import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { fetchPageContent } from '@/lib/page-content'
-import { removePreviewObjects, storeBookmarkPreview } from '@/lib/preview-server'
+import { removePreviewObjects } from '@/lib/preview-server'
+import { enqueueScreenshot } from '@/lib/screenshot-queue'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -124,23 +125,23 @@ export async function POST(req: NextRequest) {
         collection_id: collection_id ?? null,
         tags: tags ?? [],
         notes: notes ?? null,
+        screenshot_status: 'pending',
       })
       .select()
       .single()
 
     if (error) throw error
-    let bookmark = data
+    const bookmark = data
 
+    // Enqueue async screenshot capture (fire-and-forget)
     try {
-      const stored = await storeBookmarkPreview({
-        bookmarkId: data.id,
+      await enqueueScreenshot({
+        bookmarkId: bookmark.id,
         userId: user.id,
-        url: data.url,
-        previewVersion: data.preview_version ?? Date.now(),
+        url: bookmark.url,
       })
-      bookmark = stored.bookmark
-    } catch (previewError) {
-      logUnexpectedError('Store bookmark preview error:', previewError)
+    } catch (queueError) {
+      logUnexpectedError('Enqueue screenshot error:', queueError)
     }
 
     return NextResponse.json({ bookmark })
@@ -229,37 +230,43 @@ export async function PATCH(req: NextRequest) {
     let bookmark = data
 
     if (shouldRefreshPreview) {
+      if (Object.prototype.hasOwnProperty.call(updates, 'url')) {
+        // URL changed — clear old preview and enqueue fresh capture
+        const { data: clearedBookmark, error: clearError } = await supabaseAdmin
+          .from('bookmarks')
+          .update({
+            preview_path: null,
+            preview_provider: null,
+            preview_updated_at: null,
+            screenshot_status: 'pending',
+            screenshot_error: null,
+          })
+          .eq('id', id)
+          .eq('user_id', user.id)
+          .select()
+          .single()
+
+        if (!clearError && clearedBookmark) {
+          bookmark = clearedBookmark
+        }
+      } else {
+        // Manual refresh — just mark pending
+        await supabaseAdmin
+          .from('bookmarks')
+          .update({ screenshot_status: 'pending', screenshot_error: null })
+          .eq('id', id)
+          .eq('user_id', user.id)
+      }
+
+      // Enqueue async screenshot capture
       try {
-        const stored = await storeBookmarkPreview({
+        await enqueueScreenshot({
           bookmarkId: data.id,
           userId: user.id,
           url: data.url,
-          force: Object.prototype.hasOwnProperty.call(updates, 'preview_version'),
-          previewVersion:
-            typeof data.preview_version === 'number' ? data.preview_version : Date.now(),
-          currentPreviewPath: data.preview_path ?? null,
         })
-        bookmark = stored.bookmark
-      } catch (previewError) {
-        logUnexpectedError('Refresh bookmark preview error:', previewError)
-
-        if (Object.prototype.hasOwnProperty.call(updates, 'url')) {
-          const { data: clearedPreviewBookmark, error: clearError } = await supabaseAdmin
-            .from('bookmarks')
-            .update({
-              preview_path: null,
-              preview_provider: null,
-              preview_updated_at: null,
-            })
-            .eq('id', id)
-            .eq('user_id', user.id)
-            .select()
-            .single()
-
-          if (!clearError && clearedPreviewBookmark) {
-            bookmark = clearedPreviewBookmark
-          }
-        }
+      } catch (queueError) {
+        logUnexpectedError('Enqueue screenshot refresh error:', queueError)
       }
     }
 

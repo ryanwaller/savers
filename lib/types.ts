@@ -34,6 +34,9 @@ export interface Bookmark {
   custom_preview_path?: string | null
   preview_provider?: string | null
   preview_updated_at?: string | null
+  /** Async screenshot job status: 'pending' | 'processing' | 'complete' | 'error' */
+  screenshot_status?: string | null
+  screenshot_error?: string | null
   /** Pinned bookmarks sort first everywhere and populate the virtual "Pinned" collection. */
   pinned: boolean
 }
