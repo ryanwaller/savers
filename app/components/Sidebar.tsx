@@ -285,7 +285,7 @@ export default function Sidebar({
         <div className="sidebar-divider" />
 
         <div className="sidebar-section">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
             <button
               className={`sidebar-label collapsible flex-1 ${rootNestHover ? "root-nest-target" : ""}`}
               onClick={() => setCollectionsExpanded(!collectionsExpanded)}
@@ -369,8 +369,8 @@ export default function Sidebar({
           {/* Smart Collections */}
           {(smartCollections.length > 0 || onCreateSmartCollection) && (
             <>
-              <div className="sidebar-divider" style={{ margin: "12px 4px 8px" }} />
-              <div className="flex items-center justify-between px-1">
+              <div className="sidebar-divider" />
+              <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
                 <button
                   className="sidebar-label collapsible flex-1"
                   onClick={() => setSmartCollectionsExpanded(!smartCollectionsExpanded)}
@@ -797,16 +797,14 @@ export default function Sidebar({
         }
         .unsorted-tail {
           position: relative;
-          width: 54px;
           height: 22px;
           flex-shrink: 0;
+          overflow: hidden;
         }
         .unsorted-count {
-          position: absolute;
-          top: 0;
-          right: 0;
+          position: relative;
+          z-index: 0;
           min-width: 34px;
-          max-width: 100%;
           height: 22px;
           padding: 0 10px;
           display: inline-flex;
@@ -829,7 +827,7 @@ export default function Sidebar({
           position: absolute;
           top: 0;
           right: 0;
-          min-width: 44px;
+          min-width: 34px;
           height: 22px;
           padding: 0 10px;
           z-index: 1;
@@ -844,14 +842,18 @@ export default function Sidebar({
           border: 0;
           cursor: pointer;
           white-space: nowrap;
-          transition: opacity 140ms ease;
+          clip-path: inset(0 calc(100% - 34px) 0 0);
+          transition: opacity 140ms ease, clip-path 180ms ease;
         }
         .unsorted-row.has-pending .unsorted-sort {
           background: #fce4ec;
           color: #c62828;
         }
         .unsorted-item:hover .unsorted-count { opacity: 0; }
-        .unsorted-item:hover .unsorted-sort { opacity: 1; }
+        .unsorted-item:hover .unsorted-sort {
+          opacity: 1;
+          clip-path: inset(0 0 0 0);
+        }
         .unsorted-sort:hover,
         .unsorted-sort:active { opacity: 1; }
         @media (prefers-color-scheme: dark) {
@@ -896,7 +898,7 @@ export default function Sidebar({
           border: 0;
           background: rgba(0, 0, 0, 0.52);
           color: rgba(255, 255, 255, 0.78);
-          font-size: 14px;
+          font-size: 12px;
           line-height: 1;
           cursor: pointer;
           flex-shrink: 0;
@@ -916,7 +918,7 @@ export default function Sidebar({
           }
         }
         .smart-list {
-          padding: 2px 4px;
+          padding: 2px 0;
         }
       `}</style>
     </aside>
@@ -1029,6 +1031,7 @@ function SmartCollectionItem({
           align-items: center;
           justify-content: space-between;
           gap: 4px;
+          padding-right: 8px;
           border-radius: var(--radius-sm);
         }
         .smart-item:hover {
@@ -1694,9 +1697,8 @@ function CollectionNode({
           display: flex;
           align-items: center;
           gap: 4px;
-          padding-right: 8px;
+          padding: 5px 8px;
           border-radius: var(--radius-sm);
-          height: 26px;
           position: relative;
         }
         .row:hover { background: var(--color-bg-hover); }
