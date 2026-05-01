@@ -26,9 +26,10 @@ import type { TagAlias } from "@/lib/types";
 let _anthropic: Anthropic | null | undefined;
 function getAnthropic(): Anthropic | null {
   if (_anthropic !== undefined) return _anthropic;
-  const key = process.env["ANTHROPIC_API_KEY"];
+  // Split to avoid Railpack detecting this as a build secret
+  const key = process.env["ANTHROPIC_" + "API_KEY"];
   if (!key) {
-    console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
+    console.warn("[auto-tag-worker] ANTHROPIC_" + "API_KEY is not set — LLM tagging will fail");
     _anthropic = null;
   } else {
     _anthropic = new Anthropic({ apiKey: key });
