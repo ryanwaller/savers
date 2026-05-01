@@ -803,8 +803,8 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           background: var(--color-bg-hover);
         }
         .triage-tag-input {
-          flex: 1 1 120px;
-          min-width: 100px;
+          flex: 1 1 100%;
+          min-width: 150px;
           height: 30px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
