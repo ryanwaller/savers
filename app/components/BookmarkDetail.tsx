@@ -33,6 +33,7 @@ export default function BookmarkDetail({
   const [description, setDescription] = useState(bookmark.description ?? "");
   const [notes, setNotes] = useState(bookmark.notes ?? "");
   const [tags, setTags] = useState<string[]>(bookmark.tags ?? []);
+  const [autoTags, setAutoTags] = useState<string[]>(bookmark.auto_tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [collectionId, setCollectionId] = useState<string | null>(bookmark.collection_id);
   const [saving, setSaving] = useState(false);
@@ -235,6 +236,29 @@ export default function BookmarkDetail({
     const nextTags = tags.filter((tag) => tag !== tagToRemove);
     setTags(nextTags);
     await patchTags(nextTags);
+  }
+
+  async function acceptAutoTag(tag: string) {
+    const prevAuto = [...autoTags];
+    const prevUser = [...tags];
+    setAutoTags((prev) => prev.filter((t) => t !== tag));
+    setTags((prev) => [...prev, tag]);
+    try {
+      await api.acceptAutoTag(bookmark.id, tag);
+    } catch {
+      setAutoTags(prevAuto);
+      setTags(prevUser);
+    }
+  }
+
+  async function rejectAutoTag(tag: string) {
+    const prev = [...autoTags];
+    setAutoTags((prev) => prev.filter((t) => t !== tag));
+    try {
+      await api.rejectAutoTag(bookmark.id, tag);
+    } catch {
+      setAutoTags(prev);
+    }
   }
 
   function pathFor(id: string | null): string | null {
@@ -769,6 +793,38 @@ export default function BookmarkDetail({
               </div>
             </div>
 
+            {autoTags.length > 0 && (
+              <div className="auto-tags-section">
+                <div className="auto-tags-label">Auto-detected — click to keep</div>
+                <div className="auto-tags-list">
+                  {autoTags.map((tag) => (
+                    <span key={tag} className="auto-tag-pill">
+                      <button
+                        type="button"
+                        className="auto-tag-accept"
+                        onClick={(e) => { e.preventDefault(); void acceptAutoTag(tag); }}
+                        title={`Accept "${tag}"`}
+                      >
+                        + {tag}
+                      </button>
+                      <button
+                        type="button"
+                        className="auto-tag-reject"
+                        aria-label={`Reject ${tag}`}
+                        onClick={(e) => { e.preventDefault(); void rejectAutoTag(tag); }}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {bookmark.tagging_status === "processing" && (
+              <div className="auto-tags-processing">Auto-tagging in progress…</div>
+            )}
+
             <div className="ai-actions">
               <button
                 type="button"
@@ -1158,6 +1214,60 @@ export default function BookmarkDetail({
         }
         .tag-proposals-status {
           padding: 2px 4px;
+        }
+        .auto-tags-section {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+        }
+        .auto-tags-label {
+          font-size: 11px;
+          color: var(--color-text-muted);
+        }
+        .auto-tags-list {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+        }
+        .auto-tag-pill {
+          display: inline-flex;
+          align-items: center;
+          border-radius: var(--radius-sm);
+          border: 1px dashed var(--color-border);
+          overflow: hidden;
+        }
+        .auto-tag-accept {
+          background: none;
+          border: none;
+          cursor: pointer;
+          padding: 3px 8px;
+          font-size: 13px;
+          color: var(--color-text-muted);
+          font-family: inherit;
+        }
+        .auto-tag-accept:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
+        .auto-tag-reject {
+          background: none;
+          border: none;
+          border-left: 1px dashed var(--color-border);
+          cursor: pointer;
+          padding: 3px 6px;
+          font-size: 14px;
+          color: var(--color-text-muted);
+          font-family: inherit;
+          line-height: 1;
+        }
+        .auto-tag-reject:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
+        .auto-tags-processing {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          font-style: italic;
         }
         .tag-editor {
           min-height: 32px;
