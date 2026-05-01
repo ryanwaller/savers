@@ -1,20 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
+
+const API_BASE = "https://savers-production.up.railway.app";
+const SCRIPT = `javascript:(function(){var s=document.createElement('script');s.src='${API_BASE}/bookmarklet.js';document.head.appendChild(s);})();`;
 
 export default function BookmarkletPage() {
   const [copied, setCopied] = useState(false);
-  const [script, setScript] = useState("");
-
-  useEffect(() => {
-    setScript(
-      `javascript:(function(){var s=document.createElement('script');s.src='${window.location.origin}/bookmarklet.js';document.head.appendChild(s);})();`
-    );
-  }, []);
 
   const handleCopy = async () => {
-    if (!script) return;
-    await navigator.clipboard.writeText(script);
+    await navigator.clipboard.writeText(SCRIPT);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };
@@ -30,7 +25,7 @@ export default function BookmarkletPage() {
 
         <div className="bookmarklet-install">
           <a
-            href={script || "#"}
+            href={SCRIPT}
             className="bookmarklet-drag"
             onClick={(e) => {
               e.preventDefault();
