@@ -74,14 +74,29 @@ async function processJob(job: Job<ScreenshotJobData>) {
     let isRecipesCollection = false;
     let isReadLater = false;
     if (bookmark.collection_id) {
-      const { data: collection } = await supabase
+      // Fetch all user collections to walk parent chain for hierarchical matching
+      const { data: allCollections } = await supabase
         .from("collections")
-        .select("name")
-        .eq("id", bookmark.collection_id)
-        .maybeSingle();
-      const name = collection?.name?.toLowerCase();
-      isRecipesCollection = name === "recipes";
-      isReadLater = name === "read later";
+        .select("id, name, parent_id")
+        .eq("user_id", userId);
+
+      if (allCollections) {
+        const byId = new Map(allCollections.map((c) => [c.id, c]));
+
+        function buildPath(collectionId: string): string {
+          const parts: string[] = [];
+          let cur = byId.get(collectionId);
+          while (cur) {
+            parts.unshift(cur.name);
+            cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+          }
+          return parts.join(" / ").toLowerCase();
+        }
+
+        const path = buildPath(bookmark.collection_id);
+        isRecipesCollection = path.includes("recipes");
+        isReadLater = path.includes("read later");
+      }
     }
 
     // Recipe takes priority over article
