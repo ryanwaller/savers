@@ -19,8 +19,7 @@
   /* ── Parse token from script src ── */
   var token = null;
   try {
-    var scripts = document.getElementsByTagName("script");
-    var me = scripts[scripts.length - 1];
+    var me = document.currentScript;
     if (me && me.src) {
       var m = me.src.match(/[?&]token=([^&#]+)/);
       if (m) token = decodeURIComponent(m[1]);
