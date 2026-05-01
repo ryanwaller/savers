@@ -109,10 +109,6 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
 
         <div className="body">
           <section className="section">
-            <div className="section-title">Export</div>
-            <p className="small muted">
-              Download all bookmarks as a ZIP with CSV and preview images.
-            </p>
             <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
           </section>
 

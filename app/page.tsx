@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CheckSquare, List, MagnifyingGlass, Plus } from "@phosphor-icons/react";
+import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
@@ -1770,7 +1770,7 @@ export default function Home() {
               title={isEditMode ? "Exit edit mode" : "Edit mode"}
               aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
             >
-              <CheckSquare size={14} weight={isEditMode ? "fill" : "regular"} />
+              <SquaresFour size={14} weight={isEditMode ? "fill" : "regular"} />
             </button>
           </div>
         </div>

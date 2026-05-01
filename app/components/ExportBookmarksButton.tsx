@@ -129,8 +129,7 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections, vari
           disabled={loading}
           className="export-text-btn"
         >
-          {icon}
-          {loading ? "Exporting…" : "Export bookmarks"}
+          {loading ? "Exporting…" : "Export"}
         </button>
         <style jsx>{`
           .export-wrap { display: flex; align-items: center; gap: 8px; }
