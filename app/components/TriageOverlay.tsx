@@ -459,10 +459,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
                 e.preventDefault();
                 commitTagInput();
               }
-              if (e.key === "Backspace" && !tagInput && tags.length) {
-                e.preventDefault();
-                setTags((prev) => prev.slice(0, -1));
-              }
             }}
             onBlur={commitTagInput}
           />
