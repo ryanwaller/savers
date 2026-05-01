@@ -197,6 +197,24 @@ export default function Home() {
 
   // Reflect activeTag in the URL as ?tag=... for shareable links.
   const suppressTagUrlWrite = useRef(false);
+  const suppressCollectionUrlWrite = useRef(false);
+
+  // Read ?collection= from URL on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const coll = params.get("collection");
+    if (coll) {
+      suppressCollectionUrlWrite.current = true;
+      if (coll === "unsorted") {
+        setSelection({ kind: "unsorted" });
+      } else if (coll === "pinned") {
+        setSelection({ kind: "pinned" });
+      } else {
+        setSelection({ kind: "collection", id: coll });
+      }
+    }
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -205,7 +223,10 @@ export default function Home() {
     if (tag) {
       suppressTagUrlWrite.current = true;
       setActiveTag(tag);
-      setSelection({ kind: "all" });
+      // Only go global if a collection wasn't also requested
+      if (!params.get("collection")) {
+        setSelection({ kind: "all" });
+      }
     }
   }, []);
 
@@ -225,6 +246,28 @@ export default function Home() {
     const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
     window.history.replaceState({}, "", newUrl);
   }, [activeTag]);
+
+  // Sync selection to ?collection= in URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppressCollectionUrlWrite.current) {
+      suppressCollectionUrlWrite.current = false;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (selection.kind === "collection") {
+      params.set("collection", selection.id);
+    } else if (selection.kind === "unsorted") {
+      params.set("collection", "unsorted");
+    } else if (selection.kind === "pinned") {
+      params.set("collection", "pinned");
+    } else {
+      params.delete("collection");
+    }
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [selection]);
 
   // Handle ?savers_ref=public_<id> from shared collection pages.
   const importAttemptedRef = useRef(false);
