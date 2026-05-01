@@ -39,6 +39,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
   const [suggestion, setSuggestion] = useState<AISuggestion | null>(null);
   const [aiLoading, setAiLoading] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const tagInputRef = useRef("");
   const [tags, setTags] = useState<string[]>([]);
   const [suggestedTags, setSuggestedTags] = useState<string[]>([]);
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
@@ -78,6 +79,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
   useEffect(() => {
     setTags(current?.tags ?? []);
     setTagInput("");
+    tagInputRef.current = "";
     setSuggestion(null);
     setSuggestedTags([]);
     setSelectedCollection(null);
@@ -185,19 +187,19 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     const targetId = target?.id ?? null;
     const targetName = target ? target.name : "Unsorted";
 
-    // Don't remove from queue if nothing changed — bookmark stays unsorted.
-    if (targetId === null) return;
-
     setQueue((prev) => prev.slice(1));
-    setRecentIds((prev) => {
-      const filtered = prev.filter((id) => id !== targetId);
-      return [targetId, ...filtered].slice(0, 8);
-    });
+    if (targetId) {
+      setRecentIds((prev) => {
+        const filtered = prev.filter((id) => id !== targetId);
+        return [targetId, ...filtered].slice(0, 8);
+      });
+    }
 
     const currentTags = current.tags ?? [];
 
     try {
-      const updates: Partial<Bookmark> = { collection_id: targetId };
+      const updates: Partial<Bookmark> = {};
+      if (targetId !== null) updates.collection_id = targetId;
       if (
         tags.length !== currentTags.length ||
         tags.some((t, i) => t !== currentTags[i])
@@ -209,7 +211,9 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       scheduleUndo({
         bookmark: { ...current, collection_id: targetId },
         previousCollectionId,
-        message: `Filed "${trimTitle(current)}" in ${targetName}.`,
+        message: target
+          ? `Filed "${trimTitle(current)}" in ${targetName}.`
+          : `Updated tags for "${trimTitle(current)}".`,
       });
     } catch (e) {
       setQueue((prev) => [current, ...prev]);
@@ -305,8 +309,9 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
   }, [open, choiceCollections, current?.id, undo?.bookmark.id]);
 
   function commitTagInput() {
-    const value = tagInput.trim().toLowerCase();
+    const value = tagInputRef.current.trim().toLowerCase();
     if (!value) return;
+    tagInputRef.current = "";
     setTagInput("");
     setTags((prev) => (prev.includes(value) ? prev : [...prev, value]));
   }
@@ -453,7 +458,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             className="triage-tag-input"
             placeholder="Add a tag"
             value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
+            onChange={(e) => {
+              tagInputRef.current = e.target.value;
+              setTagInput(e.target.value);
+            }}
             onKeyDown={(e) => {
               if (e.key === "Enter" || e.key === ",") {
                 e.preventDefault();
