@@ -3,7 +3,7 @@ import { requireUser } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export async function GET(req: NextRequest) {
-  const user = await requireUser();
+  const { user } = await requireUser();
   const url = req.nextUrl.searchParams.get("url");
   if (!url) {
     return NextResponse.json({ error: "Missing ?url parameter" }, { status: 400 });
