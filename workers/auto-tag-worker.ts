@@ -23,11 +23,18 @@ import { fetchPageContent } from "@/lib/page-content";
 import { normalizeTag, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-if (!ANTHROPIC_API_KEY) {
-  console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
+let _anthropic: Anthropic | null | undefined;
+function getAnthropic(): Anthropic | null {
+  if (_anthropic !== undefined) return _anthropic;
+  const key = process.env["ANTHROPIC_API_KEY"];
+  if (!key) {
+    console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
+    _anthropic = null;
+  } else {
+    _anthropic = new Anthropic({ apiKey: key });
+  }
+  return _anthropic;
 }
-const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const CACHE_KEY_PREFIX = "autotag:";
@@ -86,6 +93,8 @@ ${truncated || "(no text extracted)"}
 Respond with JSON only, no explanation:
 {"tags": ["example-tag", "another-tag"]}`;
 
+  const anthropic = getAnthropic();
+  if (!anthropic) return [];
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 200,
@@ -177,7 +186,7 @@ async function processJob(job: Job<AutoTagJobData>) {
 
   // Extract tags via LLM
   let rawTags: string[] = [];
-  if (anthropic) {
+  if (getAnthropic()) {
     try {
       rawTags = await extractTagsViaLLM(url, title, content.body_text);
     } catch (e) {
