@@ -269,6 +269,15 @@ function BookmarkCard({
   }, [menuOpen]);
 
   useEffect(() => {
+    if (!showTagOverlay) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowTagOverlay(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [showTagOverlay]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const mq = window.matchMedia("(prefers-color-scheme: dark)");
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -1165,19 +1174,26 @@ function BookmarkCard({
           background: var(--color-bg);
         }
         .tag-overlay-backdrop {
-          position: absolute;
+          position: fixed;
           inset: 0;
-          z-index: 10;
-          background: rgba(0, 0, 0, 0.65);
+          z-index: 80;
+          background: rgba(0, 0, 0, 0.6);
+          backdrop-filter: blur(4px);
           display: flex;
-          align-items: flex-end;
-          padding: 10px;
-          border-radius: var(--radius-md);
+          align-items: center;
+          justify-content: center;
+          padding: 24px;
         }
         .tag-overlay-panel {
           display: flex;
           flex-wrap: wrap;
-          gap: 6px;
+          gap: 8px;
+          justify-content: center;
+          max-width: 480px;
+        }
+        .tag-overlay-panel .tag {
+          font-size: 14px;
+          padding: 6px 12px;
         }
         .tagging-badge {
           position: absolute;
