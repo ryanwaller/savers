@@ -19,6 +19,7 @@ import type { ScreenshotJobData } from "@/lib/screenshot-queue";
 import { SCREENSHOT_QUEUE_NAME } from "@/lib/screenshot-queue";
 import { captureScreenshot, captureTextExcerptImage, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
 import { extractExcerpt } from "@/lib/excerpt";
+import { findRecipeHeroImageUrl, fetchAndProcessRecipeHero } from "@/lib/extractRecipeHero";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -55,13 +56,22 @@ async function processJob(job: Job<ScreenshotJobData>) {
     .eq("user_id", userId)
     .maybeSingle();
 
+  let useRecipeHero = false;
   let useTextExcerpt = false;
   if (bookmark) {
     const tags = (bookmark.tags ?? []) as string[];
+    const isRecipeTag = tags.some(
+      (t: string) =>
+        t.toLowerCase() === "recipe" ||
+        t.toLowerCase() === "cooking" ||
+        t.toLowerCase() === "food" ||
+        t.toLowerCase() === "baking",
+    );
     const hasArticleTag = tags.some(
       (t: string) => t.toLowerCase() === "essay" || t.toLowerCase() === "article",
     );
 
+    let isRecipesCollection = false;
     let isReadLater = false;
     if (bookmark.collection_id) {
       const { data: collection } = await supabase
@@ -69,15 +79,82 @@ async function processJob(job: Job<ScreenshotJobData>) {
         .select("name")
         .eq("id", bookmark.collection_id)
         .maybeSingle();
-      isReadLater = collection?.name?.toLowerCase() === "read later";
+      const name = collection?.name?.toLowerCase();
+      isRecipesCollection = name === "recipes";
+      isReadLater = name === "read later";
     }
 
-    useTextExcerpt = isReadLater || hasArticleTag;
+    // Recipe takes priority over article
+    useRecipeHero = isRecipesCollection || isRecipeTag;
+    useTextExcerpt = !useRecipeHero && (isReadLater || hasArticleTag);
   }
 
   const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
 
   try {
+    if (useRecipeHero) {
+      // Try hero image extraction, fall back to screenshot on any failure
+      const recipePage = await browser.newPage();
+      try {
+        await recipePage.setUserAgent(
+          "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
+        );
+        await recipePage.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 25000,
+        });
+        // Wait for lazy images to load
+        await new Promise((r) => setTimeout(r, 3000));
+
+        const imageUrl = await findRecipeHeroImageUrl(recipePage, url);
+
+        if (imageUrl) {
+          console.log(`[${WORKER_NAME}] Recipe hero found: ${imageUrl}`);
+          const heroBuffer = await fetchAndProcessRecipeHero(imageUrl);
+
+          const version = Date.now();
+          const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
+          const previewUpdatedAt = new Date().toISOString();
+
+          const { error: uploadError } = await supabase.storage
+            .from(PREVIEW_BUCKET)
+            .upload(previewPath, heroBuffer, {
+              contentType: "image/jpeg",
+              upsert: true,
+              cacheControl: "31536000",
+            });
+
+          if (uploadError) throw uploadError;
+
+          const { error: updateError } = await supabase
+            .from("bookmarks")
+            .update({
+              preview_path: previewPath,
+              preview_provider: "puppeteer",
+              preview_updated_at: previewUpdatedAt,
+              preview_version: version,
+              screenshot_status: "complete",
+              screenshot_error: null,
+              asset_type: "recipe_hero",
+            })
+            .eq("id", bookmarkId)
+            .eq("user_id", userId);
+
+          if (updateError) throw updateError;
+
+          return { previewPath, provider: "puppeteer", assetType: "recipe_hero" as const };
+        }
+
+        console.log(`[${WORKER_NAME}] No recipe hero found, falling back to screenshot`);
+      } catch (err) {
+        console.log(
+          `[${WORKER_NAME}] Recipe hero extraction failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        await recipePage.close().catch(() => {});
+      }
+    }
+
     if (useTextExcerpt) {
       const excerpt = await extractExcerpt(
         url,
