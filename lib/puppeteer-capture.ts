@@ -20,7 +20,6 @@ export const PUPPETEER_LAUNCH_OPTIONS = {
     "--mute-audio",
     "--no-first-run",
     "--no-zygote",
-    "--single-process",
   ],
   defaultViewport: {
     width: 1280,
