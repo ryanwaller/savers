@@ -39,7 +39,6 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
-  const [bookmarkletTokenId, setBookmarkletTokenId] = useState<string>("");
   const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
 
   useEffect(() => {
@@ -74,7 +73,6 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
       const result = await api.createToken(newTokenName.trim());
       setRevealedToken(result.token);
       setBookmarkletToken(result.token);
-      setBookmarkletTokenId(result.record?.id ?? "");
       setNewTokenName("");
       await load();
     } catch (e) {
@@ -139,72 +137,54 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           <section className="section">
             <div className="section-title">Bookmarklet</div>
             <p className="small muted">
-              Save any page to Savers without installing an extension. Select
-              an API token below so the bookmarklet works even when third-party
-              cookies are blocked.
+              Save any page to Savers without installing an extension. Modern
+              browsers block third-party cookies, so the bookmarklet needs its
+              own API token to authenticate.
             </p>
 
-            <div className="bookmarklet-token-row">
-              <select
-                className="bookmarklet-token-select"
-                value={bookmarkletTokenId}
-                onChange={(e) => setBookmarkletTokenId(e.target.value)}
-              >
-                <option value="">No token (uses cookies — may fail cross-site)</option>
-                {tokens.map((t) => (
-                  <option key={t.id} value={t.id}>
-                    {t.name} ({t.prefix}…)
-                  </option>
-                ))}
-              </select>
-              <button
-                className="btn btn-primary"
-                onClick={async () => {
-                  if (creating) return;
-                  setCreating(true);
-                  setError(null);
-                  try {
-                    const result = await api.createToken("Bookmarklet");
-                    setRevealedToken(result.token);
-                    setBookmarkletToken(result.token);
-                    setBookmarkletTokenId(result.record?.id ?? "");
-                    await load();
-                  } catch (e) {
-                    setError(e instanceof Error ? e.message : "Could not create token");
-                  } finally {
-                    setCreating(false);
-                  }
-                }}
-                disabled={creating}
-              >
-                {creating ? "Creating…" : "Create token for bookmarklet"}
-              </button>
-            </div>
+            <button
+              className="btn btn-primary"
+              onClick={async () => {
+                if (creating) return;
+                setCreating(true);
+                setError(null);
+                try {
+                  const result = await api.createToken("Bookmarklet");
+                  setRevealedToken(result.token);
+                  setBookmarkletToken(result.token);
+                  await load();
+                } catch (e) {
+                  setError(e instanceof Error ? e.message : "Could not create token");
+                } finally {
+                  setCreating(false);
+                }
+              }}
+              disabled={creating}
+            >
+              {creating ? "Creating…" : "Create token for bookmarklet"}
+            </button>
+
             {bookmarkletToken ? (
               <div className="small muted">
-                Token embedded — your bookmarklet will work cross-site without
-                cookies. Create a new token here if you lose it.
-              </div>
-            ) : tokens.length === 0 ? (
-              <div className="small muted">
-                No API tokens yet. Click "+ New" to create one for the bookmarklet —
-                it will be embedded directly in the bookmarklet code.
+                Token created and embedded. Now copy the bookmarklet code below.
               </div>
             ) : (
               <div className="small muted">
-                Select an existing token above, or click "+ New" to create one.
-                Only newly created tokens can be embedded (they are shown once).
+                Click the button above first. A new token will be created and
+                embedded directly into the bookmarklet code.
               </div>
             )}
 
             <ol className="bookmarklet-steps">
-              <li>Select an API token above, then click the button below to copy the bookmarklet code.</li>
+              <li>Click <strong>Create token for bookmarklet</strong> above.</li>
+              <li>Click <strong>Copy bookmarklet code</strong> below.</li>
               <li>Create a new bookmark in your bookmarks bar (right-click → Add page).</li>
               <li>Name it "Save to Savers" and paste the code as the URL.</li>
             </ol>
             <button
               className="btn btn-primary"
               onClick={() => void copyBookmarklet()}
+              disabled={!bookmarkletToken}
             >
               {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
             </button>
@@ -474,20 +454,6 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           font-size: 12px;
           color: var(--color-text-muted);
           line-height: 1.7;
-        }
-        .bookmarklet-token-row {
-          display: flex;
-          gap: 8px;
-        }
-        .bookmarklet-token-select {
-          flex: 1;
-          padding: 8px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font: inherit;
-          font-size: 13px;
         }
         @media (max-width: 768px) {
           .backdrop {
