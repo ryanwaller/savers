@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { api, screenshotPreviewUrl } from "@/lib/api";
+import { api, storedPreviewUrl } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import CollectionIcon from "./CollectionIcon";
 
@@ -28,9 +28,10 @@ type Props = {
    * its local state if it wants. Called after each mutation succeeds.
    */
   onMutated?: () => void;
+  allTags?: string[];
 };
 
-export default function TriageOverlay({ open, onClose, onMutated }: Props) {
+export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }: Props) {
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [queue, setQueue] = useState<Bookmark[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -181,25 +182,20 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     }, TOAST_TIMEOUT_MS);
   }
 
-  async function handleFile(target: Collection | null) {
+  async function handleFile(target: Collection) {
     if (!current) return;
     const previousCollectionId = current.collection_id;
-    const targetId = target?.id ?? null;
-    const targetName = target ? target.name : "Unsorted";
 
     setQueue((prev) => prev.slice(1));
-    if (targetId) {
-      setRecentIds((prev) => {
-        const filtered = prev.filter((id) => id !== targetId);
-        return [targetId, ...filtered].slice(0, 8);
-      });
-    }
+    setRecentIds((prev) => {
+      const filtered = prev.filter((id) => id !== target.id);
+      return [target.id, ...filtered].slice(0, 8);
+    });
 
     const currentTags = current.tags ?? [];
 
     try {
-      const updates: Partial<Bookmark> = {};
-      if (targetId !== null) updates.collection_id = targetId;
+      const updates: Partial<Bookmark> = { collection_id: target.id };
       if (
         tags.length !== currentTags.length ||
         tags.some((t, i) => t !== currentTags[i])
@@ -209,11 +205,9 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       await api.updateBookmark(current.id, updates);
       onMutated?.();
       scheduleUndo({
-        bookmark: { ...current, collection_id: targetId },
+        bookmark: { ...current, collection_id: target.id },
         previousCollectionId,
-        message: target
-          ? `Filed "${trimTitle(current)}" in ${targetName}.`
-          : `Updated tags for "${trimTitle(current)}".`,
+        message: `Filed "${trimTitle(current)}" in ${target.name}.`,
       });
     } catch (e) {
       setQueue((prev) => [current, ...prev]);
@@ -308,12 +302,20 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, choiceCollections, current?.id, undo?.bookmark.id]);
 
-  function commitTagInput() {
-    const value = tagInputRef.current.trim().toLowerCase();
-    if (!value) return;
+  const tagSuggestions = useMemo(() => {
+    const q = tagInput.trim().toLowerCase();
+    if (!q) return [];
+    return allTags
+      .filter((t) => t.includes(q) && !tags.includes(t))
+      .slice(0, 6);
+  }, [tagInput, allTags, tags]);
+
+  function commitTagInput(value?: string) {
+    const v = (value ?? tagInputRef.current).trim().toLowerCase();
+    if (!v) return;
     tagInputRef.current = "";
     setTagInput("");
-    setTags((prev) => (prev.includes(value) ? prev : [...prev, value]));
+    setTags((prev) => (prev.includes(v) ? prev : [...prev, v]));
   }
 
   function removeTag(tag: string) {
@@ -349,10 +351,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       </div>
     );
   } else {
-    const previewSrc = screenshotPreviewUrl(current.url, {
-      cacheBust: current.preview_version,
+    const storedSrc = storedPreviewUrl(current.preview_path, {
+      previewVersion: current.preview_version,
     });
-    const fallbackSrc = current.og_image ?? null;
+    const previewSrc = storedSrc || current.og_image || current.favicon;
 
     body = (
       <main className="triage-main">
@@ -367,10 +369,6 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             <img
               src={previewSrc}
               alt=""
-              onError={(e) => {
-                if (fallbackSrc)
-                  (e.target as HTMLImageElement).src = fallbackSrc;
-              }}
               loading="eager"
             />
           ) : (
@@ -454,6 +452,18 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
                 +{tag}
               </button>
             ))}
+          {tagSuggestions.map((tag) => (
+            <button
+              key={`auto-${tag}`}
+              className="triage-tag-autocomplete"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                commitTagInput(tag);
+              }}
+            >
+              {tag}
+            </button>
+          ))}
           <input
             className="triage-tag-input"
             placeholder="Add a tag"
@@ -468,7 +478,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
                 commitTagInput();
               }
             }}
-            onBlur={commitTagInput}
+            onBlur={() => commitTagInput()}
           />
         </div>
 
@@ -490,7 +500,10 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
             </button>
             <button
               className="triage-action primary"
-              onClick={() => void handleFile(selectedCollection)}
+              disabled={!selectedCollection}
+              onClick={() => {
+                if (selectedCollection) void handleFile(selectedCollection);
+              }}
             >
               Save
             </button>
@@ -712,6 +725,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           color: var(--color-text);
           font: inherit;
           font-size: 13px;
+          line-height: 1;
           cursor: pointer;
           transition: border-color 120ms ease, background 120ms ease;
         }
@@ -802,6 +816,25 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           cursor: pointer;
         }
         .triage-tag-suggest:hover {
+          border-color: var(--color-border-strong);
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
+        .triage-tag-autocomplete {
+          appearance: none;
+          display: inline-flex;
+          align-items: center;
+          padding: 7px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text-muted);
+          font: inherit;
+          font-size: 13px;
+          line-height: 1;
+          cursor: pointer;
+        }
+        .triage-tag-autocomplete:hover {
           border-color: var(--color-border-strong);
           color: var(--color-text);
           background: var(--color-bg-hover);

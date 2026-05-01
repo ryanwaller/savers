@@ -698,7 +698,6 @@ export default function Sidebar({
         }
         .sidebar-foot {
           padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 24px);
-          border-top: 1px solid var(--color-border);
         }
         .sidebar-foot-row {
           display: block;

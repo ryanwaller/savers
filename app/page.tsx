@@ -1838,6 +1838,7 @@ export default function Home() {
           // Refresh local bookmark list after a triage mutation lands.
           void loadAllBookmarks();
         }}
+        allTags={allTags}
       />
 
       <SmartCollectionBuilderModal

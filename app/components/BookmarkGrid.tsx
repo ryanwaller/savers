@@ -6,8 +6,6 @@ import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
 import {
   domainOf,
-  previewImageUrl,
-  screenshotPreviewUrl,
   storedPreviewUrl,
   tintForDomain,
 } from "@/lib/api";
@@ -228,8 +226,8 @@ function BookmarkCard({
   const [pinning, setPinning] = useState(false);
   const [previewNonce, setPreviewNonce] = useState<number | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
-  const [previewStage, setPreviewStage] = useState<"custom" | "stored" | "microlink" | "fallback" | "fail">(
-    "microlink"
+  const [previewStage, setPreviewStage] = useState<"custom" | "stored" | "og_image" | "favicon" | "fail">(
+    "fail"
   );
   const [dropActive, setDropActive] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
@@ -281,30 +279,25 @@ function BookmarkCard({
   const storedSrc = storedPreviewUrl(b.preview_path, {
     previewVersion: effectivePreviewVersion,
   });
-  const microlinkSrc = screenshotPreviewUrl(b.url, {
-    force: previewNonce !== null,
-    cacheBust: effectivePreviewVersion,
-  });
-  const fallbackSrc = previewImageUrl(b.url, {
-    ogImage: b.og_image,
-    favicon: b.favicon,
-    force: previewNonce !== null,
-    cacheBust: previewNonce,
-    previewVersion: effectivePreviewVersion,
-  });
   const screenshotSrc =
     previewStage === "custom"
       ? customSrc
       : previewStage === "stored"
       ? storedSrc
-      : previewStage === "microlink"
-        ? microlinkSrc
-        : fallbackSrc;
+      : previewStage === "og_image"
+        ? b.og_image!
+        : previewStage === "favicon"
+          ? b.favicon!
+          : null;
 
   useEffect(() => {
     setPreviewFailed(false);
-    setPreviewStage(customSrc ? "custom" : storedSrc ? "stored" : "microlink");
-  }, [customSrc, storedSrc, microlinkSrc, fallbackSrc]);
+    if (customSrc) setPreviewStage("custom");
+    else if (storedSrc) setPreviewStage("stored");
+    else if (b.og_image) setPreviewStage("og_image");
+    else if (b.favicon) setPreviewStage("favicon");
+    else setPreviewStage("fail");
+  }, [customSrc, storedSrc, b.og_image, b.favicon]);
 
   useEffect(() => {
     if (previewNonce !== null && b.preview_version === previewNonce) {
@@ -344,7 +337,10 @@ function BookmarkCard({
     setMenuOpen(false);
     setReloading(true);
     setPreviewFailed(false);
-    setPreviewStage("microlink");
+    if (storedSrc) setPreviewStage("stored");
+    else if (b.og_image) setPreviewStage("og_image");
+    else if (b.favicon) setPreviewStage("favicon");
+    else setPreviewStage("fail");
     const nextVersion = Date.now();
     setPreviewNonce(nextVersion);
     try {
@@ -448,7 +444,10 @@ function BookmarkCard({
     setUndoing(true);
     try {
       await onClearCustomPreview();
-      setPreviewStage("microlink");
+      if (storedSrc) setPreviewStage("stored");
+      else if (b.og_image) setPreviewStage("og_image");
+      else if (b.favicon) setPreviewStage("favicon");
+      else setPreviewStage("fail");
       setPreviewFailed(false);
       setPreviewNonce(null);
       setUndoPromptOpen(false);
@@ -524,15 +523,15 @@ function BookmarkCard({
                 onLoad={() => setReloading(false)}
                 onError={() => {
                   if (previewStage === "custom") {
-                    setPreviewStage(storedSrc ? "stored" : "microlink");
+                    setPreviewStage(storedSrc ? "stored" : b.og_image ? "og_image" : b.favicon ? "favicon" : "fail");
                     return;
                   }
                   if (previewStage === "stored") {
-                    setPreviewStage("microlink");
+                    setPreviewStage(b.og_image ? "og_image" : b.favicon ? "favicon" : "fail");
                     return;
                   }
-                  if (previewStage === "microlink") {
-                    setPreviewStage("fallback");
+                  if (previewStage === "og_image") {
+                    setPreviewStage(b.favicon ? "favicon" : "fail");
                     return;
                   }
                   setReloading(false);
