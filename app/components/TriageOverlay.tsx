@@ -579,9 +579,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         .triage-backdrop {
           position: fixed;
           inset: 0;
-          background: rgba(0, 0, 0, 0.48);
-          backdrop-filter: blur(14px) saturate(120%);
-          -webkit-backdrop-filter: blur(14px) saturate(120%);
+          background: var(--color-bg-page);
           display: flex;
           align-items: center;
           justify-content: center;

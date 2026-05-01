@@ -1028,6 +1028,7 @@ function BookmarkCard({
           flex: 1;
           text-align: left;
           cursor: pointer;
+          background: var(--color-bg-secondary);
         }
         @media (max-width: 768px) {
           .body {

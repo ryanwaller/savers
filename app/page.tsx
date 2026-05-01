@@ -1605,15 +1605,6 @@ export default function Home() {
                   {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
               ))}
-              {activeTag && selection.kind !== "all" && (
-                <button
-                  className="crumb-tag-scope-pill"
-                  onClick={() => setSelection({ kind: "all" })}
-                  title={`Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag} across all collections`}
-                >
-                  Show all {globalTagCounts[activeTag] ?? 0} tagged <span className="crumb-tag-scope-name">#{activeTag}</span> &nearr;
-                </button>
-              )}
               {activeTag && (
                 <>
                   <span className="sep">›</span>
@@ -1626,6 +1617,18 @@ export default function Home() {
                     >
                       ×
                     </button>
+                    {selection.kind !== "all" && (
+                      <>
+                        <span className="tag-filter-sep" />
+                        <button
+                          className="tag-filter-scope"
+                          onClick={() => setSelection({ kind: "all" })}
+                          title={`Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag}`}
+                        >
+                          all
+                        </button>
+                      </>
+                    )}
                   </span>
                 </>
               )}
@@ -2556,28 +2559,19 @@ export default function Home() {
           color: var(--color-text);
           background: color-mix(in srgb, var(--color-bg) 80%, transparent);
         }
-        .crumb-tag-scope-pill {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 3px 10px;
-          border: 1px dashed var(--color-border);
-          border-radius: 999px;
-          font-size: 11px;
+        .tag-filter-sep {
+          width: 1px;
+          height: 14px;
+          background: var(--color-border-strong);
+          flex-shrink: 0;
+        }
+        .tag-filter-scope {
+          font-size: 12px;
           color: var(--color-text-muted);
-          white-space: nowrap;
-          cursor: pointer;
-          background: transparent;
-          font-family: inherit;
-          line-height: 1.3;
+          padding: 0 2px;
+          flex-shrink: 0;
         }
-        .crumb-tag-scope-pill:hover {
-          color: var(--color-text);
-          border-color: var(--color-border-strong);
-          background: var(--color-bg-hover);
-        }
-        .crumb-tag-scope-name {
-          font-weight: 500;
+        .tag-filter-scope:hover {
           color: var(--color-text);
         }
         .search input {
