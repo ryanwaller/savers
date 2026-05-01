@@ -1,4 +1,5 @@
-import type { Browser, Page } from "puppeteer";
+import type { Browser } from "puppeteer";
+import { captureCleanScreenshot } from "./captureCleanScreenshot";
 
 const USER_AGENT =
   "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
@@ -42,34 +43,13 @@ export async function captureScreenshot(
   try {
     await page.setUserAgent(USER_AGENT);
 
-    // Block non-essential resources for faster capture
-    await page.setRequestInterception(true);
-    page.on("request", (req) => {
-      const type = req.resourceType();
-      if (["font", "media", "websocket"].includes(type)) {
-        void req.abort();
-      } else {
-        void req.continue();
-      }
-    });
-
-    await page.goto(url, {
-      waitUntil: "networkidle2",
+    const buffer = await captureCleanScreenshot(page, url, {
+      quality: 92,
       timeout: 25000,
     });
 
-    // Small extra settle time for lazy-loaded content
-    await new Promise((r) => setTimeout(r, 500));
-
-    const buffer = await page.screenshot({
-      type: "jpeg",
-      quality: 92,
-      fullPage: false,
-      captureBeyondViewport: false,
-    });
-
     return {
-      buffer: Buffer.from(buffer),
+      buffer,
       contentType: "image/jpeg",
     };
   } finally {

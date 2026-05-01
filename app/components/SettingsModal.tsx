@@ -6,7 +6,13 @@ import type { Bookmark, Collection } from "@/lib/types";
 import ExportBookmarksButton from "./ExportBookmarksButton";
 
 const BOOKMARKLET_SRC = "https://savers-production.up.railway.app/bookmarklet.js";
-const BOOKMARKLET_HREF = `javascript:(function(){var s=document.createElement('script');s.src='${BOOKMARKLET_SRC}';document.head.appendChild(s);})();`;
+
+function buildBookmarkletHref(token?: string | null): string {
+  const src = token
+    ? `${BOOKMARKLET_SRC}?token=${encodeURIComponent(token)}`
+    : BOOKMARKLET_SRC;
+  return `javascript:(function(){var s=document.createElement('script');s.src='${src}';document.head.appendChild(s);})();`;
+}
 
 type TokenRow = {
   id: string;
@@ -33,6 +39,8 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+  const [bookmarkletTokenId, setBookmarkletTokenId] = useState<string>("");
+  const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -65,6 +73,8 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
     try {
       const result = await api.createToken(newTokenName.trim());
       setRevealedToken(result.token);
+      setBookmarkletToken(result.token);
+      setBookmarkletTokenId(result.record?.id ?? "");
       setNewTokenName("");
       await load();
     } catch (e) {
@@ -101,7 +111,7 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
 
   async function copyBookmarklet() {
     try {
-      await navigator.clipboard.writeText(BOOKMARKLET_HREF);
+      await navigator.clipboard.writeText(buildBookmarkletHref(bookmarkletToken));
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
@@ -129,10 +139,54 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           <section className="section">
             <div className="section-title">Bookmarklet</div>
             <p className="small muted">
-              Save any page to Savers without installing an extension.
+              Save any page to Savers without installing an extension. Select
+              an API token below so the bookmarklet works even when third-party
+              cookies are blocked.
             </p>
+
+            <div className="bookmarklet-token-row">
+              <select
+                className="bookmarklet-token-select"
+                value={bookmarkletTokenId}
+                onChange={(e) => setBookmarkletTokenId(e.target.value)}
+              >
+                <option value="">No token (uses cookies — may fail cross-site)</option>
+                {tokens.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} ({t.prefix}…)
+                  </option>
+                ))}
+              </select>
+              <button
+                className="btn"
+                onClick={() => {
+                  setNewTokenName("Bookmarklet");
+                  // scroll to the API tokens section so user can create
+                  document.getElementById("api-tokens-section")?.scrollIntoView({ behavior: "smooth" });
+                }}
+              >
+                + New
+              </button>
+            </div>
+            {bookmarkletToken ? (
+              <div className="small muted">
+                Token embedded — your bookmarklet will work cross-site without
+                cookies. Create a new token here if you lose it.
+              </div>
+            ) : tokens.length === 0 ? (
+              <div className="small muted">
+                No API tokens yet. Click "+ New" to create one for the bookmarklet —
+                it will be embedded directly in the bookmarklet code.
+              </div>
+            ) : (
+              <div className="small muted">
+                Select an existing token above, or click "+ New" to create one.
+                Only newly created tokens can be embedded (they are shown once).
+              </div>
+            )}
+
             <ol className="bookmarklet-steps">
-              <li>Click the button below to copy the bookmarklet code.</li>
+              <li>Select an API token above, then click the button below to copy the bookmarklet code.</li>
               <li>Create a new bookmark in your bookmarks bar (right-click → Add page).</li>
               <li>Name it "Save to Savers" and paste the code as the URL.</li>
             </ol>
@@ -144,7 +198,7 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
             </button>
           </section>
 
-          <section className="section">
+          <section className="section" id="api-tokens-section">
             <div className="section-title">API tokens</div>
             <p className="small muted">
               Long-lived tokens for clients that can&apos;t use the web session
@@ -408,6 +462,20 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           font-size: 12px;
           color: var(--color-text-muted);
           line-height: 1.7;
+        }
+        .bookmarklet-token-row {
+          display: flex;
+          gap: 8px;
+        }
+        .bookmarklet-token-select {
+          flex: 1;
+          padding: 8px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 6px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font: inherit;
+          font-size: 13px;
         }
         @media (max-width: 768px) {
           .backdrop {

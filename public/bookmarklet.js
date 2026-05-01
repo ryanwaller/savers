@@ -4,9 +4,28 @@
  * Creates a minimal modal overlay on any page. Posts to the Savers API
  * and auto-closes on success. Works in Chrome, Firefox, Safari, and Edge
  * without any extension install required.
+ *
+ * Usage:
+ *   1. Create an API token in Savers Settings → API tokens
+ *   2. Append ?token=<your-token> to the script src:
+ *      javascript:(function(){var s=document.createElement('script');s.src='https://.../bookmarklet.js?token=svr_...';document.head.appendChild(s);})();
+ *
+ * When a token is provided, requests use Authorization: Bearer <token>.
+ * Without a token, falls back to session cookies (requires SameSite=None).
  */
 (function () {
   if (document.getElementById("savers-bm-root")) return;
+
+  /* ── Parse token from script src ── */
+  var token = null;
+  try {
+    var scripts = document.getElementsByTagName("script");
+    var me = scripts[scripts.length - 1];
+    if (me && me.src) {
+      var m = me.src.match(/[?&]token=([^&#]+)/);
+      if (m) token = decodeURIComponent(m[1]);
+    }
+  } catch (_) {}
 
   /* ── DOM ── */
   const root = document.createElement("div");
@@ -206,9 +225,14 @@
 
   /* ── API ── */
   async function apiFetch(path, options) {
+    const headers = { ...(options.headers || {}) };
+    if (token) {
+      headers["Authorization"] = "Bearer " + token;
+    }
     const res = await fetch(apiBase + path, {
-      credentials: "include",
       ...options,
+      credentials: token ? "omit" : "include",
+      headers,
     });
     if (!res.ok) {
       let msg = res.status + " " + res.statusText;
