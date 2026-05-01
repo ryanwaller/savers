@@ -89,10 +89,11 @@
         margin-bottom: 12px;
       }
       .savers-bm-label {
-        font-size: 11px;
-        color: var(--bm-muted);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
+        font-size: 14px;
+        font-weight: 500;
+        color: #b0b0b0;
+        text-transform: none;
+        letter-spacing: normal;
       }
       .savers-bm-input {
         width: 100%;
@@ -101,9 +102,13 @@
         border: 1px solid var(--bm-border);
         border-radius: 8px;
         background: var(--bm-bg);
-        color: var(--bm-text);
+        color: #e8e8e8;
         font: inherit;
         font-size: 14px;
+      }
+      .savers-bm-input::placeholder {
+        color: #888;
+        opacity: 1;
       }
       .savers-bm-input:focus {
         outline: none;
@@ -116,7 +121,7 @@
         border: 1px solid var(--bm-border);
         border-radius: 8px;
         background: var(--bm-bg);
-        color: var(--bm-text);
+        color: #e8e8e8;
         font: inherit;
         font-size: 14px;
       }
@@ -157,12 +162,6 @@
       }
       .savers-bm-status-error { color: #ff8f8f; }
       .savers-bm-status-success { color: #9ce7b1; }
-      .savers-bm-powered {
-        margin-top: 10px;
-        font-size: 11px;
-        color: var(--bm-muted);
-        text-align: right;
-      }
     </style>
     <div class="savers-bm-backdrop">
       <div class="savers-bm-panel">
@@ -173,7 +172,7 @@
           <input class="savers-bm-input savers-bm-title-input" type="text" />
         </div>
         <div class="savers-bm-field">
-          <label class="savers-bm-label">Tags (comma-separated)</label>
+          <label class="savers-bm-label">Tags</label>
           <input class="savers-bm-input savers-bm-tags" type="text" placeholder="design, inspiration" />
         </div>
         <div class="savers-bm-field">
@@ -185,7 +184,6 @@
           <button class="savers-bm-btn savers-bm-btn-primary savers-bm-save" type="button">Save</button>
         </div>
         <div class="savers-bm-status"></div>
-        <div class="savers-bm-powered">Saved to Savers</div>
       </div>
     </div>
   `;
@@ -249,11 +247,23 @@
     try {
       const data = await apiFetch("/api/collections", { method: "GET" });
       const flat = data?.flat || [];
+      // Build path map (e.g. "Design / Inspiration")
+      const byId = {};
+      for (const c of flat) byId[c.id] = c;
+      function resolvePath(id) {
+        const c = byId[id];
+        if (!c) return "";
+        if (c.parent_id) {
+          const parentPath = resolvePath(c.parent_id);
+          return parentPath ? parentPath + " / " + c.name : c.name;
+        }
+        return c.name;
+      }
       collSelect.innerHTML = '<option value="">Unsorted</option>';
       for (const c of flat) {
         const opt = document.createElement("option");
         opt.value = c.id;
-        opt.textContent = c.name;
+        opt.textContent = resolvePath(c.id);
         collSelect.appendChild(opt);
       }
     } catch {
