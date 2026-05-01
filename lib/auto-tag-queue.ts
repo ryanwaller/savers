@@ -30,7 +30,10 @@ export function getAutoTagQueue(): Queue<AutoTagJobData> {
 
 /** Enqueue an auto-tag job. Non-blocking — fire and forget. */
 export async function enqueueAutoTag(job: AutoTagJobData): Promise<void> {
-  if (!process.env.REDIS_URL) return;
+  if (!process.env.REDIS_URL) {
+    console.warn("[auto-tag-queue] REDIS_URL not set — skipping auto-tag enqueue");
+    return;
+  }
   await getAutoTagQueue().add("extract-tags", job, {
     jobId: `autotag-${job.bookmarkId}`,
   });

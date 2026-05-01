@@ -105,6 +105,16 @@ export default function Home() {
     return counts;
   }, [tagSourceBookmarks]);
 
+  const globalTagCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const bookmark of allBookmarks) {
+      for (const tag of bookmark.tags ?? []) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [allBookmarks]);
+
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
@@ -184,6 +194,37 @@ export default function Home() {
       window.history.replaceState({}, "", newUrl);
     }
   }, []);
+
+  // Reflect activeTag in the URL as ?tag=... for shareable links.
+  const suppressTagUrlWrite = useRef(false);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tag = params.get("tag");
+    if (tag) {
+      suppressTagUrlWrite.current = true;
+      setActiveTag(tag);
+      setSelection({ kind: "all" });
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppressTagUrlWrite.current) {
+      suppressTagUrlWrite.current = false;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (activeTag) {
+      params.set("tag", activeTag);
+    } else {
+      params.delete("tag");
+    }
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [activeTag]);
 
   // Handle ?savers_ref=public_<id> from shared collection pages.
   const importAttemptedRef = useRef(false);
@@ -816,8 +857,17 @@ export default function Home() {
     setSelection(breadcrumbItems[breadcrumbItems.length - 2].selection);
   }
 
-  function handleTagClick(tag: string | null) {
+  function handleCardTagClick(tag: string) {
     setActiveTag(tag);
+  }
+
+  function handleSidebarTagClick(tag: string | null) {
+    if (tag === null) {
+      setActiveTag(null);
+    } else {
+      setSelection({ kind: "all" });
+      setActiveTag(tag);
+    }
   }
 
   async function handleCreateCollection(name: string, parent_id: string | null) {
@@ -1484,7 +1534,7 @@ export default function Home() {
         tagCounts={tagCounts}
         activeTag={activeTag}
         userEmail={user.email}
-        onTagClick={handleTagClick}
+        onTagClick={handleSidebarTagClick}
         selection={selection}
         onSelect={(s) => {
           setSelection(s);
@@ -1555,6 +1605,15 @@ export default function Home() {
                   {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
               ))}
+              {activeTag && selection.kind !== "all" && (
+                <button
+                  className="crumb-tag-scope-pill"
+                  onClick={() => setSelection({ kind: "all" })}
+                  title={`Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag} across all collections`}
+                >
+                  Show all {globalTagCounts[activeTag] ?? 0} tagged <span className="crumb-tag-scope-name">#{activeTag}</span> &nearr;
+                </button>
+              )}
               {activeTag && (
                 <>
                   <span className="sep">›</span>
@@ -1673,7 +1732,7 @@ export default function Home() {
           onRefreshPreview={handleRefreshPreview}
           onUploadCustomPreview={handleUploadCustomPreview}
           onClearCustomPreview={handleClearCustomPreview}
-          onTagClick={handleTagClick}
+          onTagClick={handleCardTagClick}
           cardMinWidth={cardMinWidth}
           cardCols={cardCols}
           loading={loadingBookmarks}
@@ -2496,6 +2555,30 @@ export default function Home() {
         .tag-filter-clear:hover {
           color: var(--color-text);
           background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+        }
+        .crumb-tag-scope-pill {
+          display: inline-flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 10px;
+          border: 1px dashed var(--color-border);
+          border-radius: 999px;
+          font-size: 11px;
+          color: var(--color-text-muted);
+          white-space: nowrap;
+          cursor: pointer;
+          background: transparent;
+          font-family: inherit;
+          line-height: 1.3;
+        }
+        .crumb-tag-scope-pill:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .crumb-tag-scope-name {
+          font-weight: 500;
+          color: var(--color-text);
         }
         .search input {
           width: 200px;
