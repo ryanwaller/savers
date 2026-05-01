@@ -43,6 +43,8 @@ export interface Bookmark {
   tagging_status?: string | null
   /** Auto-extracted tags from the LLM pipeline. Never overwritten by user edits. */
   auto_tags?: string[]
+  /** 'text_excerpt' for read-later/article bookmarks; null/undefined for standard screenshots. */
+  asset_type?: string | null
 }
 
 export interface TagAlias {

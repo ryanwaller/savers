@@ -17,7 +17,8 @@ import { createClient } from "@supabase/supabase-js";
 import { createRedisConnection } from "@/lib/redis";
 import type { ScreenshotJobData } from "@/lib/screenshot-queue";
 import { SCREENSHOT_QUEUE_NAME } from "@/lib/screenshot-queue";
-import { captureScreenshot, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
+import { captureScreenshot, captureTextExcerptImage, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
+import { extractExcerpt } from "@/lib/excerpt";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -46,9 +47,79 @@ async function processJob(job: Job<ScreenshotJobData>) {
     .eq("id", bookmarkId)
     .eq("user_id", userId);
 
+  // Check if this bookmark qualifies for a text excerpt image
+  const { data: bookmark } = await supabase
+    .from("bookmarks")
+    .select("id, tags, collection_id, title, description")
+    .eq("id", bookmarkId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  let useTextExcerpt = false;
+  if (bookmark) {
+    const tags = (bookmark.tags ?? []) as string[];
+    const hasArticleTag = tags.some(
+      (t: string) => t.toLowerCase() === "essay" || t.toLowerCase() === "article",
+    );
+
+    let isReadLater = false;
+    if (bookmark.collection_id) {
+      const { data: collection } = await supabase
+        .from("collections")
+        .select("name")
+        .eq("id", bookmark.collection_id)
+        .maybeSingle();
+      isReadLater = collection?.name?.toLowerCase() === "read later";
+    }
+
+    useTextExcerpt = isReadLater || hasArticleTag;
+  }
+
   const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
 
   try {
+    if (useTextExcerpt) {
+      const excerpt = await extractExcerpt(
+        url,
+        bookmark?.title,
+        bookmark?.description,
+      );
+
+      const { buffer, contentType } = await captureTextExcerptImage(browser, excerpt);
+
+      const version = Date.now();
+      const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
+      const previewUpdatedAt = new Date().toISOString();
+
+      const { error: uploadError } = await supabase.storage
+        .from(PREVIEW_BUCKET)
+        .upload(previewPath, buffer, {
+          contentType,
+          upsert: true,
+          cacheControl: "31536000",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from("bookmarks")
+        .update({
+          preview_path: previewPath,
+          preview_provider: "puppeteer",
+          preview_updated_at: previewUpdatedAt,
+          preview_version: version,
+          screenshot_status: "complete",
+          screenshot_error: null,
+          asset_type: "text_excerpt",
+        })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+
+      if (updateError) throw updateError;
+
+      return { previewPath, provider: "puppeteer", assetType: "text_excerpt" as const };
+    }
+
     const { buffer, contentType } = await captureScreenshot(browser, url);
 
     const version = Date.now();

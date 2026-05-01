@@ -56,3 +56,48 @@ export async function captureScreenshot(
     await page.close().catch(() => {});
   }
 }
+
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+export async function captureTextExcerptImage(
+  browser: Browser,
+  excerpt: string,
+): Promise<CaptureResult> {
+  const page = await browser.newPage();
+  try {
+    await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
+
+    const html = `<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;background:#000;color:#fff;
+  font-family:'Liberation Sans',Arial,Helvetica,sans-serif;
+  font-size:32px;font-weight:500;line-height:1.5;padding:60px;
+  display:flex;align-items:center;justify-content:center;
+  min-height:100vh;box-sizing:border-box;">
+  <div style="max-width:1160px;text-align:left;">${escapeHtml(excerpt)}</div>
+</body>
+</html>`;
+
+    await page.setContent(html, { waitUntil: "networkidle0" });
+
+    const buffer = await page.screenshot({
+      type: "jpeg",
+      quality: 92,
+      fullPage: false,
+    });
+
+    return {
+      buffer: Buffer.from(buffer),
+      contentType: "image/jpeg",
+    };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
