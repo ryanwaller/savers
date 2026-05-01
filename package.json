@@ -10,6 +10,7 @@
     "build": "next build",
     "start": "next start",
     "worker": "tsx workers/screenshot-worker.ts",
+    "auto-worker": "tsx workers/auto-tag-worker.ts",
     "lint": "eslint"
   },
   "dependencies": {

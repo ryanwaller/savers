@@ -132,6 +132,20 @@ export const api = {
     );
   },
 
+  async bulkTagBookmarks(
+    ids: string[],
+    action: "add_tags" | "remove_tags",
+    tags: string[],
+  ): Promise<{ updated: number }> {
+    return j(
+      await fetch("/api/bookmarks/bulk-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, action, tags }),
+      }),
+    );
+  },
+
   async updateUrl(bookmarkId: string, url: string): Promise<{ bookmark: Bookmark }> {
     return j(
       await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/update-url`, {
@@ -203,6 +217,30 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       })
+    );
+  },
+
+  async listBookmarkTags(
+    id: string,
+  ): Promise<{ tags: { tag: string; source: "user" | "auto" }[] }> {
+    return j(await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`));
+  },
+  async acceptAutoTag(id: string, tag: string): Promise<{ bookmark: Bookmark }> {
+    return j(
+      await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "accept", tag }),
+      }),
+    );
+  },
+  async rejectAutoTag(id: string, tag: string): Promise<{ bookmark: Bookmark }> {
+    return j(
+      await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "reject", tag }),
+      }),
     );
   },
 

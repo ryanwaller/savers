@@ -46,6 +46,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null);
   const [undo, setUndo] = useState<UndoState>(null);
   const undoTimerRef = useRef<number | null>(null);
+  const [previewStage, setPreviewStage] = useState<"stored" | "og_image" | "favicon" | "fail">("stored");
 
   const current = queue[0] ?? null;
 
@@ -84,6 +85,13 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     setSuggestion(null);
     setSuggestedTags([]);
     setSelectedCollection(null);
+    const ss = storedPreviewUrl(current?.preview_path ?? null, {
+      previewVersion: current?.preview_version,
+    });
+    if (ss) setPreviewStage("stored");
+    else if (current?.og_image) setPreviewStage("og_image");
+    else if (current?.favicon) setPreviewStage("favicon");
+    else setPreviewStage("fail");
     if (!current || !open) return;
     let cancelled = false;
     setAiLoading(true);
@@ -210,6 +218,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         message: `Filed "${trimTitle(current)}" in ${target.name}.`,
       });
     } catch (e) {
+      console.error("Triage save failed for bookmark", current.id, e);
       setQueue((prev) => [current, ...prev]);
       window.alert(
         e instanceof Error ? e.message : "Couldn't move that bookmark."
@@ -354,7 +363,11 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     const storedSrc = storedPreviewUrl(current.preview_path, {
       previewVersion: current.preview_version,
     });
-    const previewSrc = storedSrc || current.og_image || current.favicon;
+    const triagePreviewSrc =
+      previewStage === "stored" ? storedSrc
+      : previewStage === "og_image" ? current.og_image
+      : previewStage === "favicon" ? current.favicon
+      : null;
 
     body = (
       <main className="triage-main">
@@ -364,12 +377,21 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           rel="noopener noreferrer"
           className="triage-thumb"
         >
-          {previewSrc ? (
+          {triagePreviewSrc ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={previewSrc}
+              src={triagePreviewSrc}
               alt=""
               loading="eager"
+              onError={() => {
+                if (previewStage === "stored") {
+                  setPreviewStage(current.og_image ? "og_image" : current.favicon ? "favicon" : "fail");
+                } else if (previewStage === "og_image") {
+                  setPreviewStage(current.favicon ? "favicon" : "fail");
+                } else {
+                  setPreviewStage("fail");
+                }
+              }}
             />
           ) : (
             <div className="triage-thumb-fallback">
@@ -753,8 +775,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          width: 18px;
-          height: 18px;
+          width: 14px;
+          height: 14px;
           border-radius: 999px;
           background: var(--color-bg-secondary);
           color: var(--color-text-muted);

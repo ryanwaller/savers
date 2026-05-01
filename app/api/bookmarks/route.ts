@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { fetchPageContent } from '@/lib/page-content'
 import { removePreviewObjects } from '@/lib/preview-server'
 import { enqueueScreenshot } from '@/lib/screenshot-queue'
+import { enqueueAutoTag } from '@/lib/auto-tag-queue'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -144,6 +145,19 @@ export async function POST(req: NextRequest) {
       logUnexpectedError('Enqueue screenshot error:', queueError)
     }
 
+    // Enqueue async auto-tag extraction (fire-and-forget)
+    try {
+      await enqueueAutoTag({
+        bookmarkId: bookmark.id,
+        userId: user.id,
+        url: bookmark.url,
+        title: bookmark.title,
+        description: bookmark.description,
+      })
+    } catch (queueError) {
+      logUnexpectedError('Enqueue auto-tag error:', queueError)
+    }
+
     return NextResponse.json({ bookmark })
   } catch (err) {
     logUnexpectedError('Save bookmark error:', err)
@@ -216,11 +230,15 @@ export async function PATCH(req: NextRequest) {
       .eq('id', id)
       .eq('user_id', user.id)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       logUnexpectedError('Update bookmark error:', error)
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Bookmark not found' }, { status: 404 })
     }
 
     const shouldRefreshPreview =

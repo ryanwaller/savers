@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
 import {
+  api,
   domainOf,
   storedPreviewUrl,
   tintForDomain,
@@ -31,7 +32,7 @@ type Props = {
   emptyLabel?: string;
   isEditMode?: boolean;
   selectedIds?: Set<string>;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
 };
 
 export default function BookmarkGrid({
@@ -214,7 +215,7 @@ function BookmarkCard({
   cardCols?: number;
   isEditMode?: boolean;
   isSelected?: boolean;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
 }) {
   // On the smallest mobile preset (3 cols) there's no room for both a pin
   // button and the overflow menu, so the pin moves into the menu.
@@ -482,7 +483,7 @@ function BookmarkCard({
           aria-label={isSelected ? "Deselect bookmark" : "Select bookmark"}
           onClick={(e) => {
             e.stopPropagation();
-            onToggleSelect?.(b.id);
+            onToggleSelect?.(b.id, e.shiftKey);
           }}
         >
           {isSelected && (
@@ -604,6 +605,27 @@ function BookmarkCard({
               )}
             </div>
           )}
+          {b.auto_tags && b.auto_tags.length > 0 && (
+            <div className="tags-overlay-auto">
+              {b.auto_tags.filter((t) => !b.tags?.includes(t)).slice(0, 3).map((t) => (
+                <button
+                  type="button"
+                  key={`auto-${t}`}
+                  className="tag tag-auto"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void api.acceptAutoTag(b.id, t).catch(() => {});
+                  }}
+                  title={`Auto: ${t} — click to keep`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+          )}
+          {b.tagging_status === "pending" || b.tagging_status === "processing" ? (
+            <div className="tagging-badge" title="Auto-tagging in progress" />
+          ) : null}
         </div>
 
         <div
@@ -1131,6 +1153,58 @@ function BookmarkCard({
           color: var(--color-text);
           border-color: var(--color-border-strong);
           background: var(--color-bg);
+        }
+        .tags-overlay-auto {
+          position: absolute;
+          left: 10px;
+          right: 10px;
+          bottom: 42px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 4px;
+          opacity: 0;
+          transform: translateY(6px) scale(0.96);
+          pointer-events: none;
+          transition:
+            opacity 160ms ease,
+            transform 200ms cubic-bezier(0.2, 0.8, 0.25, 1);
+          z-index: 1;
+        }
+        @media (hover: hover) {
+          .card-shell:hover .tags-overlay-auto,
+          .card-shell:focus-within .tags-overlay-auto {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+          }
+        }
+        .tag-auto {
+          font-size: 11px;
+          padding: 3px 7px;
+          border: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
+          border-radius: 999px;
+          color: var(--color-text-muted);
+          background: color-mix(in srgb, var(--color-bg) 82%, transparent);
+          backdrop-filter: blur(8px);
+          -webkit-backdrop-filter: blur(8px);
+          cursor: pointer;
+        }
+        .tag-auto:hover {
+          border-style: solid;
+          border-color: var(--color-border-strong);
+          color: var(--color-text);
+          background: var(--color-bg);
+        }
+        .tagging-badge {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          width: 6px;
+          height: 6px;
+          border-radius: 50%;
+          background: var(--color-text-muted);
+          opacity: 0.5;
+          z-index: 1;
         }
       `}</style>
     </div>

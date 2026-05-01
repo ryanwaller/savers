@@ -129,9 +129,13 @@ export default function Home() {
   const cardCols = CARD_SIZE_COLS[cardSize];
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const lastClickedIdRef = useRef<string | null>(null);
   const [showBulkMovePicker, setShowBulkMovePicker] = useState(false);
   const [bulkMoveSearch, setBulkMoveSearch] = useState("");
   const [bulkMoveBusy, setBulkMoveBusy] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkTagBusy, setBulkTagBusy] = useState(false);
   const [resizingSidebar, setResizingSidebar] = useState(false);
   const [loadingBookmarks, setLoadingBookmarks] = useState(false);
   const [initialDataLoaded, setInitialDataLoaded] = useState(false);
@@ -663,18 +667,28 @@ export default function Home() {
     return () => clearInterval(timer);
   }, [user, initialDataLoaded, updateAllBookmarksState]);
 
-  // Esc to exit edit mode
+  // Esc to exit edit mode, Cmd/Ctrl+A to select all visible
   useEffect(() => {
     if (!isEditMode) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
         setIsEditMode(false);
         setSelectedIds(new Set());
+        lastClickedIdRef.current = null;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        // Don't prevent default — let the browser text-selection behavior
+        // happen if the user is in an input, but if the target is a card or
+        // the body, select all visible bookmarks instead.
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        setSelectedIds(new Set(bookmarks.map((b) => b.id)));
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [isEditMode]);
+  }, [isEditMode, bookmarks]);
 
   // Collection paths for the bulk move picker (same logic as CollectionPicker)
   const collectionPaths = useMemo(() => {
@@ -1070,6 +1084,7 @@ export default function Home() {
       for (const id of ids) handleBookmarkDeleted(id);
       setSelectedIds(new Set());
       setIsEditMode(false);
+      lastClickedIdRef.current = null;
       setDropStatus(`${ids.length} deleted.`);
       setTimeout(() => setDropStatus(null), 3000);
     } catch (e) {
@@ -1087,6 +1102,7 @@ export default function Home() {
       for (const id of ids) handleBookmarkMoved(id, collectionId);
       setSelectedIds(new Set());
       setIsEditMode(false);
+      lastClickedIdRef.current = null;
       setShowBulkMovePicker(false);
       setBulkMoveSearch("");
       const label = collectionId ? collectionPaths.get(collectionId) ?? "collection" : "Unsorted";
@@ -1097,6 +1113,26 @@ export default function Home() {
       setTimeout(() => setDropStatus(null), 5000);
     } finally {
       setBulkMoveBusy(false);
+    }
+  }
+
+  async function handleBulkAddTags() {
+    const tag = bulkTagInput.trim().toLowerCase();
+    if (!tag) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkTagBusy(true);
+    try {
+      await api.bulkTagBookmarks(ids, "add_tags", [tag]);
+      setBulkTagInput("");
+      setDropStatus(`Added #${tag} to ${ids.length} bookmark${ids.length === 1 ? "" : "s"}.`);
+      setTimeout(() => setDropStatus(null), 3000);
+      loadAllBookmarks();
+    } catch (e) {
+      setDropStatus(`Tag failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
+    } finally {
+      setBulkTagBusy(false);
     }
   }
 
@@ -1643,11 +1679,23 @@ export default function Home() {
           loading={loadingBookmarks}
           isEditMode={isEditMode}
           selectedIds={selectedIds}
-          onToggleSelect={(id) => {
+          onToggleSelect={(id, shiftKey) => {
             setSelectedIds((prev) => {
               const next = new Set(prev);
-              if (next.has(id)) next.delete(id);
-              else next.add(id);
+              if (shiftKey && lastClickedIdRef.current) {
+                const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                const toIdx = bookmarks.findIndex((b) => b.id === id);
+                if (fromIdx !== -1 && toIdx !== -1) {
+                  const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                  for (let i = start; i <= end; i++) {
+                    next.add(bookmarks[i].id);
+                  }
+                }
+              } else {
+                if (next.has(id)) next.delete(id);
+                else next.add(id);
+              }
+              lastClickedIdRef.current = id;
               return next;
             });
           }}
@@ -1667,6 +1715,29 @@ export default function Home() {
         <div className="bottom-bar">
           {isEditMode && selectedIds.size > 0 && (
             <div className="bulk-actions">
+              <span className="bulk-count">{selectedIds.size} selected</span>
+              <div className="bulk-tag-wrap">
+                <input
+                  className="bulk-tag-input"
+                  placeholder="Add tag…"
+                  value={bulkTagInput}
+                  disabled={bulkTagBusy}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleBulkAddTags();
+                    }
+                  }}
+                />
+                <button
+                  className="btn"
+                  disabled={bulkTagBusy || !bulkTagInput.trim()}
+                  onClick={() => handleBulkAddTags()}
+                >
+                  Tag
+                </button>
+              </div>
               <div className="bulk-move-wrap">
                 <button
                   className="btn"
@@ -1736,7 +1807,7 @@ export default function Home() {
               </div>
               <button
                 className="btn btn-ghost danger"
-                onClick={handleBulkDelete}
+                onClick={() => setConfirmBulkDelete(true)}
               >
                 Delete {selectedIds.size}
               </button>
@@ -1745,6 +1816,7 @@ export default function Home() {
                 onClick={() => {
                   setIsEditMode(false);
                   setSelectedIds(new Set());
+                  lastClickedIdRef.current = null;
                 }}
               >
                 Cancel
@@ -1775,6 +1847,7 @@ export default function Home() {
               onClick={() => {
                 setIsEditMode((v) => !v);
                 setSelectedIds(new Set());
+                lastClickedIdRef.current = null;
               }}
               title={isEditMode ? "Exit edit mode" : "Edit mode"}
               aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
@@ -1922,6 +1995,18 @@ export default function Home() {
         onCancel={() => setShowDeleteDuplicates(false)}
       />
 
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} bookmark${selectedIds.size === 1 ? "" : "s"}?`}
+        description="This action cannot be undone."
+        confirmLabel={`Delete ${selectedIds.size}`}
+        onConfirm={() => {
+          setConfirmBulkDelete(false);
+          handleBulkDelete();
+        }}
+        onCancel={() => setConfirmBulkDelete(false)}
+      />
+
       <style jsx>{`
         .app {
           display: flex;
@@ -1972,6 +2057,37 @@ export default function Home() {
           padding: 0 12px;
           font-size: 12px;
           border-radius: 999px;
+        }
+        .bulk-count {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+        .bulk-tag-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .bulk-tag-input {
+          width: 100px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font: inherit;
+          font-size: 12px;
+          line-height: 1;
+        }
+        .bulk-tag-input::placeholder {
+          color: var(--color-text-muted);
+        }
+        .bulk-tag-input:focus {
+          outline: none;
+          border-color: var(--color-border-strong);
         }
         .bulk-move-wrap {
           position: relative;
