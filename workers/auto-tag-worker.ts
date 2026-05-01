@@ -23,7 +23,11 @@ import { fetchPageContent } from "@/lib/page-content";
 import { normalizeTag, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 
-const anthropic = new Anthropic();
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+if (!ANTHROPIC_API_KEY) {
+  console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
+}
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const CACHE_KEY_PREFIX = "autotag:";
@@ -104,56 +108,126 @@ Respond with JSON only, no explanation:
 
 async function processJob(job: Job<AutoTagJobData>) {
   const { bookmarkId, userId, url, title } = job.data;
-  const supabase = getSupabaseAdmin();
+
+  let supabase;
+  try {
+    supabase = getSupabaseAdmin();
+  } catch (e) {
+    console.error("[auto-tag-worker] Supabase init failed:", e instanceof Error ? e.message : String(e));
+    throw e;
+  }
 
   // Mark as processing
-  await supabase
-    .from("bookmarks")
-    .update({ tagging_status: "processing" })
-    .eq("id", bookmarkId)
-    .eq("user_id", userId);
+  try {
+    await supabase
+      .from("bookmarks")
+      .update({ tagging_status: "processing" })
+      .eq("id", bookmarkId)
+      .eq("user_id", userId);
+  } catch (e) {
+    console.error("[auto-tag-worker] Supabase update (processing) failed:", e instanceof Error ? e.message : String(e));
+    throw e;
+  }
 
   // Check cache
   const redis = getRedis();
   const key = cacheKey(url, title);
-  const cached = await redis.get(key);
+  let cached: string | null = null;
+  try {
+    cached = await redis.get(key);
+  } catch (e) {
+    console.warn("[auto-tag-worker] Redis get failed (continuing):", e instanceof Error ? e.message : String(e));
+  }
+
   if (cached) {
     const tags = JSON.parse(cached) as string[];
+    try {
+      await supabase
+        .from("bookmarks")
+        .update({ auto_tags: tags, tagging_status: "completed" })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+    } catch (e) {
+      console.error("[auto-tag-worker] Supabase update (cache) failed:", e instanceof Error ? e.message : String(e));
+    }
+    return { tags, source: "cache" as const };
+  }
+
+  // Fetch page content
+  let content;
+  try {
+    content = await fetchPageContent(url);
+  } catch (e) {
+    console.warn("[auto-tag-worker] fetchPageContent failed:", e instanceof Error ? e.message : String(e));
+    content = null;
+  }
+
+  if (!content) {
+    try {
+      await supabase
+        .from("bookmarks")
+        .update({ tagging_status: "failed" })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+    } catch {
+      // best-effort
+    }
+    return { tags: [], source: "no-content" as const };
+  }
+
+  // Extract tags via LLM
+  let rawTags: string[] = [];
+  if (anthropic) {
+    try {
+      rawTags = await extractTagsViaLLM(url, title, content.body_text);
+    } catch (e) {
+      console.error("[auto-tag-worker] Anthropic LLM call failed:", e instanceof Error ? e.message : String(e));
+      // Fall through — will tag as failed
+    }
+  } else {
+    console.warn("[auto-tag-worker] No Anthropic client — skipping LLM tagging");
+  }
+
+  if (rawTags.length === 0) {
+    try {
+      await supabase
+        .from("bookmarks")
+        .update({ tagging_status: "failed" })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+    } catch {
+      // best-effort
+    }
+    return { tags: [], source: "llm-failed" as const };
+  }
+
+  // Normalize against aliases
+  let aliases: TagAlias[] = [];
+  try {
+    aliases = await loadAliases(supabase);
+  } catch (e) {
+    console.warn("[auto-tag-worker] loadAliases failed (continuing without normalization):", e instanceof Error ? e.message : String(e));
+  }
+  const tags = resolveAliases(rawTags, aliases);
+
+  // Cache the result
+  try {
+    await redis.setex(key, CACHE_TTL_SECONDS, JSON.stringify(tags));
+  } catch (e) {
+    console.warn("[auto-tag-worker] Redis setex failed (continuing):", e instanceof Error ? e.message : String(e));
+  }
+
+  // Update bookmark
+  try {
     await supabase
       .from("bookmarks")
       .update({ auto_tags: tags, tagging_status: "completed" })
       .eq("id", bookmarkId)
       .eq("user_id", userId);
-    return { tags, source: "cache" as const };
+  } catch (e) {
+    console.error("[auto-tag-worker] Supabase update (completed) failed:", e instanceof Error ? e.message : String(e));
+    throw e;
   }
-
-  // Fetch page content
-  const content = await fetchPageContent(url);
-  if (!content) {
-    await supabase
-      .from("bookmarks")
-      .update({ tagging_status: "failed" })
-      .eq("id", bookmarkId)
-      .eq("user_id", userId);
-    return { tags: [], source: "no-content" as const };
-  }
-
-  // Extract tags via LLM
-  const rawTags = await extractTagsViaLLM(url, title, content.body_text);
-
-  // Normalize against aliases
-  const aliases = await loadAliases(supabase);
-  const tags = resolveAliases(rawTags, aliases);
-
-  // Cache the result
-  await redis.setex(key, CACHE_TTL_SECONDS, JSON.stringify(tags));
-
-  // Update bookmark
-  await supabase
-    .from("bookmarks")
-    .update({ auto_tags: tags, tagging_status: "completed" })
-    .eq("id", bookmarkId)
-    .eq("user_id", userId);
 
   return { tags, source: "llm" as const };
 }
