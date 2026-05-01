@@ -578,7 +578,7 @@ function BookmarkCard({
           </a>
           {b.tags && b.tags.length > 0 && (
             <div className="tags-overlay">
-              {b.tags.slice(0, 5).map((t) => (
+              {b.tags.slice(0, 3).map((t) => (
                 <button
                   type="button"
                   key={t}
@@ -589,19 +589,10 @@ function BookmarkCard({
                   {t}
                 </button>
               ))}
-              {b.tags.length > 5 && (
-                <button
-                  type="button"
-                  className="tag-more"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onEdit();
-                  }}
-                  title={`Show all ${b.tags.length} tags`}
-                  aria-label={`Show all ${b.tags.length} tags`}
-                >
-                  +
-                </button>
+              {b.tags.length > 3 && (
+                <span className="tag tag-overflow" title={`${b.tags.length - 3} more tags`}>
+                  +{b.tags.length - 3}
+                </span>
               )}
             </div>
           )}
@@ -1113,28 +1104,15 @@ function BookmarkCard({
           border-color: var(--color-border-strong);
           background: var(--color-bg);
         }
-        .tag-more {
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          width: 24px;
-          height: 24px;
-          padding: 0;
+        .tag-overflow {
+          font-size: 11px;
+          padding: 4px 8px;
+          border: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
           border-radius: 999px;
-          font-size: 13px;
-          font-weight: 500;
-          line-height: 1;
-          color: var(--color-text);
+          color: var(--color-text-muted);
           background: color-mix(in srgb, var(--color-bg) 82%, transparent);
-          border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
-          cursor: pointer;
-        }
-        .tag-more:hover {
-          color: var(--color-text);
-          border-color: var(--color-border-strong);
-          background: var(--color-bg);
         }
         .tagging-badge {
           position: absolute;

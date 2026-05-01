@@ -20,7 +20,7 @@ import { createRedisConnection, getRedis } from "@/lib/redis";
 import type { AutoTagJobData } from "@/lib/auto-tag-queue";
 import { AUTO_TAG_QUEUE_NAME } from "@/lib/auto-tag-queue";
 import { fetchPageContent } from "@/lib/page-content";
-import { normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
+import { enrichWithCountries, normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -208,7 +208,7 @@ async function processJob(job: Job<AutoTagJobData>) {
   } catch (e) {
     console.warn("[auto-tag-worker] loadAliases failed (continuing without normalization):", e instanceof Error ? e.message : String(e));
   }
-  const tags = resolveAliases(rawTags, aliases);
+  const tags = enrichWithCountries(resolveAliases(rawTags, aliases));
 
   // Cache the result
   try {

@@ -6,6 +6,7 @@ export function normalizeTag(raw: unknown): string | null {
   const cleaned = raw
     .toLowerCase()
     .replace(/^[#\s]+|[\s#]+$/g, "")
+    .replace(/-based$/, "") // "london-based" → "london"
     .replace(/\s+/g, " ")
     .trim();
   if (cleaned.length < 2 || cleaned.length > 30) return null;
@@ -63,17 +64,17 @@ export const SEED_ALIASES: { canonical_tag: string; variants: string[] }[] = [
   { canonical_tag: "print design", variants: ["print", "editorial", "publication design", "book design"] },
   { canonical_tag: "photography", variants: ["photographer", "photo"] },
 
-  // Locations
-  { canonical_tag: "new york", variants: ["nyc", "new york city", "brooklyn", "manhattan"] },
-  { canonical_tag: "los angeles", variants: ["la", "los angeles ca"] },
-  { canonical_tag: "san francisco", variants: ["sf", "san francisco ca", "bay area"] },
-  { canonical_tag: "london", variants: ["london uk", "united kingdom"] },
-  { canonical_tag: "berlin", variants: ["berlin germany"] },
-  { canonical_tag: "amsterdam", variants: ["amsterdam netherlands"] },
-  { canonical_tag: "paris", variants: ["paris france"] },
-  { canonical_tag: "tokyo", variants: ["tokyo japan"] },
-  { canonical_tag: "melbourne", variants: ["melbourne australia"] },
-  { canonical_tag: "stockholm", variants: ["stockholm sweden"] },
+  // Locations — city name is canonical. Country is added via enrichWithCountries.
+  { canonical_tag: "new york", variants: ["nyc", "new york city", "brooklyn", "manhattan", "new york-based"] },
+  { canonical_tag: "los angeles", variants: ["la", "los angeles ca", "los angeles-based"] },
+  { canonical_tag: "san francisco", variants: ["sf", "san francisco ca", "bay area", "san francisco-based"] },
+  { canonical_tag: "london", variants: ["london uk", "london-based"] },
+  { canonical_tag: "berlin", variants: ["berlin germany", "berlin-based"] },
+  { canonical_tag: "amsterdam", variants: ["amsterdam netherlands", "amsterdam-based"] },
+  { canonical_tag: "paris", variants: ["paris france", "paris-based"] },
+  { canonical_tag: "tokyo", variants: ["tokyo japan", "tokyo-based"] },
+  { canonical_tag: "melbourne", variants: ["melbourne australia", "melbourne-based"] },
+  { canonical_tag: "stockholm", variants: ["stockholm sweden", "stockholm-based"] },
 
   // Techniques/mediums
   { canonical_tag: "risograph", variants: ["riso", "riso print"] },
@@ -84,3 +85,32 @@ export const SEED_ALIASES: { canonical_tag: string; variants: string[] }[] = [
   { canonical_tag: "brutalist", variants: ["brutalism", "brutalist design"] },
   { canonical_tag: "minimalist", variants: ["minimal", "minimalism", "minimal design"] },
 ];
+
+/** Map known cities to their country — used to enrich auto-tags. */
+export const CITY_COUNTRY_MAP: Record<string, string> = {
+  "new york": "united states",
+  "los angeles": "united states",
+  "san francisco": "united states",
+  london: "united kingdom",
+  berlin: "germany",
+  amsterdam: "netherlands",
+  paris: "france",
+  tokyo: "japan",
+  melbourne: "australia",
+  stockholm: "sweden",
+};
+
+/**
+ * Given a list of tags, add the corresponding country for any recognized city
+ * that doesn't already have its country in the list.
+ */
+export function enrichWithCountries(tags: string[]): string[] {
+  const out = [...tags];
+  for (const tag of tags) {
+    const country = CITY_COUNTRY_MAP[tag];
+    if (country && !out.includes(country)) {
+      out.push(country);
+    }
+  }
+  return out;
+}
