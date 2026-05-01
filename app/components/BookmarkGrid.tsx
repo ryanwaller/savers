@@ -238,6 +238,7 @@ function BookmarkCard({
   );
   const [dropActive, setDropActive] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
+  const [showTagOverlay, setShowTagOverlay] = useState(false);
   const [undoPromptOpen, setUndoPromptOpen] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
@@ -596,10 +597,46 @@ function BookmarkCard({
                 </button>
               ))}
               {b.tags.length > maxTags && (
-                <span className="tag tag-overflow" title={`${b.tags.length - maxTags} more tags`}>
+                <button
+                  type="button"
+                  className="tag tag-overflow"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    setShowTagOverlay(true);
+                  }}
+                  title={`${b.tags.length - maxTags} more tags`}
+                >
                   +{b.tags.length - maxTags}
-                </span>
+                </button>
               )}
+            </div>
+          )}
+          {showTagOverlay && (
+            <div
+              className="tag-overlay-backdrop"
+              onClick={(e) => {
+                e.stopPropagation();
+                e.preventDefault();
+                setShowTagOverlay(false);
+              }}
+            >
+              <div className="tag-overlay-panel">
+                {b.tags.map((t) => (
+                  <button
+                    type="button"
+                    key={t}
+                    className="tag tag-interactive"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleTagActivate(t, e);
+                      setShowTagOverlay(false);
+                    }}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
             </div>
           )}
           {b.tagging_status === "pending" || b.tagging_status === "processing" ? (
@@ -1119,6 +1156,28 @@ function BookmarkCard({
           background: color-mix(in srgb, var(--color-bg) 82%, transparent);
           backdrop-filter: blur(8px);
           -webkit-backdrop-filter: blur(8px);
+          cursor: pointer;
+          font-family: inherit;
+        }
+        .tag-overflow:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg);
+        }
+        .tag-overlay-backdrop {
+          position: absolute;
+          inset: 0;
+          z-index: 10;
+          background: rgba(0, 0, 0, 0.65);
+          display: flex;
+          align-items: flex-end;
+          padding: 10px;
+          border-radius: var(--radius-md);
+        }
+        .tag-overlay-panel {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
         }
         .tagging-badge {
           position: absolute;
