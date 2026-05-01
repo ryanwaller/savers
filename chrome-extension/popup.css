@@ -281,3 +281,44 @@ select:focus {
   font-size: 12px;
 }
 
+.duplicate-warning {
+  border: 1px solid #8ace00;
+  border-radius: 8px;
+  background: #141414;
+  padding: 10px;
+  margin: 0 0 10px;
+}
+
+.duplicate-warning.hidden {
+  display: none;
+}
+
+.duplicate-copy {
+  color: var(--text);
+  margin-bottom: 6px;
+}
+
+.duplicate-actions {
+  margin-bottom: 0;
+}
+
+.unsynced-badge {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #b8860b;
+  font-size: 12px;
+  padding: 6px 8px;
+  border: 1px solid #b8860b;
+  border-radius: 8px;
+  margin: 0 0 10px;
+}
+
+.unsynced-badge.hidden {
+  display: none;
+}
+
+.unsynced-count {
+  font-weight: 700;
+}
+

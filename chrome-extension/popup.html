@@ -96,6 +96,24 @@
         </label>
 
         <p id="status" class="status" role="status"></p>
+
+        <div id="duplicate-warning" class="duplicate-warning hidden">
+          <div class="duplicate-copy">
+            Already saved as <span id="duplicate-title"></span>.
+          </div>
+          <div class="inline-actions duplicate-actions">
+            <button id="open-duplicate" class="btn btn-secondary" type="button">
+              Open in app
+            </button>
+            <button id="save-anyway" class="btn btn-ghost" type="button">
+              Save anyway
+            </button>
+          </div>
+        </div>
+
+        <div id="unsynced-badge" class="unsynced-badge hidden">
+          <span id="unsynced-count" class="unsynced-count">0</span> unsaved pages — will retry
+        </div>
       </section>
     </main>
 

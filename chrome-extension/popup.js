@@ -25,6 +25,12 @@ const els = {
   saveBookmark: document.getElementById("save-bookmark"),
   status: document.getElementById("status"),
   aiStatus: document.getElementById("ai-status"),
+  duplicateWarning: document.getElementById("duplicate-warning"),
+  duplicateTitle: document.getElementById("duplicate-title"),
+  openDuplicate: document.getElementById("open-duplicate"),
+  saveAnyway: document.getElementById("save-anyway"),
+  unsyncedBadge: document.getElementById("unsynced-badge"),
+  unsyncedCount: document.getElementById("unsynced-count"),
 };
 
 let tagProposals = [];
@@ -38,6 +44,7 @@ const state = {
   flatCollections: [],
   aiSuggestion: null,
   collectionTouched: false,
+  duplicate: null, // { id, title } if already saved
 };
 
 init().catch((error) => {
@@ -53,7 +60,7 @@ async function init() {
 
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (!tab?.url || !/^https?:/i.test(tab.url)) {
-    throw new Error("This tab can’t be saved. Open a normal website first.");
+    throw new Error("This tab can't be saved. Open a normal website first.");
   }
 
   state.tabUrl = tab.url;
@@ -63,9 +70,14 @@ async function init() {
   els.pageUrl.textContent = state.tabUrl;
   els.bookmarkTitle.value = state.tabTitle;
 
-  await loadCollections();
-  await hydrateMetadata();
+  // Kick off all async init work in parallel
+  await Promise.all([
+    loadCollections(),
+    hydrateMetadata(),
+    checkDuplicate(),
+  ]);
   await suggestCollection();
+  updateUnsyncedBadge();
 }
 
 function bindEvents() {
@@ -74,8 +86,11 @@ function bindEvents() {
     els.appUrl.value = state.appUrl;
     await chrome.storage.sync.set({ saversAppUrl: state.appUrl });
     clearSuggestion();
-    await loadCollections();
+    state.duplicate = null;
+    els.duplicateWarning.classList.add("hidden");
+    await Promise.all([loadCollections(), checkDuplicate()]);
     await suggestCollection(true);
+    updateUnsyncedBadge();
   });
 
   els.collectionSelect.addEventListener("change", () => {
@@ -121,6 +136,7 @@ function bindEvents() {
     void (async () => {
       await hydrateMetadata(true);
       await suggestCollection(true);
+      await checkDuplicate(true);
     })();
   });
 
@@ -135,7 +151,64 @@ function bindEvents() {
   els.suggestTags.addEventListener("click", () => {
     void suggestTags();
   });
+
+  els.saveAnyway?.addEventListener("click", () => {
+    state.duplicate = null;
+    els.duplicateWarning.classList.add("hidden");
+    void saveBookmark();
+  });
+
+  els.openDuplicate?.addEventListener("click", () => {
+    if (state.duplicate?.id) {
+      chrome.tabs.create({ url: `${state.appUrl}?bookmark=${state.duplicate.id}` });
+    }
+  });
 }
+
+/* ── Duplicate Check ── */
+
+async function checkDuplicate(force = false) {
+  if (!state.tabUrl) return;
+  if (state.duplicate && !force) return;
+
+  try {
+    const data = await apiFetch(
+      `/api/bookmarks/check?url=${encodeURIComponent(state.tabUrl)}`,
+      { method: "GET" }
+    );
+    if (data?.exists) {
+      state.duplicate = data.bookmark;
+      els.duplicateTitle.textContent = data.bookmark?.title || state.tabUrl;
+      els.duplicateWarning.classList.remove("hidden");
+    } else {
+      state.duplicate = null;
+      els.duplicateWarning.classList.add("hidden");
+    }
+  } catch {
+    // Check failed — non-fatal, just don't show duplicate warning
+    state.duplicate = null;
+    els.duplicateWarning.classList.add("hidden");
+  }
+}
+
+/* ── Unsynced Badge ── */
+
+async function updateUnsyncedBadge() {
+  try {
+    const response = await chrome.runtime.sendMessage({ type: "GET_QUEUE_COUNT" });
+    const count = response?.count || 0;
+    if (count > 0) {
+      els.unsyncedCount.textContent = String(count);
+      els.unsyncedBadge.classList.remove("hidden");
+    } else {
+      els.unsyncedBadge.classList.add("hidden");
+    }
+  } catch {
+    els.unsyncedBadge.classList.add("hidden");
+  }
+}
+
+/* ── Tag Helpers ── */
 
 function parseTags(raw) {
   return String(raw || "")
@@ -241,6 +314,8 @@ async function suggestTags() {
   }
 }
 
+/* ── Collections ── */
+
 async function loadCollections() {
   setStatus("Loading collections…");
   const data = await apiFetch("/api/collections", { method: "GET" });
@@ -268,6 +343,8 @@ async function loadCollections() {
   setStatus("Collections ready.");
 }
 
+/* ── Metadata ── */
+
 async function hydrateMetadata(force = false) {
   if (!state.tabUrl) return;
   if (state.metadata && !force) return;
@@ -293,6 +370,8 @@ async function hydrateMetadata(force = false) {
     );
   }
 }
+
+/* ── AI Collection Suggestion ── */
 
 async function suggestCollection(force = false) {
   if (!state.tabUrl) {
@@ -374,7 +453,6 @@ function renderSuggestion() {
   els.aiSuggestionCopy.textContent = copy;
   els.applyAiSuggestion.textContent = actionLabel;
   els.aiSuggestion.classList.remove("hidden");
-  // Active suggestion means no need for a manual Suggest button.
   els.suggestCollection.classList.add("hidden");
 }
 
@@ -383,7 +461,6 @@ function clearSuggestion() {
   els.aiSuggestionCopy.textContent = "";
   els.aiSuggestion.classList.add("hidden");
   els.applyAiSuggestion.textContent = "Use suggestion";
-  // Surface the manual Suggest button as a fallback.
   els.suggestCollection.classList.remove("hidden");
 }
 
@@ -452,6 +529,8 @@ async function handleCreateCollection() {
   }
 }
 
+/* ── Save ── */
+
 async function saveBookmark() {
   if (!state.tabUrl) {
     setStatus("No page URL found for this tab.", "error");
@@ -480,17 +559,48 @@ async function saveBookmark() {
     await apiFetch("/api/bookmarks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, source: "extension" }),
     });
 
     setStatus("Saved to Savers.", "success");
     window.setTimeout(() => window.close(), 700);
   } catch (error) {
-    setStatus(error instanceof Error ? error.message : "Failed to save bookmark.", "error");
+    const message = error instanceof Error ? error.message : "Failed to save bookmark.";
+    setStatus(message, "error");
+
+    // If it looks like a network error, queue for background retry
+    if (
+      error instanceof TypeError ||
+      message.includes("fetch") ||
+      message.includes("Network") ||
+      message.includes("Failed to fetch")
+    ) {
+      try {
+        const payload = {
+          url: state.tabUrl,
+          title: els.bookmarkTitle.value.trim() || state.tabTitle,
+          description: els.bookmarkDescription.value.trim() || null,
+          og_image: state.metadata?.og_image || null,
+          favicon: state.metadata?.favicon || null,
+          tags: parseTags(els.bookmarkTags.value),
+          notes: null,
+          collection_id: els.collectionSelect.value || null,
+          source: "extension",
+        };
+        // Send to background for offline queueing
+        await chrome.runtime.sendMessage({ type: "ENQUEUE", payload });
+        setStatus("Queued — will save when back online.", "success");
+        updateUnsyncedBadge();
+      } catch {
+        // Can't queue — already showing error message
+      }
+    }
   } finally {
     els.saveBookmark.disabled = false;
   }
 }
+
+/* ── API Helpers ── */
 
 async function apiFetch(path, options) {
   const response = await fetch(`${state.appUrl}${path}`, {
@@ -507,6 +617,8 @@ async function apiFetch(path, options) {
   }
   return response.json();
 }
+
+/* ── Utilities ── */
 
 function buildPaths(flat) {
   const byId = new Map(flat.map((item) => [item.id, item]));
