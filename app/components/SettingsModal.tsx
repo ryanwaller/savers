@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { api } from "@/lib/api";
 import type { Bookmark, Collection } from "@/lib/types";
 import ExportBookmarksButton from "./ExportBookmarksButton";
@@ -33,13 +33,6 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
-  const bookmarkletRef = useRef<HTMLAnchorElement>(null);
-
-  useEffect(() => {
-    if (bookmarkletRef.current) {
-      bookmarkletRef.current.href = BOOKMARKLET_HREF;
-    }
-  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -136,22 +129,15 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           <section className="section">
             <div className="section-title">Bookmarklet</div>
             <p className="small muted">
-              Save any page to Savers without installing an extension. Drag the
-              button below to your bookmarks bar.
+              Save any page to Savers without installing an extension.
             </p>
-            <a
-              ref={bookmarkletRef}
-              className="bookmarklet-drag"
-              onClick={(e) => {
-                e.preventDefault();
-                copyBookmarklet();
-              }}
-              title="Drag to your bookmarks bar"
-            >
-              + Save to Savers
-            </a>
+            <ol className="bookmarklet-steps">
+              <li>Click the button below to copy the bookmarklet code.</li>
+              <li>Create a new bookmark in your bookmarks bar (right-click → Add page).</li>
+              <li>Name it "Save to Savers" and paste the code as the URL.</li>
+            </ol>
             <button
-              className="btn"
+              className="btn btn-primary"
               onClick={() => void copyBookmarklet()}
             >
               {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
@@ -416,22 +402,12 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
         .btn-ghost.danger {
           color: #ff7a7a;
         }
-        .bookmarklet-drag {
-          display: inline-flex;
-          align-items: center;
-          padding: 10px 20px;
-          background: #1f6f43;
-          color: #fff;
-          border-radius: 8px;
-          text-decoration: none;
-          font-weight: 600;
-          font-size: 14px;
-          cursor: grab;
-          user-select: none;
-          align-self: flex-start;
-        }
-        .bookmarklet-drag:active {
-          cursor: grabbing;
+        .bookmarklet-steps {
+          margin: 0;
+          padding-left: 18px;
+          font-size: 12px;
+          color: var(--color-text-muted);
+          line-height: 1.7;
         }
         @media (max-width: 768px) {
           .backdrop {
