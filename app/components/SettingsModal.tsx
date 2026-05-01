@@ -1,9 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { api } from "@/lib/api";
 import type { Bookmark, Collection } from "@/lib/types";
 import ExportBookmarksButton from "./ExportBookmarksButton";
+
+const BOOKMARKLET_SRC = "https://savers-production.up.railway.app/bookmarklet.js";
+const BOOKMARKLET_HREF = `javascript:(function(){var s=document.createElement('script');s.src='${BOOKMARKLET_SRC}';document.head.appendChild(s);})();`;
 
 type TokenRow = {
   id: string;
@@ -29,6 +32,14 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
   const [revealedToken, setRevealedToken] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
+  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
+  const bookmarkletRef = useRef<HTMLAnchorElement>(null);
+
+  useEffect(() => {
+    if (bookmarkletRef.current) {
+      bookmarkletRef.current.href = BOOKMARKLET_HREF;
+    }
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -95,6 +106,16 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
     }
   }
 
+  async function copyBookmarklet() {
+    try {
+      await navigator.clipboard.writeText(BOOKMARKLET_HREF);
+      setBookmarkletCopied(true);
+      window.setTimeout(() => setBookmarkletCopied(false), 1800);
+    } catch {
+      // ignore
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -110,6 +131,31 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
         <div className="body">
           <section className="section">
             <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
+          </section>
+
+          <section className="section">
+            <div className="section-title">Bookmarklet</div>
+            <p className="small muted">
+              Save any page to Savers without installing an extension. Drag the
+              button below to your bookmarks bar.
+            </p>
+            <a
+              ref={bookmarkletRef}
+              className="bookmarklet-drag"
+              onClick={(e) => {
+                e.preventDefault();
+                copyBookmarklet();
+              }}
+              title="Drag to your bookmarks bar"
+            >
+              + Save to Savers
+            </a>
+            <button
+              className="btn"
+              onClick={() => void copyBookmarklet()}
+            >
+              {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
+            </button>
           </section>
 
           <section className="section">
@@ -369,6 +415,23 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
         }
         .btn-ghost.danger {
           color: #ff7a7a;
+        }
+        .bookmarklet-drag {
+          display: inline-flex;
+          align-items: center;
+          padding: 10px 20px;
+          background: #1f6f43;
+          color: #fff;
+          border-radius: 8px;
+          text-decoration: none;
+          font-weight: 600;
+          font-size: 14px;
+          cursor: grab;
+          user-select: none;
+          align-self: flex-start;
+        }
+        .bookmarklet-drag:active {
+          cursor: grabbing;
         }
         @media (max-width: 768px) {
           .backdrop {
