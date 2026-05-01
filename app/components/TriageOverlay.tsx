@@ -192,34 +192,34 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
 
   async function handleFile(target: Collection) {
     if (!current) return;
-    const previousCollectionId = current.collection_id;
+    const bookmark = current;
+    const previousCollectionId = bookmark.collection_id;
+    const currentTags = bookmark.tags ?? [];
 
-    setQueue((prev) => prev.slice(1));
-    setRecentIds((prev) => {
-      const filtered = prev.filter((id) => id !== target.id);
-      return [target.id, ...filtered].slice(0, 8);
-    });
-
-    const currentTags = current.tags ?? [];
+    const updates: Partial<Bookmark> = { collection_id: target.id };
+    if (
+      tags.length !== currentTags.length ||
+      tags.some((t, i) => t !== currentTags[i])
+    ) {
+      updates.tags = tags;
+    }
 
     try {
-      const updates: Partial<Bookmark> = { collection_id: target.id };
-      if (
-        tags.length !== currentTags.length ||
-        tags.some((t, i) => t !== currentTags[i])
-      ) {
-        updates.tags = tags;
-      }
-      await api.updateBookmark(current.id, updates);
+      await api.updateBookmark(bookmark.id, updates);
+      // Only remove from queue after the API confirms success.
+      setQueue((prev) => prev.slice(1));
+      setRecentIds((prev) => {
+        const filtered = prev.filter((id) => id !== target.id);
+        return [target.id, ...filtered].slice(0, 8);
+      });
       onMutated?.();
       scheduleUndo({
-        bookmark: { ...current, collection_id: target.id },
+        bookmark: { ...bookmark, collection_id: target.id },
         previousCollectionId,
-        message: `Filed "${trimTitle(current)}" in ${target.name}.`,
+        message: `Filed "${trimTitle(bookmark)}" in ${target.name}.`,
       });
     } catch (e) {
-      console.error("Triage save failed for bookmark", current.id, e);
-      setQueue((prev) => [current, ...prev]);
+      console.error("Triage save failed for bookmark", bookmark.id, e);
       window.alert(
         e instanceof Error ? e.message : "Couldn't move that bookmark."
       );
