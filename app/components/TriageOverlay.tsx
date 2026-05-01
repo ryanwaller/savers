@@ -185,18 +185,22 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
     const targetId = target?.id ?? null;
     const targetName = target ? target.name : "Unsorted";
 
+    // Don't remove from queue if nothing changed — bookmark stays unsorted.
+    if (targetId === null) return;
+
     setQueue((prev) => prev.slice(1));
     setRecentIds((prev) => {
-      if (!targetId) return prev;
       const filtered = prev.filter((id) => id !== targetId);
       return [targetId, ...filtered].slice(0, 8);
     });
 
+    const currentTags = current.tags ?? [];
+
     try {
       const updates: Partial<Bookmark> = { collection_id: targetId };
       if (
-        tags.length !== current.tags.length ||
-        tags.some((t, i) => t !== current.tags[i])
+        tags.length !== currentTags.length ||
+        tags.some((t, i) => t !== currentTags[i])
       ) {
         updates.tags = tags;
       }
@@ -205,9 +209,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
       scheduleUndo({
         bookmark: { ...current, collection_id: targetId },
         previousCollectionId,
-        message: target
-          ? `Filed “${trimTitle(current)}” in ${targetName}.`
-          : `Marked “${trimTitle(current)}” as triaged.`,
+        message: `Filed "${trimTitle(current)}" in ${targetName}.`,
       });
     } catch (e) {
       setQueue((prev) => [current, ...prev]);
@@ -227,7 +229,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
 
   async function handleDelete() {
     if (!current) return;
-    if (!window.confirm(`Delete “${trimTitle(current)}”?`)) return;
+    if (!window.confirm(`Delete "${trimTitle(current)}"?`)) return;
     setQueue((prev) => prev.slice(1));
     try {
       await api.deleteBookmark(current.id);
@@ -699,7 +701,7 @@ export default function TriageOverlay({ open, onClose, onMutated }: Props) {
           display: inline-flex;
           align-items: center;
           gap: 8px;
-          padding: 6px 12px 6px 6px;
+          padding: 7px 12px 7px 6px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg);

@@ -1667,12 +1667,6 @@ export default function Home() {
         <div className="bottom-bar">
           {isEditMode && selectedIds.size > 0 && (
             <div className="bulk-actions">
-              <button
-                className="btn btn-ghost danger"
-                onClick={handleBulkDelete}
-              >
-                Delete {selectedIds.size}
-              </button>
               <div className="bulk-move-wrap">
                 <button
                   className="btn"
@@ -1740,6 +1734,21 @@ export default function Home() {
                   </div>
                 )}
               </div>
+              <button
+                className="btn btn-ghost danger"
+                onClick={handleBulkDelete}
+              >
+                Delete {selectedIds.size}
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setSelectedIds(new Set());
+                }}
+              >
+                Cancel
+              </button>
             </div>
           )}
           {dropStatus && (
