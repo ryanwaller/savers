@@ -1,7 +1,7 @@
 import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
 
-const EXCERPT_MAX_CHARS = 160;
+const EXCERPT_MAX_CHARS = 300;
 const FETCH_TIMEOUT_MS = 8000;
 
 const USER_AGENT =
