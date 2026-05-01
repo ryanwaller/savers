@@ -20,7 +20,9 @@ import { SCREENSHOT_QUEUE_NAME } from "@/lib/screenshot-queue";
 import { captureScreenshot, captureTextExcerptImage, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
 import { extractExcerpt } from "@/lib/excerpt";
 import { findRecipeHeroImageUrl, fetchAndProcessRecipeHero } from "@/lib/extractRecipeHero";
-import { isSingleProductPage, extractProductImageUrl, generateProductInsetImage } from "@/lib/extractProductImage";
+import { detectProductPage } from "@/lib/detectProductPage";
+import { extractPrimaryProductImage } from "@/lib/extractProductImage";
+import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -198,10 +200,21 @@ async function processJob(job: Job<ScreenshotJobData>) {
         // Wait for lazy images to load
         await new Promise((r) => setTimeout(r, 3000));
 
-        const singleProduct = await isSingleProductPage(shopPage);
+        const { score, confidence, signals } =
+          await detectProductPage(shopPage);
 
-        if (singleProduct) {
-          const imageUrl = await extractProductImageUrl(shopPage);
+        console.log(
+          JSON.stringify({
+            event: "shopping_detection",
+            score,
+            confidence,
+            signals,
+            url,
+          }),
+        );
+
+        if (confidence === "high") {
+          const imageUrl = await extractPrimaryProductImage(shopPage);
 
           if (imageUrl) {
             console.log(`[${WORKER_NAME}] Product image found: ${imageUrl}`);
@@ -249,12 +262,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
           );
         } else {
           console.log(
-            `[${WORKER_NAME}] Storefront detected, falling back to screenshot`,
+            `[${WORKER_NAME}] Shopping confidence ${confidence} (score ${score}), falling back to screenshot`,
           );
         }
       } catch (err) {
-        console.log(
-          `[${WORKER_NAME}] Product image extraction failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
+        console.warn(
+          `[${WORKER_NAME}] Product inset generation failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
         );
       } finally {
         await shopPage.close().catch(() => {});

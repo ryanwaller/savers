@@ -78,10 +78,10 @@ export async function captureTextExcerptImage(
 <head><meta charset="utf-8"></head>
 <body style="margin:0;background:#000;color:#fff;
   font-family:'Liberation Sans',Arial,Helvetica,sans-serif;
-  font-size:52px;font-weight:600;line-height:1.25;padding:15px 70px;
+  font-size:52px;font-weight:600;line-height:1.25;padding:15px 90px;
   display:flex;align-items:center;
   min-height:100vh;box-sizing:border-box;">
-  <div style="max-width:1200px;text-align:left;">${escapeHtml(excerpt)}</div>
+  <div style="max-width:1100px;text-align:left;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
 
