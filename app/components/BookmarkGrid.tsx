@@ -78,6 +78,7 @@ export default function BookmarkGrid({
           onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
           onClearCustomPreview={() => onClearCustomPreview(b.id)}
           onTagClick={onTagClick}
+          cardMinWidth={cardMinWidth}
           cardCols={cardCols}
           isEditMode={isEditMode}
           isSelected={selectedIds?.has(b.id) ?? false}
@@ -199,6 +200,7 @@ function BookmarkCard({
   onUploadCustomPreview,
   onClearCustomPreview,
   onTagClick,
+  cardMinWidth,
   cardCols,
   isEditMode,
   isSelected,
@@ -212,6 +214,7 @@ function BookmarkCard({
   onUploadCustomPreview: (file: File) => Promise<Bookmark> | Bookmark;
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
+  cardMinWidth?: number;
   cardCols?: number;
   isEditMode?: boolean;
   isSelected?: boolean;
@@ -220,6 +223,9 @@ function BookmarkCard({
   // On the smallest mobile preset (3 cols) there's no room for both a pin
   // button and the overflow menu, so the pin moves into the menu.
   const collapseActions = (cardCols ?? 0) >= 3;
+
+  const w = cardMinWidth ?? 300;
+  const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -578,7 +584,7 @@ function BookmarkCard({
           </a>
           {b.tags && b.tags.length > 0 && (
             <div className="tags-overlay">
-              {b.tags.slice(0, 3).map((t) => (
+              {b.tags.slice(0, maxTags).map((t) => (
                 <button
                   type="button"
                   key={t}
@@ -589,9 +595,9 @@ function BookmarkCard({
                   {t}
                 </button>
               ))}
-              {b.tags.length > 3 && (
-                <span className="tag tag-overflow" title={`${b.tags.length - 3} more tags`}>
-                  +{b.tags.length - 3}
+              {b.tags.length > maxTags && (
+                <span className="tag tag-overflow" title={`${b.tags.length - maxTags} more tags`}>
+                  +{b.tags.length - maxTags}
                 </span>
               )}
             </div>
