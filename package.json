@@ -23,7 +23,6 @@
     "@supabase/supabase-js": "^2.103.3",
     "bullmq": "^5.76.4",
     "cheerio": "^1.2.0",
-    "tsx": "^4.16.2",
     "ioredis": "^5.10.1",
     "jszip": "^3.10.1",
     "next": "16.2.4",

@@ -14,6 +14,7 @@
 
 import { Worker, type Job } from "bullmq";
 import { createClient } from "@supabase/supabase-js";
+import Anthropic from "@anthropic-ai/sdk";
 import { createHash } from "node:crypto";
 import { createRedisConnection, getRedis } from "@/lib/redis";
 import type { AutoTagJobData } from "@/lib/auto-tag-queue";
@@ -21,6 +22,12 @@ import { AUTO_TAG_QUEUE_NAME } from "@/lib/auto-tag-queue";
 import { fetchPageContent } from "@/lib/page-content";
 import { normalizeTag, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
+
+const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
+if (!ANTHROPIC_API_KEY) {
+  console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
+}
+const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
 
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const CACHE_KEY_PREFIX = "autotag:";
@@ -52,45 +59,12 @@ async function loadAliases(supabase: ReturnType<typeof getSupabaseAdmin>): Promi
   return (data as TagAlias[]) ?? [];
 }
 
-async function getAnthropicApiKey(): Promise<string | null> {
-  const env = process.env as Record<string, string | undefined>;
-  for (const name of Object.keys(env)) {
-    if (name.startsWith("ANTHRO") && name.endsWith("_" + "API_KEY") && name.length > 10) {
-      return env[name] ?? null;
-    }
-  }
-  return null;
-}
-
-let _anthropic: unknown = undefined;
-
-async function getAnthropic() {
-  if (_anthropic !== undefined) return _anthropic as { messages: { create: (opts: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } } | null;
-
-  const key = await getAnthropicApiKey();
-  if (!key) {
-    console.warn("[auto-tag-worker] Anthropic API key not found — LLM tagging will fail");
-    _anthropic = null;
-    return null;
-  }
-
-  try {
-    const mod = await import("@anthropic-ai" + "/sdk");
-    const Anthropic = mod.default;
-    _anthropic = new Anthropic({ apiKey: key });
-    return _anthropic as { messages: { create: (opts: Record<string, unknown>) => Promise<{ content: Array<{ type: string; text?: string }> }> } };
-  } catch (e) {
-    console.error("[auto-tag-worker] Failed to load Anthropic SDK:", e instanceof Error ? e.message : String(e));
-    _anthropic = null;
-    return null;
-  }
-}
-
 async function extractTagsViaLLM(
   url: string,
   title: string | null,
   bodyText: string,
 ): Promise<string[]> {
+  if (!anthropic) return [];
   const truncated = bodyText.slice(0, BODY_TEXT_MAX_CHARS);
 
   const prompt = `Extract 3-5 concise, lowercase tags from this bookmarked page. Return JSON only.
@@ -113,8 +87,6 @@ ${truncated || "(no text extracted)"}
 Respond with JSON only, no explanation:
 {"tags": ["example-tag", "another-tag"]}`;
 
-  const anthropic = await getAnthropic();
-  if (!anthropic) return [];
   const message = await anthropic.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 200,
@@ -206,7 +178,7 @@ async function processJob(job: Job<AutoTagJobData>) {
 
   // Extract tags via LLM
   let rawTags: string[] = [];
-  if (await getAnthropicApiKey()) {
+  if (anthropic) {
     try {
       rawTags = await extractTagsViaLLM(url, title, content.body_text);
     } catch (e) {
