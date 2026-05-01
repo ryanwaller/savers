@@ -20,7 +20,7 @@ import { createRedisConnection, getRedis } from "@/lib/redis";
 import type { AutoTagJobData } from "@/lib/auto-tag-queue";
 import { AUTO_TAG_QUEUE_NAME } from "@/lib/auto-tag-queue";
 import { fetchPageContent } from "@/lib/page-content";
-import { normalizeTag, resolveAliases } from "@/lib/tag-aliases";
+import { normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 
 const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
@@ -104,7 +104,7 @@ Respond with JSON only, no explanation:
   }
 
   if (!Array.isArray(parsed.tags)) return [];
-  return parsed.tags.map((t) => normalizeTag(t)).filter((t): t is string => Boolean(t));
+  return parsed.tags.flatMap((t) => normalizeTagList(t));
 }
 
 async function processJob(job: Job<AutoTagJobData>) {

@@ -13,6 +13,16 @@ export function normalizeTag(raw: unknown): string | null {
   return cleaned;
 }
 
+/** Split a raw tag on commas and normalize each part. Returns flat array of valid tags. */
+export function normalizeTagList(raw: unknown): string[] {
+  if (typeof raw !== "string") return [];
+  // If the LLM returns "london, united kingdom", split into separate tags
+  return raw
+    .split(",")
+    .map((part) => normalizeTag(part))
+    .filter((t): t is string => Boolean(t));
+}
+
 /**
  * Map tags through the alias table, replacing known variants with their
  * canonical form. Tags without a match pass through unchanged.

@@ -33,6 +33,14 @@ function normalizeTag(raw: unknown): string | null {
   return cleaned
 }
 
+function normalizeTagList(raw: unknown): string[] {
+  if (typeof raw !== 'string') return []
+  return raw
+    .split(',')
+    .map((part) => normalizeTag(part))
+    .filter((t): t is string => Boolean(t))
+}
+
 export async function POST(req: NextRequest) {
   try {
     await requireUser()
@@ -64,8 +72,7 @@ export async function POST(req: NextRequest) {
 
     const existing: string[] = Array.isArray(existing_tags)
       ? existing_tags
-          .map((t) => normalizeTag(t))
-          .filter((t): t is string => Boolean(t))
+          .flatMap((t) => normalizeTagList(t))
       : []
 
     const collectionPath =
@@ -129,11 +136,12 @@ Respond with JSON only, no explanation:
     const seen = new Set<string>(existing.map((t) => t.toLowerCase()))
     const tags: string[] = []
     for (const t of rawTags) {
-      const norm = normalizeTag(t)
-      if (!norm) continue
-      if (seen.has(norm)) continue
-      seen.add(norm)
-      tags.push(norm)
+      for (const norm of normalizeTagList(t)) {
+        if (seen.has(norm)) continue
+        seen.add(norm)
+        tags.push(norm)
+        if (tags.length >= MAX_TAGS) break
+      }
       if (tags.length >= MAX_TAGS) break
     }
 

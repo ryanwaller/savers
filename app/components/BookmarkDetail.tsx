@@ -218,10 +218,16 @@ export default function BookmarkDetail({
   }
 
   function buildNextTags(rawValue: string) {
-    const next = normalizeTag(rawValue);
-    if (!next) return null;
-    if (tags.some((tag) => tag.toLowerCase() === next.toLowerCase())) return null;
-    return [...tags, next];
+    const parts = splitTags(rawValue);
+    if (parts.length === 0) return null;
+    const next = [...tags];
+    for (const part of parts) {
+      if (!tags.some((tag) => tag.toLowerCase() === part.toLowerCase())) {
+        next.push(part);
+      }
+    }
+    if (next.length === tags.length) return null;
+    return next;
   }
 
   async function commitTag(rawValue: string) {
@@ -1354,6 +1360,13 @@ export default function BookmarkDetail({
 
 function normalizeTag(value: string) {
   return value.trim().replace(/^#+/, "").replace(/\s+/g, " ");
+}
+
+function splitTags(raw: string): string[] {
+  return raw
+    .split(",")
+    .map((part) => normalizeTag(part))
+    .filter(Boolean);
 }
 
 function capitalize(value: string) {
