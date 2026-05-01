@@ -34,11 +34,17 @@ export default function ConfirmDialog({
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busy) onCancel();
-      if (event.key === "Enter" && !busy) void onConfirm();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [busy, onCancel, open]);
+
+  function handlePanelKeyDown(event: React.KeyboardEvent) {
+    if (event.key === "Enter" && !busy) {
+      event.preventDefault();
+      void onConfirm();
+    }
+  }
 
   if (!mounted || !open) return null;
 
@@ -49,6 +55,9 @@ export default function ConfirmDialog({
         role="dialog"
         aria-modal="true"
         aria-labelledby="confirm-title"
+        tabIndex={-1}
+        ref={(el) => el?.focus()}
+        onKeyDown={handlePanelKeyDown}
         onClick={(event) => event.stopPropagation()}
       >
         <div className="confirm-body">
