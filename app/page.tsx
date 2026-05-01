@@ -2020,7 +2020,7 @@ export default function Home() {
           display: flex;
           flex-direction: column;
           min-width: 0;
-          background: var(--color-bg);
+          background: var(--color-bg-page);
           overflow-x: hidden;
           position: relative;
         }

@@ -8,6 +8,7 @@
   --color-border: #e5e5e5;
   --color-border-strong: #d4d4d4;
   --color-bg: #fff;
+  --color-bg-page: #f0f0ee;
   --color-bg-secondary: #f8f8f7;
   --color-bg-hover: #f2f2f0;
   --color-bg-active: #ededeb;
@@ -25,6 +26,7 @@
     --color-border: #2a2a2a;
     --color-border-strong: #3a3a3a;
     --color-bg: #0f0f0f;
+    --color-bg-page: #0f0f0f;
     --color-bg-secondary: #161616;
     --color-bg-hover: #1e1e1e;
     --color-bg-active: #262626;
@@ -40,7 +42,7 @@ html, body {
   font-size: 13px;
   line-height: 1.45;
   color: var(--color-text);
-  background: var(--color-bg);
+  background: var(--color-bg-page);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   -webkit-text-size-adjust: 100%;
