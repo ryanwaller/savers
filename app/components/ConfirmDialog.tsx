@@ -34,6 +34,7 @@ export default function ConfirmDialog({
     if (!open) return;
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busy) onCancel();
+      if (event.key === "Enter" && !busy) void onConfirm();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
