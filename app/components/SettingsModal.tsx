@@ -158,14 +158,26 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
                 ))}
               </select>
               <button
-                className="btn"
-                onClick={() => {
-                  setNewTokenName("Bookmarklet");
-                  // scroll to the API tokens section so user can create
-                  document.getElementById("api-tokens-section")?.scrollIntoView({ behavior: "smooth" });
+                className="btn btn-primary"
+                onClick={async () => {
+                  if (creating) return;
+                  setCreating(true);
+                  setError(null);
+                  try {
+                    const result = await api.createToken("Bookmarklet");
+                    setRevealedToken(result.token);
+                    setBookmarkletToken(result.token);
+                    setBookmarkletTokenId(result.record?.id ?? "");
+                    await load();
+                  } catch (e) {
+                    setError(e instanceof Error ? e.message : "Could not create token");
+                  } finally {
+                    setCreating(false);
+                  }
                 }}
+                disabled={creating}
               >
-                + New
+                {creating ? "Creating…" : "Create token for bookmarklet"}
               </button>
             </div>
             {bookmarkletToken ? (
