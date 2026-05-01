@@ -20,6 +20,7 @@ import { SCREENSHOT_QUEUE_NAME } from "@/lib/screenshot-queue";
 import { captureScreenshot, captureTextExcerptImage, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
 import { extractExcerpt } from "@/lib/excerpt";
 import { findRecipeHeroImageUrl, fetchAndProcessRecipeHero } from "@/lib/extractRecipeHero";
+import { isSingleProductPage, extractProductImageUrl, generateProductInsetImage } from "@/lib/extractProductImage";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -57,6 +58,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
     .maybeSingle();
 
   let useRecipeHero = false;
+  let useShoppingImage = false;
   let useTextExcerpt = false;
   if (bookmark) {
     const tags = (bookmark.tags ?? []) as string[];
@@ -72,6 +74,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
     );
 
     let isRecipesCollection = false;
+    let isShoppingCollection = false;
     let isReadLater = false;
     if (bookmark.collection_id) {
       // Fetch all user collections to walk parent chain for hierarchical matching
@@ -95,13 +98,25 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
         const path = buildPath(bookmark.collection_id);
         isRecipesCollection = path.includes("recipes");
+        isShoppingCollection = path.includes("shopping");
         isReadLater = path.includes("read later");
       }
     }
 
-    // Recipe takes priority over article
+    const isShoppingTag = tags.some(
+      (t: string) =>
+        t.toLowerCase() === "shopping" ||
+        t.toLowerCase() === "product" ||
+        t.toLowerCase() === "buy" ||
+        t.toLowerCase() === "store",
+    );
+
+    // Recipe > Shopping > Article
     useRecipeHero = isRecipesCollection || isRecipeTag;
-    useTextExcerpt = !useRecipeHero && (isReadLater || hasArticleTag);
+    useShoppingImage =
+      !useRecipeHero && (isShoppingCollection || isShoppingTag);
+    useTextExcerpt =
+      !useRecipeHero && !useShoppingImage && (isReadLater || hasArticleTag);
   }
 
   const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
@@ -167,6 +182,82 @@ async function processJob(job: Job<ScreenshotJobData>) {
         );
       } finally {
         await recipePage.close().catch(() => {});
+      }
+    }
+
+    if (useShoppingImage) {
+      const shopPage = await browser.newPage();
+      try {
+        await shopPage.setUserAgent(
+          "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
+        );
+        await shopPage.goto(url, {
+          waitUntil: "domcontentloaded",
+          timeout: 25000,
+        });
+        // Wait for lazy images to load
+        await new Promise((r) => setTimeout(r, 3000));
+
+        const singleProduct = await isSingleProductPage(shopPage);
+
+        if (singleProduct) {
+          const imageUrl = await extractProductImageUrl(shopPage);
+
+          if (imageUrl) {
+            console.log(`[${WORKER_NAME}] Product image found: ${imageUrl}`);
+            const insetBuffer = await generateProductInsetImage(imageUrl);
+
+            const version = Date.now();
+            const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
+            const previewUpdatedAt = new Date().toISOString();
+
+            const { error: uploadError } = await supabase.storage
+              .from(PREVIEW_BUCKET)
+              .upload(previewPath, insetBuffer, {
+                contentType: "image/jpeg",
+                upsert: true,
+                cacheControl: "31536000",
+              });
+
+            if (uploadError) throw uploadError;
+
+            const { error: updateError } = await supabase
+              .from("bookmarks")
+              .update({
+                preview_path: previewPath,
+                preview_provider: "puppeteer",
+                preview_updated_at: previewUpdatedAt,
+                preview_version: version,
+                screenshot_status: "complete",
+                screenshot_error: null,
+                asset_type: "product_inset",
+              })
+              .eq("id", bookmarkId)
+              .eq("user_id", userId);
+
+            if (updateError) throw updateError;
+
+            return {
+              previewPath,
+              provider: "puppeteer",
+              assetType: "product_inset" as const,
+            };
+          }
+
+          console.log(
+            `[${WORKER_NAME}] No product image found, falling back to screenshot`,
+          );
+        } else {
+          console.log(
+            `[${WORKER_NAME}] Storefront detected, falling back to screenshot`,
+          );
+        }
+      } catch (err) {
+        console.log(
+          `[${WORKER_NAME}] Product image extraction failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      } finally {
+        await shopPage.close().catch(() => {});
       }
     }
 
