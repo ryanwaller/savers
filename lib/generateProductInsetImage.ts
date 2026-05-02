@@ -8,7 +8,7 @@ const BACKGROUND_HEX = "#F8F9FA";
 
 const IMAGE_FETCH_TIMEOUT_MS = 10000;
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 
 export interface InsetResult {
   buffer: Buffer;

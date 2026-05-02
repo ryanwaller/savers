@@ -538,10 +538,20 @@ export async function storeCustomPreview({
   let outputExtension: string;
 
   if (isShopping) {
-    const result = await generateProductInset(Buffer.from(body));
-    processedBody = result.buffer;
-    outputContentType = "image/jpeg";
-    outputExtension = "jpg";
+    try {
+      const result = await generateProductInset(Buffer.from(body));
+      processedBody = result.buffer;
+      outputContentType = "image/jpeg";
+      outputExtension = "jpg";
+    } catch (insetErr) {
+      console.warn(
+        `[storeCustomPreview] generateProductInset failed, using original: ${insetErr instanceof Error ? insetErr.message : String(insetErr)}`,
+      );
+      processedBody = body;
+      outputContentType = contentType;
+      outputExtension = contentTypeToExtension(contentType);
+      isShopping = false; // don't mark as product_inset since inset failed
+    }
   } else {
     processedBody = body;
     outputContentType = contentType;

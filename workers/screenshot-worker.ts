@@ -261,8 +261,8 @@ async function processJob(job: Job<ScreenshotJobData>) {
         );
 
         const prepResult = await preparePageForCapture(shopPage, url, {
-          timeout: 25000,
-          settleMs: 2000,
+          timeout: 30000,
+          settleMs: 4000,
         });
         shopCleanup = prepResult.cleanup;
 
@@ -391,6 +391,14 @@ async function processJob(job: Job<ScreenshotJobData>) {
             }
           }
           }
+          // All attempts exhausted — store reason before falling through to screenshot
+          try {
+            await supabase
+              .from("bookmarks")
+              .update({ screenshot_error: "product_inset: all attempts exhausted" })
+              .eq("id", bookmarkId)
+              .eq("user_id", userId);
+          } catch {}
         } else if (isStorefront) {
           console.log(
             JSON.stringify({
@@ -399,6 +407,13 @@ async function processJob(job: Job<ScreenshotJobData>) {
               url,
             }),
           );
+          try {
+            await supabase
+              .from("bookmarks")
+              .update({ screenshot_error: "product_inset: storefront (multiple product cards detected)" })
+              .eq("id", bookmarkId)
+              .eq("user_id", userId);
+          } catch {}
         } else {
           console.log(
             JSON.stringify({
@@ -407,11 +422,29 @@ async function processJob(job: Job<ScreenshotJobData>) {
               url,
             }),
           );
+          try {
+            await supabase
+              .from("bookmarks")
+              .update({ screenshot_error: `product_inset: no product signals detected (confidence: ${confidence})` })
+              .eq("id", bookmarkId)
+              .eq("user_id", userId);
+          } catch {}
         }
       } catch (err) {
+        const message = err instanceof Error ? err.message : String(err);
         console.warn(
-          `[${WORKER_NAME}] Product inset generation failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
+          `[${WORKER_NAME}] Product inset generation failed, falling back to screenshot: ${message}`,
         );
+        // Store the reason so the user can see it in the UI
+        try {
+          await supabase
+            .from("bookmarks")
+            .update({
+              screenshot_error: `product_inset: ${message.slice(0, 400)}`,
+            })
+            .eq("id", bookmarkId)
+            .eq("user_id", userId);
+        } catch {}
       } finally {
         if (shopCleanup) await shopCleanup().catch(() => {});
         await shopPage.close().catch(() => {});
