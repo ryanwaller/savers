@@ -2,6 +2,7 @@ import "server-only";
 
 import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { generateProductInset } from "@/lib/generateProductInsetImage";
 
 export const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -481,15 +482,80 @@ export async function storeCustomPreview({
   await ensurePreviewBucket();
 
   const supabaseAdmin = getSupabaseAdmin();
-  const extension = contentTypeToExtension(contentType);
+
+  // ---------- shopping detection ----------
+  let isShopping = false;
+  const { data: lookup } = await supabaseAdmin
+    .from("bookmarks")
+    .select("collection_id, tags")
+    .eq("id", bookmarkId)
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  if (lookup?.collection_id) {
+    const { data: collection } = await supabaseAdmin
+      .from("collections")
+      .select("id, name, parent_id")
+      .eq("id", lookup.collection_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (collection) {
+      const names: string[] = [collection.name];
+      let parentId = collection.parent_id;
+      while (parentId) {
+        const { data: parent } = await supabaseAdmin
+          .from("collections")
+          .select("name, parent_id")
+          .eq("id", parentId)
+          .maybeSingle();
+        if (parent) {
+          names.push(parent.name);
+          parentId = parent.parent_id;
+        } else {
+          break;
+        }
+      }
+
+      const tags: string[] = Array.isArray(lookup.tags) ? lookup.tags : [];
+      const SHOPPING_KEYWORDS = ["shopping", "shop", "store", "products", "buy"];
+
+      const nameMatch = names.some((n) =>
+        SHOPPING_KEYWORDS.some((kw) => n.toLowerCase().includes(kw)),
+      );
+      const tagMatch = tags.some((t) =>
+        SHOPPING_KEYWORDS.includes(t.toLowerCase()),
+      );
+
+      isShopping = nameMatch || tagMatch;
+    }
+  }
+  // -------------------------------------------
+
+  // Process image: inset for shopping, passthrough otherwise
+  let processedBody: ArrayBuffer | Buffer;
+  let outputContentType: string;
+  let outputExtension: string;
+
+  if (isShopping) {
+    const result = await generateProductInset(Buffer.from(body));
+    processedBody = result.buffer;
+    outputContentType = "image/jpeg";
+    outputExtension = "jpg";
+  } else {
+    processedBody = body;
+    outputContentType = contentType;
+    outputExtension = contentTypeToExtension(contentType);
+  }
+
   const safeBaseName = sanitizeSegment(fileName.replace(/\.[^.]+$/, "")) || "upload";
   const previewVersion = Date.now();
-  const previewPath = `${userId}/${bookmarkId}/custom-${previewVersion}-${safeBaseName}.${extension}`;
+  const previewPath = `${userId}/${bookmarkId}/custom-${previewVersion}-${safeBaseName}.${outputExtension}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
     .from(PREVIEW_BUCKET)
-    .upload(previewPath, body, {
-      contentType,
+    .upload(previewPath, processedBody, {
+      contentType: outputContentType,
       upsert: true,
       cacheControl: "31536000",
     });
@@ -504,6 +570,7 @@ export async function storeCustomPreview({
       preview_provider: "custom-upload",
       preview_updated_at: previewUpdatedAt,
       preview_version: previewVersion,
+      ...(isShopping ? { asset_type: "product_inset" } : {}),
     })
     .eq("id", bookmarkId)
     .eq("user_id", userId)
