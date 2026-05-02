@@ -572,11 +572,13 @@ async function processJob(job: Job<ScreenshotJobData>) {
       .from("bookmarks")
       .update({
         preview_path: previewPath,
+        custom_preview_path: null,
         preview_provider: "puppeteer",
         preview_updated_at: previewUpdatedAt,
         preview_version: version,
         screenshot_status: "complete",
         screenshot_error: null,
+        asset_type: "screenshot",
       })
       .eq("id", bookmarkId)
       .eq("user_id", userId);

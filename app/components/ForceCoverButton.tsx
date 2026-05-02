@@ -6,15 +6,23 @@ interface Props {
   bookmarkId: string;
   mode?: "screenshot" | "product_inset";
   label?: string;
+  pending?: boolean;
   onSuccess: () => void;
 }
 
-export function ForceCoverButton({ bookmarkId, mode = "screenshot", label, onSuccess }: Props) {
+export function ForceCoverButton({
+  bookmarkId,
+  mode = "screenshot",
+  label,
+  pending = false,
+  onSuccess,
+}: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const defaultLabel = mode === "product_inset" ? "Apply product image" : "Apply website cover";
   const loadingLabel = "Applying…";
+  const busy = loading || pending;
 
   const handleClick = async () => {
     setLoading(true);
@@ -45,10 +53,10 @@ export function ForceCoverButton({ bookmarkId, mode = "screenshot", label, onSuc
         type="button"
         className="btn-secondary btn-sm"
         onClick={handleClick}
-        disabled={loading}
+        disabled={busy}
         data-testid="force-cover-btn"
       >
-        {loading ? loadingLabel : (label ?? defaultLabel)}
+        {busy ? loadingLabel : (label ?? defaultLabel)}
       </button>
       {error && <span className="cover-error">{error}</span>}
       <style jsx>{`

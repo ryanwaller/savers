@@ -459,6 +459,9 @@ export default function BookmarkDetail({
                 bookmark.asset_type === "recipe_hero" ||
                 isProductInset ||
                 bookmark.asset_type === "text_excerpt";
+              const coverPending =
+                bookmark.screenshot_status === "pending" ||
+                bookmark.screenshot_status === "processing";
 
               const buttons: React.ReactNode[] = [];
 
@@ -472,6 +475,7 @@ export default function BookmarkDetail({
                     key="product"
                     bookmarkId={bookmark.id}
                     mode="product_inset"
+                    pending={coverPending}
                     onSuccess={() => {
                       onPatched({
                         ...bookmark,
@@ -490,6 +494,7 @@ export default function BookmarkDetail({
                   <ForceCoverButton
                     key="screenshot"
                     bookmarkId={bookmark.id}
+                    pending={coverPending}
                     onSuccess={() => {
                       onPatched({
                         ...bookmark,
@@ -572,6 +577,17 @@ export default function BookmarkDetail({
               </div>
             )}
           </div>
+
+          {(bookmark.screenshot_status === "pending" ||
+            bookmark.screenshot_status === "processing") && (
+            <div className="cover-status-note">Updating cover…</div>
+          )}
+
+          {bookmark.screenshot_status === "error" && bookmark.screenshot_error && (
+            <div className="cover-status-error">
+              Cover update failed: {bookmark.screenshot_error}
+            </div>
+          )}
 
           {duplicateBookmarks.length > 0 && (
             <div className="duplicate-card">
@@ -1368,6 +1384,18 @@ export default function BookmarkDetail({
           font-size: 12px;
           color: var(--color-text-muted);
           font-style: italic;
+        }
+        .cover-status-note,
+        .cover-status-error {
+          font-size: 11px;
+          line-height: 1.45;
+          border: 1px solid var(--color-border);
+          border-radius: 12px;
+          padding: 8px 10px;
+          background: var(--color-bg-secondary);
+        }
+        .cover-status-error {
+          color: var(--color-danger, #c62828);
         }
         .tag-editor {
           min-height: 32px;

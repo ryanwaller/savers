@@ -245,6 +245,8 @@ function BookmarkCard({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
+  const coverPending =
+    b.screenshot_status === "pending" || b.screenshot_status === "processing";
 
   // Close the card menu on any click outside .actions (or Escape).
   useEffect(() => {
@@ -623,6 +625,11 @@ function BookmarkCard({
                 <span className="drop-copy">
                   {uploadingPreview ? "Uploading image…" : "Drop image to replace preview"}
                 </span>
+              </span>
+            )}
+            {coverPending && !dropActive && !uploadingPreview && (
+              <span className="cover-refresh-overlay">
+                <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
             {undoPromptOpen && !uploadingPreview && (
@@ -1031,6 +1038,34 @@ function BookmarkCard({
           z-index: 2;
           padding: 12px;
           text-align: center;
+        }
+        .cover-refresh-overlay {
+          position: absolute;
+          inset: 0;
+          display: flex;
+          align-items: flex-end;
+          justify-content: flex-start;
+          padding: 12px;
+          background: linear-gradient(
+            180deg,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(255, 255, 255, 0.18) 58%,
+            rgba(255, 255, 255, 0.72) 100%
+          );
+          pointer-events: none;
+        }
+        .cover-refresh-copy {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 6px 10px;
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+          border: 1px solid var(--color-border);
+          color: var(--color-text);
+          font-size: 11px;
+          line-height: 1;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
