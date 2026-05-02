@@ -437,9 +437,30 @@ export default function BookmarkDetail({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title small muted">Bookmark</div>
-          <button className="close" onClick={onClose} aria-label="Close">
-            <span className="close-glyph">×</span>
-          </button>
+          <div className="head-actions">
+            {(bookmark.asset_type === "recipe_hero" ||
+              bookmark.asset_type === "product_inset" ||
+              bookmark.asset_type === "text_excerpt") && (
+              <ForceCoverButton
+                bookmarkId={bookmark.id}
+                onSuccess={() => {
+                  onPatched({
+                    ...bookmark,
+                    asset_type: "screenshot",
+                    asset_override: true,
+                    screenshot_status: "pending",
+                    preview_path: null,
+                    preview_provider: null,
+                    preview_updated_at: null,
+                    preview_version: null,
+                  });
+                }}
+              />
+            )}
+            <button className="close" onClick={onClose} aria-label="Close">
+              <span className="close-glyph">×</span>
+            </button>
+          </div>
         </div>
 
         <div className="body">
@@ -893,31 +914,9 @@ export default function BookmarkDetail({
           </label>
 
           <div className="field">
-            <div className="label">Saved</div>
-            <div className="small muted">{formatDate(bookmark.created_at)}</div>
+            <div className="label">Saved <span className="saved-date">{formatDate(bookmark.created_at)}</span></div>
           </div>
 
-          {(bookmark.asset_type === "recipe_hero" ||
-            bookmark.asset_type === "product_inset" ||
-            bookmark.asset_type === "text_excerpt") && (
-            <div className="field">
-              <ForceCoverButton
-                bookmarkId={bookmark.id}
-                onSuccess={() => {
-                  onPatched({
-                    ...bookmark,
-                    asset_type: "screenshot",
-                    asset_override: true,
-                    screenshot_status: "pending",
-                    preview_path: null,
-                    preview_provider: null,
-                    preview_updated_at: null,
-                    preview_version: null,
-                  });
-                }}
-              />
-            </div>
-          )}
 
           {error && <div className="error small">{error}</div>}
         </div>
@@ -1039,6 +1038,12 @@ export default function BookmarkDetail({
           box-sizing: border-box;
         }
         .title { font-size: 12px; }
+        .head-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .saved-date { color: var(--color-text); }
         .close {
           width: 32px;
           height: 32px;

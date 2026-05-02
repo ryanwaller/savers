@@ -33,35 +33,28 @@ export function ForceCoverButton({ bookmarkId, onSuccess }: Props) {
   };
 
   return (
-    <div className="force-cover-field">
+    <>
       <button
         type="button"
-        className="btn-secondary btn-sm btn-full"
+        className="btn-secondary btn-sm"
         onClick={handleClick}
         disabled={loading}
         data-testid="force-cover-btn"
       >
-        {loading ? "Applying website cover..." : "Apply website cover"}
+        {loading ? "Applying…" : "Apply website cover"}
       </button>
-      {error && <span className="upload-error">{error}</span>}
+      {error && <span className="cover-error">{error}</span>}
       <style jsx>{`
-        .force-cover-field {
-          display: flex;
-          flex-direction: column;
-          gap: 4px;
-        }
-        .btn-full {
-          width: 100%;
-        }
         .btn-sm {
           font-size: 11px;
           padding: 4px 10px;
+          white-space: nowrap;
         }
-        .upload-error {
+        .cover-error {
           font-size: 11px;
           color: var(--color-danger, #e00);
         }
       `}</style>
-    </div>
+    </>
   );
 }
