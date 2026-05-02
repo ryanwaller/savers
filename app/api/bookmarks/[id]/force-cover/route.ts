@@ -12,6 +12,14 @@ export async function POST(
     const { user } = await requireUser();
     const { id: bookmarkId } = await params;
 
+    let mode: "screenshot" | "product_inset" = "screenshot";
+    try {
+      const body = await req.json();
+      if (body.mode === "product_inset") mode = "product_inset";
+    } catch {
+      // no body or invalid JSON — default to screenshot
+    }
+
     const supabaseAdmin = getSupabaseAdmin();
 
     const { data: bookmark, error: lookupError } = await supabaseAdmin
@@ -38,18 +46,25 @@ export async function POST(
       void removePreviewObjects([bookmark.preview_path]);
     }
 
-    // Reset asset fields and set override flag
+    const updateFields: Record<string, unknown> = {
+      asset_override: true,
+      screenshot_status: "pending",
+      preview_path: null,
+      preview_provider: null,
+      preview_updated_at: null,
+      preview_version: null,
+    };
+
+    if (mode === "screenshot") {
+      updateFields.asset_type = "screenshot";
+    } else {
+      // Let the worker decide asset_type via classification
+      updateFields.asset_type = null;
+    }
+
     const { error: updateError } = await supabaseAdmin
       .from("bookmarks")
-      .update({
-        asset_type: "screenshot",
-        asset_override: true,
-        screenshot_status: "pending",
-        preview_path: null,
-        preview_provider: null,
-        preview_updated_at: null,
-        preview_version: null,
-      })
+      .update(updateFields)
       .eq("id", bookmarkId)
       .eq("user_id", user.id);
 
@@ -61,18 +76,18 @@ export async function POST(
       );
     }
 
-    // Enqueue screenshot with hard override flag
     await enqueueScreenshot({
       bookmarkId,
       url: bookmark.url,
       userId: user.id,
-      force_screenshot: true,
+      force_screenshot: mode === "screenshot",
     });
 
     console.log(
       JSON.stringify({
         event: "force_cover_applied",
         bookmarkId,
+        mode,
       }),
     );
 

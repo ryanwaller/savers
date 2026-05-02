@@ -4,12 +4,17 @@ import { useState } from "react";
 
 interface Props {
   bookmarkId: string;
+  mode?: "screenshot" | "product_inset";
+  label?: string;
   onSuccess: () => void;
 }
 
-export function ForceCoverButton({ bookmarkId, onSuccess }: Props) {
+export function ForceCoverButton({ bookmarkId, mode = "screenshot", label, onSuccess }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const defaultLabel = mode === "product_inset" ? "Apply product image" : "Apply website cover";
+  const loadingLabel = "Applying…";
 
   const handleClick = async () => {
     setLoading(true);
@@ -17,6 +22,8 @@ export function ForceCoverButton({ bookmarkId, onSuccess }: Props) {
     try {
       const res = await fetch(`/api/bookmarks/${bookmarkId}/force-cover`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -41,7 +48,7 @@ export function ForceCoverButton({ bookmarkId, onSuccess }: Props) {
         disabled={loading}
         data-testid="force-cover-btn"
       >
-        {loading ? "Applying…" : "Apply website cover"}
+        {loading ? loadingLabel : (label ?? defaultLabel)}
       </button>
       {error && <span className="cover-error">{error}</span>}
       <style jsx>{`

@@ -438,25 +438,79 @@ export default function BookmarkDetail({
         <div className="head">
           <div className="title small muted">Bookmark</div>
           <div className="head-actions">
-            {(bookmark.asset_type === "recipe_hero" ||
-              bookmark.asset_type === "product_inset" ||
-              bookmark.asset_type === "text_excerpt") && (
-              <ForceCoverButton
-                bookmarkId={bookmark.id}
-                onSuccess={() => {
-                  onPatched({
-                    ...bookmark,
-                    asset_type: "screenshot",
-                    asset_override: true,
-                    screenshot_status: "pending",
-                    preview_path: null,
-                    preview_provider: null,
-                    preview_updated_at: null,
-                    preview_version: null,
-                  });
-                }}
-              />
-            )}
+            {(() => {
+              // Detect shopping context from collection chain + tags
+              let isShopping = false;
+              if (bookmark.collection_id) {
+                const byId = new Map(flat.map((c) => [c.id, c]));
+                const names: string[] = [];
+                let cur = byId.get(bookmark.collection_id);
+                while (cur) {
+                  names.push(cur.name.toLowerCase());
+                  cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+                }
+                const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
+                const kw = ["shopping", "shop", "store", "products", "buy"];
+                const nameMatch = names.some((n) => kw.some((k) => n.includes(k)));
+                const tagMatch = tags.some((t) => kw.includes(t.toLowerCase()));
+                isShopping = nameMatch || tagMatch;
+              }
+
+              const isProductInset = bookmark.asset_type === "product_inset";
+              const hasSpecialAsset =
+                bookmark.asset_type === "recipe_hero" ||
+                isProductInset ||
+                bookmark.asset_type === "text_excerpt";
+
+              const buttons: React.ReactNode[] = [];
+
+              // Shopping bookmark without product inset → offer product image
+              if (isShopping && !isProductInset) {
+                buttons.push(
+                  <ForceCoverButton
+                    key="product"
+                    bookmarkId={bookmark.id}
+                    mode="product_inset"
+                    onSuccess={() => {
+                      onPatched({
+                        ...bookmark,
+                        asset_type: "product_inset",
+                        asset_override: true,
+                        screenshot_status: "pending",
+                        preview_path: null,
+                        preview_provider: null,
+                        preview_updated_at: null,
+                        preview_version: null,
+                      });
+                    }}
+                  />,
+                );
+              }
+
+              // Special asset → offer revert to screenshot
+              if (hasSpecialAsset) {
+                buttons.push(
+                  <ForceCoverButton
+                    key="screenshot"
+                    bookmarkId={bookmark.id}
+                    onSuccess={() => {
+                      onPatched({
+                        ...bookmark,
+                        asset_type: "screenshot",
+                        asset_override: true,
+                        screenshot_status: "pending",
+                        preview_path: null,
+                        preview_provider: null,
+                        preview_updated_at: null,
+                        preview_version: null,
+                      });
+                    }}
+                  />,
+                );
+              }
+
+              return buttons;
+            })()}
             <button className="close" onClick={onClose} aria-label="Close">
               <span className="close-glyph">×</span>
             </button>
