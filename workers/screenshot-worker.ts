@@ -303,13 +303,6 @@ async function processJob(job: Job<ScreenshotJobData>) {
             );
 
             if (productImgUrl) {
-              // Validate image is fetchable before committing
-              const testRes = await fetch(productImgUrl, {
-                method: "HEAD",
-                signal: AbortSignal.timeout(5000),
-              }).catch(() => null);
-
-              if (testRes?.ok) {
                 try {
                   const insetBuffer =
                     await generateProductInsetImage(productImgUrl, url);
@@ -332,6 +325,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
                   .from("bookmarks")
                   .update({
                     preview_path: previewPath,
+                    custom_preview_path: null,
                     preview_provider: "puppeteer",
                     preview_updated_at: previewUpdatedAt,
                     preview_version: version,
@@ -378,24 +372,6 @@ async function processJob(job: Job<ScreenshotJobData>) {
                   });
                 }
               }
-            } else {
-              console.log(
-                JSON.stringify({
-                  event: "product_inset_fallback",
-                  reason: "image_head_failed",
-                  url,
-                  attempt,
-                }),
-              );
-              if (attempt < maxAttempts) {
-                await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
-                await preparePageForCapture(shopPage, url, {
-                  skipNavigation: true,
-                  setupInterception: false,
-                  settleMs: 2000,
-                });
-              }
-            }
           } else {
             console.log(
               JSON.stringify({

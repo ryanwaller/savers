@@ -24,7 +24,7 @@ export async function POST(
 
     const { data: bookmark, error: lookupError } = await supabaseAdmin
       .from("bookmarks")
-      .select("id, preview_path, url, user_id")
+      .select("id, preview_path, custom_preview_path, url, user_id")
       .eq("id", bookmarkId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -42,14 +42,15 @@ export async function POST(
     }
 
     // Delete old preview objects from storage (fire-and-forget)
-    if (bookmark.preview_path) {
-      void removePreviewObjects([bookmark.preview_path]);
+    if (bookmark.preview_path || bookmark.custom_preview_path) {
+      void removePreviewObjects([bookmark.preview_path, bookmark.custom_preview_path]);
     }
 
     const updateFields: Record<string, unknown> = {
       asset_override: true,
       screenshot_status: "pending",
       preview_path: null,
+      custom_preview_path: null,
       preview_provider: null,
       preview_updated_at: null,
       preview_version: null,
