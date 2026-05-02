@@ -198,10 +198,14 @@ async function processJob(job: Job<ScreenshotJobData>) {
       }
     }
 
-    // Recipe > Shopping > Article
+    // Recipe > Shopping > Article.
+    // force_product_inset never applies to recipe bookmarks — recipe
+    // context always wins so a failed hero extraction falls back to
+    // screenshot, never to a product inset.
     useRecipeHero = isRecipeContext(collectionPath, tags);
     useShoppingImage =
-      job.data.force_product_inset || (!useRecipeHero && isShoppingContext(collectionPath, tags));
+      !useRecipeHero &&
+      (job.data.force_product_inset || isShoppingContext(collectionPath, tags));
     useTextExcerpt =
       !useRecipeHero && !useShoppingImage && isArticleContext(collectionPath, tags);
   }

@@ -115,7 +115,7 @@ const HIDE_CSS = `
   { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 
   body { overflow: auto !important; position: static !important; height: auto !important; }
-  html { overflow: auto !important; }
+  html { overflow: auto !important; scroll-behavior: auto !important; }
 `;
 
 function isCmpDomain(hostname: string): boolean {
@@ -337,12 +337,12 @@ export async function preparePageForCapture(
   if (scrollForLazy) {
     try {
       await page.evaluate(() => {
-        window.scrollTo(0, document.body.scrollHeight);
+        window.scrollTo({ top: document.body.scrollHeight, left: 0, behavior: "instant" });
       });
       await new Promise((r) => setTimeout(r, 500));
       try {
         await page.evaluate(() => {
-          window.scrollTo(0, 0);
+          window.scrollTo({ top: 0, left: 0, behavior: "instant" });
         });
       } catch {
         // scroll-back failure — non-fatal

@@ -20,9 +20,12 @@ export async function captureCleanScreenshot(
   });
 
   try {
-    // Ensure page is at top before capturing — scripts may have scrolled
-    // after preparePageForCapture finished (late-loading embeds, etc.).
-    await page.evaluate(() => window.scrollTo(0, 0));
+    // Force instant scroll to top — behavior:"instant" defeats
+    // scroll-behavior:smooth on the page, which would otherwise animate
+    // the scroll and cause the screenshot to capture mid-transition.
+    await page.evaluate(() =>
+      window.scrollTo({ top: 0, left: 0, behavior: "instant" }),
+    );
     await new Promise((r) => setTimeout(r, 150));
 
     const buffer = await page.screenshot({
