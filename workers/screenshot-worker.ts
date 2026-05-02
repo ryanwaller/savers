@@ -19,7 +19,6 @@ import type { ScreenshotJobData } from "@/lib/screenshot-queue";
 import { SCREENSHOT_QUEUE_NAME } from "@/lib/screenshot-queue";
 import { captureScreenshot, captureTextExcerptImage, PUPPETEER_LAUNCH_OPTIONS } from "@/lib/puppeteer-capture";
 import { extractExcerpt } from "@/lib/excerpt";
-import { extractEssayExcerpt } from "@/lib/extractEssayExcerpt";
 import { findRecipeHeroImageUrl, fetchAndProcessRecipeHero } from "@/lib/extractRecipeHero";
 import { detectProductPage } from "@/lib/detectProductPage";
 import { extractPrimaryProductImage } from "@/lib/extractProductImage";
@@ -120,51 +119,6 @@ async function processJob(job: Job<ScreenshotJobData>) {
       !useRecipeHero && (isShoppingCollection || isShoppingTag);
     useTextExcerpt =
       !useRecipeHero && !useShoppingImage && (isReadLater || hasArticleTag);
-  }
-
-  // Experimental: live text excerpt cards for essay-tagged bookmarks.
-  // Skips image generation entirely if extraction succeeds.
-  if (
-    process.env.EXPERIMENTAL_TEXT_CARDS === "true" &&
-    bookmark &&
-    ((bookmark.tags ?? []) as string[]).some(
-      (t: string) => t.toLowerCase() === "essay",
-    )
-  ) {
-    try {
-      const excerpt = await extractEssayExcerpt(
-        url,
-        bookmark.title,
-        bookmark.description,
-      );
-
-      if (excerpt) {
-        await supabase
-          .from("bookmarks")
-          .update({
-            excerpt_text: excerpt,
-            excerpt_source: "auto",
-            screenshot_status: "complete",
-            screenshot_error: null,
-          })
-          .eq("id", bookmarkId)
-          .eq("user_id", userId);
-
-        console.log(
-          JSON.stringify({
-            event: "essay_excerpt_saved",
-            url,
-            length: excerpt.length,
-          }),
-        );
-
-        return { previewPath: null, provider: "excerpt_text", assetType: "text_excerpt" as const };
-      }
-    } catch (err) {
-      console.warn(
-        `[${WORKER_NAME}] Essay excerpt extraction failed, falling back to image: ${err instanceof Error ? err.message : String(err)}`,
-      );
-    }
   }
 
   const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
@@ -482,9 +436,6 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
 async function main() {
   console.log(`[${WORKER_NAME}] Starting screenshot worker...`);
-  console.log(
-    `[${WORKER_NAME}] EXPERIMENTAL_TEXT_CARDS=${process.env.EXPERIMENTAL_TEXT_CARDS}`,
-  );
 
   const worker = new Worker<ScreenshotJobData>(
     SCREENSHOT_QUEUE_NAME,
