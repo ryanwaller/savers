@@ -538,7 +538,7 @@ export default function Sidebar({
           overflow-y: auto;
           overflow-x: hidden;
           min-height: 0;
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
         .sidebar-head {
           min-height: 54px;

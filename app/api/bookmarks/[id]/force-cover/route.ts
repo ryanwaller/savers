@@ -62,14 +62,6 @@ export async function POST(
     }
 
     // Enqueue screenshot with hard override flag
-    if (!process.env.REDIS_URL) {
-      console.error("force-cover: REDIS_URL not set — cannot enqueue screenshot");
-      return NextResponse.json(
-        { error: "Screenshot worker is not available" },
-        { status: 503 },
-      );
-    }
-
     await enqueueScreenshot({
       bookmarkId,
       url: bookmark.url,

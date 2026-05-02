@@ -23,6 +23,7 @@ import { findRecipeHeroImageUrl, fetchAndProcessRecipeHero } from "@/lib/extract
 import { detectProductPage } from "@/lib/detectProductPage";
 import { extractPrimaryProductImage } from "@/lib/extractProductImage";
 import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
+import { preparePageForCapture } from "@/lib/preparePageForCapture";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -253,39 +254,17 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
     if (useShoppingImage) {
       const shopPage = await browser.newPage();
+      let shopCleanup: (() => Promise<void>) | null = null;
       try {
         await shopPage.setUserAgent(
           "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
         );
-        await shopPage.goto(url, {
-          waitUntil: "domcontentloaded",
+
+        const prepResult = await preparePageForCapture(shopPage, url, {
           timeout: 25000,
+          settleMs: 2000,
         });
-
-        // Page prep: scroll to trigger lazy loading, dismiss popups
-        await shopPage.evaluate(() => {
-          window.scrollTo(0, document.body.scrollHeight);
-          window.scrollTo(0, 0);
-        });
-        await new Promise((r) => setTimeout(r, 2000));
-
-        // Dismiss common cookie/overlay buttons
-        await shopPage.evaluate(() => {
-          const dismissSelectors = [
-            'button[id*="accept"]', 'button[class*="accept"]',
-            '[aria-label*="Accept"]', '[aria-label*="Close"]',
-            '.cookie-accept', '.cookie-close', '.popup-close',
-            'button:has-text("Accept")', 'button:has-text("Allow")',
-            'button:has-text("OK")', 'button:has-text("Close")',
-          ];
-          for (const sel of dismissSelectors) {
-            try {
-              const el = document.querySelector(sel) as HTMLElement | null;
-              if (el) { el.click(); break; }
-            } catch {}
-          }
-        });
-        await new Promise((r) => setTimeout(r, 1000));
+        shopCleanup = prepResult.cleanup;
 
         const { forceInset, isStorefront, confidence, signals } =
           await detectProductPage(shopPage);
@@ -392,7 +371,11 @@ async function processJob(job: Job<ScreenshotJobData>) {
                 );
                 if (attempt < maxAttempts) {
                   await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
-                  await new Promise((r) => setTimeout(r, 3000));
+                  await preparePageForCapture(shopPage, url, {
+                    skipNavigation: true,
+                    setupInterception: false,
+                    settleMs: 2000,
+                  });
                 }
               }
             } else {
@@ -406,7 +389,11 @@ async function processJob(job: Job<ScreenshotJobData>) {
               );
               if (attempt < maxAttempts) {
                 await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
-                await new Promise((r) => setTimeout(r, 3000));
+                await preparePageForCapture(shopPage, url, {
+                  skipNavigation: true,
+                  setupInterception: false,
+                  settleMs: 2000,
+                });
               }
             }
           } else {
@@ -420,7 +407,11 @@ async function processJob(job: Job<ScreenshotJobData>) {
             );
             if (attempt < maxAttempts) {
               await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
-              await new Promise((r) => setTimeout(r, 3000));
+              await preparePageForCapture(shopPage, url, {
+                skipNavigation: true,
+                setupInterception: false,
+                settleMs: 2000,
+              });
             }
           }
           }
@@ -446,6 +437,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
           `[${WORKER_NAME}] Product inset generation failed, falling back to screenshot: ${err instanceof Error ? err.message : String(err)}`,
         );
       } finally {
+        if (shopCleanup) await shopCleanup().catch(() => {});
         await shopPage.close().catch(() => {});
       }
     }

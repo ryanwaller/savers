@@ -30,8 +30,7 @@ export function getScreenshotQueue(): Queue<ScreenshotJobData> {
 /** Enqueue a screenshot capture job. Non-blocking — fire and forget. */
 export async function enqueueScreenshot(job: ScreenshotJobData): Promise<void> {
   if (!process.env.REDIS_URL) {
-    console.warn("[screenshot-queue] REDIS_URL not set — skipping screenshot enqueue");
-    return;
+    throw new Error("REDIS_URL not set — screenshot worker unavailable");
   }
   await getScreenshotQueue().add("capture", job, {
     jobId: `screenshot-${job.bookmarkId}-${Date.now()}`,

@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Savers Bookmarklet</title>
+  <meta name="description" content="Drag this link to your bookmarks bar to save pages to Savers." />
+  <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
+  <link rel="shortcut icon" href="/favicon-32.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
+  <meta name="theme-color" content="#D9261C" />
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 24px;
+      background: #111;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .card {
+      background: #1a1a1a;
+      border: 1px solid #2a2a2a;
+      border-radius: 16px;
+      padding: 40px 32px;
+      max-width: 420px;
+      width: 100%;
+      text-align: center;
+      color: #ececec;
+    }
+    .logo { margin-bottom: 16px; }
+    .heading {
+      font-size: 22px;
+      font-weight: 700;
+      margin: 0 0 8px;
+      color: #ececec;
+    }
+    .sub {
+      font-size: 14px;
+      color: #9b9b9b;
+      margin: 0 0 28px;
+      line-height: 1.5;
+    }
+    .btn {
+      display: inline-block;
+      padding: 12px 32px;
+      background: #D9261C;
+      color: #fff;
+      font-size: 16px;
+      font-weight: 600;
+      border-radius: 10px;
+      text-decoration: none;
+      cursor: grab;
+      box-shadow: 0 4px 16px rgba(217, 38, 28, 0.3);
+      margin-bottom: 20px;
+    }
+    .hint {
+      font-size: 13px;
+      color: #6b6b6b;
+      margin: 0 0 20px;
+    }
+    kbd {
+      background: #2a2a2a;
+      border: 1px solid #3a3a3a;
+      border-radius: 4px;
+      padding: 1px 6px;
+      font-size: 12px;
+      font-family: inherit;
+    }
+    details {
+      text-align: left;
+      font-size: 13px;
+      color: #9b9b9b;
+    }
+    summary {
+      cursor: pointer;
+      color: #6b6b6b;
+      margin-bottom: 8px;
+    }
+    .detail-text {
+      margin: 0;
+      line-height: 1.5;
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="logo">
+      <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
+        <rect width="128" height="128" rx="24" fill="none" />
+        <rect x="14" y="34" width="24" height="24" rx="2" fill="#D9261C" />
+        <rect x="52" y="16" width="24" height="64" rx="2" fill="#D9261C" />
+        <rect x="90" y="34" width="24" height="24" rx="2" fill="#D9261C" />
+        <rect x="20" y="92" width="88" height="20" rx="2" fill="#D9261C" />
+      </svg>
+    </div>
+
+    <h1 class="heading">Savers Bookmarklet</h1>
+    <p class="sub">
+      Drag the button below to your bookmarks bar. Click it on any page to save it to Savers.
+    </p>
+
+    <a class="btn" href="javascript:(function(){var s=document.createElement('script');s.src='https://savers-production.up.railway.app/bookmarklet.js';document.head.appendChild(s);})();">Save to Savers</a>
+
+    <p class="hint">
+      Can&rsquo;t see your bookmarks bar? Press
+      <kbd>Ctrl+Shift+B</kbd> (Windows) or
+      <kbd>&#8984;+Shift+B</kbd> (Mac).
+    </p>
+
+    <details>
+      <summary>Need a token for the bookmarklet?</summary>
+      <p class="detail-text">
+        Open Savers &rarr; Settings &rarr; API tokens &rarr; Create token for bookmarklet. Then copy the
+        bookmarklet code from there. The token is embedded directly into the code so it works
+        across browsers even with third-party cookie restrictions.
+      </p>
+    </details>
+  </div>
+</body>
+</html>
