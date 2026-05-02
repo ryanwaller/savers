@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isShoppingContext } from "@/lib/assetTypeRules";
+import { isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
@@ -462,8 +462,11 @@ export default function BookmarkDetail({
 
               const buttons: React.ReactNode[] = [];
 
-              // Shopping bookmark without product inset → offer product image
-              if (isShopping && !isProductInset) {
+              const supportsProductInsetAction = looksLikeProductDetailUrl(bookmark.url);
+
+              // Only offer product-image forcing on likely product-detail URLs.
+              // Collection/search pages tend to fall back or choose noisy assets.
+              if (isShopping && !isProductInset && supportsProductInsetAction) {
                 buttons.push(
                   <ForceCoverButton
                     key="product"
@@ -472,14 +475,9 @@ export default function BookmarkDetail({
                     onSuccess={() => {
                       onPatched({
                         ...bookmark,
-                        asset_type: "product_inset",
                         asset_override: true,
                         screenshot_status: "pending",
-                        preview_path: null,
-                        custom_preview_path: null,
-                        preview_provider: null,
-                        preview_updated_at: null,
-                        preview_version: null,
+                        screenshot_error: null,
                       });
                     }}
                   />,
@@ -495,14 +493,9 @@ export default function BookmarkDetail({
                     onSuccess={() => {
                       onPatched({
                         ...bookmark,
-                        asset_type: "screenshot",
                         asset_override: true,
                         screenshot_status: "pending",
-                        preview_path: null,
-                        custom_preview_path: null,
-                        preview_provider: null,
-                        preview_updated_at: null,
-                        preview_version: null,
+                        screenshot_error: null,
                       });
                     }}
                   />,

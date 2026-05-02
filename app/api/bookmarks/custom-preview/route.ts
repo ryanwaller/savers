@@ -3,6 +3,14 @@ import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { removePreviewObjects, storeCustomPreview } from "@/lib/preview-server";
 
+const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 15000;
+const REMOTE_IMAGE_HEADERS = {
+  "User-Agent":
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+  Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+} as const;
+
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
     return error.message;
@@ -43,31 +51,88 @@ function getErrorDetails(error: unknown) {
   return JSON.stringify(details);
 }
 
+async function resolveUploadPayload(req: NextRequest) {
+  const contentType = req.headers.get("content-type") ?? "";
+
+  if (contentType.includes("application/json")) {
+    const body = (await req.json()) as {
+      bookmark_id?: string;
+      image_url?: string;
+    };
+
+    if (!body.bookmark_id || !body.image_url) {
+      throw new Error("Missing bookmark id or image URL");
+    }
+
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(body.image_url);
+    } catch {
+      throw new Error("Invalid image URL");
+    }
+
+    if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+      throw new Error("Image URL must use http or https");
+    }
+
+    const response = await fetch(parsedUrl.href, {
+      headers: REMOTE_IMAGE_HEADERS,
+      signal: AbortSignal.timeout(REMOTE_IMAGE_FETCH_TIMEOUT_MS),
+    });
+
+    if (!response.ok) {
+      throw new Error(`Image fetch failed: HTTP ${response.status}`);
+    }
+
+    const fetchedType = response.headers.get("content-type") ?? "";
+    if (!fetchedType.startsWith("image/")) {
+      throw new Error("Fetched URL is not an image");
+    }
+
+    const fileName = parsedUrl.pathname.split("/").pop() || "remote-image";
+
+    return {
+      bookmarkId: body.bookmark_id,
+      fileName,
+      contentType: fetchedType,
+      body: await response.arrayBuffer(),
+    };
+  }
+
+  const formData = await req.formData();
+  const bookmarkId = formData.get("bookmark_id");
+  const file = formData.get("file");
+
+  if (typeof bookmarkId !== "string" || !bookmarkId) {
+    throw new Error("Missing bookmark id");
+  }
+
+  if (!(file instanceof File)) {
+    throw new Error("Missing image file");
+  }
+
+  if (!file.type.startsWith("image/")) {
+    throw new Error("File must be an image");
+  }
+
+  return {
+    bookmarkId,
+    fileName: file.name || "upload",
+    contentType: file.type,
+    body: await file.arrayBuffer(),
+  };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();
-    const formData = await req.formData();
-
-    const bookmarkId = formData.get("bookmark_id");
-    const file = formData.get("file");
-
-    if (typeof bookmarkId !== "string" || !bookmarkId) {
-      return NextResponse.json({ error: "Missing bookmark id" }, { status: 400 });
-    }
-
-    if (!(file instanceof File)) {
-      return NextResponse.json({ error: "Missing image file" }, { status: 400 });
-    }
-
-    if (!file.type.startsWith("image/")) {
-      return NextResponse.json({ error: "File must be an image" }, { status: 400 });
-    }
+    const upload = await resolveUploadPayload(req);
 
     const { data: bookmark, error: bookmarkError } = await supabaseAdmin
       .from("bookmarks")
       .select("id, custom_preview_path")
-      .eq("id", bookmarkId)
+      .eq("id", upload.bookmarkId)
       .eq("user_id", user.id)
       .maybeSingle();
 
@@ -83,11 +148,11 @@ export async function POST(req: NextRequest) {
     }
 
     const stored = await storeCustomPreview({
-      bookmarkId,
+      bookmarkId: upload.bookmarkId,
       userId: user.id,
-      fileName: file.name || "upload",
-      contentType: file.type,
-      body: await file.arrayBuffer(),
+      fileName: upload.fileName,
+      contentType: upload.contentType,
+      body: upload.body,
       currentCustomPreviewPath: bookmark.custom_preview_path ?? null,
     });
 

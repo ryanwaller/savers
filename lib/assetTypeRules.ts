@@ -9,6 +9,22 @@ export const SHOPPING_COLLECTION_KEYWORDS = ["shopping", "shop", "store", "produ
 export const SHOPPING_TAGS = ["shopping", "shop", "store", "products", "product", "buy"];
 export const ARTICLE_TAGS = ["essay", "article"];
 
+const PRODUCT_DETAIL_PATTERNS = [
+  /\/products?\//i,
+  /\/p\//i,
+  /\/item\//i,
+  /\/shop\/buy[-/]/i,
+  /\/buy-watch\//i,
+  /[?&]variant=/i,
+];
+
+const NON_DETAIL_PATTERNS = [
+  /\/collections\/[^/?#]+\/?$/i,
+  /\/categories?\//i,
+  /\/search(?:[/?#]|$)/i,
+  /[?&](q|query|search)=/i,
+];
+
 function normalizePath(collectionPath: string) {
   return collectionPath.toLowerCase();
 }
@@ -37,6 +53,17 @@ export function isArticleContext(collectionPath: string, tags: string[]) {
   const path = normalizePath(collectionPath);
   const lower = normalizeTags(tags);
   return path.includes("read later") || lower.some((t) => ARTICLE_TAGS.includes(t));
+}
+
+export function looksLikeProductDetailUrl(url: string) {
+  const value = url.toLowerCase();
+  if (PRODUCT_DETAIL_PATTERNS.some((pattern) => pattern.test(value))) {
+    return true;
+  }
+  if (NON_DETAIL_PATTERNS.some((pattern) => pattern.test(value))) {
+    return false;
+  }
+  return false;
 }
 
 /**

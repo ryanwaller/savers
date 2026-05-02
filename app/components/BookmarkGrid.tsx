@@ -6,6 +6,7 @@ import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
 import {
   api,
+  type CustomPreviewSource,
   domainOf,
   storedPreviewUrl,
   tintForDomain,
@@ -23,7 +24,7 @@ type Props = {
   onDeleteBookmark: (id: string) => Promise<void> | void;
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
   onRefreshPreview: (id: string, version: number) => Promise<void> | void;
-  onUploadCustomPreview: (id: string, file: File) => Promise<Bookmark> | Bookmark;
+  onUploadCustomPreview: (id: string, source: CustomPreviewSource) => Promise<Bookmark> | Bookmark;
   onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
@@ -211,7 +212,7 @@ function BookmarkCard({
   onDelete: () => Promise<void> | void;
   onPin: () => Promise<void> | void;
   onRefreshPreview: (version: number) => Promise<void> | void;
-  onUploadCustomPreview: (file: File) => Promise<Bookmark> | Bookmark;
+  onUploadCustomPreview: (source: CustomPreviewSource) => Promise<Bookmark> | Bookmark;
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
@@ -383,23 +384,76 @@ function BookmarkCard({
   // (kind + type) but NOT the actual files — `dataTransfer.files` is empty
   // until the `drop` event fires. So we detect "is an image being dragged"
   // by sniffing items/types here, and only read `.files` on drop itself.
+  function tryParseRemoteImageUrl(event: React.DragEvent) {
+    const dt = event.dataTransfer;
+    if (!dt) return null;
+
+    const candidates = [
+      dt.getData("text/uri-list"),
+      dt.getData("text/plain"),
+    ]
+      .map((value) => value.trim())
+      .filter(Boolean);
+
+    for (const candidate of candidates) {
+      try {
+        const parsed = new URL(candidate);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return parsed.href;
+        }
+      } catch {
+        // try the next payload shape
+      }
+    }
+
+    const html = dt.getData("text/html");
+    const match = html.match(/<img[^>]+src=["']([^"']+)["']/i);
+    if (match?.[1]) {
+      try {
+        const parsed = new URL(match[1]);
+        if (parsed.protocol === "http:" || parsed.protocol === "https:") {
+          return parsed.href;
+        }
+      } catch {
+        return null;
+      }
+    }
+
+    return null;
+  }
+
   function isImageDrag(event: React.DragEvent) {
     const dt = event.dataTransfer;
     if (!dt) return false;
     const items = Array.from(dt.items ?? []);
     if (items.length > 0) {
-      return items.some(
+      if (items.some(
         (item) => item.kind === "file" && item.type.startsWith("image/")
-      );
+      )) {
+        return true;
+      }
     }
     // Safari/older paths sometimes don't expose items — fall back to types.
     const types = Array.from(dt.types ?? []);
-    return types.includes("Files");
+    return (
+      types.includes("Files") ||
+      types.includes("text/uri-list") ||
+      types.includes("text/html") ||
+      !!tryParseRemoteImageUrl(event)
+    );
   }
 
-  function pickImageFile(event: React.DragEvent) {
+  function pickPreviewSource(event: React.DragEvent): CustomPreviewSource | null {
     const files = Array.from(event.dataTransfer?.files ?? []);
-    return files.find((file) => file.type.startsWith("image/")) ?? null;
+    const file = files.find((value) => value.type.startsWith("image/")) ?? null;
+    if (file) return file;
+
+    const remoteUrl = tryParseRemoteImageUrl(event);
+    if (remoteUrl) {
+      return { remoteUrl };
+    }
+
+    return null;
   }
 
   function handlePreviewDragEnter(event: React.DragEvent) {
@@ -436,14 +490,18 @@ function BookmarkCard({
     dropDepthRef.current = 0;
     setDropActive(false);
 
-    const file = pickImageFile(event);
-    if (!file || uploadingPreview) return;
+    const source = pickPreviewSource(event);
+    if (!source || uploadingPreview) return;
 
     setUploadingPreview(true);
 
     try {
-      const prepared = await compressImageForPreview(file);
-      await onUploadCustomPreview(prepared);
+      if (source instanceof File) {
+        const prepared = await compressImageForPreview(source);
+        await onUploadCustomPreview(prepared);
+      } else {
+        await onUploadCustomPreview(source);
+      }
       setPreviewFailed(false);
       setPreviewNonce(null);
       setUndoPromptOpen(true);

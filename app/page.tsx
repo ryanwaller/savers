@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
-import { api, canonicalBookmarkUrl } from "@/lib/api";
+import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import Sidebar from "./components/Sidebar";
@@ -1289,8 +1289,8 @@ export default function Home() {
     }
   }
 
-  async function handleUploadCustomPreview(id: string, file: File) {
-    const { bookmark } = await api.uploadCustomPreview(id, file);
+  async function handleUploadCustomPreview(id: string, source: CustomPreviewSource) {
+    const { bookmark } = await api.uploadCustomPreview(id, source);
     updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
     setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
     setDetail((prev) => (prev && prev.id === id ? bookmark : prev));

@@ -97,6 +97,10 @@ const HIDE_CSS = `
   .email-capture, .email-modal, .subscribe-popup, .subscribe-modal,
   .mc-modal, .mailchimp-popup,
   [class*="newsletter-popup"], [class*="newsletter-modal"], [class*="email-popup"],
+  [class*="predictive-search"], [class*="search-suggestions"], [class*="search-suggestion"],
+  [class*="search-drawer"], [class*="search-overlay"], [class*="search-panel"],
+  [class*="drawer"][class*="search"], [class*="flyout"][class*="search"],
+  [data-testid*="search"][role="dialog"],
 
   #intercom-container, #intercom-frame, .intercom-lightweight-app,
   .chat-widget, .livechat-widget, .drift-frame-controller, .zopim,
@@ -197,6 +201,12 @@ export async function preparePageForCapture(
 
   await new Promise((r) => setTimeout(r, settleMs));
 
+  try {
+    await page.keyboard.press("Escape");
+  } catch {
+    // Some sites ignore Escape; continue.
+  }
+
   // --- Step 3: Auto-dismiss popups ---
   try {
     await page.evaluate((selectors: string[]) => {
@@ -262,6 +272,32 @@ export async function preparePageForCapture(
       document.body.style.overflow = "auto";
       document.body.style.position = "static";
       document.documentElement.style.overflow = "auto";
+
+      // Some storefronts server-render search drawers / auth sheets directly
+      // into the DOM. Remove containers that clearly match those states so
+      // collection screenshots don't capture them as if they were page content.
+      const textBlocks = Array.from(
+        document.querySelectorAll("section, aside, dialog, div"),
+      );
+      for (const el of textBlocks) {
+        const text = (el.textContent || "").trim().toLowerCase().replace(/\s+/g, " ");
+        if (!text) continue;
+
+        const isSearchSuggestionsPanel =
+          text.includes("search suggestions") &&
+          text.includes("recommended for you");
+        const isWelcomeBackPanel =
+          text.includes("welcome back") &&
+          text.includes("sign up") &&
+          text.includes("log in");
+
+        if (isSearchSuggestionsPanel || isWelcomeBackPanel) {
+          const target =
+            el.closest("[role='dialog'], dialog, aside, section") ?? el;
+          target.remove();
+          count++;
+        }
+      }
       return count;
     }, REMOVAL_SELECTORS);
   } catch {
@@ -276,6 +312,12 @@ export async function preparePageForCapture(
     await page.addStyleTag({ content: HIDE_CSS });
   } catch {
     // CSS injection failure — continue
+  }
+
+  try {
+    await page.keyboard.press("Escape");
+  } catch {
+    // best-effort
   }
 
   // --- Step 6: Scroll for lazy loading ---

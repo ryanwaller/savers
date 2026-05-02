@@ -44,6 +44,29 @@ function getSupabaseAdmin() {
 
 const WORKER_NAME = process.env.WORKER_NAME || `screenshot-worker-${process.pid}`;
 
+async function cleanupReplacedPreviewObjects(
+  supabase: ReturnType<typeof getSupabaseAdmin>,
+  oldPaths: Array<string | null | undefined>,
+  keepPath: string,
+) {
+  const paths = oldPaths.filter(
+    (path): path is string => typeof path === "string" && path.length > 0 && path !== keepPath,
+  );
+  if (paths.length === 0) return;
+  const uniquePaths = Array.from(new Set(paths));
+  const { error } = await supabase.storage.from(PREVIEW_BUCKET).remove(uniquePaths);
+  if (error) {
+    console.warn(
+      JSON.stringify({
+        event: "preview_cleanup_failed",
+        keepPath,
+        paths: uniquePaths,
+        error: error.message,
+      }),
+    );
+  }
+}
+
 async function processJob(job: Job<ScreenshotJobData>) {
   const { bookmarkId, url, userId } = job.data;
   const supabase = getSupabaseAdmin();
@@ -53,6 +76,13 @@ async function processJob(job: Job<ScreenshotJobData>) {
     console.log(
       JSON.stringify({ event: "hard_override_screenshot", bookmarkId }),
     );
+
+    const { data: existing } = await supabase
+      .from("bookmarks")
+      .select("preview_path, custom_preview_path")
+      .eq("id", bookmarkId)
+      .eq("user_id", userId)
+      .maybeSingle();
 
     const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
 
@@ -94,6 +124,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
       if (updateError) throw updateError;
 
+      await cleanupReplacedPreviewObjects(
+        supabase,
+        [existing?.preview_path, existing?.custom_preview_path],
+        previewPath,
+      );
+
       return { previewPath, provider: "puppeteer", assetType: "screenshot" as const };
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
@@ -122,14 +158,18 @@ async function processJob(job: Job<ScreenshotJobData>) {
   // Check if this bookmark qualifies for a text excerpt image
   const { data: bookmark } = await supabase
     .from("bookmarks")
-    .select("id, tags, collection_id, title, description")
-    .eq("id", bookmarkId)
-    .eq("user_id", userId)
-    .maybeSingle();
+      .select("id, tags, collection_id, title, description, preview_path, custom_preview_path")
+      .eq("id", bookmarkId)
+      .eq("user_id", userId)
+      .maybeSingle();
 
   let useRecipeHero = false;
   let useShoppingImage = false;
   let useTextExcerpt = false;
+  const previousPreviewPaths: Array<string | null | undefined> = [
+    bookmark?.preview_path,
+    bookmark?.custom_preview_path,
+  ];
   if (bookmark) {
     const tags = (bookmark.tags ?? []) as string[];
 
@@ -218,6 +258,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
             .eq("user_id", userId);
 
           if (updateError) throw updateError;
+
+          await cleanupReplacedPreviewObjects(
+            supabase,
+            previousPreviewPaths,
+            previewPath,
+          );
 
           return { previewPath, provider: "puppeteer", assetType: "recipe_hero" as const };
         }
@@ -338,6 +384,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
                   .eq("user_id", userId);
 
                 if (updateError) throw updateError;
+
+                await cleanupReplacedPreviewObjects(
+                  supabase,
+                  previousPreviewPaths,
+                  previewPath,
+                );
 
                 console.log(
                   JSON.stringify({
@@ -491,6 +543,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
       if (updateError) throw updateError;
 
+      await cleanupReplacedPreviewObjects(
+        supabase,
+        previousPreviewPaths,
+        previewPath,
+      );
+
       return { previewPath, provider: "puppeteer", assetType: "text_excerpt" as const };
     }
 
@@ -524,6 +582,12 @@ async function processJob(job: Job<ScreenshotJobData>) {
       .eq("user_id", userId);
 
     if (updateError) throw updateError;
+
+    await cleanupReplacedPreviewObjects(
+      supabase,
+      previousPreviewPaths,
+      previewPath,
+    );
 
     return { previewPath, provider: "puppeteer" };
   } catch (error) {

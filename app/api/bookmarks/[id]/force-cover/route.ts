@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { enqueueScreenshot } from "@/lib/screenshot-queue";
-import { removePreviewObjects } from "@/lib/preview-server";
 
 export async function POST(
   req: NextRequest,
@@ -41,26 +40,17 @@ export async function POST(
       return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
     }
 
-    // Delete old preview objects from storage (fire-and-forget)
-    if (bookmark.preview_path || bookmark.custom_preview_path) {
-      void removePreviewObjects([bookmark.preview_path, bookmark.custom_preview_path]);
-    }
-
     const updateFields: Record<string, unknown> = {
       asset_override: true,
       screenshot_status: "pending",
-      preview_path: null,
-      custom_preview_path: null,
-      preview_provider: null,
-      preview_updated_at: null,
-      preview_version: null,
+      screenshot_error: null,
     };
 
     if (mode === "screenshot") {
-      updateFields.asset_type = "screenshot";
+      // Keep the current asset visible while the replacement is being generated.
+      // The worker will write the new screenshot and clean up old objects on success.
     } else {
-      // Let the worker decide asset_type via classification
-      updateFields.asset_type = null;
+      // Likewise, keep the existing preview visible until the new inset is ready.
     }
 
     const { error: updateError } = await supabaseAdmin

@@ -1,5 +1,11 @@
 import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup } from "./types";
 
+export type CustomPreviewSource =
+  | File
+  | {
+      remoteUrl: string;
+    };
+
 async function j<T>(res: Response): Promise<T> {
   if (!res.ok) {
     let msg = `${res.status} ${res.statusText}`;
@@ -83,15 +89,28 @@ export const api = {
   }> {
     return j(await fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
   },
-  async uploadCustomPreview(bookmarkId: string, file: File): Promise<{ bookmark: Bookmark }> {
-    const formData = new FormData();
-    formData.set("bookmark_id", bookmarkId);
-    formData.set("file", file);
+  async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
+    if (source instanceof File) {
+      const formData = new FormData();
+      formData.set("bookmark_id", bookmarkId);
+      formData.set("file", source);
+
+      return j(
+        await fetch("/api/bookmarks/custom-preview", {
+          method: "POST",
+          body: formData,
+        })
+      );
+    }
 
     return j(
       await fetch("/api/bookmarks/custom-preview", {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          bookmark_id: bookmarkId,
+          image_url: source.remoteUrl,
+        }),
       })
     );
   },
