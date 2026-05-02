@@ -440,20 +440,6 @@ export default function BookmarkDetail({
           <div className="title small muted">Bookmark</div>
           <div className="head-actions">
             {(() => {
-              // Detect shopping context from collection chain + tags
-              let isShopping = false;
-              if (bookmark.collection_id) {
-                const byId = new Map(flat.map((c) => [c.id, c]));
-                const names: string[] = [];
-                let cur = byId.get(bookmark.collection_id);
-                while (cur) {
-                  names.push(cur.name);
-                  cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
-                }
-                const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
-                isShopping = isShoppingContext(names.join(" / "), tags);
-              }
-
               const isProductInset = bookmark.asset_type === "product_inset";
               const hasSpecialAsset =
                 bookmark.asset_type === "recipe_hero" ||
@@ -468,6 +454,20 @@ export default function BookmarkDetail({
               const supportsProductInsetAction =
                 looksLikeProductDetailUrl(bookmark.url) ||
                 canForceProductInsetUrl(bookmark.url);
+              const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
+              let collectionPath = "";
+              if (bookmark.collection_id) {
+                const byId = new Map(flat.map((c) => [c.id, c]));
+                const names: string[] = [];
+                let cur = byId.get(bookmark.collection_id);
+                while (cur) {
+                  names.unshift(cur.name);
+                  cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
+                }
+                collectionPath = names.join(" / ");
+              }
+              const isShopping =
+                isShoppingContext(collectionPath, tags) || supportsProductInsetAction;
 
               // Only offer product-image forcing on likely product-detail URLs.
               // Collection/search pages tend to fall back or choose noisy assets.
