@@ -75,18 +75,19 @@ async function detectBackgroundKind(imageBuffer: Buffer): Promise<BackgroundKind
     const b = bSum / count;
     const a = aSum / count;
 
-    if (a < 12) {
+    if (a < 8) {
       transparentCorners += 1;
       continue;
     }
 
-    if (a > 220 && r > 238 && g > 238 && b > 238) {
+    const channelSpread = Math.max(r, g, b) - Math.min(r, g, b);
+    if (a > 245 && r > 244 && g > 244 && b > 244 && channelSpread < 6) {
       whiteishCorners += 1;
     }
   }
 
   if (transparentCorners >= 3) return "transparent";
-  if (whiteishCorners >= 3) return "whiteish";
+  if (whiteishCorners >= 4) return "whiteish";
   return "composed";
 }
 

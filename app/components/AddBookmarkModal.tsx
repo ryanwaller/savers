@@ -6,9 +6,6 @@ import {
   canonicalBookmarkUrl,
   domainOf,
   normalizeUrl,
-  previewImageUrl,
-  screenshotPreviewUrl,
-  tintForDomain,
 } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import CollectionPicker from "./CollectionPicker";
@@ -43,9 +40,6 @@ export default function AddBookmarkModal({
   const [fetching, setFetching] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [imgOk, setImgOk] = useState(true);
-  const [previewStage, setPreviewStage] = useState<"microlink" | "fallback" | "fail">("microlink");
-  const [isDark, setIsDark] = useState(false);
   const lastFetchedRef = useRef("");
 
   // Suggestion state
@@ -178,17 +172,6 @@ export default function AddBookmarkModal({
   function dismissProposal(tag: string) {
     setTagProposals((prev) => prev.filter((t) => t !== tag));
   }
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsDark(mq.matches);
-    const h = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    mq.addEventListener?.("change", h);
-    return () => mq.removeEventListener?.("change", h);
-  }, []);
-
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -400,8 +383,6 @@ export default function AddBookmarkModal({
   }
 
   const normalizedUrl = url.trim() ? normalizeUrl(url) : "";
-  const host = normalizedUrl ? domainOf(normalizedUrl) : "";
-  const tint = normalizedUrl ? tintForDomain(normalizedUrl, isDark) : "var(--color-bg-secondary)";
   const duplicateBookmarks = useMemo(() => {
     if (!normalizedUrl) return [];
     const canonical = canonicalBookmarkUrl(normalizedUrl);
@@ -414,25 +395,14 @@ export default function AddBookmarkModal({
     : aiSuggestion?.proposed_parent_collection_path
       ? `${aiSuggestion.proposed_parent_collection_path} / ${aiSuggestion.proposed_collection_name}`
       : aiSuggestion?.proposed_collection_name;
-
-  const urlReady = normalizedUrl && (() => {
-    try { new URL(normalizedUrl); return true; } catch { return false; }
+  const urlReady = !!normalizedUrl && (() => {
+    try {
+      new URL(normalizedUrl);
+      return true;
+    } catch {
+      return false;
+    }
   })();
-  const microlinkPreviewSrc = urlReady ? screenshotPreviewUrl(normalizedUrl) : null;
-  const fallbackPreviewSrc = urlReady
-    ? previewImageUrl(normalizedUrl, {
-        ogImage,
-        favicon,
-      })
-    : null;
-  const previewSrc = previewStage === "microlink" ? microlinkPreviewSrc : fallbackPreviewSrc;
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setImgOk(true);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setPreviewStage("microlink");
-  }, [microlinkPreviewSrc, fallbackPreviewSrc]);
 
   return (
     <div className="backdrop" onClick={onClose}>
@@ -458,8 +428,6 @@ export default function AddBookmarkModal({
                   setDescription("");
                   setOgImage(null);
                   setFavicon(null);
-                  setImgOk(true);
-                  setPreviewStage("microlink");
                   setError(null);
                   setAiSuggestion(null);
                   setAiDismissed(false);
@@ -478,7 +446,7 @@ export default function AddBookmarkModal({
               }}
             />
             <div className="hint small muted">
-              {fetching ? "Fetching preview…" : "Press Enter or Tab to fetch preview."}
+              {fetching ? "Fetching page details…" : "Press Enter or Tab to fetch page details."}
             </div>
           </label>
 
@@ -503,40 +471,6 @@ export default function AddBookmarkModal({
                     +{duplicateBookmarks.length - 3} more
                   </div>
                 )}
-              </div>
-            </div>
-          )}
-
-          {url && (
-            <div className="preview">
-              <div className="thumb" style={{ background: tint }}>
-                {normalizedUrl && imgOk ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={previewSrc ?? ""}
-                    alt={`Screenshot of ${host || "website"}`}
-                    onError={() => {
-                      if (previewStage === "microlink") {
-                        setPreviewStage("fallback");
-                        return;
-                      }
-                      setImgOk(false);
-                      setPreviewStage("fail");
-                    }}
-                  />
-                ) : (
-                  <span className="thumb-label small muted">Preview unavailable</span>
-                )}
-              </div>
-              <div className="preview-meta">
-                <div className="preview-title">{title || host || "Untitled"}</div>
-                <div className="preview-host small muted">
-                  {favicon && (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img className="fav" src={favicon} alt="" />
-                  )}
-                  {host}
-                </div>
               </div>
             </div>
           )}
