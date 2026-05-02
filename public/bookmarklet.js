@@ -228,11 +228,16 @@
     if (token) {
       headers["Authorization"] = "Bearer " + token;
     }
-    const res = await fetch(apiBase + path, {
-      ...options,
-      credentials: token ? "omit" : "include",
-      headers,
-    });
+    let res;
+    try {
+      res = await fetch(apiBase + path, {
+        ...options,
+        credentials: token ? "omit" : "include",
+        headers,
+      });
+    } catch (e) {
+      throw new Error("Network error — check your connection");
+    }
     if (!res.ok) {
       let msg = res.status + " " + res.statusText;
       try {
