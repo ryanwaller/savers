@@ -45,6 +45,10 @@ export interface Bookmark {
   auto_tags?: string[]
   /** 'recipe_hero' for recipe hero crops, 'product_inset' for single-product shopping bookmarks, 'text_excerpt' for read-later/article bookmarks; null/undefined for standard screenshots. */
   asset_type?: string | null
+  /** Live text excerpt for essay-tagged bookmarks (experimental). Rendered as styled HTML card instead of image. */
+  excerpt_text?: string | null
+  /** Origin of excerpt_text: 'auto' (worker-extracted), 'user_edited' (hand-edited), or 'fallback'. */
+  excerpt_source?: string | null
 }
 
 export interface TagAlias {
