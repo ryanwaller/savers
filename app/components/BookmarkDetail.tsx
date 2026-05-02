@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
+import { ShoppingImageUpload } from "./ShoppingImageUpload";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -890,6 +891,24 @@ export default function BookmarkDetail({
               onChange={(e) => setNotes(e.target.value)}
             />
           </label>
+
+          <div className="field">
+            <ShoppingImageUpload
+              bookmarkId={bookmark.id}
+              onSuccess={async () => {
+                // Refetch to get the new preview_path
+                try {
+                  const { bookmark: refreshed } = await api.updateBookmark(
+                    bookmark.id,
+                    { preview_version: Date.now() },
+                  );
+                  onPatched(refreshed);
+                } catch {
+                  // stale state is fine — preview URL is already in storage
+                }
+              }}
+            />
+          </div>
 
           <div className="field">
             <div className="label">Saved</div>
