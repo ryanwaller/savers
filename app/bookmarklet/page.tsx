@@ -27,12 +27,11 @@ export default function BookmarkletPage() {
           Drag the button below to your bookmarks bar. Click it on any page to save it to Savers.
         </p>
 
-        <a
-          href={href}
-          style={styles.button}
-        >
-          Save to Savers
-        </a>
+        <div
+          dangerouslySetInnerHTML={{
+            __html: `<a href="${href}" style="display:inline-block;padding:12px 32px;background:#D9261C;color:#fff;font-size:16px;font-weight:600;border-radius:10px;text-decoration:none;cursor:grab;box-shadow:0 4px 16px rgba(217,38,28,0.3);margin-bottom:20px;">Save to Savers</a>`,
+          }}
+        />
 
         <p style={styles.hint}>
           Can&apos;t see your bookmarks bar? Press{" "}
