@@ -7,56 +7,93 @@ const FETCH_TIMEOUT_MS = 8000;
 const USER_AGENT =
   "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
 
-// Patterns that indicate promotional/footer content rather than article body
-const PROMO_PATTERNS = [
-  /subscribe/i,
-  /support us/i,
-  /donate/i,
-  /follow us on/i,
-  /like us on/i,
-  /share this/i,
-  /sign up/i,
-  /newsletter/i,
+// Promotional keywords — each match adds 3 to promo score
+const PROMO_KEYWORDS = [
+  "subscribe",
+  "support us",
+  "donate",
+  "become a member",
+  "follow us",
+  "like us",
+  "share this",
+  "sign up",
+  "newsletter",
+  "patreon",
+  "paypal",
+  "buy me a coffee",
 ];
 
-function isPromotional(text: string): boolean {
-  return PROMO_PATTERNS.some((p) => p.test(text));
+interface ParagraphAnalysis {
+  text: string;
+  length: number;
+  sentenceCount: number;
+  avgWordLength: number;
+  hasProperCapitalization: boolean;
+  endsWithPeriod: boolean;
+  urlCount: number;
+  promoScore: number; // 0 = clean, 10+ = very promotional
 }
 
-function hasUrls(text: string): boolean {
-  return /https?:\/\/|www\./i.test(text);
-}
+function calculatePromoScore(text: string): number {
+  let score = 0;
+  const lower = text.toLowerCase();
 
-function scoreQuality(text: string): number {
-  let score = 100;
-
-  // Penalize URLs
-  const urlCount = (text.match(/https?:\/\/|www\./gi) || []).length;
-  score -= urlCount * 30;
-
-  // Penalize promotional keywords
-  if (isPromotional(text)) score -= 50;
-
-  // Penalize all-caps (headings, CTAs)
-  if (
-    text === text.toUpperCase() &&
-    text.length > 30 &&
-    !/[a-z]/.test(text)
-  ) {
-    score -= 40;
+  for (const keyword of PROMO_KEYWORDS) {
+    if (lower.includes(keyword)) score += 3;
   }
 
-  // Penalize very short text
-  if (text.length < 100) score -= 20;
-  if (text.length < 50) score -= 40;
+  const urlCount = (text.match(/https?:\/\/|www\./gi) || []).length;
+  score += urlCount * 2;
 
-  // Reward proper sentence structure (multiple sentences)
-  if (text.includes(".") && text.split(".").length > 2) score += 10;
+  if (text === text.toUpperCase() && text.length > 20) score += 2;
+  if (text.length < 50) score += 1;
 
-  // Reward normal mixed-case capitalization
-  if (/[a-z]/.test(text) && /[A-Z]/.test(text)) score += 10;
+  return score;
+}
 
-  return Math.max(0, score);
+function countSentences(text: string): number {
+  return text.split(/[.!?]+/).filter((s) => s.trim().length > 0).length;
+}
+
+function isContentParagraph(p: ParagraphAnalysis): boolean {
+  if (p.length < 80) return false;
+  if (p.urlCount > 0) return false;
+  if (p.promoScore > 3) return false;
+  if (p.sentenceCount < 2 && !p.endsWithPeriod) return false;
+  if (!p.hasProperCapitalization) return false;
+  if (p.avgWordLength > 12) return false;
+  return true;
+}
+
+function analyzeParagraph(text: string): ParagraphAnalysis {
+  const words = text.split(/\s+/);
+  const avgWordLength =
+    words.length > 0
+      ? words.reduce((sum, w) => sum + w.length, 0) / words.length
+      : 0;
+
+  return {
+    text,
+    length: text.length,
+    sentenceCount: countSentences(text),
+    avgWordLength,
+    hasProperCapitalization: /^[A-Z]/.test(text),
+    endsWithPeriod: /[.]$/.test(text.trim()),
+    urlCount: (text.match(/https?:\/\/|www\./gi) || []).length,
+    promoScore: calculatePromoScore(text),
+  };
+}
+
+/**
+ * Truncate to ~10 lines at ~80 chars per line, breaking at word boundary.
+ * Roughly 800 chars max for 52px font at current margins.
+ */
+function truncateToLines(text: string, maxLines: number): string {
+  const maxChars = maxLines * 80;
+  if (text.length <= maxChars) return text;
+  const truncated = text.slice(0, maxChars);
+  const lastSpace = truncated.lastIndexOf(" ");
+  return (lastSpace > maxChars * 0.5 ? truncated.slice(0, lastSpace) : truncated) + "…";
 }
 
 function trimToWord(text: string, maxLen: number): string {
@@ -64,39 +101,6 @@ function trimToWord(text: string, maxLen: number): string {
   const cut = text.slice(0, maxLen);
   const lastSpace = cut.lastIndexOf(" ");
   return (lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut) + "…";
-}
-
-/**
- * Extract clean <p> text from HTML, filtering out promotional paragraphs.
- * Used as a fallback when Readability produces low-quality output.
- */
-function extractCleanParagraphs(html: string): string | null {
-  try {
-    const { document } = parseHTML(html);
-    const paragraphs = Array.from(document.querySelectorAll("p"))
-      .map((p) => p.textContent?.replace(/\s+/g, " ").trim() || "")
-      .filter((text) => {
-        if (text.length < 50) return false;
-        if (hasUrls(text)) return false;
-        if (isPromotional(text)) return false;
-        if (text === text.toUpperCase() && text.length > 20) return false;
-        return true;
-      })
-      .slice(0, 5);
-
-    if (paragraphs.length === 0) return null;
-
-    // Join paragraphs with spaces until we have enough content
-    let result = "";
-    for (const p of paragraphs) {
-      const next = result ? result + " " + p : p;
-      if (next.length > EXCERPT_MAX_CHARS + 100) break;
-      result = next;
-    }
-    return result;
-  } catch {
-    return null;
-  }
 }
 
 export async function extractExcerpt(
@@ -109,8 +113,7 @@ export async function extractExcerpt(
     const res = await fetch(url, {
       headers: {
         "User-Agent": USER_AGENT,
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
       },
       signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
@@ -118,108 +121,166 @@ export async function extractExcerpt(
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     html = await res.text();
   } catch {
-    const fallback = trimToWord(
+    return trimToWord(
       fallbackDescription || fallbackTitle || "Content unavailable",
       EXCERPT_MAX_CHARS,
     );
-    return fallback;
   }
 
-  let bestText: string | null = null;
-  let bestSource = "none";
-  let bestScore = -1;
-
-  // 1. Try Readability article extraction
+  let doc: Document;
   try {
-    const { document } = parseHTML(html);
-    const article = new Readability(document).parse();
-    if (article?.textContent?.trim()) {
-      const text = article.textContent.replace(/\s+/g, " ").trim();
-      const score = scoreQuality(text);
-      if (score > bestScore) {
-        bestText = text;
-        bestScore = score;
-        bestSource = "readability";
+    doc = parseHTML(html).document;
+  } catch {
+    return trimToWord(
+      fallbackDescription || fallbackTitle || "Content unavailable",
+      EXCERPT_MAX_CHARS,
+    );
+  }
+
+  const allParagraphs = Array.from(doc.querySelectorAll("p"))
+    .map((p) => p.textContent?.replace(/\s+/g, " ").trim() || "")
+    .filter((text) => text.length > 0)
+    .map(analyzeParagraph);
+
+  const contentParagraphs = allParagraphs.filter(isContentParagraph);
+
+  const totalParagraphs = allParagraphs.length;
+  const contentCount = contentParagraphs.length;
+
+  // Strategy 1: 3+ content paragraphs → use 3rd one (skip intro/hook/promo)
+  if (contentParagraphs.length >= 3) {
+    const excerpt = contentParagraphs[2].text;
+    console.log(
+      JSON.stringify({
+        event: "excerpt_extraction",
+        source: "structural_3rd",
+        url,
+        total_paragraphs: totalParagraphs,
+        content_paragraphs: contentCount,
+        selected_index: 2,
+        excerpt_length: excerpt.length,
+      }),
+    );
+    return truncateToLines(excerpt, 10);
+  }
+
+  // Strategy 2: 1-2 content paragraphs → use 1st one
+  if (contentParagraphs.length >= 1) {
+    const excerpt = contentParagraphs[0].text;
+    console.log(
+      JSON.stringify({
+        event: "excerpt_extraction",
+        source: "structural_1st",
+        url,
+        total_paragraphs: totalParagraphs,
+        content_paragraphs: contentCount,
+        selected_index: 0,
+        excerpt_length: excerpt.length,
+      }),
+    );
+    return truncateToLines(excerpt, 10);
+  }
+
+  // Strategy 3: Try Readability inside article/main container
+  try {
+    const container = doc.querySelector(
+      "article, .article-content, .post-content, .entry-content, main",
+    );
+    if (container) {
+      const paragraphs = Array.from(container.querySelectorAll("p"))
+        .map((p) => p.textContent?.replace(/\s+/g, " ").trim() || "")
+        .filter((text) => {
+          if (text.length < 100) return false;
+          if (/(subscribe|support|donate|follow us)/i.test(text)) return false;
+          if (/https?:\/\/|www\./i.test(text)) return false;
+          return true;
+        });
+
+      if (paragraphs.length > 0) {
+        const excerpt = paragraphs[0];
+        console.log(
+          JSON.stringify({
+            event: "excerpt_extraction",
+            source: "article_container",
+            url,
+            total_paragraphs: totalParagraphs,
+            content_paragraphs: contentCount,
+            selected_index: -1,
+            excerpt_length: excerpt.length,
+          }),
+        );
+        return truncateToLines(excerpt, 10);
       }
     }
   } catch {
-    // readability parse failure — fall through
+    // parse failure — fall through
   }
 
-  // 2. If Readability score is low, try clean paragraph extraction
-  if (bestScore < 50) {
-    const paragraphText = extractCleanParagraphs(html);
-    if (paragraphText) {
-      const score = scoreQuality(paragraphText);
-      if (score > bestScore) {
-        bestText = paragraphText;
-        bestScore = score;
-        bestSource = "paragraphs";
+  // Strategy 4: Meta description
+  try {
+    const metaDesc =
+      doc
+        .querySelector('meta[property="og:description"]')
+        ?.getAttribute("content") ||
+      doc.querySelector('meta[name="description"]')?.getAttribute("content");
+    if (metaDesc?.trim()) {
+      const excerpt = metaDesc.trim();
+      if (
+        excerpt.length >= 80 &&
+        !/(subscribe|support|donate|follow us)/i.test(excerpt) &&
+        !/https?:\/\/|www\./i.test(excerpt)
+      ) {
+        console.log(
+          JSON.stringify({
+            event: "excerpt_extraction",
+            source: "meta_description",
+            url,
+            total_paragraphs: totalParagraphs,
+            content_paragraphs: contentCount,
+            selected_index: -1,
+            excerpt_length: excerpt.length,
+          }),
+        );
+        return truncateToLines(excerpt, 10);
       }
     }
+  } catch {
+    // parse failure — fall through
   }
 
-  // 3. Meta description fallback
-  if (bestScore < 50) {
-    try {
-      const { document } = parseHTML(html);
-      const metaDesc =
-        document
-          .querySelector('meta[property="og:description"]')
-          ?.getAttribute("content") ||
-        document
-          .querySelector('meta[name="description"]')
-          ?.getAttribute("content");
-      if (metaDesc?.trim()) {
-        const text = metaDesc.trim();
-        const score = scoreQuality(text);
-        if (score > bestScore) {
-          bestText = text;
-          bestScore = score;
-          bestSource = "meta_description";
-        }
-      }
-    } catch {
-      // parse failure — fall through
+  // Strategy 5: Page title
+  try {
+    const pageTitle = doc.querySelector("title")?.textContent?.trim();
+    if (pageTitle) {
+      console.log(
+        JSON.stringify({
+          event: "excerpt_extraction",
+          source: "page_title",
+          url,
+          total_paragraphs: totalParagraphs,
+          content_paragraphs: contentCount,
+          selected_index: -1,
+          excerpt_length: pageTitle.length,
+        }),
+      );
+      return trimToWord(pageTitle, EXCERPT_MAX_CHARS);
     }
+  } catch {
+    // parse failure — fall through
   }
 
-  // 4. Page title fallback
-  if (bestScore < 50) {
-    try {
-      const { document } = parseHTML(html);
-      const pageTitle = document
-        .querySelector("title")
-        ?.textContent?.trim();
-      if (pageTitle) {
-        const score = scoreQuality(pageTitle);
-        if (score > bestScore) {
-          bestText = pageTitle;
-          bestScore = score;
-          bestSource = "page_title";
-        }
-      }
-    } catch {
-      // parse failure — fall through
-    }
-  }
-
-  // 5. DB fallbacks
-  if (bestScore < 50) {
-    bestText =
-      fallbackDescription || fallbackTitle || "Content unavailable";
-    bestSource = "db_fallback";
-  }
-
+  // Strategy 6: DB fallbacks
+  const fallback = fallbackDescription || fallbackTitle || "Content unavailable";
   console.log(
     JSON.stringify({
       event: "excerpt_extraction",
-      source: bestSource,
-      score: bestScore,
-      length: bestText?.length ?? 0,
+      source: "db_fallback",
       url,
+      total_paragraphs: totalParagraphs,
+      content_paragraphs: contentCount,
+      selected_index: -1,
+      excerpt_length: fallback.length,
     }),
   );
-
-  return trimToWord(bestText!, EXCERPT_MAX_CHARS);
+  return trimToWord(fallback, EXCERPT_MAX_CHARS);
 }

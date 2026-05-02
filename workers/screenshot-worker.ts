@@ -216,6 +216,15 @@ async function processJob(job: Job<ScreenshotJobData>) {
         if (confidence === "high") {
           const imageUrl = await extractPrimaryProductImage(shopPage);
 
+          console.log(
+            JSON.stringify({
+              event: "product_image_extraction",
+              url,
+              image_found: !!imageUrl,
+              image_url: imageUrl?.slice(0, 120),
+            }),
+          );
+
           if (imageUrl) {
             console.log(`[${WORKER_NAME}] Product image found: ${imageUrl}`);
             const insetBuffer = await generateProductInsetImage(imageUrl);
@@ -250,6 +259,14 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
             if (updateError) throw updateError;
 
+            console.log(
+              JSON.stringify({
+                event: "product_inset_success",
+                url,
+                preview_path: previewPath,
+              }),
+            );
+
             return {
               previewPath,
               provider: "puppeteer",
@@ -258,11 +275,20 @@ async function processJob(job: Job<ScreenshotJobData>) {
           }
 
           console.log(
-            `[${WORKER_NAME}] No product image found, falling back to screenshot`,
+            JSON.stringify({
+              event: "product_inset_fallback",
+              reason: "no_image_url",
+              url,
+            }),
           );
         } else {
           console.log(
-            `[${WORKER_NAME}] Shopping confidence ${confidence} (score ${score}), falling back to screenshot`,
+            JSON.stringify({
+              event: "product_inset_fallback",
+              reason: `confidence_${confidence}`,
+              score,
+              url,
+            }),
           );
         }
       } catch (err) {

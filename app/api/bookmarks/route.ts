@@ -5,6 +5,7 @@ import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { fetchPageContent } from '@/lib/page-content'
 import { removePreviewObjects } from '@/lib/preview-server'
 import { enqueueScreenshot } from '@/lib/screenshot-queue'
+import { determineAssetType, buildCollectionPath } from '@/lib/assetTypeRules'
 import { enqueueAutoTag } from '@/lib/auto-tag-queue'
 
 function getErrorMessage(error: unknown) {
@@ -224,6 +225,22 @@ export async function PATCH(req: NextRequest) {
       await ensureOwnedCollection(user.id, updates.collection_id)
     }
 
+    // If collection is changing, capture old state before overwriting it
+    let oldCollectionId: string | null | undefined
+    let oldTags: string[] = []
+    if (
+      Object.prototype.hasOwnProperty.call(updates, 'collection_id')
+    ) {
+      const { data: old } = await supabaseAdmin
+        .from('bookmarks')
+        .select('collection_id, tags')
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .maybeSingle()
+      oldCollectionId = old?.collection_id ?? null
+      oldTags = (old?.tags as string[]) ?? []
+    }
+
     const { data, error } = await supabaseAdmin
       .from('bookmarks')
       .update(updates)
@@ -285,6 +302,58 @@ export async function PATCH(req: NextRequest) {
         })
       } catch (queueError) {
         logUnexpectedError('Enqueue screenshot refresh error:', queueError)
+      }
+    }
+
+    // Collection changed without URL/preview_version change — regenerate if asset type would differ
+    if (
+      !shouldRefreshPreview &&
+      oldCollectionId !== undefined &&
+      oldCollectionId !== (updates.collection_id ?? null)
+    ) {
+      const { data: allCollections } = await supabaseAdmin
+        .from('collections')
+        .select('id, name, parent_id')
+        .eq('user_id', user.id)
+
+      if (allCollections) {
+        const byId = new Map(
+          allCollections.map((c) => [c.id, c]),
+        )
+        const oldPath = buildCollectionPath(oldCollectionId ?? null, byId)
+        const newPath = buildCollectionPath(
+          updates.collection_id ?? null,
+          byId,
+        )
+        const oldType = determineAssetType(oldPath, oldTags)
+        const newType = determineAssetType(newPath, updates.tags ?? oldTags)
+
+        if (oldType !== newType) {
+          await supabaseAdmin
+            .from('bookmarks')
+            .update({
+              preview_path: null,
+              preview_provider: null,
+              preview_updated_at: null,
+              screenshot_status: 'pending',
+              screenshot_error: null,
+            })
+            .eq('id', id)
+            .eq('user_id', user.id)
+
+          try {
+            await enqueueScreenshot({
+              bookmarkId: data.id,
+              userId: user.id,
+              url: data.url,
+            })
+          } catch (queueError) {
+            logUnexpectedError(
+              'Enqueue screenshot regeneration error:',
+              queueError,
+            )
+          }
+        }
       }
     }
 
