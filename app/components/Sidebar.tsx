@@ -5,6 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Funnel, PushPin, SignOut } from "@phosphor-icons/react";
 import type { Bookmark, Collection, SmartCollection } from "@/lib/types";
+import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
 import ExportBookmarksButton from "./ExportBookmarksButton";
@@ -134,7 +135,25 @@ export default function Sidebar({
     return clearRootNestTimer;
   }, [draggedId]);
 
-  const [collapsedCollectionIds, setCollapsedCollectionIds] = useState<string[]>([]);
+  const { isExpanded, toggle: toggleExpanded, expandAll, syncWithValidIds } =
+    useCollectionExpansionState();
+
+  // Prune stale collection IDs from persisted state when tree changes
+  const allCollectionIds = useMemo(() => {
+    const ids = new Set<string>();
+    const walk = (nodes: Collection[]) => {
+      for (const n of nodes) {
+        ids.add(n.id);
+        if (n.children) walk(n.children);
+      }
+    };
+    walk(tree);
+    return ids;
+  }, [tree]);
+
+  useEffect(() => {
+    syncWithValidIds(allCollectionIds);
+  }, [allCollectionIds, syncWithValidIds]);
 
   const sortedTags = useMemo(() => {
     const tags = [...allTags];
@@ -335,16 +354,10 @@ export default function Sidebar({
                   key={c.id}
                   node={c}
                   depth={0}
-                  open={!collapsedCollectionIds.includes(c.id)}
-                  isCollapsed={(id) => collapsedCollectionIds.includes(id)}
-                  onToggleOpen={(id) =>
-                    setCollapsedCollectionIds((prev) =>
-                      prev.includes(id) ? prev.filter((value) => value !== id) : [...prev, id]
-                    )
-                  }
-                  onExpand={(id) =>
-                    setCollapsedCollectionIds((prev) => prev.filter((value) => value !== id))
-                  }
+                  open={isExpanded(c.id)}
+                  isCollapsed={(id) => !isExpanded(id)}
+                  onToggleOpen={(id) => toggleExpanded(id)}
+                  onExpand={(id) => expandAll([id])}
                   selection={selection}
                   onSelect={onSelect}
                   onCreateCollection={onCreateCollection}

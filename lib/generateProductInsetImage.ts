@@ -27,6 +27,14 @@ export async function generateProductInsetImage(
 
   const imgBuffer = Buffer.from(await res.arrayBuffer());
 
+  // Validate image is not blank/white/tiny
+  const rawMeta = await sharp(imgBuffer).metadata();
+  if ((rawMeta.width || 0) < 100 || (rawMeta.height || 0) < 100) {
+    throw new Error(
+      `Product image too small: ${rawMeta.width}x${rawMeta.height}`,
+    );
+  }
+
   // Get dimensions after resize to compute exact centering
   const resized = sharp(imgBuffer).resize(MAX_INSET_WIDTH, MAX_INSET_HEIGHT, {
     fit: "inside",

@@ -200,84 +200,128 @@ async function processJob(job: Job<ScreenshotJobData>) {
         // Wait for lazy images to load
         await new Promise((r) => setTimeout(r, 3000));
 
-        const { score, confidence, signals } =
+        const { forceInset, isStorefront, confidence, signals } =
           await detectProductPage(shopPage);
 
         console.log(
           JSON.stringify({
             event: "shopping_detection",
-            score,
+            url,
+            forceInset,
+            isStorefront,
             confidence,
             signals,
-            url,
           }),
         );
 
-        if (confidence === "high") {
-          const imageUrl = await extractPrimaryProductImage(shopPage);
+        // FORCE inset unless it's clearly a storefront
+        if (forceInset && !isStorefront) {
+          console.log(
+            JSON.stringify({ event: "attempting_product_inset", url }),
+          );
+
+          const productImgUrl =
+            await extractPrimaryProductImage(shopPage);
 
           console.log(
             JSON.stringify({
-              event: "product_image_extraction",
+              event: "image_extraction_result",
               url,
-              image_found: !!imageUrl,
-              image_url: imageUrl?.slice(0, 120),
+              imageUrl: productImgUrl?.slice(0, 120),
+              success: !!productImgUrl,
             }),
           );
 
-          if (imageUrl) {
-            console.log(`[${WORKER_NAME}] Product image found: ${imageUrl}`);
-            const insetBuffer = await generateProductInsetImage(imageUrl);
+          if (productImgUrl) {
+            // Validate image is fetchable before committing
+            const testRes = await fetch(productImgUrl, {
+              method: "HEAD",
+              signal: AbortSignal.timeout(5000),
+            }).catch(() => null);
 
-            const version = Date.now();
-            const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
-            const previewUpdatedAt = new Date().toISOString();
+            if (testRes?.ok) {
+              try {
+                const insetBuffer =
+                  await generateProductInsetImage(productImgUrl);
 
-            const { error: uploadError } = await supabase.storage
-              .from(PREVIEW_BUCKET)
-              .upload(previewPath, insetBuffer, {
-                contentType: "image/jpeg",
-                upsert: true,
-                cacheControl: "31536000",
-              });
+                const version = Date.now();
+                const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
+                const previewUpdatedAt = new Date().toISOString();
 
-            if (uploadError) throw uploadError;
+                const { error: uploadError } = await supabase.storage
+                  .from(PREVIEW_BUCKET)
+                  .upload(previewPath, insetBuffer, {
+                    contentType: "image/jpeg",
+                    upsert: true,
+                    cacheControl: "31536000",
+                  });
 
-            const { error: updateError } = await supabase
-              .from("bookmarks")
-              .update({
-                preview_path: previewPath,
-                preview_provider: "puppeteer",
-                preview_updated_at: previewUpdatedAt,
-                preview_version: version,
-                screenshot_status: "complete",
-                screenshot_error: null,
-                asset_type: "product_inset",
-              })
-              .eq("id", bookmarkId)
-              .eq("user_id", userId);
+                if (uploadError) throw uploadError;
 
-            if (updateError) throw updateError;
+                const { error: updateError } = await supabase
+                  .from("bookmarks")
+                  .update({
+                    preview_path: previewPath,
+                    preview_provider: "puppeteer",
+                    preview_updated_at: previewUpdatedAt,
+                    preview_version: version,
+                    screenshot_status: "complete",
+                    screenshot_error: null,
+                    asset_type: "product_inset",
+                  })
+                  .eq("id", bookmarkId)
+                  .eq("user_id", userId);
 
+                if (updateError) throw updateError;
+
+                console.log(
+                  JSON.stringify({
+                    event: "product_inset_success",
+                    url,
+                    preview_path: previewPath,
+                  }),
+                );
+
+                return {
+                  previewPath,
+                  provider: "puppeteer",
+                  assetType: "product_inset" as const,
+                };
+              } catch (insetErr) {
+                console.warn(
+                  JSON.stringify({
+                    event: "inset_generation_failed",
+                    url,
+                    error:
+                      insetErr instanceof Error
+                        ? insetErr.message
+                        : String(insetErr),
+                  }),
+                );
+              }
+            } else {
+              console.log(
+                JSON.stringify({
+                  event: "product_inset_fallback",
+                  reason: "image_head_failed",
+                  url,
+                }),
+              );
+            }
+          } else {
             console.log(
               JSON.stringify({
-                event: "product_inset_success",
+                event: "product_inset_fallback",
+                reason: "no_image_url",
                 url,
-                preview_path: previewPath,
               }),
             );
-
-            return {
-              previewPath,
-              provider: "puppeteer",
-              assetType: "product_inset" as const,
-            };
           }
-
+        } else if (isStorefront) {
           console.log(
             JSON.stringify({
               event: "product_inset_fallback",
-              reason: "no_image_url",
+              reason: "storefront",
               url,
             }),
           );
@@ -285,8 +329,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
           console.log(
             JSON.stringify({
               event: "product_inset_fallback",
-              reason: `confidence_${confidence}`,
-              score,
+              reason: `no_signals_confidence_${confidence}`,
               url,
             }),
           );
