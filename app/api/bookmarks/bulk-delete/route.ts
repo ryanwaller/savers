@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { removePreviewObjects } from "@/lib/preview-server";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -21,6 +22,16 @@ export async function POST(req: NextRequest) {
     }
 
     const supabaseAdmin = getSupabaseAdmin();
+    const { data: existingBookmarks, error: loadError } = await supabaseAdmin
+      .from("bookmarks")
+      .select("preview_path, custom_preview_path")
+      .in("id", ids)
+      .eq("user_id", user.id);
+
+    if (loadError) {
+      console.error(`[bulk-delete] ${getErrorMessage(loadError)}`);
+      return NextResponse.json({ error: getErrorMessage(loadError) }, { status: 500 });
+    }
 
     const { error } = await supabaseAdmin
       .from("bookmarks")
@@ -31,6 +42,15 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error(`[bulk-delete] ${getErrorMessage(error)}`);
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
+    }
+
+    const previewPaths = (existingBookmarks ?? []).flatMap((bookmark) =>
+      [bookmark.preview_path, bookmark.custom_preview_path].filter(
+        (path): path is string => typeof path === "string" && path.length > 0
+      )
+    );
+    if (previewPaths.length > 0) {
+      void removePreviewObjects(previewPaths);
     }
 
     return NextResponse.json({ deleted: ids.length });

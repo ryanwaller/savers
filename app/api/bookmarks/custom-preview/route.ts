@@ -141,6 +141,7 @@ export async function DELETE(req: NextRequest) {
       .from("bookmarks")
       .update({
         custom_preview_path: null,
+        asset_override: false,
         preview_provider: null,
         preview_updated_at: previewUpdatedAt,
         preview_version: previewVersion,

@@ -229,18 +229,23 @@ export async function PATCH(req: NextRequest) {
     let oldCollectionId: string | null | undefined
     let oldTags: string[] = []
     let wasOverridden = false
+    let oldPreviewPath: string | null = null
+    let oldCustomPreviewPath: string | null = null
     if (
-      Object.prototype.hasOwnProperty.call(updates, 'collection_id')
+      Object.prototype.hasOwnProperty.call(updates, 'collection_id') ||
+      Object.prototype.hasOwnProperty.call(updates, 'url')
     ) {
       const { data: old } = await supabaseAdmin
         .from('bookmarks')
-        .select('collection_id, tags, asset_override')
+        .select('collection_id, tags, asset_override, preview_path, custom_preview_path')
         .eq('id', id)
         .eq('user_id', user.id)
         .maybeSingle()
       oldCollectionId = old?.collection_id ?? null
       oldTags = (old?.tags as string[]) ?? []
-      wasOverridden = old?.asset_override === true
+      oldPreviewPath = old?.preview_path ?? null
+      oldCustomPreviewPath = old?.custom_preview_path ?? null
+      wasOverridden = old?.asset_override === true || !!old?.custom_preview_path
     }
 
     const { data, error } = await supabaseAdmin
@@ -273,10 +278,14 @@ export async function PATCH(req: NextRequest) {
           .from('bookmarks')
           .update({
             preview_path: null,
+            custom_preview_path: null,
             preview_provider: null,
             preview_updated_at: null,
+            preview_version: null,
             screenshot_status: 'pending',
             screenshot_error: null,
+            asset_type: null,
+            asset_override: false,
           })
           .eq('id', id)
           .eq('user_id', user.id)
@@ -285,6 +294,10 @@ export async function PATCH(req: NextRequest) {
 
         if (!clearError && clearedBookmark) {
           bookmark = clearedBookmark
+        }
+
+        if (oldPreviewPath || oldCustomPreviewPath) {
+          void removePreviewObjects([oldPreviewPath, oldCustomPreviewPath])
         }
       } else {
         // Manual refresh — just mark pending

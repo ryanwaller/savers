@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import sharp from "sharp";
-import { generateProductInset } from "@/lib/generateProductInsetImage";
-import { removePreviewObjects } from "@/lib/preview-server";
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
+import { storeCustomPreview } from "@/lib/preview-server";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -48,19 +44,11 @@ export async function POST(
       return NextResponse.json({ error: "File must be an image" }, { status: 400 });
     }
 
-    if (file.size > MAX_FILE_SIZE) {
-      return NextResponse.json(
-        { error: "File too large (max 10 MB)" },
-        { status: 400 },
-      );
-    }
-
     const supabaseAdmin = getSupabaseAdmin();
 
-    // Verify bookmark exists and check if it's in a shopping collection
     const { data: bookmark, error: lookupError } = await supabaseAdmin
       .from("bookmarks")
-      .select("id, preview_path, collection_id, tags")
+      .select("id, custom_preview_path")
       .eq("id", bookmarkId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -79,158 +67,16 @@ export async function POST(
       return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
     }
 
-    // Determine asset type: query collection + parent directly, plus tag fallback
-    let isShopping = false;
-    if (bookmark.collection_id) {
-      const { data: collection } = await supabaseAdmin
-        .from("collections")
-        .select("id, name, parent_id")
-        .eq("id", bookmark.collection_id)
-        .eq("user_id", user.id)
-        .maybeSingle();
+    const stored = await storeCustomPreview({
+      bookmarkId,
+      userId: user.id,
+      fileName: file.name || "upload",
+      contentType: file.type,
+      body: await file.arrayBuffer(),
+      currentCustomPreviewPath: bookmark.custom_preview_path ?? null,
+    });
 
-      if (collection) {
-        // Walk full parent chain to build collection path
-        const names: string[] = [collection.name];
-        let parentId = collection.parent_id;
-        while (parentId) {
-          const { data: parent } = await supabaseAdmin
-            .from("collections")
-            .select("name, parent_id")
-            .eq("id", parentId)
-            .maybeSingle();
-          if (parent) {
-            names.push(parent.name);
-            parentId = parent.parent_id;
-          } else {
-            break;
-          }
-        }
-
-        const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
-        const SHOPPING_KEYWORDS = ["shopping", "shop", "store", "products", "buy"];
-
-        const nameMatch = names.some((n) =>
-          SHOPPING_KEYWORDS.some((kw) => n.toLowerCase().includes(kw)),
-        );
-        const tagMatch = tags.some((t) =>
-          SHOPPING_KEYWORDS.includes(t.toLowerCase()),
-        );
-
-        isShopping = nameMatch || tagMatch;
-
-        console.log(
-          JSON.stringify({
-            event: "upload_image_asset_detection",
-            bookmarkId,
-            collectionId: bookmark.collection_id,
-            collectionNames: names,
-            tags,
-            nameMatch,
-            tagMatch,
-            isShopping,
-          }),
-        );
-      } else {
-        console.log(
-          JSON.stringify({
-            event: "upload_image_asset_detection",
-            bookmarkId,
-            collectionId: bookmark.collection_id,
-            error: "collection_not_found",
-          }),
-        );
-      }
-    }
-
-    const fileBuffer = Buffer.from(await file.arrayBuffer());
-
-    // Process through unified pipeline
-    let processedBuffer: Buffer;
-    let insetWidth: number | undefined;
-    let insetHeight: number | undefined;
-
-    if (isShopping) {
-      const result = await generateProductInset(fileBuffer);
-      processedBuffer = result.buffer;
-      insetWidth = result.insetWidth;
-      insetHeight = result.insetHeight;
-    } else {
-      // Standard resize for non-shopping
-      processedBuffer = await sharp(fileBuffer)
-        .resize(1280, 800, { fit: "inside", withoutEnlargement: false })
-        .jpeg({ quality: 90 })
-        .toBuffer();
-    }
-
-    // Delete old preview if it exists
-    if (bookmark.preview_path) {
-      void removePreviewObjects([bookmark.preview_path]);
-    }
-
-    // Upload new preview
-    const version = Date.now();
-    const previewPath = `${user.id}/${bookmarkId}/upload-${version}.jpg`;
-    const previewUpdatedAt = new Date().toISOString();
-
-    const { error: uploadError } = await supabaseAdmin.storage
-      .from("bookmark-previews")
-      .upload(previewPath, processedBuffer, {
-        contentType: "image/jpeg",
-        upsert: true,
-        cacheControl: "31536000",
-      });
-
-    if (uploadError) {
-      console.error(
-        `upload-image storage failed ${getErrorMessage(uploadError)} | ${getErrorDetails(uploadError)}`,
-      );
-      return NextResponse.json(
-        { error: getErrorMessage(uploadError) },
-        { status: 500 },
-      );
-    }
-
-    // Update bookmark
-    const { data: updated, error: updateError } = await supabaseAdmin
-      .from("bookmarks")
-      .update({
-        preview_path: previewPath,
-        preview_provider: "manual_upload",
-        preview_updated_at: previewUpdatedAt,
-        preview_version: version,
-        screenshot_status: "complete",
-        screenshot_error: null,
-        ...(isShopping ? { asset_type: "product_inset" } : {}),
-      })
-      .eq("id", bookmarkId)
-      .eq("user_id", user.id)
-      .select()
-      .single();
-
-    if (updateError) {
-      console.error(
-        `upload-image update failed ${getErrorMessage(updateError)} | ${getErrorDetails(updateError)}`,
-      );
-      return NextResponse.json(
-        { error: getErrorMessage(updateError) },
-        { status: 500 },
-      );
-    }
-
-    console.log(
-      JSON.stringify({
-        event: "manual_upload_success",
-        bookmarkId,
-        originalSize: file.size,
-        processedSize: processedBuffer.length,
-        isShopping,
-        insetWidth,
-        insetHeight,
-      }),
-    );
-
-    return NextResponse.json({ bookmark: updated, debug: { isShopping, insetWidth, insetHeight } });
+    return NextResponse.json({ bookmark: stored.bookmark });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

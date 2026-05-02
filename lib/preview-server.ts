@@ -577,6 +577,7 @@ export async function storeCustomPreview({
     .from("bookmarks")
     .update({
       custom_preview_path: previewPath,
+      asset_override: true,
       preview_provider: "custom-upload",
       preview_updated_at: previewUpdatedAt,
       preview_version: previewVersion,

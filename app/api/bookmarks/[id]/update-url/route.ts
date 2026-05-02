@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { isPublicUrl } from "@/lib/api";
+import { removePreviewObjects } from "@/lib/preview-server";
+import { enqueueScreenshot } from "@/lib/screenshot-queue";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -33,7 +35,7 @@ export async function PATCH(
 
     const { data: existing, error: lookupError } = await supabaseAdmin
       .from("bookmarks")
-      .select("id")
+      .select("id, preview_path, custom_preview_path")
       .eq("id", id)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -49,7 +51,18 @@ export async function PATCH(
 
     const { data: bookmark, error: updateError } = await supabaseAdmin
       .from("bookmarks")
-      .update({ url })
+      .update({
+        url,
+        preview_path: null,
+        custom_preview_path: null,
+        preview_provider: null,
+        preview_updated_at: null,
+        preview_version: null,
+        screenshot_status: "pending",
+        screenshot_error: null,
+        asset_type: null,
+        asset_override: false,
+      })
       .eq("id", id)
       .eq("user_id", user.id)
       .select()
@@ -58,6 +71,21 @@ export async function PATCH(
     if (updateError) {
       console.error(`update-url failed ${getErrorMessage(updateError)}`);
       return NextResponse.json({ error: getErrorMessage(updateError) }, { status: 500 });
+    }
+
+    if (existing.preview_path || existing.custom_preview_path) {
+      void removePreviewObjects([existing.preview_path, existing.custom_preview_path]);
+    }
+
+    try {
+      await enqueueScreenshot({
+        bookmarkId: bookmark.id,
+        userId: user.id,
+        url: bookmark.url,
+      });
+    } catch (queueError) {
+      console.error(`update-url enqueue failed ${getErrorMessage(queueError)}`);
+      return NextResponse.json({ error: getErrorMessage(queueError) }, { status: 500 });
     }
 
     return NextResponse.json({ bookmark });
