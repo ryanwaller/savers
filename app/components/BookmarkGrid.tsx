@@ -596,6 +596,7 @@ function BookmarkCard({
                 key={screenshotSrc}
                 src={screenshotSrc}
                 alt={`Preview of ${host}`}
+                data-asset-type={b.asset_type ?? undefined}
                 draggable={false}
                 onLoad={() => setReloading(false)}
                 onError={() => {
@@ -1009,6 +1010,14 @@ function BookmarkCard({
             filter 220ms ease,
             opacity 220ms ease,
             transform 300ms ease;
+        }
+        /* Recipe hero and product inset images are framed compositions
+           (1280×800 = 16:10, matching the card exactly) or centered
+           product shots — vertically center them so food photos and
+           product images don't crop to the top. */
+        .thumb :global(img[data-asset-type="recipe_hero"]),
+        .thumb :global(img[data-asset-type="product_inset"]) {
+          object-position: center center;
         }
         @media (hover: hover) {
           .card-shell:hover .thumb :global(img),

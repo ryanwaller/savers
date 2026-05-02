@@ -466,11 +466,39 @@ export default function BookmarkDetail({
                 }
                 collectionPath = names.join(" / ");
               }
-              const isRecipe = isRecipeContext(collectionPath, tags);
+              // Use existing asset_type as a fallback — a bookmark that
+              // already has recipe_hero IS a recipe regardless of
+              // collection-path detection.
+              const isRecipe =
+                isRecipeContext(collectionPath, tags) ||
+                bookmark.asset_type === "recipe_hero";
               const isShopping =
                 !isRecipe &&
                 (isShoppingContext(collectionPath, tags) ||
                   supportsProductInsetAction);
+
+              // Recipe bookmarks: offer recipe hero regeneration.
+              // Uses product_inset mode — the worker detects the recipe
+              // context and runs hero extraction instead of product inset.
+              if (isRecipe && supportsProductInsetAction) {
+                buttons.push(
+                  <ForceCoverButton
+                    key="recipe"
+                    bookmarkId={bookmark.id}
+                    mode="product_inset"
+                    label="Apply recipe image"
+                    pending={coverPending}
+                    onSuccess={() => {
+                      onPatched({
+                        ...bookmark,
+                        asset_override: true,
+                        screenshot_status: "pending",
+                        screenshot_error: null,
+                      });
+                    }}
+                  />,
+                );
+              }
 
               // Only offer product-image forcing on likely product-detail URLs.
               // Collection/search pages tend to fall back or choose noisy assets.
