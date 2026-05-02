@@ -261,8 +261,31 @@ async function processJob(job: Job<ScreenshotJobData>) {
           waitUntil: "domcontentloaded",
           timeout: 25000,
         });
-        // Wait for lazy images to load
-        await new Promise((r) => setTimeout(r, 3000));
+
+        // Page prep: scroll to trigger lazy loading, dismiss popups
+        await shopPage.evaluate(() => {
+          window.scrollTo(0, document.body.scrollHeight);
+          window.scrollTo(0, 0);
+        });
+        await new Promise((r) => setTimeout(r, 2000));
+
+        // Dismiss common cookie/overlay buttons
+        await shopPage.evaluate(() => {
+          const dismissSelectors = [
+            'button[id*="accept"]', 'button[class*="accept"]',
+            '[aria-label*="Accept"]', '[aria-label*="Close"]',
+            '.cookie-accept', '.cookie-close', '.popup-close',
+            'button:has-text("Accept")', 'button:has-text("Allow")',
+            'button:has-text("OK")', 'button:has-text("Close")',
+          ];
+          for (const sel of dismissSelectors) {
+            try {
+              const el = document.querySelector(sel) as HTMLElement | null;
+              if (el) { el.click(); break; }
+            } catch {}
+          }
+        });
+        await new Promise((r) => setTimeout(r, 1000));
 
         const { forceInset, isStorefront, confidence, signals } =
           await detectProductPage(shopPage);
@@ -280,33 +303,37 @@ async function processJob(job: Job<ScreenshotJobData>) {
 
         // FORCE inset unless it's clearly a storefront
         if (forceInset && !isStorefront) {
-          console.log(
-            JSON.stringify({ event: "attempting_product_inset", url }),
-          );
+          const maxAttempts = 2;
 
-          const productImgUrl =
-            await extractPrimaryProductImage(shopPage);
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            console.log(
+              JSON.stringify({ event: "attempting_product_inset", url, attempt }),
+            );
 
-          console.log(
-            JSON.stringify({
-              event: "image_extraction_result",
-              url,
-              imageUrl: productImgUrl?.slice(0, 120),
-              success: !!productImgUrl,
-            }),
-          );
+            const productImgUrl =
+              await extractPrimaryProductImage(shopPage);
 
-          if (productImgUrl) {
-            // Validate image is fetchable before committing
-            const testRes = await fetch(productImgUrl, {
-              method: "HEAD",
-              signal: AbortSignal.timeout(5000),
-            }).catch(() => null);
+            console.log(
+              JSON.stringify({
+                event: "image_extraction_result",
+                url,
+                imageUrl: productImgUrl?.slice(0, 120),
+                success: !!productImgUrl,
+                attempt,
+              }),
+            );
 
-            if (testRes?.ok) {
-              try {
-                const insetBuffer =
-                  await generateProductInsetImage(productImgUrl);
+            if (productImgUrl) {
+              // Validate image is fetchable before committing
+              const testRes = await fetch(productImgUrl, {
+                method: "HEAD",
+                signal: AbortSignal.timeout(5000),
+              }).catch(() => null);
+
+              if (testRes?.ok) {
+                try {
+                  const insetBuffer =
+                    await generateProductInsetImage(productImgUrl, url);
 
                 const version = Date.now();
                 const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
@@ -356,12 +383,17 @@ async function processJob(job: Job<ScreenshotJobData>) {
                   JSON.stringify({
                     event: "inset_generation_failed",
                     url,
+                    attempt,
                     error:
                       insetErr instanceof Error
                         ? insetErr.message
                         : String(insetErr),
                   }),
                 );
+                if (attempt < maxAttempts) {
+                  await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
+                  await new Promise((r) => setTimeout(r, 3000));
+                }
               }
             } else {
               console.log(
@@ -369,8 +401,13 @@ async function processJob(job: Job<ScreenshotJobData>) {
                   event: "product_inset_fallback",
                   reason: "image_head_failed",
                   url,
+                  attempt,
                 }),
               );
+              if (attempt < maxAttempts) {
+                await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
+                await new Promise((r) => setTimeout(r, 3000));
+              }
             }
           } else {
             console.log(
@@ -378,8 +415,14 @@ async function processJob(job: Job<ScreenshotJobData>) {
                 event: "product_inset_fallback",
                 reason: "no_image_url",
                 url,
+                attempt,
               }),
             );
+            if (attempt < maxAttempts) {
+              await shopPage.reload({ waitUntil: "domcontentloaded", timeout: 25000 }).catch(() => {});
+              await new Promise((r) => setTimeout(r, 3000));
+            }
+          }
           }
         } else if (isStorefront) {
           console.log(

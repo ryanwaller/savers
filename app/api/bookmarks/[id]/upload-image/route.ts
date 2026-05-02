@@ -4,10 +4,6 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import sharp from "sharp";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
 import { removePreviewObjects } from "@/lib/preview-server";
-import {
-  buildCollectionPath,
-  determineAssetType,
-} from "@/lib/assetTypeRules";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -83,42 +79,44 @@ export async function POST(
       return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
     }
 
-    // Determine asset type from collection path + tags (mirrors worker logic)
+    // Determine asset type: query collection + parent directly, plus tag fallback
     let isShopping = false;
     if (bookmark.collection_id) {
-      const { data: allCollections, error: collectionsError } =
-        await supabaseAdmin
-          .from("collections")
-          .select("id, name, parent_id")
-          .eq("user_id", user.id);
+      const { data: collection } = await supabaseAdmin
+        .from("collections")
+        .select("id, name, parent_id")
+        .eq("id", bookmark.collection_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
 
-      if (collectionsError) {
-        console.error(
-          `upload-image collections query failed: ${collectionsError.message}`,
-        );
-      }
+      if (collection) {
+        const names = [collection.name];
+        if (collection.parent_id) {
+          const { data: parent } = await supabaseAdmin
+            .from("collections")
+            .select("name")
+            .eq("id", collection.parent_id)
+            .maybeSingle();
+          if (parent) names.push(parent.name);
+        }
 
-      if (allCollections) {
-        const byId = new Map(allCollections.map((c) => [c.id, c]));
-        const collectionPath = buildCollectionPath(
-          bookmark.collection_id,
-          byId,
-        );
         const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
+        const hasShoppingTag = tags.some((t) =>
+          ["shopping", "product", "buy", "store"].includes(t.toLowerCase()),
+        );
 
-        const assetType = determineAssetType(collectionPath, tags);
-        isShopping = assetType === "product_inset";
+        isShopping =
+          names.some((n) => n.toLowerCase().includes("shopping")) ||
+          hasShoppingTag;
 
         console.log(
           JSON.stringify({
             event: "upload_image_asset_detection",
             bookmarkId,
             collectionId: bookmark.collection_id,
-            collectionPath,
+            collectionNames: names,
             tags,
-            assetType,
             isShopping,
-            totalCollections: allCollections.length,
           }),
         );
       }

@@ -86,16 +86,48 @@ export async function generateProductInset(
  */
 export async function generateProductInsetImage(
   productImageUrl: string,
+  pageUrl?: string,
 ): Promise<Buffer> {
-  const res = await fetch(productImageUrl, {
-    headers: { "User-Agent": USER_AGENT },
-    signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
-  });
+  let lastError: unknown;
 
-  if (!res.ok)
-    throw new Error(`Product image fetch failed: HTTP ${res.status}`);
+  for (let attempt = 1; attempt <= 2; attempt++) {
+    try {
+      const headers: Record<string, string> = {
+        "User-Agent": USER_AGENT,
+        Accept: "image/avif,image/webp,image/apng,image/*,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+      };
+      if (pageUrl) {
+        headers.Referer = pageUrl;
+      }
 
-  const imgBuffer = Buffer.from(await res.arrayBuffer());
-  const { buffer } = await generateProductInset(imgBuffer);
-  return buffer;
+      const res = await fetch(productImageUrl, {
+        headers,
+        signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+      });
+
+      if (!res.ok)
+        throw new Error(`Product image fetch failed: HTTP ${res.status}`);
+
+      const imgBuffer = Buffer.from(await res.arrayBuffer());
+      const { buffer } = await generateProductInset(imgBuffer);
+      return buffer;
+    } catch (err) {
+      lastError = err;
+      if (attempt < 2) {
+        console.log(
+          JSON.stringify({
+            event: "product_inset_fetch_retry",
+            url: productImageUrl,
+            attempt,
+            error: err instanceof Error ? err.message : String(err),
+          }),
+        );
+        // Small backoff before retry
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+    }
+  }
+
+  throw lastError;
 }
