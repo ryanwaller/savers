@@ -16,7 +16,7 @@
 (function () {
   if (document.getElementById("savers-bm-root")) return;
 
-  /* ── Parse token from script src ── */
+  /* Parse token from script src */
   var token = null;
   try {
     var me = document.currentScript;
@@ -26,7 +26,7 @@
     }
   } catch (_) {}
 
-  /* ── DOM ── */
+  /* DOM */
   const root = document.createElement("div");
   root.id = "savers-bm-root";
   root.innerHTML = `
@@ -189,7 +189,7 @@
   `;
   document.body.appendChild(root);
 
-  /* ── State ── */
+  /* State */
   const apiBase = "https://savers-production.up.railway.app";
   let saving = false;
 
@@ -199,7 +199,7 @@
     document.querySelector('meta[name="description"], meta[property="og:description"]')
       ?.content?.trim() || "";
 
-  /* ── Elements ── */
+  /* Elements */
   const titleEl = root.querySelector(".savers-bm-title");
   const urlEl = root.querySelector(".savers-bm-url");
   const titleInput = root.querySelector(".savers-bm-title-input");
@@ -220,7 +220,7 @@
     if (kind) statusEl.classList.add("savers-bm-status-" + kind);
   }
 
-  /* ── API ── */
+  /* API */
   async function apiFetch(path, options) {
     const headers = { ...(options.headers || {}) };
     if (token) {
@@ -242,14 +242,20 @@
     return res.json();
   }
 
-  /* ── Load collections ── */
+  /* Load collections (sorted hierarchically) */
   async function loadCollections() {
     try {
       const data = await apiFetch("/api/collections", { method: "GET" });
       const flat = data?.flat || [];
-      // Build path map (e.g. "Design / Inspiration")
+      if (!flat.length) {
+        collSelect.innerHTML = '<option value="">Unsorted</option>';
+        return;
+      }
+
+      // Build lookup + path resolver
       const byId = {};
-      for (const c of flat) byId[c.id] = c;
+      for (let i = 0; i < flat.length; i++) byId[flat[i].id] = flat[i];
+
       function resolvePath(id) {
         const c = byId[id];
         if (!c) return "";
@@ -259,11 +265,32 @@
         }
         return c.name;
       }
+
+      function getDepth(id) {
+        let depth = 0;
+        let c = byId[id];
+        while (c && c.parent_id) {
+          depth++;
+          c = byId[c.parent_id];
+        }
+        return depth;
+      }
+
+      // Sort by full path for parent->child grouping
+      const sorted = flat.slice().sort(function (a, b) {
+        return resolvePath(a.id).localeCompare(resolvePath(b.id), undefined, { numeric: true, sensitivity: "base" });
+      });
+
       collSelect.innerHTML = '<option value="">Unsorted</option>';
-      for (const c of flat) {
+      for (let i = 0; i < sorted.length; i++) {
+        const c = sorted[i];
         const opt = document.createElement("option");
         opt.value = c.id;
-        opt.textContent = resolvePath(c.id);
+        const depth = Math.min(getDepth(c.id), 3);
+        const indent = depth > 0
+          ? "   ".repeat(depth) + "↳ "
+          : "";
+        opt.textContent = indent + c.name;
         collSelect.appendChild(opt);
       }
     } catch {
@@ -271,7 +298,7 @@
     }
   }
 
-  /* ── Save ── */
+  /* Save */
   async function doSave() {
     if (saving) return;
     saving = true;
@@ -306,7 +333,7 @@
     }
   }
 
-  /* ── Events ── */
+  /* Events */
   saveBtn.addEventListener("click", doSave);
   cancelBtn.addEventListener("click", () => root.remove());
   backdrop.addEventListener("click", (e) => {
