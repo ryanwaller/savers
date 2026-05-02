@@ -114,7 +114,7 @@ const HIDE_CSS = `
   .paywall-overlay, .reg-wall, .registration-wall, [class*="paywall-overlay"]
   { display: none !important; visibility: hidden !important; opacity: 0 !important; pointer-events: none !important; }
 
-  body { overflow: auto !important; position: static !important; height: auto !important; }
+  body { overflow: auto !important; position: static !important; height: auto !important; scroll-behavior: auto !important; }
   html { overflow: auto !important; scroll-behavior: auto !important; }
 `;
 
@@ -271,7 +271,15 @@ export async function preparePageForCapture(
       }
       document.body.style.overflow = "auto";
       document.body.style.position = "static";
+      document.body.style.scrollBehavior = "auto";
       document.documentElement.style.overflow = "auto";
+      document.documentElement.style.scrollBehavior = "auto";
+
+      // Prevent the browser from restoring a saved scroll position on
+      // reload / history navigation — especially relevant for SPA sites.
+      if ("scrollRestoration" in window.history) {
+        window.history.scrollRestoration = "manual";
+      }
 
       // Some storefronts server-render search drawers / auth sheets directly
       // into the DOM. Remove containers that clearly match those states so
