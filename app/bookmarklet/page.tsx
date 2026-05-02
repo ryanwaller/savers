@@ -30,12 +30,6 @@ export default function BookmarkletPage() {
         <a
           href={href}
           style={styles.button}
-          onMouseDown={(e) => {
-            // Prevent default only if user might click instead of drag
-            if (e.detail === 1) {
-              e.preventDefault();
-            }
-          }}
         >
           Save to Savers
         </a>

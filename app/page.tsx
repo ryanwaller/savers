@@ -2569,8 +2569,7 @@ export default function Home() {
           height: 20px;
           border-radius: 50%;
           object-fit: cover;
-          margin-left: 2px;
-          margin-right: 2px;
+          margin-right: 4px;
           flex-shrink: 0;
         }
         .session-signout {

@@ -716,7 +716,7 @@ export default function Sidebar({
           color: var(--color-text-muted);
         }
         .sidebar-foot {
-          padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 24px);
+          padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 4px);
         }
         .sidebar-foot-row {
           display: block;
@@ -766,11 +766,11 @@ export default function Sidebar({
             white-space: nowrap;
           }
           .mobile-session-avatar {
-            width: 24px;
-            height: 24px;
+            width: 22px;
+            height: 22px;
             border-radius: 50%;
             object-fit: cover;
-            margin-left: 5px;
+            margin-right: 2px;
             flex-shrink: 0;
           }
           .mobile-session-btn {
