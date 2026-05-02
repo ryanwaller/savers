@@ -9,16 +9,21 @@ export default function SavePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    const sourceUrl = document.referrer;
+    // Primary: explicit URL param (from javascript: wrapper). Fallback: referrer (same-tab click).
+    const sourceUrl = params.get("u") || document.referrer;
 
     if (!sourceUrl) {
       setState("error");
-      setError("No page to save. Click the bookmark while on a page you want to save, not from an empty tab.");
+      setError(
+        "Could not detect which page to save. Left-click the bookmark (not Ctrl+click) so the browser can tell us which page you came from.",
+      );
       return;
     }
 
+    // Only navigate back if we arrived via same-tab navigation (referrer present, not u param)
+    const canGoBack = !params.get("u") && document.referrer === sourceUrl;
+
     const controller = new AbortController();
-    let closed = false;
 
     async function save() {
       try {
@@ -45,9 +50,12 @@ export default function SavePage() {
 
         setState("saved");
         setTimeout(() => {
-          closed = true;
-          window.close();
-        }, 1200);
+          if (canGoBack && window.history.length > 1) {
+            window.history.back();
+          } else {
+            window.close();
+          }
+        }, 1000);
       } catch (err) {
         if (controller.signal.aborted) return;
         setState("error");
@@ -57,18 +65,14 @@ export default function SavePage() {
 
     save();
 
-    return () => {
-      if (!closed) controller.abort();
-    };
+    return () => controller.abort();
   }, []);
 
   return (
     <>
       <style>{`
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-          background: #111;
-        }
+        body { background: #111; }
       `}</style>
       <div
         style={{
@@ -88,13 +92,12 @@ export default function SavePage() {
             border: "1px solid #2a2a2a",
             borderRadius: 14,
             padding: "36px 28px",
-            maxWidth: 340,
+            maxWidth: 360,
             width: "100%",
             textAlign: "center",
             color: "#ececec",
           }}
         >
-          {/* icon */}
           <div style={{ marginBottom: 16 }}>
             {state === "loading" ? (
               <svg
@@ -159,27 +162,15 @@ export default function SavePage() {
                 : "Save failed"}
           </div>
 
-          {state === "error" && (
-            <p
-              style={{
-                fontSize: 13,
-                color: "#9b9b9b",
-                lineHeight: 1.5,
-              }}
-            >
-              {error}
+          {state === "saved" && (
+            <p style={{ fontSize: 13, color: "#6b6b6b", lineHeight: 1.5 }}>
+              Going back to your page…
             </p>
           )}
 
-          {state === "loading" && (
-            <p
-              style={{
-                fontSize: 13,
-                color: "#6b6b6b",
-                marginTop: 4,
-              }}
-            >
-              This tab will close automatically.
+          {state === "error" && (
+            <p style={{ fontSize: 13, color: "#9b9b9b", lineHeight: 1.5 }}>
+              {error}
             </p>
           )}
         </div>

@@ -127,7 +127,7 @@
 
     <h1 class="heading">Savers Bookmark</h1>
     <p class="sub">
-      Click the bookmark on any page to save it to Savers.
+      One click to save any page — keeps the Savers icon in your bookmarks bar.
     </p>
 
     <div class="copied-toast" id="copied-msg"></div>
@@ -142,19 +142,23 @@
     </ol>
 
     <p class="hint" style="margin-bottom:16px;">
-      Can&rsquo;t see your bookmarks bar? Press
-      <kbd>Ctrl+Shift+B</kbd> (Windows) or
-      <kbd>&#8984;+Shift+B</kbd> (Mac).
+      <strong>Left-click</strong> the bookmark to save the current page.
+      This briefly opens this page, saves, and returns. (Don&rsquo;t Ctrl+click
+      or middle-click — that opens a new tab and the browser won&rsquo;t tell us
+      which page to save.)
     </p>
 
     <details>
       <summary>How does this work?</summary>
       <p class="detail-text">
-        The bookmark opens a Savers page that reads which page you came from and saves it. A new
-        tab opens for a moment, then closes. For a more seamless experience with additional options
-        (tags, collection picker, custom title), use the inline bookmarklet from
+        Left-clicking navigates your current tab here. We read which page you
+        came from, save it, and send you right back — usually under a second.
+        Because the bookmark URL is a normal link (not javascript:), Chrome
+        keeps the Savers icon. For a richer inline experience with tags,
+        collection picker, and custom title, use
         <strong>Settings &rarr; Bookmarklet</strong>.
       </p>
+    </details>
     </details>
   </div>
   <script>
