@@ -41,7 +41,7 @@
     .sub {
       font-size: 14px;
       color: #9b9b9b;
-      margin: 0 0 28px;
+      margin: 0 0 24px;
       line-height: 1.5;
     }
     .btn {
@@ -53,9 +53,14 @@
       font-weight: 600;
       border-radius: 10px;
       text-decoration: none;
-      cursor: grab;
+      cursor: pointer;
+      border: none;
+      font-family: inherit;
       box-shadow: 0 4px 16px rgba(217, 38, 28, 0.3);
       margin-bottom: 20px;
+    }
+    .btn:active {
+      background: #b81e16;
     }
     .hint {
       font-size: 13px;
@@ -69,6 +74,27 @@
       padding: 1px 6px;
       font-size: 12px;
       font-family: inherit;
+    }
+    ol.steps {
+      text-align: left;
+      font-size: 13px;
+      color: #9b9b9b;
+      margin: 0 0 20px;
+      padding-left: 24px;
+      line-height: 1.6;
+    }
+    ol.steps li {
+      margin-bottom: 6px;
+    }
+    ol.steps strong {
+      color: #ececec;
+    }
+    .copied-toast {
+      font-size: 12px;
+      color: #9ce7b1;
+      margin-bottom: 12px;
+      min-height: 18px;
+      transition: opacity 200ms;
     }
     details {
       text-align: left;
@@ -101,12 +127,20 @@
 
     <h1 class="heading">Savers Bookmarklet</h1>
     <p class="sub">
-      Drag the button below to your bookmarks bar. Click it on any page to save it to Savers.
+      Click any page to save it to Savers — no extension needed.
     </p>
 
-    <a class="btn" id="bookmarklet-link" href="javascript:(function(){var s=document.createElement('script');s.src='https://savers-production.up.railway.app/bookmarklet.js';document.head.appendChild(s);})();">Save to Savers</a>
+    <div class="copied-toast" id="copied-msg"></div>
+    <button class="btn" id="copy-btn" type="button">Copy bookmarklet code</button>
 
-    <p class="hint">
+    <ol class="steps">
+      <li>Click <strong>Copy bookmarklet code</strong> above.</li>
+      <li>Bookmark <strong>this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) — this captures the Savers icon.</li>
+      <li>Right-click the new bookmark &rarr; <strong>Edit</strong>.</li>
+      <li>Paste the copied code as the <strong>URL</strong> and name it "Save to Savers".</li>
+    </ol>
+
+    <p class="hint" style="margin-bottom:16px;">
       Can&rsquo;t see your bookmarks bar? Press
       <kbd>Ctrl+Shift+B</kbd> (Windows) or
       <kbd>&#8984;+Shift+B</kbd> (Mac).
@@ -115,21 +149,33 @@
     <details>
       <summary>Need a token for the bookmarklet?</summary>
       <p class="detail-text">
-        Open Savers &rarr; Settings &rarr; API tokens &rarr; Create token for bookmarklet. Then copy the
-        bookmarklet code from there. The token is embedded directly into the code so it works
-        across browsers even with third-party cookie restrictions.
+        Open Savers &rarr; Settings &rarr; Bookmarklet &rarr; Create token for bookmarklet, then copy the tokenized code
+        from there. Without a token, modern browsers block third-party cookies and the bookmarklet won&rsquo;t
+        authenticate. A token is embedded directly in the code so it works in every browser.
       </p>
     </details>
   </div>
   <script>
     (function () {
-      var link = document.getElementById("bookmarklet-link");
-      if (!link) return;
-      // Override href for non-production deployments (localhost, preview, etc.)
+      var btn = document.getElementById("copy-btn");
+      var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
-      if (origin !== "https://savers-production.up.railway.app") {
-        link.href = "javascript:(function(){var s=document.createElement('script');s.src='" + origin + "/bookmarklet.js';document.head.appendChild(s);})();";
-      }
+      var code = "javascript:(function(){var s=document.createElement('script');s.src='" + origin + "/bookmarklet.js';document.head.appendChild(s);})();";
+
+      btn.addEventListener("click", function () {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(code).then(function () {
+            msg.textContent = "Copied! Now bookmark this page, then edit and paste.";
+            setTimeout(function () { msg.textContent = ""; }, 3000);
+          }).catch(function () {
+            msg.textContent = "Could not copy automatically — try Settings → Bookmarklet instead.";
+          });
+        } else {
+          // Fallback for older browsers
+          msg.textContent = "Open Savers → Settings → Bookmarklet to copy the code.";
+        }
+      });
     })();
   </script>
 </body>
+</html>
