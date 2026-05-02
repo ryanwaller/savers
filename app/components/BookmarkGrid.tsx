@@ -597,14 +597,6 @@ function BookmarkCard({
                 src={screenshotSrc}
                 alt={`Preview of ${host}`}
                 draggable={false}
-                style={{
-                  objectPosition:
-                    b.asset_type === "recipe_hero" ||
-                    b.asset_type === "product_inset" ||
-                    b.asset_type === "text_excerpt"
-                      ? "center center"
-                      : "top center",
-                }}
                 onLoad={() => setReloading(false)}
                 onError={() => {
                   if (previewStage === "custom") {
@@ -1011,6 +1003,7 @@ function BookmarkCard({
           width: 100%;
           height: 100%;
           object-fit: cover;
+          object-position: top center;
           display: block;
           transition:
             filter 220ms ease,
