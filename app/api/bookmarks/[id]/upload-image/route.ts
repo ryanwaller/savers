@@ -4,6 +4,10 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import sharp from "sharp";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
 import { removePreviewObjects } from "@/lib/preview-server";
+import {
+  buildCollectionPath,
+  determineAssetType,
+} from "@/lib/assetTypeRules";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 
@@ -60,7 +64,7 @@ export async function POST(
     // Verify bookmark exists and check if it's in a shopping collection
     const { data: bookmark, error: lookupError } = await supabaseAdmin
       .from("bookmarks")
-      .select("id, preview_path, collection_id")
+      .select("id, preview_path, collection_id, tags")
       .eq("id", bookmarkId)
       .eq("user_id", user.id)
       .maybeSingle();
@@ -79,28 +83,44 @@ export async function POST(
       return NextResponse.json({ error: "Bookmark not found" }, { status: 404 });
     }
 
-    // Check if bookmark is in a shopping collection
+    // Determine asset type from collection path + tags (mirrors worker logic)
     let isShopping = false;
     if (bookmark.collection_id) {
-      const { data: allCollections } = await supabaseAdmin
-        .from("collections")
-        .select("id, name, parent_id")
-        .eq("user_id", user.id);
+      const { data: allCollections, error: collectionsError } =
+        await supabaseAdmin
+          .from("collections")
+          .select("id, name, parent_id")
+          .eq("user_id", user.id);
+
+      if (collectionsError) {
+        console.error(
+          `upload-image collections query failed: ${collectionsError.message}`,
+        );
+      }
 
       if (allCollections) {
         const byId = new Map(allCollections.map((c) => [c.id, c]));
+        const collectionPath = buildCollectionPath(
+          bookmark.collection_id,
+          byId,
+        );
+        const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
 
-        function buildPath(collectionId: string): string {
-          const parts: string[] = [];
-          let cur = byId.get(collectionId);
-          while (cur) {
-            parts.unshift(cur.name);
-            cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
-          }
-          return parts.join(" / ").toLowerCase();
-        }
+        const assetType = determineAssetType(collectionPath, tags);
+        isShopping = assetType === "product_inset";
 
-        isShopping = buildPath(bookmark.collection_id).includes("shopping");
+        console.log(
+          JSON.stringify({
+            event: "upload_image_asset_detection",
+            bookmarkId,
+            collectionId: bookmark.collection_id,
+            collectionPath,
+            tags,
+            assetType,
+            isShopping,
+            totalCollections: allCollections.length,
+          }),
+        );
       }
     }
 
