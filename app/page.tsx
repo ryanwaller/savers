@@ -2565,11 +2565,11 @@ export default function Home() {
           padding: 0 6px 0 10px;
         }
         .session-avatar {
-          width: 24px;
-          height: 24px;
+          width: 20px;
+          height: 20px;
           border-radius: 50%;
           object-fit: cover;
-          margin-left: 4px;
+          margin-left: 2px;
           margin-right: 2px;
           flex-shrink: 0;
         }
