@@ -82,6 +82,7 @@ export async function POST(
       url: bookmark.url,
       userId: user.id,
       force_screenshot: mode === "screenshot",
+      force_product_inset: mode === "product_inset",
     });
 
     console.log(

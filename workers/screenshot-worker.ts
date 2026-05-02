@@ -266,19 +266,40 @@ async function processJob(job: Job<ScreenshotJobData>) {
         });
         shopCleanup = prepResult.cleanup;
 
-        const { forceInset, isStorefront, confidence, signals } =
-          await detectProductPage(shopPage);
+        let forceInset: boolean;
+        let isStorefront: boolean;
+        let confidence: "high" | "medium" | "low";
+        let signals: string[];
 
-        console.log(
-          JSON.stringify({
-            event: "shopping_detection",
-            url,
-            forceInset,
-            isStorefront,
-            confidence,
-            signals,
-          }),
-        );
+        if (job.data.force_product_inset) {
+          forceInset = true;
+          isStorefront = false;
+          confidence = "high";
+          signals = ["force_product_inset"];
+          console.log(
+            JSON.stringify({
+              event: "shopping_detection_forced",
+              url,
+              reason: "force_product_inset flag",
+            }),
+          );
+        } else {
+          const detection = await detectProductPage(shopPage);
+          forceInset = detection.forceInset;
+          isStorefront = detection.isStorefront;
+          confidence = detection.confidence;
+          signals = detection.signals;
+          console.log(
+            JSON.stringify({
+              event: "shopping_detection",
+              url,
+              forceInset,
+              isStorefront,
+              confidence,
+              signals,
+            }),
+          );
+        }
 
         // FORCE inset unless it's clearly a storefront
         if (forceInset && !isStorefront) {

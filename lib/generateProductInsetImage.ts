@@ -3,7 +3,7 @@ import sharp from "sharp";
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 800;
 const MAX_INSET_WIDTH = 1000;
-const MAX_INSET_HEIGHT = 600;
+const MAX_INSET_HEIGHT = 625;
 const BACKGROUND_HEX = "#F8F9FA";
 
 const IMAGE_FETCH_TIMEOUT_MS = 10000;

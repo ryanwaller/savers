@@ -8,6 +8,8 @@ export interface ScreenshotJobData {
   url: string;
   userId: string;
   force_screenshot?: boolean;
+  /** Skip product-page detection and force product inset extraction. */
+  force_product_inset?: boolean;
 }
 
 let queue: Queue<ScreenshotJobData> | null = null;
