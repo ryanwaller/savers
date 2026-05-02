@@ -471,7 +471,7 @@ export default function BookmarkDetail({
 
               // Only offer product-image forcing on likely product-detail URLs.
               // Collection/search pages tend to fall back or choose noisy assets.
-              if (isShopping && !isProductInset && supportsProductInsetAction) {
+              if (isShopping && supportsProductInsetAction) {
                 buttons.push(
                   <ForceCoverButton
                     key="product"

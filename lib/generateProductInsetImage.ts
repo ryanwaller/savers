@@ -152,8 +152,17 @@ export async function generateProductInset(
     );
   }
 
-  const contentMaxWidth = MAX_INSET_WIDTH - INNER_PAD_X * 2;
-  const contentMaxHeight = MAX_INSET_HEIGHT - INNER_PAD_Y * 2;
+  const aspectRatio = inputMeta.width / inputMeta.height;
+  const isWideAsset = aspectRatio > 1.18;
+  const widthScale = isWideAsset ? 0.9 : 1;
+  const heightScale = isWideAsset ? 0.9 : 1;
+
+  const contentMaxWidth = Math.round(
+    (MAX_INSET_WIDTH - INNER_PAD_X * 2) * widthScale,
+  );
+  const contentMaxHeight = Math.round(
+    (MAX_INSET_HEIGHT - INNER_PAD_Y * 2) * heightScale,
+  );
 
   // 2. Resize the product so it sits inside a white stage with consistent
   // breathing room around the image itself.
