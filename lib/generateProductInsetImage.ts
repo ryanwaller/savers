@@ -4,7 +4,10 @@ const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 800;
 const MAX_INSET_WIDTH = 1000;
 const MAX_INSET_HEIGHT = 625;
-const BACKGROUND_HEX = "#ECEFF3";
+const OUTER_BACKGROUND_HEX = "#F5F6F8";
+const INNER_BACKGROUND_HEX = "#FFFFFF";
+const INNER_PAD_X = 56;
+const INNER_PAD_Y = 64;
 
 const IMAGE_FETCH_TIMEOUT_MS = 10000;
 const USER_AGENT =
@@ -72,13 +75,18 @@ export async function generateProductInset(
     );
   }
 
-  // 2. Single-pass resize → JPEG (allow small images to scale up)
+  const contentMaxWidth = MAX_INSET_WIDTH - INNER_PAD_X * 2;
+  const contentMaxHeight = MAX_INSET_HEIGHT - INNER_PAD_Y * 2;
+
+  // 2. Resize the product so it sits inside a white stage with consistent
+  // breathing room around the image itself.
   const resizedBuffer = await sharp(normalizedBuffer)
-    .resize(MAX_INSET_WIDTH, MAX_INSET_HEIGHT, {
+    .ensureAlpha()
+    .resize(contentMaxWidth, contentMaxHeight, {
       fit: "inside",
       withoutEnlargement: false,
     })
-    .jpeg({ quality: 90, progressive: true, mozjpeg: true })
+    .png()
     .toBuffer();
 
   // 3. Get EXACT dimensions from the resized output
@@ -87,20 +95,42 @@ export async function generateProductInset(
   ).metadata();
   if (!finalW || !finalH) throw new Error("Resize failed: metadata missing");
 
-  // 4. Precise center coordinates
-  const left = Math.round((CANVAS_WIDTH - finalW) / 2);
-  const top = Math.round((CANVAS_HEIGHT - finalH) / 2);
+  const stageWidth = finalW + INNER_PAD_X * 2;
+  const stageHeight = finalH + INNER_PAD_Y * 2;
 
-  // 5. Composite onto background canvas
+  const stageBuffer = await sharp({
+    create: {
+      width: stageWidth,
+      height: stageHeight,
+      channels: 3,
+      background: INNER_BACKGROUND_HEX,
+    },
+  })
+    .composite([
+      {
+        input: resizedBuffer,
+        left: INNER_PAD_X,
+        top: INNER_PAD_Y,
+        blend: "over",
+      },
+    ])
+    .png()
+    .toBuffer();
+
+  // 4. Precise center coordinates for the white stage on the shared field.
+  const left = Math.round((CANVAS_WIDTH - stageWidth) / 2);
+  const top = Math.round((CANVAS_HEIGHT - stageHeight) / 2);
+
+  // 5. Composite the white stage onto the shared very-light grey canvas.
   const result = await sharp({
     create: {
       width: CANVAS_WIDTH,
       height: CANVAS_HEIGHT,
       channels: 3,
-      background: BACKGROUND_HEX,
+      background: OUTER_BACKGROUND_HEX,
     },
   })
-    .composite([{ input: resizedBuffer, left, top, blend: "over" }])
+    .composite([{ input: stageBuffer, left, top, blend: "over" }])
     .jpeg({ quality: 90, progressive: true })
     .toBuffer();
 
@@ -108,8 +138,8 @@ export async function generateProductInset(
 
   return {
     buffer: result,
-    insetWidth: finalW,
-    insetHeight: finalH,
+    insetWidth: stageWidth,
+    insetHeight: stageHeight,
     canvasWidth: CANVAS_WIDTH,
     canvasHeight: CANVAS_HEIGHT,
   };
