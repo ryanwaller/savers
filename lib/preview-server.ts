@@ -3,10 +3,11 @@ import "server-only";
 import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
+import { getSaversUserAgent } from "@/lib/site-url";
 
 export const PREVIEW_BUCKET = "bookmark-previews";
 
-const USER_AGENT = "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
+const USER_AGENT = getSaversUserAgent();
 
 const MICROLINK_QUOTA_BACKOFF_MS = 12 * 60 * 60 * 1000;
 const MICROLINK_ERROR_BACKOFF_MS = 5 * 60 * 1000;

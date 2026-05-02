@@ -18,9 +18,12 @@
 
   /* Parse token from script src */
   var token = null;
+  var apiBase = "https://savers-production.up.railway.app";
   try {
     var me = document.currentScript;
     if (me && me.src) {
+      var origin = new URL(me.src).origin;
+      if (origin) apiBase = origin;
       var m = me.src.match(/[?&]token=([^&#]+)/);
       if (m) token = decodeURIComponent(m[1]);
     }
@@ -190,7 +193,6 @@
   document.body.appendChild(root);
 
   /* State */
-  const apiBase = "https://savers-production.up.railway.app";
   let saving = false;
 
   const pageTitle = document.title || "";

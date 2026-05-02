@@ -1,11 +1,10 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   if (req.nextUrl.pathname.startsWith("/api/")) {
     const origin = req.headers.get("origin") || "*";
 
-    // Handle preflight
     if (req.method === "OPTIONS") {
       return new NextResponse(null, {
         status: 204,

@@ -104,7 +104,7 @@
       Drag the button below to your bookmarks bar. Click it on any page to save it to Savers.
     </p>
 
-    <a class="btn" href="javascript:(function(){var s=document.createElement('script');s.src='https://savers-production.up.railway.app/bookmarklet.js';document.head.appendChild(s);})();">Save to Savers</a>
+    <a class="btn" id="bookmarklet-link" href="#">Save to Savers</a>
 
     <p class="hint">
       Can&rsquo;t see your bookmarks bar? Press
@@ -122,4 +122,12 @@
     </details>
   </div>
 </body>
+<script>
+  (function () {
+    var link = document.getElementById("bookmarklet-link");
+    if (!link) return;
+    var origin = window.location.origin.replace(/\/$/, "");
+    link.href = "javascript:(function(){var s=document.createElement('script');s.src='" + origin + "/bookmarklet.js';document.head.appendChild(s);})();";
+  })();
+</script>
 </html>

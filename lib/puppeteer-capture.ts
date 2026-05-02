@@ -1,8 +1,8 @@
 import type { Browser } from "puppeteer";
 import { captureCleanScreenshot } from "./captureCleanScreenshot";
+import { getSaversUserAgent } from "./site-url";
 
-const USER_AGENT =
-  "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
+const USER_AGENT = getSaversUserAgent();
 
 export const PUPPETEER_LAUNCH_OPTIONS = {
   headless: true,

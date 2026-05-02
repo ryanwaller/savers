@@ -1,11 +1,11 @@
 import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
+import { getSaversUserAgent } from "./site-url";
 
 const EXCERPT_MAX_CHARS = 380;
 const FETCH_TIMEOUT_MS = 8000;
 
-const USER_AGENT =
-  "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)";
+const USER_AGENT = getSaversUserAgent();
 
 // Promotional keywords — each match adds 3 to promo score
 const PROMO_KEYWORDS = [

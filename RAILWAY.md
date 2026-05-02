@@ -53,11 +53,12 @@ Add these in Railway:
 - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `ANTHROPIC_API_KEY`
+- `REDIS_URL`
 - `NEXT_PUBLIC_SITE_URL`
 
 `NEXT_PUBLIC_SITE_URL` should be your public app URL.
 
-## 4. Deploy
+## 4. Deploy the web app
 
 Standard Next.js deploy on Railway is fine:
 
@@ -65,13 +66,47 @@ Standard Next.js deploy on Railway is fine:
 - build command: `npm run build`
 - start command: `npm run start`
 
-## 5. First sign-in behavior
+## 5. Deploy the worker services
+
+Savers has separate background workers. The web app only enqueues jobs; these workers actually process them.
+
+Create separate Railway services from the same repo:
+
+### Screenshot worker
+
+- uses [`Dockerfile.worker`](/Users/ryanwaller/Dev/savers/handoff/Dockerfile.worker)
+- start command inside the container: `./node_modules/.bin/tsx workers/screenshot-worker.ts`
+- required env:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `REDIS_URL`
+  - `NEXT_PUBLIC_SITE_URL`
+
+### Auto-tag worker
+
+- simplest setup: duplicate the screenshot worker service, then change the command to:
+  - `./node_modules/.bin/tsx workers/auto-tag-worker.ts`
+- required env:
+  - `NEXT_PUBLIC_SUPABASE_URL`
+  - `SUPABASE_SERVICE_ROLE_KEY`
+  - `REDIS_URL`
+  - `ANTHROPIC_API_KEY`
+  - `NEXT_PUBLIC_SITE_URL`
+
+Important:
+
+- the web app and both workers should all be deployed from the same commit
+- if you change anything under [`workers/`](/Users/ryanwaller/Dev/savers/handoff/workers), [`lib/screenshot-queue.ts`](/Users/ryanwaller/Dev/savers/handoff/lib/screenshot-queue.ts), [`lib/preview-server.ts`](/Users/ryanwaller/Dev/savers/handoff/lib/preview-server.ts), or other shared pipeline code, redeploy the worker services too
+- if `REDIS_URL` is missing, screenshot generation will fail and auto-tagging will not run
+- if migration [`migrations/015_asset_override.sql`](/Users/ryanwaller/Dev/savers/handoff/migrations/015_asset_override.sql) is not applied, the newer cover-override behavior can drift from local expectations
+
+## 6. First sign-in behavior
 
 The first account that signs in after this migration will automatically claim the old bookmarks and collections that were created before auth existed.
 
 That is convenient for a personal library, but it means you should sign in with the account you want to keep using before inviting anyone else.
 
-## 6. Chrome extension
+## 7. Chrome extension
 
 The extension now supports:
 

@@ -24,8 +24,10 @@ import { detectProductPage } from "@/lib/detectProductPage";
 import { extractPrimaryProductImage } from "@/lib/extractProductImage";
 import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
 import { preparePageForCapture } from "@/lib/preparePageForCapture";
+import { getSaversUserAgent } from "@/lib/site-url";
 
 const PREVIEW_BUCKET = "bookmark-previews";
+const USER_AGENT = getSaversUserAgent();
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -194,7 +196,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
       const recipePage = await browser.newPage();
       try {
         await recipePage.setUserAgent(
-          "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
+          USER_AGENT,
         );
         await recipePage.goto(url, {
           waitUntil: "domcontentloaded",
@@ -257,7 +259,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
       let shopCleanup: (() => Promise<void>) | null = null;
       try {
         await shopPage.setUserAgent(
-          "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
+          USER_AGENT,
         );
 
         const prepResult = await preparePageForCapture(shopPage, url, {

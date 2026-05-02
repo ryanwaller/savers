@@ -1,5 +1,6 @@
 import type { Page } from "puppeteer";
 import sharp from "sharp";
+import { getSaversUserAgent } from "./site-url";
 
 const HERO_IMAGE_FETCH_TIMEOUT_MS = 10000;
 const MIN_WIDTH = 400;
@@ -137,8 +138,7 @@ export async function findRecipeHeroImageUrl(
 export async function fetchAndProcessRecipeHero(imageUrl: string): Promise<Buffer> {
   const res = await fetch(imageUrl, {
     headers: {
-      "User-Agent":
-        "Mozilla/5.0 (compatible; Savers/1.0; +https://savers-production.up.railway.app)",
+      "User-Agent": getSaversUserAgent(),
     },
     signal: AbortSignal.timeout(HERO_IMAGE_FETCH_TIMEOUT_MS),
   });

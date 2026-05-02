@@ -5,12 +5,22 @@ import { api } from "@/lib/api";
 import type { Bookmark, Collection } from "@/lib/types";
 import ExportBookmarksButton from "./ExportBookmarksButton";
 
-const BOOKMARKLET_SRC = "https://savers-production.up.railway.app/bookmarklet.js";
+function resolveBookmarkletSrc() {
+  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (configured) {
+    return `${configured.replace(/\/$/, "")}/bookmarklet.js`;
+  }
+  if (typeof window !== "undefined") {
+    return `${window.location.origin.replace(/\/$/, "")}/bookmarklet.js`;
+  }
+  return "https://savers-production.up.railway.app/bookmarklet.js";
+}
 
 function buildBookmarkletHref(token?: string | null): string {
+  const bookmarkletSrc = resolveBookmarkletSrc();
   const src = token
-    ? `${BOOKMARKLET_SRC}?token=${encodeURIComponent(token)}`
-    : BOOKMARKLET_SRC;
+    ? `${bookmarkletSrc}?token=${encodeURIComponent(token)}`
+    : bookmarkletSrc;
   return `javascript:(function(){var s=document.createElement('script');s.src='${src}';document.head.appendChild(s);})();`;
 }
 
