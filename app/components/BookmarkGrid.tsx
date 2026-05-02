@@ -1043,27 +1043,25 @@ function BookmarkCard({
           position: absolute;
           inset: 0;
           display: flex;
-          align-items: flex-end;
-          justify-content: flex-start;
-          padding: 12px;
-          background: linear-gradient(
-            180deg,
-            rgba(255, 255, 255, 0) 0%,
-            rgba(255, 255, 255, 0.18) 58%,
-            rgba(255, 255, 255, 0.72) 100%
-          );
+          align-items: center;
+          justify-content: center;
+          padding: 20px;
+          background: color-mix(in srgb, var(--color-bg) 36%, transparent);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           pointer-events: none;
         }
         .cover-refresh-copy {
           display: inline-flex;
           align-items: center;
-          gap: 6px;
-          padding: 6px 10px;
+          justify-content: center;
+          min-width: 188px;
+          padding: 11px 20px;
           border-radius: 999px;
-          background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+          background: color-mix(in srgb, var(--color-bg) 96%, transparent);
           border: 1px solid var(--color-border);
           color: var(--color-text);
-          font-size: 11px;
+          font-size: 12px;
           line-height: 1;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
