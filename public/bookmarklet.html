@@ -125,19 +125,20 @@
       </svg>
     </div>
 
-    <h1 class="heading">Savers Bookmarklet</h1>
+    <h1 class="heading">Savers Bookmark</h1>
     <p class="sub">
-      Click any page to save it to Savers — no extension needed.
+      Click the bookmark on any page to save it to Savers.
     </p>
 
     <div class="copied-toast" id="copied-msg"></div>
-    <button class="btn" id="copy-btn" type="button">Copy bookmarklet code</button>
+
+    <button class="btn" id="copy-btn" type="button">Copy save URL</button>
 
     <ol class="steps">
-      <li>Click <strong>Copy bookmarklet code</strong> above.</li>
-      <li>Bookmark <strong>this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) — this captures the Savers icon.</li>
+      <li>Click <strong>Copy save URL</strong> above.</li>
+      <li><strong>Bookmark this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>).</li>
       <li>Right-click the new bookmark &rarr; <strong>Edit</strong>.</li>
-      <li>Paste the copied code as the <strong>URL</strong> and name it "Save to Savers".</li>
+      <li>Paste the copied URL and name it <strong>Save to Savers</strong>.</li>
     </ol>
 
     <p class="hint" style="margin-bottom:16px;">
@@ -147,11 +148,12 @@
     </p>
 
     <details>
-      <summary>Need a token for the bookmarklet?</summary>
+      <summary>How does this work?</summary>
       <p class="detail-text">
-        Open Savers &rarr; Settings &rarr; Bookmarklet &rarr; Create token for bookmarklet, then copy the tokenized code
-        from there. Without a token, modern browsers block third-party cookies and the bookmarklet won&rsquo;t
-        authenticate. A token is embedded directly in the code so it works in every browser.
+        The bookmark opens a Savers page that reads which page you came from and saves it. A new
+        tab opens for a moment, then closes. For a more seamless experience with additional options
+        (tags, collection picker, custom title), use the inline bookmarklet from
+        <strong>Settings &rarr; Bookmarklet</strong>.
       </p>
     </details>
   </div>
@@ -160,19 +162,18 @@
       var btn = document.getElementById("copy-btn");
       var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
-      var code = "javascript:(function(){var s=document.createElement('script');s.src='" + origin + "/bookmarklet.js';document.head.appendChild(s);})();";
+      var saveUrl = origin + "/save";
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(code).then(function () {
-            msg.textContent = "Copied! Now bookmark this page, then edit and paste.";
-            setTimeout(function () { msg.textContent = ""; }, 3000);
+          navigator.clipboard.writeText(saveUrl).then(function () {
+            msg.textContent = "Copied! Now bookmark this page, then edit and paste the URL.";
+            setTimeout(function () { msg.textContent = ""; }, 3500);
           }).catch(function () {
-            msg.textContent = "Could not copy automatically — try Settings → Bookmarklet instead.";
+            msg.textContent = "Could not copy — try Settings → Bookmarklet instead.";
           });
         } else {
-          // Fallback for older browsers
-          msg.textContent = "Open Savers → Settings → Bookmarklet to copy the code.";
+          msg.textContent = "Open Savers → Settings → Bookmarklet to get the save URL.";
         }
       });
     })();

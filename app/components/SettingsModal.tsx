@@ -5,23 +5,22 @@ import { api } from "@/lib/api";
 import type { Bookmark, Collection } from "@/lib/types";
 import ExportBookmarksButton from "./ExportBookmarksButton";
 
-function resolveBookmarkletSrc() {
+function resolveSaveUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) {
-    return `${configured.replace(/\/$/, "")}/bookmarklet.js`;
+    return `${configured.replace(/\/$/, "")}/save`;
   }
   if (typeof window !== "undefined") {
-    return `${window.location.origin.replace(/\/$/, "")}/bookmarklet.js`;
+    return `${window.location.origin.replace(/\/$/, "")}/save`;
   }
-  return "https://savers-production.up.railway.app/bookmarklet.js";
+  return "https://savers-production.up.railway.app/save";
 }
 
-function buildBookmarkletHref(token?: string | null): string {
-  const bookmarkletSrc = resolveBookmarkletSrc();
-  const src = token
-    ? `${bookmarkletSrc}?token=${encodeURIComponent(token)}`
-    : bookmarkletSrc;
-  return `javascript:(function(){var s=document.createElement('script');s.src='${src}';document.head.appendChild(s);})();`;
+function buildBookmarkUrl(token?: string | null): string {
+  const saveUrl = resolveSaveUrl();
+  return token
+    ? `${saveUrl}?token=${encodeURIComponent(token)}`
+    : saveUrl;
 }
 
 type TokenRow = {
@@ -119,7 +118,7 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
 
   async function copyBookmarklet() {
     try {
-      await navigator.clipboard.writeText(buildBookmarkletHref(bookmarkletToken));
+      await navigator.clipboard.writeText(buildBookmarkUrl(bookmarkletToken));
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
@@ -145,11 +144,11 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
           </section>
 
           <section className="section">
-            <div className="section-title">Bookmarklet</div>
+            <div className="section-title">Bookmark</div>
             <p className="small muted">
-              Save any page to Savers without installing an extension. Modern
-              browsers block third-party cookies, so the bookmarklet needs its
-              own API token to authenticate.
+              Save any page to Savers with one click. A Savers tab opens
+              briefly to save the page you came from, then closes. Add a token
+              for cross-browser reliability.
             </p>
 
             <button
@@ -171,32 +170,32 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
               }}
               disabled={creating}
             >
-              {creating ? "Creating…" : "Create token for bookmarklet"}
+              {creating ? "Creating…" : "Create token for bookmark"}
             </button>
 
             {bookmarkletToken ? (
               <div className="small muted">
-                Token created and embedded. Now copy the bookmarklet code below.
+                Token created. The save URL includes it automatically.
               </div>
             ) : (
               <div className="small muted">
-                Click the button above first. A new token will be created and
-                embedded directly into the bookmarklet code.
+                Click the button above to create a token. Without one, the
+                bookmark works but relies on you being logged in on this browser.
               </div>
             )}
 
             <ol className="bookmarklet-steps">
-              <li>Click <strong>Create token for bookmarklet</strong> above.</li>
-              <li>Click <strong>Copy bookmarklet code</strong> below.</li>
-              <li>Create a new bookmark in your bookmarks bar (right-click → Add page).</li>
-              <li>Name it "Save to Savers" and paste the code as the URL.</li>
+              <li>Click <strong>Create token for bookmark</strong> above (optional but recommended).</li>
+              <li>Click <strong>Copy save URL</strong> below.</li>
+              <li><strong>Bookmark this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
+              <li>Right-click the new bookmark → <strong>Edit</strong>, paste the URL, name it "Save to Savers".</li>
             </ol>
             <button
               className="btn btn-primary"
               onClick={() => void copyBookmarklet()}
               disabled={!bookmarkletToken}
             >
-              {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
+              {bookmarkletCopied ? "Copied!" : "Copy save URL"}
             </button>
           </section>
 
