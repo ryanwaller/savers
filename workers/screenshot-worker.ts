@@ -44,6 +44,70 @@ async function processJob(job: Job<ScreenshotJobData>) {
   const { bookmarkId, url, userId } = job.data;
   const supabase = getSupabaseAdmin();
 
+  // Hard override: skip ALL classification and run standard screenshot only.
+  if (job.data.force_screenshot) {
+    console.log(
+      JSON.stringify({ event: "hard_override_screenshot", bookmarkId }),
+    );
+
+    const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);
+
+    try {
+      await supabase
+        .from("bookmarks")
+        .update({ screenshot_status: "processing" })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+
+      const { buffer, contentType } = await captureScreenshot(browser, url);
+
+      const version = Date.now();
+      const previewPath = `${userId}/${bookmarkId}/preview-${version}.jpg`;
+      const previewUpdatedAt = new Date().toISOString();
+
+      const { error: uploadError } = await supabase.storage
+        .from(PREVIEW_BUCKET)
+        .upload(previewPath, buffer, {
+          contentType,
+          upsert: true,
+          cacheControl: "31536000",
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { error: updateError } = await supabase
+        .from("bookmarks")
+        .update({
+          preview_path: previewPath,
+          preview_provider: "puppeteer",
+          preview_updated_at: previewUpdatedAt,
+          preview_version: version,
+          screenshot_status: "complete",
+          screenshot_error: null,
+        })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+
+      if (updateError) throw updateError;
+
+      return { previewPath, provider: "puppeteer", assetType: "screenshot" as const };
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      await supabase
+        .from("bookmarks")
+        .update({
+          screenshot_status: "error",
+          screenshot_error: message.slice(0, 500),
+        })
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+
+      throw error;
+    } finally {
+      await browser.close().catch(() => {});
+    }
+  }
+
   // Mark as processing
   await supabase
     .from("bookmarks")

@@ -45,6 +45,8 @@ export interface Bookmark {
   auto_tags?: string[]
   /** 'recipe_hero' for recipe hero crops, 'product_inset' for single-product shopping bookmarks, 'text_excerpt' for read-later/article bookmarks; null/undefined for standard screenshots. */
   asset_type?: string | null
+  /** When true, prevents automatic asset type detection from overriding the current preview. */
+  asset_override?: boolean
 }
 
 export interface TagAlias {

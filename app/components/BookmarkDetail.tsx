@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ShoppingImageUpload } from "./ShoppingImageUpload";
+import { ForceCoverButton } from "./ForceCoverButton";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
 
@@ -913,6 +914,24 @@ export default function BookmarkDetail({
           <div className="field">
             <div className="label">Saved</div>
             <div className="small muted">{formatDate(bookmark.created_at)}</div>
+          </div>
+
+          <div className="field">
+            <ForceCoverButton
+              bookmarkId={bookmark.id}
+              onSuccess={() => {
+                onPatched({
+                  ...bookmark,
+                  asset_type: "screenshot",
+                  asset_override: true,
+                  screenshot_status: "pending",
+                  preview_path: null,
+                  preview_provider: null,
+                  preview_updated_at: null,
+                  preview_version: null,
+                });
+              }}
+            />
           </div>
 
           {error && <div className="error small">{error}</div>}

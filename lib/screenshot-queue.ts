@@ -7,6 +7,7 @@ export interface ScreenshotJobData {
   bookmarkId: string;
   url: string;
   userId: string;
+  force_screenshot?: boolean;
 }
 
 let queue: Queue<ScreenshotJobData> | null = null;

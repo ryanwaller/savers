@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
     // Fetch old state before overwriting
     const { data: oldBookmarks } = await supabaseAdmin
       .from("bookmarks")
-      .select("id, url, tags, collection_id")
+      .select("id, url, tags, collection_id, asset_override")
       .in("id", ids)
       .eq("user_id", user.id);
 
@@ -71,6 +71,7 @@ async function regenerateChangedBookmarks(
     url: string;
     tags: string[];
     collection_id: string | null;
+    asset_override?: boolean;
   }>,
   newCollectionId: string | null,
 ) {
@@ -89,6 +90,8 @@ async function regenerateChangedBookmarks(
     const idsToRegen: string[] = [];
 
     for (const bm of oldBookmarks) {
+      // Skip bookmarks with manual overrides
+      if (bm.asset_override) continue;
       // Only check if collection actually changed
       if (bm.collection_id === newCollectionId) continue;
 

@@ -228,17 +228,19 @@ export async function PATCH(req: NextRequest) {
     // If collection is changing, capture old state before overwriting it
     let oldCollectionId: string | null | undefined
     let oldTags: string[] = []
+    let wasOverridden = false
     if (
       Object.prototype.hasOwnProperty.call(updates, 'collection_id')
     ) {
       const { data: old } = await supabaseAdmin
         .from('bookmarks')
-        .select('collection_id, tags')
+        .select('collection_id, tags, asset_override')
         .eq('id', id)
         .eq('user_id', user.id)
         .maybeSingle()
       oldCollectionId = old?.collection_id ?? null
       oldTags = (old?.tags as string[]) ?? []
+      wasOverridden = old?.asset_override === true
     }
 
     const { data, error } = await supabaseAdmin
@@ -307,6 +309,7 @@ export async function PATCH(req: NextRequest) {
 
     // Collection changed without URL/preview_version change — regenerate if asset type would differ
     if (
+      !wasOverridden &&
       !shouldRefreshPreview &&
       oldCollectionId !== undefined &&
       oldCollectionId !== (updates.collection_id ?? null)
