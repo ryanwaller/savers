@@ -47,6 +47,7 @@ type Props = {
   tagCounts: Record<string, number>;
   activeTag: string | null;
   userEmail?: string | null;
+  userAvatarUrl?: string | null;
   onTagClick: (tag: string | null) => void;
   selection: Selection;
   onSelect: (s: Selection) => void;
@@ -84,6 +85,7 @@ export default function Sidebar({
   tagCounts,
   activeTag,
   userEmail,
+  userAvatarUrl,
   onTagClick,
   selection,
   onSelect,
@@ -487,9 +489,13 @@ export default function Sidebar({
           {onSignOut && (
             <div className="mobile-account-wrap">
               <div className="mobile-session-chip" title={userEmail ?? "Signed in"}>
-                <span className="mobile-session-email">
-                  {userEmail ?? "Signed in"}
-                </span>
+                {userAvatarUrl ? (
+                  <img className="mobile-session-avatar" src={userAvatarUrl} alt={userEmail ?? ""} referrerPolicy="no-referrer" />
+                ) : (
+                  <span className="mobile-session-email">
+                    {userEmail ?? "Signed in"}
+                  </span>
+                )}
                 {onOpenSettings && (
                   <button
                     className="mobile-session-btn"
@@ -758,6 +764,14 @@ export default function Sidebar({
             overflow: hidden;
             text-overflow: ellipsis;
             white-space: nowrap;
+          }
+          .mobile-session-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+            margin-left: 5px;
+            flex-shrink: 0;
           }
           .mobile-session-btn {
             height: 100%;

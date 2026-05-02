@@ -1577,6 +1577,7 @@ export default function Home() {
         tagCounts={tagCounts}
         activeTag={activeTag}
         userEmail={user.email}
+        userAvatarUrl={(user.user_metadata as Record<string, unknown> | undefined)?.avatar_url as string | undefined || undefined}
         onTagClick={handleSidebarTagClick}
         selection={selection}
         onSelect={(s) => {
@@ -1682,7 +1683,14 @@ export default function Home() {
             <div className="top-right">
               <div className="desktop-actions">
                 <div className="session-chip" title={user.email ?? "Signed in"}>
-                  <span className="session-email">{user.email ?? "Signed in"}</span>
+                  {(function() {
+                    const meta = user.user_metadata as Record<string, unknown> | undefined;
+                    const avatarUrl = (meta?.avatar_url || meta?.picture) as string | undefined;
+                    if (avatarUrl) {
+                      return <img className="session-avatar" src={avatarUrl} alt={user.email ?? ""} referrerPolicy="no-referrer" />;
+                    }
+                    return <span className="session-email">{user.email ?? "Signed in"}</span>;
+                  })()}
                   <button
                     className="session-signout"
                     onClick={() => setShowSettings(true)}
@@ -2548,15 +2556,22 @@ export default function Home() {
           overflow: hidden;
         }
         .session-email {
-          margin-right: 4px;
-        }
-        .session-email {
           font-size: 12px;
           color: var(--color-text-muted);
           max-width: 180px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          padding: 0 6px 0 10px;
+        }
+        .session-avatar {
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          object-fit: cover;
+          margin-left: 4px;
+          margin-right: 2px;
+          flex-shrink: 0;
         }
         .session-signout {
           height: 100%;
