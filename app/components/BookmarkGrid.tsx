@@ -4,7 +4,6 @@ import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark, Collection } from "@/lib/types";
-import { ExcerptCard } from "./ExcerptCard";
 import {
   api,
   domainOf,
@@ -68,58 +67,24 @@ export default function BookmarkGrid({
       {subCollections.map((c) => (
         <CollectionCard key={c.id} c={c} onClick={() => onOpenCollection(c.id)} />
       ))}
-      {bookmarks.map((b) => {
-        // Experimental: render live text excerpt card for essay-tagged bookmarks
-        const isEssay = b.tags?.some(
-          (t) => t.toLowerCase() === "essay",
-        );
-        if (b.excerpt_text && isEssay) {
-          return (
-            <div className="card-shell" key={b.id}>
-              {isEditMode && (
-                <button
-                  type="button"
-                  className={`select-btn ${selectedIds?.has(b.id) ? "select-btn-on" : ""}`}
-                  aria-label={selectedIds?.has(b.id) ? "Deselect bookmark" : "Select bookmark"}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleSelect?.(b.id, e.shiftKey);
-                  }}
-                >
-                  {selectedIds?.has(b.id) && (
-                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 8l3.5 3.5L13 5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                    </svg>
-                  )}
-                </button>
-              )}
-              <ExcerptCard
-                bookmark={b}
-                onUpdate={() => onRefreshPreview(b.id, 1)}
-              />
-            </div>
-          );
-        }
-
-        return (
-          <BookmarkCard
-            key={b.id}
-            b={b}
-            onEdit={() => onOpenBookmark(b)}
-            onDelete={() => onDeleteBookmark(b.id)}
-            onPin={() => onPinBookmark(b.id, !b.pinned)}
-            onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
-            onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
-            onClearCustomPreview={() => onClearCustomPreview(b.id)}
-            onTagClick={onTagClick}
-            cardMinWidth={cardMinWidth}
-            cardCols={cardCols}
-            isEditMode={isEditMode}
-            isSelected={selectedIds?.has(b.id) ?? false}
-            onToggleSelect={onToggleSelect}
-          />
-        );
-      })}
+      {bookmarks.map((b) => (
+        <BookmarkCard
+          key={b.id}
+          b={b}
+          onEdit={() => onOpenBookmark(b)}
+          onDelete={() => onDeleteBookmark(b.id)}
+          onPin={() => onPinBookmark(b.id, !b.pinned)}
+          onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
+          onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
+          onClearCustomPreview={() => onClearCustomPreview(b.id)}
+          onTagClick={onTagClick}
+          cardMinWidth={cardMinWidth}
+          cardCols={cardCols}
+          isEditMode={isEditMode}
+          isSelected={selectedIds?.has(b.id) ?? false}
+          onToggleSelect={onToggleSelect}
+        />
+      ))}
       {!loading && bookmarks.length === 0 && subCollections.length === 0 && (
         <div className="empty">{emptyLabel ?? "Nothing here yet."}</div>
       )}
