@@ -716,7 +716,7 @@ export default function Sidebar({
           color: var(--color-text-muted);
         }
         .sidebar-foot {
-          padding: 8px 8px calc(env(safe-area-inset-bottom, 0px) + 4px);
+          padding: 8px 8px env(safe-area-inset-bottom, 0px);
         }
         .sidebar-foot-row {
           display: block;

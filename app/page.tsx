@@ -2548,7 +2548,7 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           min-width: 0;
-          padding: 0 0 0 10px;
+          padding: 0 0 0 8px;
           height: 30px;
           border: 1px solid var(--color-border);
           border-radius: 999px;
@@ -2569,7 +2569,7 @@ export default function Home() {
           height: 20px;
           border-radius: 50%;
           object-fit: cover;
-          margin-right: 4px;
+          margin-right: 5px;
           flex-shrink: 0;
         }
         .session-signout {
