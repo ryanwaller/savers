@@ -25,6 +25,7 @@ import { extractPrimaryProductImage } from "@/lib/extractProductImage";
 import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
 import { preparePageForCapture } from "@/lib/preparePageForCapture";
 import { getSaversUserAgent } from "@/lib/site-url";
+import { isArticleContext, isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 const USER_AGENT = getSaversUserAgent();
@@ -131,20 +132,8 @@ async function processJob(job: Job<ScreenshotJobData>) {
   let useTextExcerpt = false;
   if (bookmark) {
     const tags = (bookmark.tags ?? []) as string[];
-    const isRecipeTag = tags.some(
-      (t: string) =>
-        t.toLowerCase() === "recipe" ||
-        t.toLowerCase() === "cooking" ||
-        t.toLowerCase() === "food" ||
-        t.toLowerCase() === "baking",
-    );
-    const hasArticleTag = tags.some(
-      (t: string) => t.toLowerCase() === "essay" || t.toLowerCase() === "article",
-    );
 
-    let isRecipesCollection = false;
-    let isShoppingCollection = false;
-    let isReadLater = false;
+    let collectionPath = "";
     if (bookmark.collection_id) {
       // Fetch all user collections to walk parent chain for hierarchical matching
       const { data: allCollections } = await supabase
@@ -165,27 +154,16 @@ async function processJob(job: Job<ScreenshotJobData>) {
           return parts.join(" / ").toLowerCase();
         }
 
-        const path = buildPath(bookmark.collection_id);
-        isRecipesCollection = path.includes("recipes");
-        isShoppingCollection = path.includes("shopping");
-        isReadLater = path.includes("read later");
+        collectionPath = buildPath(bookmark.collection_id);
       }
     }
 
-    const isShoppingTag = tags.some(
-      (t: string) =>
-        t.toLowerCase() === "shopping" ||
-        t.toLowerCase() === "product" ||
-        t.toLowerCase() === "buy" ||
-        t.toLowerCase() === "store",
-    );
-
     // Recipe > Shopping > Article
-    useRecipeHero = isRecipesCollection || isRecipeTag;
+    useRecipeHero = isRecipeContext(collectionPath, tags);
     useShoppingImage =
-      !useRecipeHero && (isShoppingCollection || isShoppingTag);
+      job.data.force_product_inset || (!useRecipeHero && isShoppingContext(collectionPath, tags));
     useTextExcerpt =
-      !useRecipeHero && !useShoppingImage && (isReadLater || hasArticleTag);
+      !useRecipeHero && !useShoppingImage && isArticleContext(collectionPath, tags);
   }
 
   const browser = await puppeteer.launch(PUPPETEER_LAUNCH_OPTIONS);

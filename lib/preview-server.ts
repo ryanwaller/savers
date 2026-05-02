@@ -1,6 +1,7 @@
 import "server-only";
 
 import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
+import { isShoppingContext } from "@/lib/assetTypeRules";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
 import { getSaversUserAgent } from "@/lib/site-url";
@@ -519,16 +520,7 @@ export async function storeCustomPreview({
       }
 
       const tags: string[] = Array.isArray(lookup.tags) ? lookup.tags : [];
-      const SHOPPING_KEYWORDS = ["shopping", "shop", "store", "products", "buy"];
-
-      const nameMatch = names.some((n) =>
-        SHOPPING_KEYWORDS.some((kw) => n.toLowerCase().includes(kw)),
-      );
-      const tagMatch = tags.some((t) =>
-        SHOPPING_KEYWORDS.includes(t.toLowerCase()),
-      );
-
-      isShopping = nameMatch || tagMatch;
+      isShopping = isShoppingContext(names.join(" / "), tags);
     }
   }
   // -------------------------------------------

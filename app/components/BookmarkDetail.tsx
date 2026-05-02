@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { isShoppingContext } from "@/lib/assetTypeRules";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
@@ -446,14 +447,11 @@ export default function BookmarkDetail({
                 const names: string[] = [];
                 let cur = byId.get(bookmark.collection_id);
                 while (cur) {
-                  names.push(cur.name.toLowerCase());
+                  names.push(cur.name);
                   cur = cur.parent_id ? byId.get(cur.parent_id) : undefined;
                 }
                 const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
-                const kw = ["shopping", "shop", "store", "products", "buy"];
-                const nameMatch = names.some((n) => kw.some((k) => n.includes(k)));
-                const tagMatch = tags.some((t) => kw.includes(t.toLowerCase()));
-                isShopping = nameMatch || tagMatch;
+                isShopping = isShoppingContext(names.join(" / "), tags);
               }
 
               const isProductInset = bookmark.asset_type === "product_inset";

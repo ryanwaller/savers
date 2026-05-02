@@ -4,9 +4,40 @@ export type AssetType =
   | "text_excerpt"
   | "screenshot";
 
-const RECIPE_TAGS = ["recipe", "cooking", "food", "baking"];
-const SHOPPING_TAGS = ["shopping", "product", "buy", "store"];
-const ARTICLE_TAGS = ["essay", "article"];
+export const RECIPE_TAGS = ["recipe", "cooking", "food", "baking"];
+export const SHOPPING_COLLECTION_KEYWORDS = ["shopping", "shop", "store", "products", "buy"];
+export const SHOPPING_TAGS = ["shopping", "shop", "store", "products", "product", "buy"];
+export const ARTICLE_TAGS = ["essay", "article"];
+
+function normalizePath(collectionPath: string) {
+  return collectionPath.toLowerCase();
+}
+
+function normalizeTags(tags: string[]) {
+  return tags.map((t) => t.toLowerCase());
+}
+
+export function isRecipeContext(collectionPath: string, tags: string[]) {
+  const path = normalizePath(collectionPath);
+  const lower = normalizeTags(tags);
+  return path.includes("recipes") || lower.some((t) => RECIPE_TAGS.includes(t));
+}
+
+export function isShoppingContext(collectionPath: string, tags: string[]) {
+  const path = normalizePath(collectionPath);
+  const lower = normalizeTags(tags);
+  const isShoppingCollection = SHOPPING_COLLECTION_KEYWORDS.some((keyword) =>
+    path.includes(keyword)
+  );
+  const isShoppingTag = lower.some((t) => SHOPPING_TAGS.includes(t));
+  return isShoppingCollection || isShoppingTag;
+}
+
+export function isArticleContext(collectionPath: string, tags: string[]) {
+  const path = normalizePath(collectionPath);
+  const lower = normalizeTags(tags);
+  return path.includes("read later") || lower.some((t) => ARTICLE_TAGS.includes(t));
+}
 
 /**
  * Determine the expected asset type from a collection path and bookmark tags.
@@ -19,20 +50,9 @@ export function determineAssetType(
   collectionPath: string,
   tags: string[],
 ): AssetType {
-  const path = collectionPath.toLowerCase();
-  const lower = tags.map((t) => t.toLowerCase());
-
-  const isRecipeCollection = path.includes("recipes");
-  const isRecipeTag = lower.some((t) => RECIPE_TAGS.includes(t));
-  if (isRecipeCollection || isRecipeTag) return "recipe_hero";
-
-  const isShoppingCollection = path.includes("shopping");
-  const isShoppingTag = lower.some((t) => SHOPPING_TAGS.includes(t));
-  if (isShoppingCollection || isShoppingTag) return "product_inset";
-
-  const isReadLater = path.includes("read later");
-  const hasArticleTag = lower.some((t) => ARTICLE_TAGS.includes(t));
-  if (isReadLater || hasArticleTag) return "text_excerpt";
+  if (isRecipeContext(collectionPath, tags)) return "recipe_hero";
+  if (isShoppingContext(collectionPath, tags)) return "product_inset";
+  if (isArticleContext(collectionPath, tags)) return "text_excerpt";
 
   return "screenshot";
 }
