@@ -277,7 +277,7 @@ export async function preparePageForCapture(
       // into the DOM. Remove containers that clearly match those states so
       // collection screenshots don't capture them as if they were page content.
       const textBlocks = Array.from(
-        document.querySelectorAll("section, aside, dialog, div"),
+        document.querySelectorAll("section, aside, dialog, div, nav, form"),
       );
       for (const el of textBlocks) {
         const text = (el.textContent || "").trim().toLowerCase().replace(/\s+/g, " ");
@@ -293,7 +293,20 @@ export async function preparePageForCapture(
 
         if (isSearchSuggestionsPanel || isWelcomeBackPanel) {
           const target =
-            el.closest("[role='dialog'], dialog, aside, section") ?? el;
+            el.closest(
+              [
+                "[role='dialog']",
+                "dialog",
+                "aside",
+                "section",
+                "nav",
+                "[class*='search']",
+                "[class*='drawer']",
+                "[class*='overlay']",
+                "[class*='modal']",
+                "[data-testid*='search']",
+              ].join(", "),
+            ) ?? el;
           target.remove();
           count++;
         }

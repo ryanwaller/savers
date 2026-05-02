@@ -710,6 +710,18 @@ export default function Home() {
     };
   }, [user, refreshFromServer]);
 
+  useEffect(() => {
+    if (!detail) return;
+    const fresh = allBookmarks.find((bookmark) => bookmark.id === detail.id);
+    if (!fresh) {
+      setDetail(null);
+      return;
+    }
+    if (fresh !== detail) {
+      setDetail(fresh);
+    }
+  }, [allBookmarks, detail]);
+
   // Poll for pending screenshots so previews update in real time
   // without requiring a page reload.
   useEffect(() => {

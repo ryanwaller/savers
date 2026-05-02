@@ -18,6 +18,39 @@ export interface InsetResult {
   canvasHeight: number;
 }
 
+async function normalizeInsetSource(imageBuffer: Buffer): Promise<Buffer> {
+  const source = sharp(imageBuffer, { failOn: "none" }).rotate();
+
+  try {
+    const trimmedBuffer = await source
+      .clone()
+      .trim({ threshold: 20 })
+      .toBuffer();
+
+    const [originalMeta, trimmedMeta] = await Promise.all([
+      source.clone().metadata(),
+      sharp(trimmedBuffer).metadata(),
+    ]);
+
+    if (
+      originalMeta.width &&
+      originalMeta.height &&
+      trimmedMeta.width &&
+      trimmedMeta.height &&
+      trimmedMeta.width >= 50 &&
+      trimmedMeta.height >= 50 &&
+      (trimmedMeta.width < originalMeta.width ||
+        trimmedMeta.height < originalMeta.height)
+    ) {
+      return trimmedBuffer;
+    }
+  } catch {
+    // Fall back to the original asset if trim fails on an odd format.
+  }
+
+  return source.toBuffer();
+}
+
 /**
  * Composite a product image centered on a light-grey 1280x800 canvas.
  * Accepts a raw buffer so both auto-fetched and user-uploaded images share
@@ -26,8 +59,10 @@ export interface InsetResult {
 export async function generateProductInset(
   imageBuffer: Buffer,
 ): Promise<InsetResult> {
+  const normalizedBuffer = await normalizeInsetSource(imageBuffer);
+
   // 1. Validate input dimensions
-  const inputMeta = await sharp(imageBuffer).metadata();
+  const inputMeta = await sharp(normalizedBuffer).metadata();
   if (!inputMeta.width || !inputMeta.height) {
     throw new Error("Invalid image: unable to read dimensions");
   }
@@ -38,7 +73,7 @@ export async function generateProductInset(
   }
 
   // 2. Single-pass resize → JPEG (allow small images to scale up)
-  const resizedBuffer = await sharp(imageBuffer)
+  const resizedBuffer = await sharp(normalizedBuffer)
     .resize(MAX_INSET_WIDTH, MAX_INSET_HEIGHT, {
       fit: "inside",
       withoutEnlargement: false,
