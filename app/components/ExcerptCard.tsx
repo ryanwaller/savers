@@ -72,18 +72,19 @@ export function ExcerptCard({ bookmark, onUpdate }: ExcerptCardProps) {
       style={{
         background: "#000",
         color: "#fff",
-        padding: "25px 90px",
-        fontSize: "20px",
-        lineHeight: "1.3",
+        padding: "24px 28px",
+        fontSize: "14px",
+        lineHeight: "1.45",
         fontWeight: 500,
-        height: "100%",
-        aspectRatio: "1280 / 800",
         display: "flex",
         alignItems: "center",
         overflow: "hidden",
         position: "relative",
         cursor: isEditing ? "text" : "pointer",
-        borderRadius: "inherit",
+        border: "1px solid var(--color-border)",
+        borderRadius: "var(--radius)",
+        height: "100%",
+        width: "100%",
         boxSizing: "border-box",
       }}
       title="Double-click to edit"
@@ -161,6 +162,16 @@ export function ExcerptCard({ bookmark, onUpdate }: ExcerptCardProps) {
           Saving...
         </div>
       )}
+      <style jsx>{`
+        .excerpt-card {
+          min-height: 340px;
+        }
+        @media (max-width: 768px) {
+          .excerpt-card {
+            min-height: 0;
+          }
+        }
+      `}</style>
     </div>
   );
 }
