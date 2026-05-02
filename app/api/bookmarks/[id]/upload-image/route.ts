@@ -90,24 +90,34 @@ export async function POST(
         .maybeSingle();
 
       if (collection) {
-        const names = [collection.name];
-        if (collection.parent_id) {
+        // Walk full parent chain to build collection path
+        const names: string[] = [collection.name];
+        let parentId = collection.parent_id;
+        while (parentId) {
           const { data: parent } = await supabaseAdmin
             .from("collections")
-            .select("name")
-            .eq("id", collection.parent_id)
+            .select("name, parent_id")
+            .eq("id", parentId)
             .maybeSingle();
-          if (parent) names.push(parent.name);
+          if (parent) {
+            names.push(parent.name);
+            parentId = parent.parent_id;
+          } else {
+            break;
+          }
         }
 
         const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
-        const hasShoppingTag = tags.some((t) =>
-          ["shopping", "product", "buy", "store"].includes(t.toLowerCase()),
+        const SHOPPING_KEYWORDS = ["shopping", "shop", "store", "products", "buy"];
+
+        const nameMatch = names.some((n) =>
+          SHOPPING_KEYWORDS.some((kw) => n.toLowerCase().includes(kw)),
+        );
+        const tagMatch = tags.some((t) =>
+          SHOPPING_KEYWORDS.includes(t.toLowerCase()),
         );
 
-        isShopping =
-          names.some((n) => n.toLowerCase().includes("shopping")) ||
-          hasShoppingTag;
+        isShopping = nameMatch || tagMatch;
 
         console.log(
           JSON.stringify({
@@ -116,7 +126,18 @@ export async function POST(
             collectionId: bookmark.collection_id,
             collectionNames: names,
             tags,
+            nameMatch,
+            tagMatch,
             isShopping,
+          }),
+        );
+      } else {
+        console.log(
+          JSON.stringify({
+            event: "upload_image_asset_detection",
+            bookmarkId,
+            collectionId: bookmark.collection_id,
+            error: "collection_not_found",
           }),
         );
       }
@@ -209,7 +230,7 @@ export async function POST(
       }),
     );
 
-    return NextResponse.json({ bookmark: updated });
+    return NextResponse.json({ bookmark: updated, debug: { isShopping, insetWidth, insetHeight } });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
