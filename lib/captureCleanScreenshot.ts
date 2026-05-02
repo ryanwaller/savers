@@ -20,6 +20,11 @@ export async function captureCleanScreenshot(
   });
 
   try {
+    // Ensure page is at top before capturing — scripts may have scrolled
+    // after preparePageForCapture finished (late-loading embeds, etc.).
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await new Promise((r) => setTimeout(r, 150));
+
     const buffer = await page.screenshot({
       type: "jpeg",
       quality,
