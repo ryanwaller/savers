@@ -67,6 +67,19 @@ export function looksLikeProductDetailUrl(url: string) {
 }
 
 /**
+ * UI affordance for the explicit "Apply product image" action.
+ * Be generous for shopping bookmarks, but still hide it on obvious
+ * collection/search/listing pages where forcing an inset is usually noisy.
+ */
+export function canForceProductInsetUrl(url: string) {
+  const value = url.toLowerCase();
+  if (NON_DETAIL_PATTERNS.some((pattern) => pattern.test(value))) {
+    return false;
+  }
+  return true;
+}
+
+/**
  * Determine the expected asset type from a collection path and bookmark tags.
  * Must mirror the worker's qualification logic exactly (workers/screenshot-worker.ts
  * processJob, lines ~64-119).

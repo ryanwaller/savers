@@ -21,8 +21,84 @@ export interface InsetResult {
   canvasHeight: number;
 }
 
-async function normalizeInsetSource(imageBuffer: Buffer): Promise<Buffer> {
+type BackgroundKind = "whiteish" | "transparent" | "composed";
+
+interface NormalizedInsetSource {
+  buffer: Buffer;
+  backgroundKind: BackgroundKind;
+}
+
+async function detectBackgroundKind(imageBuffer: Buffer): Promise<BackgroundKind> {
+  const { data, info } = await sharp(imageBuffer)
+    .rotate()
+    .ensureAlpha()
+    .raw()
+    .toBuffer({ resolveWithObject: true });
+
+  const sampleEdge = Math.max(
+    8,
+    Math.min(24, Math.floor(Math.min(info.width, info.height) * 0.04)),
+  );
+
+  let whiteishCorners = 0;
+  let transparentCorners = 0;
+
+  const corners: Array<[number, number]> = [
+    [0, 0],
+    [Math.max(0, info.width - sampleEdge), 0],
+    [0, Math.max(0, info.height - sampleEdge)],
+    [Math.max(0, info.width - sampleEdge), Math.max(0, info.height - sampleEdge)],
+  ];
+
+  for (const [startX, startY] of corners) {
+    let rSum = 0;
+    let gSum = 0;
+    let bSum = 0;
+    let aSum = 0;
+    let count = 0;
+
+    for (let y = startY; y < Math.min(info.height, startY + sampleEdge); y += 1) {
+      for (let x = startX; x < Math.min(info.width, startX + sampleEdge); x += 1) {
+        const idx = (y * info.width + x) * info.channels;
+        rSum += data[idx] ?? 0;
+        gSum += data[idx + 1] ?? 0;
+        bSum += data[idx + 2] ?? 0;
+        aSum += data[idx + 3] ?? 255;
+        count += 1;
+      }
+    }
+
+    if (!count) continue;
+
+    const r = rSum / count;
+    const g = gSum / count;
+    const b = bSum / count;
+    const a = aSum / count;
+
+    if (a < 12) {
+      transparentCorners += 1;
+      continue;
+    }
+
+    if (a > 220 && r > 238 && g > 238 && b > 238) {
+      whiteishCorners += 1;
+    }
+  }
+
+  if (transparentCorners >= 3) return "transparent";
+  if (whiteishCorners >= 3) return "whiteish";
+  return "composed";
+}
+
+async function normalizeInsetSource(
+  imageBuffer: Buffer,
+): Promise<NormalizedInsetSource> {
   const source = sharp(imageBuffer, { failOn: "none" }).rotate();
+  const backgroundKind = await detectBackgroundKind(imageBuffer);
+
+  if (backgroundKind === "composed") {
+    return { buffer: await source.toBuffer(), backgroundKind };
+  }
 
   try {
     const trimmedBuffer = await source
@@ -45,13 +121,13 @@ async function normalizeInsetSource(imageBuffer: Buffer): Promise<Buffer> {
       (trimmedMeta.width < originalMeta.width ||
         trimmedMeta.height < originalMeta.height)
     ) {
-      return trimmedBuffer;
+      return { buffer: trimmedBuffer, backgroundKind };
     }
   } catch {
     // Fall back to the original asset if trim fails on an odd format.
   }
 
-  return source.toBuffer();
+  return { buffer: await source.toBuffer(), backgroundKind };
 }
 
 /**
@@ -62,7 +138,8 @@ async function normalizeInsetSource(imageBuffer: Buffer): Promise<Buffer> {
 export async function generateProductInset(
   imageBuffer: Buffer,
 ): Promise<InsetResult> {
-  const normalizedBuffer = await normalizeInsetSource(imageBuffer);
+  const normalized = await normalizeInsetSource(imageBuffer);
+  const normalizedBuffer = normalized.buffer;
 
   // 1. Validate input dimensions
   const inputMeta = await sharp(normalizedBuffer).metadata();
@@ -95,27 +172,30 @@ export async function generateProductInset(
   ).metadata();
   if (!finalW || !finalH) throw new Error("Resize failed: metadata missing");
 
-  const stageWidth = finalW + INNER_PAD_X * 2;
-  const stageHeight = finalH + INNER_PAD_Y * 2;
+  const useWhiteStage = normalized.backgroundKind !== "composed";
+  const stageWidth = useWhiteStage ? finalW + INNER_PAD_X * 2 : finalW;
+  const stageHeight = useWhiteStage ? finalH + INNER_PAD_Y * 2 : finalH;
 
-  const stageBuffer = await sharp({
-    create: {
-      width: stageWidth,
-      height: stageHeight,
-      channels: 3,
-      background: INNER_BACKGROUND_HEX,
-    },
-  })
-    .composite([
-      {
-        input: resizedBuffer,
-        left: INNER_PAD_X,
-        top: INNER_PAD_Y,
-        blend: "over",
-      },
-    ])
-    .png()
-    .toBuffer();
+  const stageBuffer = useWhiteStage
+    ? await sharp({
+        create: {
+          width: stageWidth,
+          height: stageHeight,
+          channels: 3,
+          background: INNER_BACKGROUND_HEX,
+        },
+      })
+        .composite([
+          {
+            input: resizedBuffer,
+            left: INNER_PAD_X,
+            top: INNER_PAD_Y,
+            blend: "over",
+          },
+        ])
+        .png()
+        .toBuffer()
+    : resizedBuffer;
 
   // 4. Precise center coordinates for the white stage on the shared field.
   const left = Math.round((CANVAS_WIDTH - stageWidth) / 2);

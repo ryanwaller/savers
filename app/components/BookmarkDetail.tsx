@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
+import { canForceProductInsetUrl, isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
@@ -465,7 +465,9 @@ export default function BookmarkDetail({
 
               const buttons: React.ReactNode[] = [];
 
-              const supportsProductInsetAction = looksLikeProductDetailUrl(bookmark.url);
+              const supportsProductInsetAction =
+                looksLikeProductDetailUrl(bookmark.url) ||
+                canForceProductInsetUrl(bookmark.url);
 
               // Only offer product-image forcing on likely product-detail URLs.
               // Collection/search pages tend to fall back or choose noisy assets.
