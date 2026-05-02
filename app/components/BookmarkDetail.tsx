@@ -92,7 +92,7 @@ export default function BookmarkDetail({
       (t) => t.includes(trimmed) && !tags.some(existing => existing.toLowerCase() === t)
     ).slice(0, 8);
     setTagAutosuggestions(filtered);
-    setActiveTagIndex(filtered.length > 0 ? 0 : -1);
+    setActiveTagIndex(-1);
   }, [tagInput, allTags, tags]);
 
   useEffect(() => {
@@ -806,6 +806,20 @@ export default function BookmarkDetail({
                 />
                 {tagAutosuggestions.length > 0 && (
                   <div className="autosuggest-list">
+                    {!tagAutosuggestions.some(
+                      (s) => s.toLowerCase() === tagInput.trim().toLowerCase()
+                    ) && (
+                      <button
+                        className={`autosuggest-item autosuggest-create ${activeTagIndex === -1 ? "active" : ""}`}
+                        onMouseDown={(e) => {
+                          e.preventDefault();
+                          void commitTag(tagInput);
+                        }}
+                        onMouseEnter={() => setActiveTagIndex(-1)}
+                      >
+                        Create &ldquo;{tagInput.trim()}&rdquo;
+                      </button>
+                    )}
                     {tagAutosuggestions.map((suggestion, index) => (
                       <button
                         key={suggestion}
@@ -977,6 +991,11 @@ export default function BookmarkDetail({
         .autosuggest-item:hover,
         .autosuggest-item.active {
           background: var(--color-bg-hover);
+        }
+        .autosuggest-create {
+          border-bottom: 1px solid var(--color-border);
+          color: var(--color-accent, #059669);
+          font-style: italic;
         }
         .backdrop {
           position: fixed;
