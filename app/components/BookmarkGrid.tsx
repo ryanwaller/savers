@@ -19,6 +19,7 @@ type Props = {
   bookmarks: Bookmark[];
   onOpenBookmark: (b: Bookmark) => void;
   onDeleteBookmark: (id: string) => Promise<void> | void;
+  onPatchBookmark: (bookmark: Bookmark) => Promise<void> | void;
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
   onRefreshPreview: (id: string, version: number) => Promise<void> | void;
   onUploadCustomPreview: (id: string, source: CustomPreviewSource) => Promise<Bookmark> | Bookmark;
@@ -37,6 +38,7 @@ export default function BookmarkGrid({
   bookmarks,
   onOpenBookmark,
   onDeleteBookmark,
+  onPatchBookmark,
   onPinBookmark,
   onRefreshPreview,
   onUploadCustomPreview,
@@ -66,6 +68,7 @@ export default function BookmarkGrid({
           b={b}
           onEdit={() => onOpenBookmark(b)}
           onDelete={() => onDeleteBookmark(b.id)}
+          onPatchBookmark={onPatchBookmark}
           onPin={() => onPinBookmark(b.id, !b.pinned)}
           onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
           onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
@@ -114,6 +117,7 @@ function BookmarkCard({
   b,
   onEdit,
   onDelete,
+  onPatchBookmark,
   onPin,
   onRefreshPreview,
   onUploadCustomPreview,
@@ -128,6 +132,7 @@ function BookmarkCard({
   b: Bookmark;
   onEdit: () => void;
   onDelete: () => Promise<void> | void;
+  onPatchBookmark: (bookmark: Bookmark) => Promise<void> | void;
   onPin: () => Promise<void> | void;
   onRefreshPreview: (version: number) => Promise<void> | void;
   onUploadCustomPreview: (source: CustomPreviewSource) => Promise<Bookmark> | Bookmark;
@@ -169,6 +174,10 @@ function BookmarkCard({
   const dropDepthRef = useRef(0);
   const coverPending =
     b.screenshot_status === "pending" || b.screenshot_status === "processing";
+
+  useEffect(() => {
+    setBrokenStatus(b.broken_status);
+  }, [b.broken_status]);
 
   // Close the card menu on any click outside .actions (or Escape).
   useEffect(() => {
@@ -323,8 +332,13 @@ function BookmarkCard({
     if (verifyingBroken) return;
     setVerifyingBroken(true);
     try {
-      const result = await api.verifyBrokenLink(b.id, action);
-      setBrokenStatus(result.broken_status);
+      if (action === "confirm") {
+        await onDelete();
+        return;
+      }
+      const result = await api.resetLinkStatus(b.id, "active");
+      setBrokenStatus(result.bookmark.broken_status);
+      await onPatchBookmark(result.bookmark);
       setBrokenActionOpen(false);
     } catch {
       // Silently ignore
@@ -614,22 +628,11 @@ function BookmarkCard({
                   <span className="broken-actions broken-actions-in">
                     <button
                       type="button"
-                      className="broken-pill broken-pill-confirm"
-                      disabled={verifyingBroken}
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (verifyingBroken) return;
-                        setVerifyingBroken(true);
-                        try {
-                          await api.verifyBrokenLink(b.id, "confirm");
-                          setBrokenStatus("confirmed_broken");
-                          await onDelete();
-                        } catch {
-                          // Silently ignore
-                        } finally {
-                          setVerifyingBroken(false);
-                        }
-                      }}
+                    className="broken-pill broken-pill-confirm"
+                    disabled={verifyingBroken}
+                    onClick={(e) => {
+                      void handleVerifyBroken("confirm", e);
+                    }}
                     >
                       Confirm Broken
                     </button>
@@ -638,8 +641,7 @@ function BookmarkCard({
                       className="broken-pill broken-pill-active"
                       disabled={verifyingBroken}
                       onClick={(e) => {
-                        e.stopPropagation();
-                        handleVerifyBroken("dispute", { stopPropagation: () => {} });
+                        void handleVerifyBroken("dispute", e);
                       }}
                     >
                       Still Works

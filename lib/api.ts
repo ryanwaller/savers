@@ -363,7 +363,7 @@ export const api = {
   async resetLinkStatus(
     bookmarkId: string,
     link_status: "active" | "unknown",
-  ): Promise<{ success: boolean }> {
+  ): Promise<{ success: boolean; link_status: "active" | "unknown"; bookmark: Bookmark }> {
     return j(
       await fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
         method: "PATCH",

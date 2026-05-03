@@ -1203,6 +1203,9 @@ export default function Home() {
       if (selection.kind === "unsorted" && b.collection_id !== null) {
         return prev.filter((x) => x.id !== b.id);
       }
+      if (selection.kind === "broken" && b.link_status !== "broken") {
+        return prev.filter((x) => x.id !== b.id);
+      }
       if (selection.kind === "collection" && selection.id !== b.collection_id) {
         return prev.filter((x) => x.id !== b.id);
       }
@@ -1896,10 +1899,11 @@ export default function Home() {
           <BookmarkGrid
             bookmarks={bookmarks}
             onOpenBookmark={(b) => setDetail(b)}
-          onDeleteBookmark={handleDeleteBookmark}
-          onPinBookmark={handlePinBookmark}
-          onRefreshPreview={handleRefreshPreview}
-          onUploadCustomPreview={handleUploadCustomPreview}
+            onDeleteBookmark={handleDeleteBookmark}
+            onPatchBookmark={handleBookmarkPatched}
+            onPinBookmark={handlePinBookmark}
+            onRefreshPreview={handleRefreshPreview}
+            onUploadCustomPreview={handleUploadCustomPreview}
           onClearCustomPreview={handleClearCustomPreview}
           onTagClick={handleCardTagClick}
           cardMinWidth={cardMinWidth}

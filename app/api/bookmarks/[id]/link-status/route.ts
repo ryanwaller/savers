@@ -30,21 +30,27 @@ export async function PATCH(
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { error } = await supabaseAdmin
+    const { data: bookmark, error } = await supabaseAdmin
       .from("bookmarks")
       .update({
         link_status,
+        broken_status: link_status === "active" ? "verified_active" : null,
+        broken_verified_at:
+          link_status === "active" ? new Date().toISOString() : null,
+        broken_verified_by: link_status === "active" ? user.id : null,
         last_link_check: new Date().toISOString(),
       })
       .eq("id", bookmarkId)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select()
+      .single();
 
     if (error) {
       console.error(`link-status reset failed: ${error.message}`);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
-    return NextResponse.json({ success: true, link_status });
+    return NextResponse.json({ success: true, link_status, bookmark });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
