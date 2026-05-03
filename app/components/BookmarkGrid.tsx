@@ -585,58 +585,57 @@ function BookmarkCard({
               </span>
             )}
             {b.link_status === "broken" && brokenStatus !== "verified_active" && (
-              <span className="broken-overlay" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                {/* Backdrop */}
-                {brokenActionOpen && <span className="broken-backdrop" />}
+              <span className="broken-overlay">
+                {/* Backdrop — click to dismiss */}
+                {brokenActionOpen && (
+                  <span className="broken-backdrop" onClick={() => setBrokenActionOpen(false)} />
+                )}
 
                 {/* Initial: trigger badge */}
-                <button
-                  type="button"
-                  className={`broken-trigger ${brokenActionOpen ? "broken-trigger-out" : ""}`}
-                  onClick={() => setBrokenActionOpen(true)}
-                  aria-label="Broken link — view options"
-                >
-                  Broken link
-                </button>
+                {!brokenActionOpen && (
+                  <button
+                    type="button"
+                    className="broken-trigger"
+                    onClick={() => setBrokenActionOpen(true)}
+                    aria-label="Broken link — view options"
+                  >
+                    Broken link
+                  </button>
+                )}
 
                 {/* Action pills */}
-                <span className={`broken-actions ${brokenActionOpen ? "broken-actions-in" : ""}`}>
-                  <button
-                    type="button"
-                    className="broken-pill broken-pill-confirm"
-                    disabled={verifyingBroken}
-                    onClick={async () => {
-                      if (verifyingBroken) return;
-                      setVerifyingBroken(true);
-                      try {
-                        await api.verifyBrokenLink(b.id, "confirm");
-                        setBrokenStatus("confirmed_broken");
-                        await onDelete();
-                      } catch {
-                        // Silently ignore
-                      } finally {
-                        setVerifyingBroken(false);
-                      }
-                    }}
-                  >
-                    Confirm Broken
-                  </button>
-                  <button
-                    type="button"
-                    className="broken-pill broken-pill-active"
-                    disabled={verifyingBroken}
-                    onClick={() => handleVerifyBroken("dispute", { stopPropagation: () => {} })}
-                  >
-                    Still Works
-                  </button>
-                  <button
-                    type="button"
-                    className="broken-cancel"
-                    onClick={() => setBrokenActionOpen(false)}
-                  >
-                    Cancel
-                  </button>
-                </span>
+                {brokenActionOpen && (
+                  <span className="broken-actions broken-actions-in">
+                    <button
+                      type="button"
+                      className="broken-pill broken-pill-confirm"
+                      disabled={verifyingBroken}
+                      onClick={async () => {
+                        if (verifyingBroken) return;
+                        setVerifyingBroken(true);
+                        try {
+                          await api.verifyBrokenLink(b.id, "confirm");
+                          setBrokenStatus("confirmed_broken");
+                          await onDelete();
+                        } catch {
+                          // Silently ignore
+                        } finally {
+                          setVerifyingBroken(false);
+                        }
+                      }}
+                    >
+                      Confirm Broken
+                    </button>
+                    <button
+                      type="button"
+                      className="broken-pill broken-pill-active"
+                      disabled={verifyingBroken}
+                      onClick={() => handleVerifyBroken("dispute", { stopPropagation: () => {} })}
+                    >
+                      Still Works
+                    </button>
+                  </span>
+                )}
               </span>
             )}
             {undoPromptOpen && !uploadingPreview && (
@@ -1126,7 +1125,7 @@ function BookmarkCard({
           align-items: center;
           justify-content: center;
           z-index: 3;
-          pointer-events: auto;
+          pointer-events: none;
         }
         .broken-backdrop {
           position: absolute;
@@ -1151,32 +1150,23 @@ function BookmarkCard({
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
-          transition: opacity 200ms ease, transform 200ms ease;
+          pointer-events: auto;
         }
         .broken-trigger:hover {
           background: #dc2626;
         }
-        .broken-trigger-out {
-          opacity: 0;
-          transform: scale(0.9);
-          pointer-events: none;
-        }
         .broken-actions {
-          position: absolute;
+          position: relative;
           z-index: 2;
           display: flex;
           flex-direction: column;
           align-items: center;
           gap: 8px;
-          opacity: 0;
-          transform: scale(0.9);
-          pointer-events: none;
-          transition: opacity 200ms ease, transform 200ms ease;
+          animation: brokenActionsIn 200ms ease;
         }
-        .broken-actions-in {
-          opacity: 1;
-          transform: scale(1);
-          pointer-events: auto;
+        @keyframes brokenActionsIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
         }
         .broken-pill {
           height: 32px;
@@ -1187,6 +1177,7 @@ function BookmarkCard({
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
+          pointer-events: auto;
           transition: all 0.2s ease;
         }
         .broken-pill:disabled {
@@ -1208,18 +1199,6 @@ function BookmarkCard({
         .broken-pill-active:hover:not(:disabled) {
           background: #16a34a;
           transform: scale(1.05);
-        }
-        .broken-cancel {
-          margin-top: 4px;
-          background: none;
-          border: none;
-          color: rgba(255, 255, 255, 0.8);
-          font-size: 12px;
-          cursor: pointer;
-          transition: color 120ms ease;
-        }
-        .broken-cancel:hover {
-          color: #fff;
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
