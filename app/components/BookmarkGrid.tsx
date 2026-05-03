@@ -97,7 +97,7 @@ export default function BookmarkGrid({
       <style jsx>{`
         .grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, var(--card-min, 300px));
+          grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 300px), 1fr));
           gap: 20px;
           padding: 20px;
           padding-bottom: 80px;
@@ -849,6 +849,8 @@ function BookmarkCard({
         .card-shell {
           position: relative;
           min-height: 340px;
+          max-width: var(--card-min, 300px);
+          box-sizing: border-box;
         }
         .card {
           display: flex;
