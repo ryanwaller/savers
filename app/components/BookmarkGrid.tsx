@@ -584,8 +584,11 @@ function BookmarkCard({
                 <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
-            {b.link_status === "broken" && brokenStatus !== "verified_active" && (
-              <span className="broken-overlay">
+          </a>
+
+          {/* Broken link overlay — outside the <a> tag so clicks don't navigate */}
+          {b.link_status === "broken" && brokenStatus !== "verified_active" && (
+            <span className="broken-overlay">
                 {/* Backdrop — click to dismiss */}
                 {brokenActionOpen && (
                   <span className="broken-backdrop" onClick={() => setBrokenActionOpen(false)} />
@@ -597,7 +600,6 @@ function BookmarkCard({
                     type="button"
                     className="broken-trigger"
                     onClick={(e) => {
-                      e.preventDefault();
                       e.stopPropagation();
                       setBrokenActionOpen(true);
                     }}
@@ -615,7 +617,6 @@ function BookmarkCard({
                       className="broken-pill broken-pill-confirm"
                       disabled={verifyingBroken}
                       onClick={async (e) => {
-                        e.preventDefault();
                         e.stopPropagation();
                         if (verifyingBroken) return;
                         setVerifyingBroken(true);
@@ -637,7 +638,6 @@ function BookmarkCard({
                       className="broken-pill broken-pill-active"
                       disabled={verifyingBroken}
                       onClick={(e) => {
-                        e.preventDefault();
                         e.stopPropagation();
                         handleVerifyBroken("dispute", { stopPropagation: () => {} });
                       }}
@@ -672,7 +672,6 @@ function BookmarkCard({
                 </button>
               </span>
             )}
-          </a>
           {b.tags && b.tags.length > 0 && (
             <div className="tags-overlay">
               {b.tags.slice(0, maxTags).map((t) => (
@@ -1141,6 +1140,7 @@ function BookmarkCard({
           position: absolute;
           inset: 0;
           background: rgba(0, 0, 0, 0.4);
+          pointer-events: auto;
           animation: brokenBackdropIn 200ms ease;
         }
         @keyframes brokenBackdropIn {
