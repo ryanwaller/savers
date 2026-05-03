@@ -118,7 +118,11 @@ export default function Home() {
     return counts;
   }, [allBookmarks]);
 
-  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("sidebarOpen");
+    return saved !== null ? saved === "true" : true;
+  });
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
@@ -326,11 +330,16 @@ export default function Home() {
   // natively, so the deep-link handler is no longer needed and can race
   // with the in-app flow.)
 
-  // Refs let the touch listeners read current state without re-attaching.
-  const mobileSidebarOpenRef = useRef(mobileSidebarOpen);
+  // Persist sidebar state and sync from localStorage on mount.
   useEffect(() => {
-    mobileSidebarOpenRef.current = mobileSidebarOpen;
-  }, [mobileSidebarOpen]);
+    localStorage.setItem("sidebarOpen", String(sidebarOpen));
+  }, [sidebarOpen]);
+
+  // Refs let the touch listeners read current state without re-attaching.
+  const sidebarOpenRef = useRef(sidebarOpen);
+  useEffect(() => {
+    sidebarOpenRef.current = sidebarOpen;
+  }, [sidebarOpen]);
 
   const swipeContextRef = useRef({
     selectionKind: selection.kind,
@@ -372,11 +381,11 @@ export default function Home() {
       const t = event.touches[0];
       startX = t.clientX;
       startY = t.clientY;
-      const sidebarOpen = mobileSidebarOpenRef.current;
+      const isSidebarOpen = sidebarOpenRef.current;
       const ctx = swipeContextRef.current;
       const viewportWidth = window.innerWidth;
 
-      if (sidebarOpen) {
+      if (isSidebarOpen) {
         tracking = "close-left";
       } else if (startX <= EDGE_PX) {
         tracking = "open-left";
@@ -405,10 +414,10 @@ export default function Home() {
       }
 
       if (tracking === "open-left" && dx > OPEN_THRESHOLD) {
-        setMobileSidebarOpen(true);
+        setSidebarOpen(true);
         tracking = null;
       } else if (tracking === "close-left" && dx < -CLOSE_THRESHOLD) {
-        setMobileSidebarOpen(false);
+        setSidebarOpen(false);
         tracking = null;
       } else if (tracking === "open-add" && dx < -OPEN_THRESHOLD) {
         setShowAdd(true);
@@ -1587,7 +1596,7 @@ export default function Home() {
   return (
     <DropZone onUrls={handleDroppedUrls}>
     <div
-      className={`app ${mobileSidebarOpen ? "mobile-sidebar-open" : ""}`}
+      className={`app ${!sidebarOpen ? "sidebar-closed" : ""} ${sidebarOpen ? "mobile-sidebar-open" : ""}`}
       data-savers-app
       style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
     >
@@ -1606,7 +1615,9 @@ export default function Home() {
         onSelect={(s) => {
           setSelection(s);
           setActiveTag(null);
-          setMobileSidebarOpen(false);
+          if (typeof window !== "undefined" && window.innerWidth <= 768) {
+            setSidebarOpen(false);
+          }
         }}
         onCreateCollection={handleCreateCollection}
         onRenameCollection={handleRenameCollection}
@@ -1618,7 +1629,7 @@ export default function Home() {
         onOpenTriage={() => setTriageOpen(true)}
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
-        onCloseMobile={() => setMobileSidebarOpen(false)}
+        onCloseMobile={() => setSidebarOpen(false)}
         smartCollections={smartCollections}
         smartCollectionCounts={smartCollectionCounts}
         onCreateSmartCollection={handleCreateSmartCollection}
@@ -1645,9 +1656,10 @@ export default function Home() {
           <div className="top-row top-row-primary">
             <div className="crumbs">
               <button
-                className="circle-btn mobile-menu-btn"
-                onClick={() => setMobileSidebarOpen(true)}
-                aria-label="Open menu"
+                className="circle-btn sidebar-toggle-btn"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-expanded={sidebarOpen}
               >
                 <List size={14} />
               </button>
@@ -2393,18 +2405,17 @@ export default function Home() {
         .top-row-secondary {
           flex: 0 0 auto;
         }
-        .mobile-menu-btn {
-          display: none;
+        .sidebar-toggle-btn {
+          display: inline-flex;
+          margin-right: 8px;
         }
         @media (min-width: 769px) {
-          .mobile-menu-btn,
           .mobile-actions {
             display: none !important;
           }
         }
         @media (max-width: 768px) {
-          .mobile-menu-btn {
-            display: inline-flex;
+          .sidebar-toggle-btn {
             margin-right: 8px;
           }
           .sidebar-resizer {
@@ -2421,6 +2432,23 @@ export default function Home() {
           }
           .mobile-sidebar-open :global(.sidebar) {
             transform: translateX(0);
+          }
+        }
+        /* Desktop: sidebar collapses with smooth width transition. */
+        @media (min-width: 769px) {
+          :global(.sidebar) {
+            transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+                        min-width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 200ms ease;
+          }
+          .sidebar-closed :global(.sidebar) {
+            width: 0 !important;
+            min-width: 0 !important;
+            opacity: 0;
+            pointer-events: none;
+          }
+          .sidebar-closed .sidebar-resizer {
+            display: none;
           }
         }
         .crumbs {
