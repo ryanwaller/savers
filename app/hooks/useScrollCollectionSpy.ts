@@ -4,48 +4,44 @@ import { useState, useEffect, useRef } from "react";
 export function useScrollCollectionSpy(enabled: boolean) {
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
+  const visibleMapRef = useRef<Map<Element, boolean>>(new Map());
 
   useEffect(() => {
     if (typeof window === "undefined" || !enabled) return;
 
     const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      const visible = entries
-        .filter((e) => e.isIntersecting)
-        .sort((a, b) => b.intersectionRatio - a.intersectionRatio);
-
-      if (visible.length > 0) {
-        setActiveCollection(
-          visible[0].target.getAttribute("data-collection") || null,
-        );
-      } else {
-        setActiveCollection(null);
+      for (const entry of entries) {
+        visibleMapRef.current.set(entry.target, entry.isIntersecting);
       }
+
+      let topmost: Element | null = null;
+      let topmostTop = Infinity;
+
+      for (const [el, visible] of visibleMapRef.current) {
+        if (!visible) continue;
+        const top = el.getBoundingClientRect().top;
+        if (top < topmostTop) {
+          topmostTop = top;
+          topmost = el;
+        }
+      }
+
+      setActiveCollection(
+        topmost ? topmost.getAttribute("data-collection") || null : null,
+      );
     };
 
-    const getScrollRoot = () => {
-      const content = document.querySelector(".content");
-      if (!content) return null;
-      const style = window.getComputedStyle(content);
-      if (style.overflowY === "auto" || style.overflowY === "scroll") return content;
-      const main = document.querySelector(".main");
-      if (main) {
-        const mainStyle = window.getComputedStyle(main);
-        if (mainStyle.overflowY === "auto" || mainStyle.overflowY === "scroll") return main;
-      }
-      return null;
-    };
-
-    const root = getScrollRoot();
+    const root = document.querySelector(".content");
 
     observerRef.current = new IntersectionObserver(handleIntersect, {
       root,
-      rootMargin: "-40% 0px -40% 0px",
-      threshold: [0, 0.25, 0.5, 0.75, 1],
+      rootMargin: "0px 0px 0px 0px",
+      threshold: 0,
     });
 
     const observe = () => {
       const sections = document.querySelectorAll("[data-collection]");
-      sections.forEach((el) => observerRef.current?.observe(el));
+      for (const el of sections) observerRef.current?.observe(el);
     };
     observe();
 
