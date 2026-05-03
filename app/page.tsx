@@ -32,6 +32,7 @@ import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
 import SortMenu from "./components/SortMenu";
+import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -131,6 +132,27 @@ export default function Home() {
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [bookmarks, sortBy, collectionNameMap]);
+
+  const isGroupedView = sortBy === "collection" && selection.kind === "all";
+
+  const groupedBookmarks = useMemo(() => {
+    if (!isGroupedView) return null;
+    const groups: { collectionId: string; collectionName: string; bookmarks: Bookmark[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const b of sortedBookmarks) {
+      const cid = b.collection_id || "__uncategorized__";
+      const name = (b.collection_id && collectionNameMap.get(b.collection_id)) || "Uncategorized";
+      if (seen.has(cid)) {
+        groups[seen.get(cid)!].bookmarks.push(b);
+      } else {
+        seen.set(cid, groups.length);
+        groups.push({ collectionId: cid, collectionName: name, bookmarks: [b] });
+      }
+    }
+    return groups;
+  }, [isGroupedView, sortedBookmarks, collectionNameMap]);
+
+  const scrollCollection = useScrollCollectionSpy(isGroupedView);
 
   const tagCounts = useMemo(() => {
     if (selection.kind === "all") return globalTagCounts;
@@ -1791,6 +1813,12 @@ export default function Home() {
                   {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
               ))}
+              {isGroupedView && scrollCollection && (
+                <span className="crumb" key="scroll-spy">
+                  <span className="sep">›</span>
+                  <span className="crumb-label scroll-collection-label">{scrollCollection}</span>
+                </span>
+              )}
               {activeTag && (
                 <>
                   <span className="sep">›</span>
@@ -1925,53 +1953,97 @@ export default function Home() {
               onSelect={(id) => setSelection({ kind: "collection", id })}
             />
           )}
-          <BookmarkGrid
-            bookmarks={sortedBookmarks}
-            onOpenBookmark={(b) => setDetail(b)}
-            onDeleteBookmark={handleDeleteBookmark}
-            onPatchBookmark={handleBookmarkPatched}
-            onPinBookmark={handlePinBookmark}
-            onRefreshPreview={handleRefreshPreview}
-            onUploadCustomPreview={handleUploadCustomPreview}
-          onClearCustomPreview={handleClearCustomPreview}
-          onTagClick={handleCardTagClick}
-          cardMinWidth={cardMinWidth}
-          cardCols={cardCols}
-          loading={loadingBookmarks}
-          isEditMode={isEditMode}
-          selectedIds={selectedIds}
-          onToggleSelect={(id, shiftKey) => {
-            setSelectedIds((prev) => {
-              const next = new Set(prev);
-              if (shiftKey && lastClickedIdRef.current) {
-                const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
-                const toIdx = bookmarks.findIndex((b) => b.id === id);
-                if (fromIdx !== -1 && toIdx !== -1) {
-                  const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
-                  for (let i = start; i <= end; i++) {
-                    next.add(bookmarks[i].id);
+          {isGroupedView && groupedBookmarks ? (
+            groupedBookmarks.map((group) => (
+              <section key={group.collectionId} data-collection={group.collectionName}>
+                <div className="collection-group-header">{group.collectionName}</div>
+                <BookmarkGrid
+                  bookmarks={group.bookmarks}
+                  onOpenBookmark={(b) => setDetail(b)}
+                  onDeleteBookmark={handleDeleteBookmark}
+                  onPatchBookmark={handleBookmarkPatched}
+                  onPinBookmark={handlePinBookmark}
+                  onRefreshPreview={handleRefreshPreview}
+                  onUploadCustomPreview={handleUploadCustomPreview}
+                  onClearCustomPreview={handleClearCustomPreview}
+                  onTagClick={handleCardTagClick}
+                  cardMinWidth={cardMinWidth}
+                  cardCols={cardCols}
+                  loading={loadingBookmarks}
+                  isEditMode={isEditMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={(id, shiftKey) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (shiftKey && lastClickedIdRef.current) {
+                        const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                        const toIdx = bookmarks.findIndex((b) => b.id === id);
+                        if (fromIdx !== -1 && toIdx !== -1) {
+                          const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                          for (let i = start; i <= end; i++) {
+                            next.add(bookmarks[i].id);
+                          }
+                        }
+                      } else {
+                        if (next.has(id)) next.delete(id);
+                        else next.add(id);
+                      }
+                      lastClickedIdRef.current = id;
+                      return next;
+                    });
+                  }}
+                />
+              </section>
+            ))
+          ) : (
+            <BookmarkGrid
+              bookmarks={sortedBookmarks}
+              onOpenBookmark={(b) => setDetail(b)}
+              onDeleteBookmark={handleDeleteBookmark}
+              onPatchBookmark={handleBookmarkPatched}
+              onPinBookmark={handlePinBookmark}
+              onRefreshPreview={handleRefreshPreview}
+              onUploadCustomPreview={handleUploadCustomPreview}
+              onClearCustomPreview={handleClearCustomPreview}
+              onTagClick={handleCardTagClick}
+              cardMinWidth={cardMinWidth}
+              cardCols={cardCols}
+              loading={loadingBookmarks}
+              isEditMode={isEditMode}
+              selectedIds={selectedIds}
+              onToggleSelect={(id, shiftKey) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (shiftKey && lastClickedIdRef.current) {
+                    const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                    const toIdx = bookmarks.findIndex((b) => b.id === id);
+                    if (fromIdx !== -1 && toIdx !== -1) {
+                      const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                      for (let i = start; i <= end; i++) {
+                        next.add(bookmarks[i].id);
+                      }
+                    }
+                  } else {
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
                   }
-                }
-              } else {
-                if (next.has(id)) next.delete(id);
-                else next.add(id);
+                  lastClickedIdRef.current = id;
+                  return next;
+                });
+              }}
+              emptyLabel={
+                search || activeTag
+                  ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
+                      .filter(Boolean)
+                      .join(" + ")}.`
+                  : selection.kind === "unsorted"
+                  ? "Nothing unsorted — nice."
+                  : selection.kind === "pinned"
+                  ? "No pinned bookmarks yet."
+                  : "No bookmarks here yet."
               }
-              lastClickedIdRef.current = id;
-              return next;
-            });
-          }}
-            emptyLabel={
-              search || activeTag
-                ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
-                    .filter(Boolean)
-                    .join(" + ")}.`
-                : selection.kind === "unsorted"
-                ? "Nothing unsorted — nice."
-                : selection.kind === "pinned"
-                ? "No pinned bookmarks yet."
-                : "No bookmarks here yet."
-            }
-          />
+            />
+          )}
         </section>
         <div className="bottom-bar">
           {isEditMode && selectedIds.size > 0 && (
@@ -2667,6 +2739,20 @@ export default function Home() {
           color: var(--color-text);
         }
         .sep { color: var(--color-text-faint); font-size: 12px; }
+        .scroll-collection-label {
+          animation: fadeSlideIn 200ms ease;
+        }
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .collection-group-header {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-muted);
+          padding: 16px 8px 8px;
+          line-height: 17px;
+        }
         .top-right {
           display: flex;
           align-items: center;
