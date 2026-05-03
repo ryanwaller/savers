@@ -149,6 +149,9 @@ export default function Home() {
   const [cardSize, setCardSize] = useState<CardSize>("m");
   const cardMinWidth = CARD_SIZE_PX[cardSize];
   const cardCols = CARD_SIZE_COLS[cardSize];
+  useEffect(() => {
+    console.log("Grid updated:", { cardSize, cardMinWidth, cardCols });
+  }, [cardSize, cardMinWidth, cardCols]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdRef = useRef<string | null>(null);
