@@ -819,9 +819,18 @@ export default function Sidebar({
           background: transparent;
           border: 0;
           cursor: pointer;
+          transition: background 140ms ease, transform 180ms ease;
         }
-        .unsorted-item:hover { background: var(--color-bg-hover); }
-        .unsorted-item.active { background: var(--color-bg-active); }
+        .unsorted-item:hover {
+          background: var(--color-bg-hover);
+          transform: translateX(4px);
+        }
+        .unsorted-item.active {
+          background: var(--color-bg-active);
+        }
+        .unsorted-item.active:hover {
+          transform: none;
+        }
         .unsorted-label {
           flex: 1;
           overflow: hidden;
@@ -1161,6 +1170,13 @@ function SmartCollectionItem({
           border: 0;
           cursor: pointer;
           border-radius: var(--radius-sm);
+          transition: background 140ms ease, transform 180ms ease;
+        }
+        .smart-item:hover .smart-item-btn {
+          transform: translateX(4px);
+        }
+        .smart-item.active .smart-item-btn {
+          transform: none;
         }
         .smart-item-icon {
           width: 18px;
