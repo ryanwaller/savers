@@ -1,7 +1,7 @@
 import "server-only";
 
 import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
-import { isShoppingContext } from "@/lib/assetTypeRules";
+import { isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
 import { getSaversUserAgent } from "@/lib/site-url";
@@ -489,7 +489,7 @@ export async function storeCustomPreview({
   let isShopping = false;
   const { data: lookup } = await supabaseAdmin
     .from("bookmarks")
-    .select("collection_id, tags")
+    .select("collection_id, tags, url")
     .eq("id", bookmarkId)
     .eq("user_id", userId)
     .maybeSingle();
@@ -525,12 +525,18 @@ export async function storeCustomPreview({
   }
   // -------------------------------------------
 
-  // Process image: inset for shopping, passthrough otherwise
+  // Only treat a manual upload as a product inset when the bookmark is both
+  // in shopping context and clearly a product-detail URL. Storefront/category
+  // pages should preserve the uploaded image as a normal website-style cover.
+  const shouldInsetCustomPreview =
+    isShopping && looksLikeProductDetailUrl(lookup?.url ?? "");
+
+  // Process image: inset for product-detail shopping bookmarks, passthrough otherwise
   let processedBody: ArrayBuffer | Buffer;
   let outputContentType: string;
   let outputExtension: string;
 
-  if (isShopping) {
+  if (shouldInsetCustomPreview) {
     try {
       const result = await generateProductInset(Buffer.from(body));
       processedBody = result.buffer;
@@ -543,7 +549,6 @@ export async function storeCustomPreview({
       processedBody = body;
       outputContentType = contentType;
       outputExtension = contentTypeToExtension(contentType);
-      isShopping = false; // don't mark as product_inset since inset failed
     }
   } else {
     processedBody = body;
@@ -574,7 +579,7 @@ export async function storeCustomPreview({
       preview_provider: "custom-upload",
       preview_updated_at: previewUpdatedAt,
       preview_version: previewVersion,
-      ...(isShopping ? { asset_type: "product_inset" } : {}),
+      asset_type: shouldInsetCustomPreview ? "product_inset" : "screenshot",
     })
     .eq("id", bookmarkId)
     .eq("user_id", userId)

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
+import { canForceProductInsetUrl, isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
@@ -497,7 +497,7 @@ export default function BookmarkDetail({
 
               // Product-image action: only for bookmarks explicitly in a
               // shopping collection or with shopping tags.
-              if (isShopping) {
+              if (isShopping && canForceProductInsetUrl(bookmark.url)) {
                 buttons.push(
                   <ForceCoverButton
                     key="product"
