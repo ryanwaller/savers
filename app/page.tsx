@@ -31,6 +31,7 @@ import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
+import SortMenu from "./components/SortMenu";
 import {
   isNative as isNativeShell,
   NATIVE_REDIRECT,
@@ -105,6 +106,31 @@ export default function Home() {
     }
     return allBookmarks;
   }, [allBookmarks, selection, smartCollections]);
+
+  const [sortBy, setSortBy] = useState<"date" | "collection">("date");
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
+  const collectionNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of flat) map.set(c.id, c.name);
+    return map;
+  }, [flat]);
+
+  const sortedBookmarks = useMemo(() => {
+    if (sortBy === "date") {
+      return [...bookmarks].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    // Group by collection: sort by collection name, then by created_at desc within each group
+    return [...bookmarks].sort((a, b) => {
+      const nameA = (a.collection_id && collectionNameMap.get(a.collection_id)) || "Uncategorized";
+      const nameB = (b.collection_id && collectionNameMap.get(b.collection_id)) || "Uncategorized";
+      const cmp = nameA.localeCompare(nameB);
+      if (cmp !== 0) return cmp;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [bookmarks, sortBy, collectionNameMap]);
 
   const tagCounts = useMemo(() => {
     if (selection.kind === "all") return globalTagCounts;
@@ -1900,7 +1926,7 @@ export default function Home() {
             />
           )}
           <BookmarkGrid
-            bookmarks={bookmarks}
+            bookmarks={sortedBookmarks}
             onOpenBookmark={(b) => setDetail(b)}
             onDeleteBookmark={handleDeleteBookmark}
             onPatchBookmark={handleBookmarkPatched}
@@ -2076,6 +2102,22 @@ export default function Home() {
                 {size.toUpperCase()}
               </button>
             ))}
+            </div>
+            <div className="sort-control-wrap">
+              <button
+                className={`sort-btn ${showSortMenu ? "sort-btn-active" : ""}`}
+                onClick={() => setShowSortMenu((v) => !v)}
+                title="Sort bookmarks"
+                aria-label="Sort bookmarks"
+              >
+                <List size={14} weight={showSortMenu ? "fill" : "regular"} />
+              </button>
+              <SortMenu
+                sortBy={sortBy}
+                onSelect={setSortBy}
+                isOpen={showSortMenu}
+                onClose={() => setShowSortMenu(false)}
+              />
             </div>
             <button
               className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
@@ -2664,6 +2706,39 @@ export default function Home() {
           background: var(--color-bg-hover);
         }
         .edit-toggle-active {
+          color: var(--color-text);
+          background: var(--color-bg-active);
+        }
+        .sort-control-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .sort-btn {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-muted);
+          opacity: 0.7;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .sort-btn:active {
+          transform: scale(0.92);
+        }
+        .sort-btn:hover,
+        .sort-btn-active {
+          opacity: 1;
+        }
+        .sort-btn:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .sort-btn-active {
           color: var(--color-text);
           background: var(--color-bg-active);
         }
