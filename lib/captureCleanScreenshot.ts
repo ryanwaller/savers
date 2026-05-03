@@ -1,5 +1,6 @@
 import type { Page } from "puppeteer";
 import { preparePageForCapture } from "./preparePageForCapture";
+import { normalizeUrl, BROWSER_HEADERS } from "./site-url";
 
 export interface CleanCaptureOptions {
   timeout?: number;
@@ -83,10 +84,16 @@ export async function captureCleanScreenshot(
   const quality = options.quality ?? 75;
   const timeout = options.timeout ?? 30000;
 
+  // Upgrade HTTP → HTTPS to avoid ERR_BLOCKED_BY_CLIENT from Chrome.
+  const normalizedUrl = normalizeUrl(url);
+
   // Inject scroll-blocking patches BEFORE any page script executes.
   await page.evaluateOnNewDocument(PRE_NAV_SCROLL_BLOCK);
 
-  const { cleanup } = await preparePageForCapture(page, url, {
+  // Realistic browser headers to avoid bot detection and mixed-content blocking.
+  await page.setExtraHTTPHeaders(BROWSER_HEADERS);
+
+  const { cleanup } = await preparePageForCapture(page, normalizedUrl, {
     timeout,
     settleMs: 2500,
   });

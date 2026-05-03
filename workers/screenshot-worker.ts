@@ -24,7 +24,7 @@ import { detectProductPage } from "@/lib/detectProductPage";
 import { extractPrimaryProductImage } from "@/lib/extractProductImage";
 import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
 import { preparePageForCapture } from "@/lib/preparePageForCapture";
-import { getSaversUserAgent } from "@/lib/site-url";
+import { getSaversUserAgent, normalizeUrl, BROWSER_HEADERS } from "@/lib/site-url";
 import { isArticleContext, isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
 
 const PREVIEW_BUCKET = "bookmark-previews";
@@ -217,10 +217,9 @@ async function processJob(job: Job<ScreenshotJobData>) {
       // Try hero image extraction, fall back to screenshot on any failure
       const recipePage = await browser.newPage();
       try {
-        await recipePage.setUserAgent(
-          USER_AGENT,
-        );
-        await recipePage.goto(url, {
+        await recipePage.setUserAgent(USER_AGENT);
+        await recipePage.setExtraHTTPHeaders(BROWSER_HEADERS);
+        await recipePage.goto(normalizeUrl(url), {
           waitUntil: "domcontentloaded",
           timeout: 25000,
         });
@@ -286,11 +285,10 @@ async function processJob(job: Job<ScreenshotJobData>) {
       const shopPage = await browser.newPage();
       let shopCleanup: (() => Promise<void>) | null = null;
       try {
-        await shopPage.setUserAgent(
-          USER_AGENT,
-        );
+        await shopPage.setUserAgent(USER_AGENT);
+        await shopPage.setExtraHTTPHeaders(BROWSER_HEADERS);
 
-        const prepResult = await preparePageForCapture(shopPage, url, {
+        const prepResult = await preparePageForCapture(shopPage, normalizeUrl(url), {
           timeout: 30000,
           settleMs: 4000,
         });

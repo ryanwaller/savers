@@ -1,6 +1,6 @@
 import type { Browser } from "puppeteer";
 import { captureCleanScreenshot } from "./captureCleanScreenshot";
-import { getSaversUserAgent } from "./site-url";
+import { getSaversUserAgent, normalizeUrl } from "./site-url";
 
 const USER_AGENT = getSaversUserAgent();
 
@@ -52,6 +52,32 @@ export async function captureScreenshot(
       buffer,
       contentType: "image/jpeg",
     };
+  } catch (firstError) {
+    // If we upgraded HTTP→HTTPS and it failed, retry once with the original
+    // HTTP URL before giving up. Some legacy sites don't have HTTPS.
+    const upgraded = normalizeUrl(url);
+    if (upgraded !== url) {
+      console.warn(
+        `HTTPS navigation failed for ${upgraded}, retrying with HTTP: ${(firstError as Error)?.message || String(firstError)}`,
+      );
+      await page.close().catch(() => {});
+
+      const retryPage = await browser.newPage();
+      try {
+        await retryPage.setUserAgent(USER_AGENT);
+        const buffer = await captureCleanScreenshot(retryPage, url, {
+          quality: 92,
+          timeout: 25000,
+        });
+        return {
+          buffer,
+          contentType: "image/jpeg",
+        };
+      } finally {
+        await retryPage.close().catch(() => {});
+      }
+    }
+    throw firstError;
   } finally {
     await page.close().catch(() => {});
   }
