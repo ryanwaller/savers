@@ -12,16 +12,26 @@ type Props = {
 
 export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [leftFade, setLeftFade] = useState(false);
-  const [rightFade, setRightFade] = useState(false);
+  const [scrollState, setScrollState] = useState<"start" | "end" | "middle">("start");
 
   useEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
     const update = () => {
-      setLeftFade(el.scrollLeft > 4);
-      setRightFade(el.scrollLeft < el.scrollWidth - el.clientWidth - 4);
+      if (!el) return;
+      const atStart = el.scrollLeft <= 2;
+      const atEnd = el.scrollLeft >= el.scrollWidth - el.clientWidth - 2;
+
+      if (atStart && atEnd) {
+        setScrollState("start");
+      } else if (atStart) {
+        setScrollState("start");
+      } else if (atEnd) {
+        setScrollState("end");
+      } else {
+        setScrollState("middle");
+      }
     };
 
     el.addEventListener("scroll", update, { passive: true });
@@ -40,7 +50,10 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
 
   return (
     <div className="sub-row-wrapper">
-      <div ref={scrollRef} className="sub-row">
+      <div
+        ref={scrollRef}
+        className={`sub-row ${scrollState === "start" ? "scroll-start" : ""} ${scrollState === "end" ? "scroll-end" : ""}`}
+      >
         {subs.map((sub) => {
           const childCount = sub.children?.length ?? 0;
           const bmCount = sub.bookmark_count ?? 0;
@@ -79,13 +92,14 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         })}
       </div>
 
-      <div className={`sub-fade sub-fade-left ${leftFade ? "visible" : ""}`} />
-      <div className={`sub-fade sub-fade-right ${rightFade ? "visible" : ""}`} />
-
       <style jsx>{`
         .sub-row-wrapper {
           position: relative;
-          padding: 0 20px 4px;
+          margin-top: 24px;
+          padding-top: 8px;
+          margin-bottom: 12px;
+          padding-left: 20px;
+          padding-right: 20px;
         }
 
         .sub-row {
@@ -97,17 +111,35 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           scrollbar-width: none;
           -ms-overflow-style: none;
           padding-bottom: 4px;
+
+          /* Default: both fades */
+          -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+          mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
+          transition: -webkit-mask-image 0.3s ease, mask-image 0.3s ease;
         }
         .sub-row::-webkit-scrollbar {
           display: none;
+        }
+
+        /* At start: no left fade */
+        .sub-row.scroll-start {
+          -webkit-mask-image: linear-gradient(to right, black 0px, black calc(100% - 20px), transparent);
+          mask-image: linear-gradient(to right, black 0px, black calc(100% - 20px), transparent);
+        }
+
+        /* At end: no right fade */
+        .sub-row.scroll-end {
+          -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black 100%);
+          mask-image: linear-gradient(to right, transparent, black 20px, black 100%);
         }
 
         .sub-chip {
           display: flex;
           align-items: center;
           gap: 12px;
-          min-width: 200px;
-          max-width: 340px;
+          width: 220px;
+          min-width: 220px;
+          max-width: 220px;
           height: 68px;
           padding: 0 20px;
           background: var(--color-bg);
@@ -117,6 +149,8 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           text-align: left;
           flex-shrink: 0;
           scroll-snap-align: start;
+          font-size: 14px;
+          line-height: 1.4;
           transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
                       border-color 160ms ease,
                       box-shadow 160ms ease;
@@ -178,7 +212,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         }
 
         .sub-chip-meta {
-          font-size: 13px;
+          font-size: 14px;
           color: var(--color-text-muted);
           white-space: nowrap;
         }
@@ -192,27 +226,6 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         .sub-chip:hover .sub-chip-chevron {
           opacity: 0.7;
           transform: translateX(2px);
-        }
-
-        .sub-fade {
-          position: absolute;
-          top: 0;
-          bottom: 0;
-          width: 48px;
-          pointer-events: none;
-          opacity: 0;
-          transition: opacity 200ms ease;
-        }
-        .sub-fade.visible {
-          opacity: 1;
-        }
-        .sub-fade-left {
-          left: 0;
-          background: linear-gradient(to right, var(--color-bg-page) 0%, transparent 100%);
-        }
-        .sub-fade-right {
-          right: 0;
-          background: linear-gradient(to left, var(--color-bg-page) 0%, transparent 100%);
         }
       `}</style>
     </div>

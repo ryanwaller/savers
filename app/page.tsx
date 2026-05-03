@@ -2524,12 +2524,12 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 12px;
+          font-size: 14px;
           white-space: nowrap;
           min-width: 0;
         }
         .crumb-link {
-          font-size: 12px;
+          font-size: 14px;
           white-space: nowrap;
           display: inline-flex;
           align-items: center;
@@ -2576,7 +2576,7 @@ export default function Home() {
         .crumb-link:hover {
           color: var(--color-text);
         }
-        .sep { color: var(--color-text-faint); font-size: 12px; }
+        .sep { color: var(--color-text-faint); font-size: 14px; }
         .top-right {
           display: flex;
           align-items: center;

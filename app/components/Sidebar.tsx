@@ -1333,16 +1333,16 @@ function SidebarItem({
           padding: 3px 8px;
           border-radius: var(--radius-sm);
           text-align: left;
-          font-size: 12px;
+          font-size: 14px;
           color: var(--color-text);
-          transition: background 140ms ease, padding-left 180ms ease;
+          transition: background 140ms ease, transform 180ms ease;
         }
         .item:hover {
           background: var(--color-bg-hover);
-          padding-left: 12px;
+          transform: translateX(4px);
         }
         .item.active { background: var(--color-bg-active); }
-        .item.active:hover { padding-left: 8px; }
+        .item.active:hover { transform: none; }
         .leading {
           display: inline-flex;
           align-items: center;
@@ -1883,7 +1883,7 @@ function CollectionNode({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 12px;
+          font-size: 14px;
           display: inline-flex;
           align-items: center;
           gap: 6px;
