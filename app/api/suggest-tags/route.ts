@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { isPublicUrl } from '@/lib/api'
 import { fetchPageContent } from '@/lib/page-content'
-
-const client = new Anthropic()
+import { deepseekJson } from '@/lib/ai-client'
 
 const MIN_TAGS = 3
 const MAX_TAGS = 6
@@ -118,17 +116,11 @@ ${content.body_text || '(no body text extracted)'}
 Respond with JSON only, no explanation:
 {"tags": ["tag-one", "tag-two", "tag-three"]}`
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
+    const parsed = await deepseekJson<{ tags?: unknown }>(prompt, {
       max_tokens: 300,
-      messages: [{ role: 'user', content: prompt }],
     })
 
-    const text = message.content[0]?.type === 'text' ? message.content[0].text : ''
-    let parsed: { tags?: unknown }
-    try {
-      parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
-    } catch {
+    if (!parsed) {
       return NextResponse.json({ tags: [] })
     }
 

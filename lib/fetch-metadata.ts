@@ -1,14 +1,10 @@
-import Anthropic from "@anthropic-ai/sdk";
 import { fetchPageContent, type PageContent } from "./page-content";
+import { deepseekComplete } from "./ai-client";
 
 type MetadataResult = {
   title: string | null;
   description: string | null;
 };
-
-const client = new Anthropic();
-const AI_TIMEOUT_MS = 10_000;
-
 function cleanText(value: string): string {
   return value.replace(/\s+/g, " ").trim();
 }
@@ -63,47 +59,40 @@ async function generateDescription(params: {
     return null;
   }
 
-  console.log(`[refresh-metadata] Calling Anthropic API (model: claude-sonnet-4-20250514, max_tokens: 100)`);
+  console.log(`[refresh-metadata] Calling DeepSeek API (model: deepseek-chat, max_tokens: 100)`);
 
   try {
-    const response = await withTimeout(
-      client.messages.create({
-        model: "claude-sonnet-4-20250514",
-        max_tokens: 100,
-        temperature: 0.2,
-        messages: [{ role: "user", content: prompt }],
-      }),
-      AI_TIMEOUT_MS
-    );
-
-    const block = response.content[0];
-    if (block?.type !== "text") {
-      console.warn(`[refresh-metadata] Unexpected response type: ${block?.type ?? "none"}`);
-      return null;
-    }
-
-    const result = block.text.trim();
-    console.log(`[refresh-metadata] Claude response: "${result.slice(0, 120)}"`);
+    const result = await deepseekComplete(prompt, {
+      max_tokens: 100,
+      temperature: 0.2,
+      timeout: 10_000,
+    });
 
     if (!result) {
-      console.warn("[refresh-metadata] Claude returned empty text");
+      console.warn("[refresh-metadata] DeepSeek returned empty response");
+      return null;
+    }
+    console.log(`[refresh-metadata] DeepSeek response: "${result.slice(0, 120)}"`);
+
+    if (!result) {
+      console.warn("[refresh-metadata] DeepSeek returned empty text");
       return null;
     }
 
     if (result === "NONE" || result.length < 3) {
-      console.log("[refresh-metadata] Claude indicated no useful description possible");
+      console.log("[refresh-metadata] DeepSeek indicated no useful description possible");
       return null;
     }
 
     if (result.length > 300) {
-      console.warn(`[refresh-metadata] Claude response too long (${result.length} chars), truncating`);
+      console.warn(`[refresh-metadata] DeepSeek response too long (${result.length} chars), truncating`);
       return result.slice(0, 300);
     }
 
     return result;
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
-    console.error(`[refresh-metadata] Anthropic API call failed: ${message}`);
+    console.error(`[refresh-metadata] DeepSeek API call failed: ${message}`);
     return null;
   }
 }
@@ -134,13 +123,4 @@ function buildDescriptionPrompt(params: {
   return `${parts.join("\n\n")}
 
 Write a single neutral sentence (no more than ~25 words) that describes what this web page is about. Base it only on the URL, title, and text excerpt above. Do not invent facts. If there is not enough information to describe the page, reply with just the word "NONE".`;
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<T>((_, reject) =>
-      setTimeout(() => reject(new Error("AI timeout")), ms)
-    ),
-  ]);
 }

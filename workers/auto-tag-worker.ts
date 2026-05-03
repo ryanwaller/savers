@@ -7,14 +7,13 @@
  * This process:
  * 1. Listens on the BullMQ "auto-tags" queue
  * 2. Fetches page content
- * 3. Calls Anthropic Haiku to extract semantic tags
+ * 3. Calls DeepSeek to extract semantic tags
  * 4. Normalizes against the tag_aliases table
  * 5. Updates bookmark.auto_tags and tagging_status
  */
 
 import { Worker, type Job } from "bullmq";
 import { createClient } from "@supabase/supabase-js";
-import Anthropic from "@anthropic-ai/sdk";
 import { createHash } from "node:crypto";
 import { createRedisConnection, getRedis } from "@/lib/redis";
 import type { AutoTagJobData } from "@/lib/auto-tag-queue";
@@ -22,12 +21,7 @@ import { AUTO_TAG_QUEUE_NAME } from "@/lib/auto-tag-queue";
 import { fetchPageContent } from "@/lib/page-content";
 import { enrichWithCountries, normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
-
-const ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY;
-if (!ANTHROPIC_API_KEY) {
-  console.warn("[auto-tag-worker] ANTHROPIC_API_KEY is not set — LLM tagging will fail");
-}
-const anthropic = ANTHROPIC_API_KEY ? new Anthropic({ apiKey: ANTHROPIC_API_KEY }) : null;
+import { deepseekJson } from "@/lib/ai-client";
 
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const CACHE_KEY_PREFIX = "autotag:";
@@ -64,7 +58,6 @@ async function extractTagsViaLLM(
   title: string | null,
   bodyText: string,
 ): Promise<string[]> {
-  if (!anthropic) return [];
   const truncated = bodyText.slice(0, BODY_TEXT_MAX_CHARS);
 
   const prompt = `Extract 3-5 concise, lowercase tags from this bookmarked page. Return JSON only.
@@ -87,23 +80,11 @@ ${truncated || "(no text extracted)"}
 Respond with JSON only, no explanation:
 {"tags": ["example-tag", "another-tag"]}`;
 
-  const message = await anthropic.messages.create({
-    model: "claude-haiku-4-5-20251001",
+  const parsed = await deepseekJson<{ tags?: unknown }>(prompt, {
     max_tokens: 200,
-    messages: [{ role: "user", content: prompt }],
   });
 
-  const text =
-    message.content[0]?.type === "text" ? message.content[0].text : "";
-
-  let parsed: { tags?: unknown };
-  try {
-    parsed = JSON.parse(text.replace(/```json|```/g, "").trim());
-  } catch {
-    return [];
-  }
-
-  if (!Array.isArray(parsed.tags)) return [];
+  if (!parsed || !Array.isArray(parsed.tags)) return [];
   return parsed.tags.flatMap((t) => normalizeTagList(t));
 }
 
@@ -178,14 +159,10 @@ async function processJob(job: Job<AutoTagJobData>) {
 
   // Extract tags via LLM
   let rawTags: string[] = [];
-  if (anthropic) {
-    try {
-      rawTags = await extractTagsViaLLM(url, title, content.body_text);
-    } catch (e) {
-      console.error("[auto-tag-worker] Anthropic LLM call failed:", e instanceof Error ? e.message : String(e));
-    }
-  } else {
-    console.warn("[auto-tag-worker] No Anthropic client — skipping LLM tagging");
+  try {
+    rawTags = await extractTagsViaLLM(url, title, content.body_text);
+  } catch (e) {
+    console.error("[auto-tag-worker] LLM call failed:", e instanceof Error ? e.message : String(e));
   }
 
   if (rawTags.length === 0) {

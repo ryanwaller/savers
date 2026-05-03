@@ -1,10 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import Anthropic from '@anthropic-ai/sdk'
 import { Collection } from '@/lib/types'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
-
-const client = new Anthropic()
+import { deepseekJson } from '@/lib/ai-client'
 
 function logUnexpectedError(scope: string, error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -119,13 +117,7 @@ Your job:
 - Title case, one to three words. Examples of good names: "Shopping", "Recipes", "Design Inspo", "Reading List".
 - Avoid "Misc", "Other", "Bookmarks", "Saved".`
 
-    const message = await client.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 400,
-      messages: [
-        {
-          role: 'user',
-          content: `${promptBody}
+    const prompt = `${promptBody}
 
 Bookmark:
 - URL: ${url}
@@ -142,13 +134,15 @@ Rules for output:
 - If an existing collection fits, set collection_id + collection_path and leave proposed_* as null.
 - If no existing collection fits neatly, set collection_id + collection_path to null and fill proposed_collection_name. proposed_parent_* may be null for a new top-level collection.
 - If there are no existing collections at all, always fill proposed_collection_name and leave collection_id null.
-- If the bookmark is too ambiguous, use confidence "low".`,
-        },
-      ],
+- If the bookmark is too ambiguous, use confidence "low".`;
+
+    const parsed = await deepseekJson<Record<string, unknown>>(prompt, {
+      max_tokens: 400,
     })
 
-    const text = message.content[0].type === 'text' ? message.content[0].text : ''
-    const parsed = JSON.parse(text.replace(/```json|```/g, '').trim())
+    if (!parsed) {
+      return NextResponse.json({ suggestion: null })
+    }
 
     const suggestion = {
       collection_id: parsed.collection_id ?? null,
