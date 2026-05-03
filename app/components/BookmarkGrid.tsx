@@ -147,9 +147,24 @@ function CollectionCard({ c, onClick }: { c: Collection; onClick: () => void }) 
           text-align: left;
           height: 100%;
           min-height: 260px;
+          transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
         }
         .folder:hover {
           border-color: var(--color-border-strong);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+        .folder:active {
+          transform: scale(0.98);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .folder {
+            transition: border-color 120ms ease;
+          }
+          .folder:hover {
+            transform: none;
+            box-shadow: none;
+          }
         }
         @media (max-width: 768px) {
           .folder {
@@ -858,6 +873,7 @@ function BookmarkCard({
           height: 100%;
           min-height: 340px;
           width: 100%;
+          transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
         }
         @media (max-width: 768px) {
           .card-shell,
@@ -867,6 +883,25 @@ function BookmarkCard({
         }
         .card:hover {
           border-color: var(--color-border-strong);
+          transform: translateY(-2px);
+          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+        }
+        .card:active {
+          transform: scale(0.98);
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .card {
+            transition: border-color 120ms ease;
+          }
+          .card:hover {
+            transform: none;
+            box-shadow: none;
+          }
+        }
+        @media (hover: none) {
+          .card:active {
+            transform: scale(0.97);
+          }
         }
         .select-btn {
           position: absolute;
@@ -1073,8 +1108,7 @@ function BookmarkCard({
         @media (hover: hover) {
           .card-shell:hover .thumb :global(img),
           .card-shell:focus-within .thumb :global(img) {
-            filter: blur(1.5px);
-            opacity: 0.78;
+            transform: scale(1.04);
           }
         }
         @media (prefers-reduced-motion: reduce) {

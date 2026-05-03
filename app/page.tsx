@@ -2505,10 +2505,14 @@ export default function Home() {
           flex-shrink: 0;
           font-size: 16px;
           line-height: 1;
+          transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .crumb-back:hover {
           color: var(--color-text);
           border-color: var(--color-border-strong);
+        }
+        .crumb-back:active {
+          transform: scale(0.92);
         }
         .crumb {
           display: inline-flex;
@@ -2525,6 +2529,7 @@ export default function Home() {
           align-items: center;
           gap: 6px;
           min-width: 0;
+          transition: color 140ms ease;
         }
         .current.crumb-link {
           max-width: 100%;
@@ -2534,6 +2539,22 @@ export default function Home() {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          position: relative;
+        }
+        .crumb-label::after {
+          content: "";
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          width: 100%;
+          height: 1px;
+          background: var(--color-text);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 200ms ease;
+        }
+        .crumb-link:hover .crumb-label::after {
+          transform: scaleX(1);
         }
         .crumb-icon {
           display: inline-flex;
@@ -2541,6 +2562,7 @@ export default function Home() {
           justify-content: center;
           color: var(--color-text-muted);
           flex-shrink: 0;
+          transition: color 140ms ease;
         }
         .current .crumb-icon { color: var(--color-text); }
         .current { font-weight: 500; }
@@ -2573,7 +2595,10 @@ export default function Home() {
           background: var(--color-bg-secondary);
           color: var(--color-text-muted);
           opacity: 0.7;
-          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .edit-toggle-btn:active {
+          transform: scale(0.92);
         }
         .edit-toggle-btn:hover,
         .edit-toggle-active {
@@ -2645,6 +2670,7 @@ export default function Home() {
           border-left: 1px solid var(--color-border);
           color: var(--color-text);
           font-size: 12px;
+          transition: background 140ms ease;
         }
         .session-signout:last-of-type {
           border-radius: 0 999px 999px 0;

@@ -1335,9 +1335,14 @@ function SidebarItem({
           text-align: left;
           font-size: 12px;
           color: var(--color-text);
+          transition: background 140ms ease, padding-left 180ms ease;
         }
-        .item:hover { background: var(--color-bg-hover); }
+        .item:hover {
+          background: var(--color-bg-hover);
+          padding-left: 12px;
+        }
         .item.active { background: var(--color-bg-active); }
+        .item.active:hover { padding-left: 8px; }
         .leading {
           display: inline-flex;
           align-items: center;
@@ -1346,6 +1351,7 @@ function SidebarItem({
           height: 18px;
           color: var(--color-text-muted);
           flex-shrink: 0;
+          transition: color 140ms ease;
         }
         .item:hover .leading,
         .item.active .leading { color: var(--color-text); }
@@ -1818,6 +1824,7 @@ function CollectionNode({
           padding: 3px 8px;
           border-radius: var(--radius-sm);
           position: relative;
+          transition: background 140ms ease;
         }
         .row:hover { background: var(--color-bg-hover); }
         .row.active { background: var(--color-bg-active); }
