@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { PushPin } from "@phosphor-icons/react";
-import type { Bookmark, Collection } from "@/lib/types";
+import type { Bookmark } from "@/lib/types";
 import {
   api,
   type CustomPreviewSource,
@@ -13,13 +13,10 @@ import {
 } from "@/lib/api";
 import { compressImageForPreview } from "@/lib/image-compress";
 import { openExternalLink, isNative as isNativeShell } from "@/lib/capacitor-bridge";
-import CollectionIcon from "./CollectionIcon";
 import ConfirmDialog from "./ConfirmDialog";
 
 type Props = {
   bookmarks: Bookmark[];
-  subCollections: Collection[];
-  onOpenCollection: (id: string) => void;
   onOpenBookmark: (b: Bookmark) => void;
   onDeleteBookmark: (id: string) => Promise<void> | void;
   onPinBookmark: (id: string, pinned: boolean) => Promise<void> | void;
@@ -38,8 +35,6 @@ type Props = {
 
 export default function BookmarkGrid({
   bookmarks,
-  subCollections,
-  onOpenCollection,
   onOpenBookmark,
   onDeleteBookmark,
   onPinBookmark,
@@ -65,9 +60,6 @@ export default function BookmarkGrid({
 
   return (
     <div className="grid" style={gridStyle}>
-      {subCollections.map((c) => (
-        <CollectionCard key={c.id} c={c} onClick={() => onOpenCollection(c.id)} />
-      ))}
       {bookmarks.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -86,7 +78,7 @@ export default function BookmarkGrid({
           onToggleSelect={onToggleSelect}
         />
       ))}
-      {!loading && bookmarks.length === 0 && subCollections.length === 0 && (
+      {!loading && bookmarks.length === 0 && (
         <div className="empty">{emptyLabel ?? "Nothing here yet."}</div>
       )}
       <style jsx>{`
@@ -115,95 +107,6 @@ export default function BookmarkGrid({
         }
       `}</style>
     </div>
-  );
-}
-
-function CollectionCard({ c, onClick }: { c: Collection; onClick: () => void }) {
-  const childCount = c.children?.length ?? 0;
-  const bmCount = c.bookmark_count ?? 0;
-
-  return (
-    <button className="folder" onClick={onClick} title={c.name}>
-      <div className="folder-thumb">
-        <span className="folder-icon" aria-hidden>
-          <CollectionIcon name={c.icon} size={40} />
-        </span>
-      </div>
-      <div className="folder-body">
-        <div className="folder-title">{c.name}</div>
-        <div className="folder-meta small muted">
-          {bmCount} bookmark{bmCount === 1 ? "" : "s"}
-          {childCount > 0 && ` · ${childCount} sub`}
-        </div>
-      </div>
-      <style jsx>{`
-        .folder {
-          display: flex;
-          flex-direction: column;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius);
-          overflow: hidden;
-          background: var(--color-bg);
-          text-align: left;
-          height: 100%;
-          min-height: 260px;
-          transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
-        }
-        .folder:hover {
-          border-color: var(--color-border-strong);
-          transform: translateY(-2px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-        }
-        .folder:active {
-          transform: scale(0.98);
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .folder {
-            transition: border-color 120ms ease;
-          }
-          .folder:hover {
-            transform: none;
-            box-shadow: none;
-          }
-        }
-        @media (max-width: 768px) {
-          .folder {
-            min-height: 0;
-          }
-          .folder-body {
-            padding: 8px 10px 10px;
-            gap: 3px;
-          }
-        }
-        .folder-thumb {
-          aspect-ratio: 16 / 10;
-          background: var(--color-bg-secondary);
-          border-bottom: 1px solid var(--color-border);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .folder-icon {
-          font-size: 40px;
-          color: var(--color-text-faint);
-        }
-        .folder-body {
-          padding: 14px 14px 16px;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .folder-title {
-          font-size: 12px;
-          line-height: 1.45;
-          font-weight: 600;
-          display: -webkit-box;
-          -webkit-line-clamp: 2;
-          -webkit-box-orient: vertical;
-          overflow: hidden;
-        }
-      `}</style>
-    </button>
   );
 }
 

@@ -1824,10 +1824,24 @@ function CollectionNode({
           padding: 3px 8px;
           border-radius: var(--radius-sm);
           position: relative;
-          transition: background 140ms ease;
+          transition: background 140ms ease, transform 180ms ease;
         }
-        .row:hover { background: var(--color-bg-hover); }
-        .row.active { background: var(--color-bg-active); }
+        .row:hover {
+          background: var(--color-bg-hover);
+          transform: translateX(4px);
+        }
+        .row.active {
+          background: var(--color-bg-active);
+        }
+        .row.active:hover {
+          transform: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .row {
+            transition: background 140ms ease;
+          }
+          .row:hover { transform: none; }
+        }
         .chev {
           width: 22px;
           height: 22px;

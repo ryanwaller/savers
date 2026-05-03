@@ -17,6 +17,7 @@ import {
 } from "@/lib/bookmark-summaries";
 import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
+import SubcollectionRow from "./components/SubcollectionRow";
 import BookmarkGrid from "./components/BookmarkGrid";
 import AddBookmarkModal from "./components/AddBookmarkModal";
 import BookmarkDetail from "./components/BookmarkDetail";
@@ -1845,10 +1846,15 @@ export default function Home() {
               </button>
             </div>
           )}
+          {subCollections.length > 0 && (
+            <SubcollectionRow
+              subs={subCollections}
+              activeId={selection.kind === "collection" ? selection.id : null}
+              onSelect={(id) => setSelection({ kind: "collection", id })}
+            />
+          )}
           <BookmarkGrid
             bookmarks={bookmarks}
-            subCollections={subCollections}
-            onOpenCollection={(id) => setSelection({ kind: "collection", id })}
             onOpenBookmark={(b) => setDetail(b)}
           onDeleteBookmark={handleDeleteBookmark}
           onPinBookmark={handlePinBookmark}
