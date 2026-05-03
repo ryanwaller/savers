@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const STORAGE_KEY = "savers.sidebar.collapsedCollections";
 
 function loadCollapsedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
@@ -18,6 +19,7 @@ function loadCollapsedIds(): Set<string> {
 }
 
 function persistCollapsedIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
   } catch {
@@ -31,10 +33,25 @@ function persistCollapsedIds(ids: Set<string>) {
  * Survives page reloads and browser restarts.
  */
 export function useCollectionExpansionState() {
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsedIds);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
+  const loadedRef = useRef(false);
 
+  // Load persisted state after hydration (client-side only).
+  // SSR returns empty Set; the real localStorage read happens here once.
   useEffect(() => {
-    persistCollapsedIds(collapsedIds);
+    const saved = loadCollapsedIds();
+    if (saved.size > 0) {
+      setCollapsedIds(saved);
+    }
+    loadedRef.current = true;
+  }, []);
+
+  // Persist to localStorage whenever state changes, but only after
+  // the initial load to avoid overwriting saved state with empty SSR state.
+  useEffect(() => {
+    if (loadedRef.current) {
+      persistCollapsedIds(collapsedIds);
+    }
   }, [collapsedIds]);
 
   const isExpanded = useCallback(
