@@ -310,6 +310,28 @@ export const api = {
       })
     );
   },
+
+  // --- Link Health Checks ---
+
+  /** Get counts of broken/redirect/unknown link statuses. */
+  async getLinkHealthCounts(): Promise<{ counts: Record<string, number> }> {
+    return j(await fetch("/api/bookmarks/check-health", { cache: "no-store" }));
+  },
+
+  /** Enqueue link health checks for a scope. */
+  async enqueueLinkChecks(params: {
+    bookmark_id?: string;
+    collection_id?: string;
+    all?: boolean;
+  }): Promise<{ queued: number }> {
+    return j(
+      await fetch("/api/bookmarks/check-health", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(params),
+      })
+    );
+  },
 };
 
 // Stable domain -> placeholder tint (neutral warm/cool grays, no vivid color)

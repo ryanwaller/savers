@@ -34,6 +34,7 @@ type Selection =
   | { kind: "all" }
   | { kind: "unsorted" }
   | { kind: "pinned" }
+  | { kind: "broken" }
   | { kind: "collection"; id: string }
   | { kind: "smart_collection"; id: string };
 
@@ -68,6 +69,8 @@ export default function Home() {
       return allBookmarks.filter((b) => b.collection_id === null);
     if (selection.kind === "pinned")
       return allBookmarks.filter((b) => b.pinned);
+    if (selection.kind === "broken")
+      return allBookmarks.filter((b) => b.link_status === "broken");
     if (selection.kind === "collection")
       return allBookmarks.filter((b) => b.collection_id === selection.id);
     if (selection.kind === "smart_collection") {
@@ -657,6 +660,7 @@ export default function Home() {
       const scoped = allBookmarksRef.current.filter((bookmark) => {
         if (selection.kind === "unsorted") return bookmark.collection_id === null;
         if (selection.kind === "pinned") return bookmark.pinned;
+        if (selection.kind === "broken") return bookmark.link_status === "broken";
         if (selection.kind === "collection") return bookmark.collection_id === selection.id;
         if (selection.kind === "smart_collection") {
           const sc = smartCollections.find((s) => s.id === selection.id);
@@ -834,6 +838,7 @@ export default function Home() {
       all: allBookmarks.length,
       unsorted: allBookmarks.filter((b) => b.collection_id === null).length,
       pinned: allBookmarks.filter((b) => b.pinned).length,
+      broken: allBookmarks.filter((b) => b.link_status === "broken").length,
     }),
     [allBookmarks]
   );
@@ -881,6 +886,12 @@ export default function Home() {
       return [
         { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "Pinned", icon: null, isCollection: false, selection: { kind: "pinned" } as Selection },
+      ];
+    }
+    if (selection.kind === "broken") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Broken links", icon: null, isCollection: false, selection: { kind: "broken" } as Selection },
       ];
     }
     if (selection.kind === "smart_collection") {

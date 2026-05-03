@@ -47,6 +47,10 @@ export interface Bookmark {
   asset_type?: string | null
   /** When true, prevents automatic asset type detection from overriding the current preview. */
   asset_override?: boolean
+  /** Link health check status: 'unknown' | 'active' | 'broken' | 'redirect' */
+  link_status?: string | null
+  /** Timestamp of the most recent link health check. */
+  last_link_check?: string | null
 }
 
 export interface TagAlias {

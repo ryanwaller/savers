@@ -284,10 +284,14 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         return;
       }
       if (event.key === "Enter") {
-        const target = choiceCollections[0];
-        if (target) {
-          event.preventDefault();
-          setSelectedCollection((prev) => prev?.id === target.id ? null : target);
+        event.preventDefault();
+        if (selectedCollection) {
+          void handleFile(selectedCollection);
+        } else {
+          const target = choiceCollections[0];
+          if (target) {
+            setSelectedCollection(target);
+          }
         }
       }
       if (event.key === "s" || event.key === "S") {
@@ -309,7 +313,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, choiceCollections, current?.id, undo?.bookmark.id]);
+  }, [open, choiceCollections, current?.id, undo?.bookmark.id, selectedCollection]);
 
   const tagSuggestions = useMemo(() => {
     const q = tagInput.trim().toLowerCase();
@@ -918,6 +922,10 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-action.primary:hover {
           opacity: 0.88;
+        }
+        .triage-action:disabled {
+          opacity: 0.35;
+          cursor: not-allowed;
         }
         .triage-action.danger {
           border-color: transparent;

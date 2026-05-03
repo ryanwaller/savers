@@ -633,6 +633,11 @@ function BookmarkCard({
                 <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
+            {b.link_status === "broken" && (
+              <span className="broken-badge" title="This link appears to be dead (404 or server error).">
+                Dead link
+              </span>
+            )}
             {undoPromptOpen && !uploadingPreview && (
               <span
                 className="undo-strip"
@@ -1073,6 +1078,22 @@ function BookmarkCard({
           font-size: 12px;
           line-height: 1;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+        .broken-badge {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          padding: 3px 8px;
+          border-radius: 999px;
+          background: #dc2626;
+          color: #fff;
+          font-size: 10px;
+          font-weight: 600;
+          line-height: 1.4;
+          letter-spacing: 0.02em;
+          text-transform: uppercase;
+          pointer-events: none;
+          z-index: 2;
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);

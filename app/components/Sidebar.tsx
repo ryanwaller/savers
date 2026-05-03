@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Funnel, PushPin, SignOut } from "@phosphor-icons/react";
+import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
 import type { Bookmark, Collection, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
@@ -35,6 +35,7 @@ type Selection =
   | { kind: "all" }
   | { kind: "unsorted" }
   | { kind: "pinned" }
+  | { kind: "broken" }
   | { kind: "collection"; id: string }
   | { kind: "smart_collection"; id: string };
 
@@ -42,7 +43,7 @@ type Props = {
   tree: Collection[];
   flatCollections: Collection[];
   allBookmarks: Bookmark[];
-  totals: { all: number; unsorted: number; pinned: number };
+  totals: { all: number; unsorted: number; pinned: number; broken: number };
   allTags: string[];
   tagCounts: Record<string, number>;
   activeTag: string | null;
@@ -301,6 +302,15 @@ export default function Sidebar({
               )}
             </button>
           </div>
+          {totals.broken > 0 && (
+            <SidebarItem
+              label="Broken links"
+              leading={<LinkBreak size={14} />}
+              count={totals.broken}
+              active={selection.kind === "broken"}
+              onClick={() => onSelect({ kind: "broken" })}
+            />
+          )}
         </div>
 
         <div className="sidebar-divider" />
