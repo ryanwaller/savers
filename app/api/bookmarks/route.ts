@@ -7,6 +7,7 @@ import { removePreviewObjects } from '@/lib/preview-server'
 import { enqueueScreenshot } from '@/lib/screenshot-queue'
 import { determineAssetType, buildCollectionPath } from '@/lib/assetTypeRules'
 import { enqueueAutoTag } from '@/lib/auto-tag-queue'
+import { BOOKMARK_LIST_SELECT } from '@/lib/bookmark-list'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -178,7 +179,7 @@ export async function GET(req: NextRequest) {
 
     let query = supabaseAdmin
       .from('bookmarks')
-      .select('*')
+      .select(BOOKMARK_LIST_SELECT)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
 

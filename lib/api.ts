@@ -1,4 +1,5 @@
 import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup } from "./types";
+import type { BookmarkSummaries } from "./bookmark-summaries";
 
 export type CustomPreviewSource =
   | File
@@ -19,6 +20,16 @@ async function j<T>(res: Response): Promise<T> {
 }
 
 export const api = {
+  async bootstrap(): Promise<{
+    collections: Collection[];
+    flat: Collection[];
+    smart_collections: SmartCollection[];
+    bookmarks: Bookmark[];
+    summaries: BookmarkSummaries;
+  }> {
+    return j(await fetch("/api/bootstrap", { cache: "no-store" }));
+  },
+
   async listCollections(): Promise<{ collections: Collection[]; flat: Collection[] }> {
     return j(await fetch("/api/collections", { cache: "no-store" }));
   },

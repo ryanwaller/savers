@@ -8,6 +8,13 @@ import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  computeCollectionBookmarkCounts,
+  computeGlobalTagCounts,
+  computeSmartCollectionCounts,
+  computeTotals,
+  type BookmarkTotals,
+} from "@/lib/bookmark-summaries";
 import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
 import BookmarkGrid from "./components/BookmarkGrid";
@@ -49,17 +56,30 @@ export default function Home() {
   const [sendingAuthLink, setSendingAuthLink] = useState(false);
   const [signingInWithGoogle, setSigningInWithGoogle] = useState(false);
 
-  // Counts — we compute locally from the full bookmark list for accuracy.
+  // Library bootstrap state: counts and sidebar summaries are seeded from the
+  // server, then kept in sync locally as bookmarks mutate.
   const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([]);
   const allBookmarksRef = useRef<Bookmark[]>([]);
   const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
   const [bookmarkCountsHydrated, setBookmarkCountsHydrated] = useState(false);
+  const [collectionBookmarkCounts, setCollectionBookmarkCounts] = useState<Record<string, number>>(
+    {}
+  );
   const tree = useMemo(
-    () => annotateCounts(treeRaw, allBookmarks, bookmarkCountsHydrated),
-    [treeRaw, allBookmarks, bookmarkCountsHydrated]
+    () => annotateCounts(treeRaw, collectionBookmarkCounts, bookmarkCountsHydrated),
+    [treeRaw, collectionBookmarkCounts, bookmarkCountsHydrated]
   );
   const [flat, setFlat] = useState<Collection[]>([]);
   const [smartCollections, setSmartCollections] = useState<SmartCollection[]>([]);
+  const smartCollectionsRef = useRef<SmartCollection[]>([]);
+  const [totals, setTotals] = useState<BookmarkTotals>({
+    all: 0,
+    unsorted: 0,
+    pinned: 0,
+    broken: 0,
+  });
+  const [globalTagCounts, setGlobalTagCounts] = useState<Record<string, number>>({});
+  const [smartCollectionCounts, setSmartCollectionCounts] = useState<Record<string, number>>({});
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   const [selection, setSelection] = useState<Selection>({ kind: "all" });
   const [search, setSearch] = useState("");
@@ -67,7 +87,7 @@ export default function Home() {
   // Tags in the sidebar are scoped to the current selection: in a specific
   // collection we only surface tags actually attached to bookmarks in that
   // collection. "All bookmarks" shows the full set.
-  const tagSourceBookmarks = useMemo(() => {
+  const selectionBookmarks = useMemo(() => {
     if (selection.kind === "all") return allBookmarks;
     if (selection.kind === "unsorted")
       return allBookmarks.filter((b) => b.collection_id === null);
@@ -85,42 +105,22 @@ export default function Home() {
     return allBookmarks;
   }, [allBookmarks, selection, smartCollections]);
 
-  const smartCollectionCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const sc of smartCollections) {
-      counts[sc.id] = allBookmarks.filter((b) => evaluateFilter(b, sc.query_json)).length;
-    }
-    return counts;
-  }, [allBookmarks, smartCollections]);
-
-  const allTags = useMemo(() => {
-    const set = new Set<string>();
-    for (const b of tagSourceBookmarks) {
-      if (b.tags) {
-        for (const t of b.tags) set.add(t);
-      }
-    }
-    return Array.from(set);
-  }, [tagSourceBookmarks]);
   const tagCounts = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const bookmark of tagSourceBookmarks) {
-      for (const tag of bookmark.tags ?? []) {
-        counts[tag] = (counts[tag] ?? 0) + 1;
-      }
-    }
-    return counts;
-  }, [tagSourceBookmarks]);
+    if (selection.kind === "all") return globalTagCounts;
 
-  const globalTagCounts = useMemo(() => {
     const counts: Record<string, number> = {};
-    for (const bookmark of allBookmarks) {
+    for (const bookmark of selectionBookmarks) {
       for (const tag of bookmark.tags ?? []) {
         counts[tag] = (counts[tag] ?? 0) + 1;
       }
     }
     return counts;
-  }, [allBookmarks]);
+  }, [globalTagCounts, selection.kind, selectionBookmarks]);
+
+  const allTags = useMemo(
+    () => Object.keys(tagCounts).sort((a, b) => a.localeCompare(b)),
+    [tagCounts]
+  );
 
   const [sidebarOpen, setSidebarOpen] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -282,40 +282,6 @@ export default function Home() {
 
   // Handle ?savers_ref=public_<id> from shared collection pages.
   const importAttemptedRef = useRef(false);
-  useEffect(() => {
-    if (typeof window === "undefined" || !user) return;
-    const params = new URLSearchParams(window.location.search);
-    const ref = params.get("savers_ref");
-    if (!ref?.startsWith("public_")) return;
-
-    // Clean the param from the URL immediately so reloads don't re-import.
-    params.delete("savers_ref");
-    const next = params.toString();
-    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
-    window.history.replaceState({}, "", newUrl);
-
-    const publicId = ref.slice("public_".length);
-    // Prevent double-import from strict-mode double-firing.
-    if (importAttemptedRef.current) return;
-    importAttemptedRef.current = true;
-
-    fetch("/api/public/import", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ public_id: publicId }),
-    })
-      .then(async (res) => {
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) throw new Error(json?.error ?? "Import failed");
-        return json as { collection_id: string; already_owned: boolean };
-      })
-      .then(({ collection_id }) => {
-        setSelection({ kind: "collection", id: collection_id });
-        loadCollections();
-        loadAllBookmarks();
-      })
-      .catch(() => {});
-  }, [user]);
 
   const [detail, setDetail] = useState<Bookmark | null>(null);
   const [toast, setToast] = useState<{
@@ -448,11 +414,13 @@ export default function Home() {
 
   const updateAllBookmarksState = useCallback(
     (updater: (prev: Bookmark[]) => Bookmark[]) => {
-      setAllBookmarks((prev) => {
-        const next = updater(prev);
-        allBookmarksRef.current = next;
-        return next;
-      });
+      const next = updater(allBookmarksRef.current);
+      allBookmarksRef.current = next;
+      setAllBookmarks(next);
+      setTotals(computeTotals(next));
+      setGlobalTagCounts(computeGlobalTagCounts(next));
+      setSmartCollectionCounts(computeSmartCollectionCounts(next, smartCollectionsRef.current));
+      setCollectionBookmarkCounts(computeCollectionBookmarkCounts(next));
     },
     []
   );
@@ -529,11 +497,17 @@ export default function Home() {
   useEffect(() => {
     if (user) return;
     allBookmarksRef.current = [];
+    smartCollectionsRef.current = [];
     setBookmarkCountsHydrated(false);
     setAllBookmarks([]);
     setBookmarks([]);
     setTreeRaw([]);
     setFlat([]);
+    setSmartCollections([]);
+    setTotals({ all: 0, unsorted: 0, pinned: 0, broken: 0 });
+    setGlobalTagCounts({});
+    setSmartCollectionCounts({});
+    setCollectionBookmarkCounts({});
     setDetail(null);
     setToast(null);
     setLoadError(null);
@@ -612,7 +586,11 @@ export default function Home() {
   const loadSmartCollections = useCallback(async () => {
     try {
       const data = await api.listSmartCollections();
+      smartCollectionsRef.current = data.smart_collections;
       setSmartCollections(data.smart_collections);
+      setSmartCollectionCounts(
+        computeSmartCollectionCounts(allBookmarksRef.current, data.smart_collections)
+      );
     } catch (e) {
       // Smart collections are non-critical; don't set a blocking error.
       console.error("Failed to load smart collections:", e);
@@ -625,6 +603,12 @@ export default function Home() {
       allBookmarksRef.current = bookmarks;
       setAllBookmarks(bookmarks);
       setBookmarkCountsHydrated(true);
+      setTotals(computeTotals(bookmarks));
+      setGlobalTagCounts(computeGlobalTagCounts(bookmarks));
+      setSmartCollectionCounts(
+        computeSmartCollectionCounts(bookmarks, smartCollectionsRef.current)
+      );
+      setCollectionBookmarkCounts(computeCollectionBookmarkCounts(bookmarks));
       setLoadError(null);
       return bookmarks;
     } catch (e) {
@@ -633,16 +617,70 @@ export default function Home() {
     return null;
   }, []);
 
+  const loadBootstrap = useCallback(async () => {
+    try {
+      const data = await api.bootstrap();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+      smartCollectionsRef.current = data.smart_collections;
+      setSmartCollections(data.smart_collections);
+      allBookmarksRef.current = data.bookmarks;
+      setAllBookmarks(data.bookmarks);
+      setBookmarkCountsHydrated(true);
+      setTotals(data.summaries.totals);
+      setGlobalTagCounts(data.summaries.globalTagCounts);
+      setSmartCollectionCounts(data.summaries.smartCollectionCounts);
+      setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
+      setLoadError(null);
+      return data.bookmarks;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load library data");
+    }
+    return null;
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("savers_ref");
+    if (!ref?.startsWith("public_")) return;
+
+    params.delete("savers_ref");
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+
+    const publicId = ref.slice("public_".length);
+    if (importAttemptedRef.current) return;
+    importAttemptedRef.current = true;
+
+    fetch("/api/public/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ public_id: publicId }),
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? "Import failed");
+        return json as { collection_id: string; already_owned: boolean };
+      })
+      .then(({ collection_id }) => {
+        setSelection({ kind: "collection", id: collection_id });
+        void loadBootstrap();
+      })
+      .catch(() => {});
+  }, [user, loadBootstrap]);
+
   const refreshFromServer = useCallback(
     async (showLoading = false) => {
       if (showLoading) setLoadingBookmarks(true);
       try {
-        await Promise.all([loadAllBookmarks(), loadCollections(), loadSmartCollections()]);
+        await loadBootstrap();
       } finally {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [loadAllBookmarks, loadCollections, loadSmartCollections]
+    [loadBootstrap]
   );
 
   // Initial load
@@ -653,7 +691,7 @@ export default function Home() {
     (async () => {
       setLoadingBookmarks(true);
       try {
-        await Promise.all([loadAllBookmarks(), loadCollections(), loadSmartCollections()]);
+        await loadBootstrap();
         if (!cancelled) {
           setInitialDataLoaded(true);
         }
@@ -665,7 +703,7 @@ export default function Home() {
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, loadAllBookmarks, loadCollections, loadSmartCollections]);
+  }, [authLoading, user, loadBootstrap]);
 
   // Load bookmarks for the current view (with debounced search)
   const searchTimer = useRef<number | null>(null);
@@ -848,16 +886,6 @@ export default function Home() {
     return depths;
   }, [flat]);
 
-  const totals = useMemo(
-    () => ({
-      all: allBookmarks.length,
-      unsorted: allBookmarks.filter((b) => b.collection_id === null).length,
-      pinned: allBookmarks.filter((b) => b.pinned).length,
-      broken: allBookmarks.filter((b) => b.link_status === "broken").length,
-    }),
-    [allBookmarks]
-  );
-
   const duplicateSummary = useMemo(() => {
     const seenCanonicalUrls = new Set<string>();
     const duplicateGroups = new Set<string>();
@@ -983,7 +1011,7 @@ export default function Home() {
       if (selection.kind === "collection" && selection.id === id) {
         setSelection({ kind: "all" });
       }
-      await Promise.all([loadCollections(), loadAllBookmarks()]);
+      await loadBootstrap();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete");
     }
@@ -2582,25 +2610,7 @@ export default function Home() {
           background: var(--color-bg-secondary);
           font-size: 13px;
         }
-        .circle-btn {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          color: var(--color-text);
-          background: var(--color-bg);
-          font-size: 16px;
-          line-height: 1;
-          flex-shrink: 0;
-        }
-        .circle-btn-primary {
-          background: var(--color-text);
-          color: var(--color-bg);
-          border-color: var(--color-text);
-        }
+        /* .circle-btn and .circle-btn-primary are now in globals.css */
         .session-chip {
           display: inline-flex;
           align-items: center;
@@ -2869,18 +2879,13 @@ function filterBookmarks(bookmarks: Bookmark[], search: string, activeTag: strin
 
 function annotateCounts(
   tree: Collection[],
-  bookmarks: Bookmark[],
+  counts: Record<string, number>,
   useLocalCounts: boolean
 ): Collection[] {
-  const counts = new Map<string, number>();
-  for (const b of bookmarks) {
-    if (!b.collection_id) continue;
-    counts.set(b.collection_id, (counts.get(b.collection_id) ?? 0) + 1);
-  }
   const walk = (nodes: Collection[]): Collection[] =>
     nodes.map((n) => ({
       ...n,
-      bookmark_count: useLocalCounts ? (counts.get(n.id) ?? 0) : (n.bookmark_count ?? 0),
+      bookmark_count: useLocalCounts ? (counts[n.id] ?? 0) : (n.bookmark_count ?? 0),
       children: n.children ? walk(n.children) : undefined,
     }));
   return walk(tree);
