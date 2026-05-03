@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
-import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import {
@@ -62,7 +61,7 @@ export default function BookmarkGrid({
       : undefined;
 
   return (
-    <motion.div className="grid" style={gridStyle} layout>
+    <div className="grid" style={gridStyle}>
       {bookmarks.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -110,7 +109,7 @@ export default function BookmarkGrid({
           font-size: 12px;
         }
       `}</style>
-    </motion.div>
+    </div>
   );
 }
 
@@ -508,11 +507,7 @@ function BookmarkCard({
   }
 
   return (
-    <motion.div
-      className="card-shell"
-      layout="position"
-      transition={{ type: "spring", stiffness: 400, damping: 35 }}
-    >
+    <div className="card-shell">
       <ConfirmDialog
         open={confirmDeleteOpen}
         title={`Delete "${b.title || host}"?`}
@@ -1506,6 +1501,6 @@ function BookmarkCard({
           z-index: 1;
         }
       `}</style>
-    </motion.div>
+    </div>
   );
 }
