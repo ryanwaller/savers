@@ -92,7 +92,6 @@ export default function BookmarkGrid({
           gap: 20px;
           padding: 20px;
           padding-bottom: 80px;
-          transition: grid-template-columns 0.4s cubic-bezier(0.4, 0, 0.2, 1);
         }
         @media (max-width: 768px) {
           .grid {
@@ -100,11 +99,6 @@ export default function BookmarkGrid({
             padding: 12px;
             padding-bottom: 80px;
             gap: 12px;
-          }
-        }
-        @media (prefers-reduced-motion: reduce) {
-          .grid {
-            transition: none;
           }
         }
 
