@@ -163,9 +163,8 @@ function BookmarkCard({
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [rechecking, setRechecking] = useState(false);
   const [brokenStatus, setBrokenStatus] = useState<string | null | undefined>(b.broken_status);
+  const [brokenActionOpen, setBrokenActionOpen] = useState(false);
   const [verifyingBroken, setVerifyingBroken] = useState(false);
-  const [badgeHovered, setBadgeHovered] = useState(false);
-  const badgeTimerRef = useRef<number | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
   const coverPending =
@@ -326,7 +325,7 @@ function BookmarkCard({
     try {
       const result = await api.verifyBrokenLink(b.id, action);
       setBrokenStatus(result.broken_status);
-      setBadgeHovered(false);
+      setBrokenActionOpen(false);
     } catch {
       // Silently ignore
     } finally {
@@ -586,39 +585,58 @@ function BookmarkCard({
               </span>
             )}
             {b.link_status === "broken" && brokenStatus !== "verified_active" && (
-              <span
-                className={`broken-badge ${badgeHovered ? "broken-badge-hover" : ""} ${brokenStatus === "confirmed_broken" ? "broken-badge-confirmed" : ""}`}
-                onMouseEnter={() => {
-                  if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
-                  setBadgeHovered(true);
-                }}
-                onMouseLeave={() => {
-                  badgeTimerRef.current = window.setTimeout(() => setBadgeHovered(false), 200);
-                }}
-              >
-                <span className="broken-badge-text">
-                  {brokenStatus === "confirmed_broken" ? "Broken link · confirmed" : "Broken link"}
+              <span className="broken-overlay" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                {/* Backdrop */}
+                {brokenActionOpen && <span className="broken-backdrop" />}
+
+                {/* Initial: trigger badge */}
+                <button
+                  type="button"
+                  className={`broken-trigger ${brokenActionOpen ? "broken-trigger-out" : ""}`}
+                  onClick={() => setBrokenActionOpen(true)}
+                  aria-label="Broken link — view options"
+                >
+                  Broken link
+                </button>
+
+                {/* Action pills */}
+                <span className={`broken-actions ${brokenActionOpen ? "broken-actions-in" : ""}`}>
+                  <button
+                    type="button"
+                    className="broken-pill broken-pill-confirm"
+                    disabled={verifyingBroken}
+                    onClick={async () => {
+                      if (verifyingBroken) return;
+                      setVerifyingBroken(true);
+                      try {
+                        await api.verifyBrokenLink(b.id, "confirm");
+                        setBrokenStatus("confirmed_broken");
+                        await onDelete();
+                      } catch {
+                        // Silently ignore
+                      } finally {
+                        setVerifyingBroken(false);
+                      }
+                    }}
+                  >
+                    Confirm Broken
+                  </button>
+                  <button
+                    type="button"
+                    className="broken-pill broken-pill-active"
+                    disabled={verifyingBroken}
+                    onClick={() => handleVerifyBroken("dispute", { stopPropagation: () => {} })}
+                  >
+                    Still Works
+                  </button>
+                  <button
+                    type="button"
+                    className="broken-cancel"
+                    onClick={() => setBrokenActionOpen(false)}
+                  >
+                    Cancel
+                  </button>
                 </span>
-                {badgeHovered && brokenStatus !== "confirmed_broken" && (
-                  <span className="broken-badge-actions" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
-                    <button
-                      type="button"
-                      className="broken-btn broken-btn-confirm"
-                      disabled={verifyingBroken}
-                      onClick={(e) => handleVerifyBroken("confirm", e)}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      type="button"
-                      className="broken-btn broken-btn-dispute"
-                      disabled={verifyingBroken}
-                      onClick={(e) => handleVerifyBroken("dispute", e)}
-                    >
-                      Still works
-                    </button>
-                  </span>
-                )}
               </span>
             )}
             {undoPromptOpen && !uploadingPreview && (
@@ -1101,72 +1119,107 @@ function BookmarkCard({
           line-height: 1;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
-        .broken-badge {
+        .broken-overlay {
           position: absolute;
-          top: 6px;
-          right: 6px;
+          inset: 0;
           display: flex;
           align-items: center;
-          gap: 6px;
-          padding: 4px 10px;
-          border-radius: 999px;
-          background: #ef4444;
-          color: #fff;
-          font-size: 11px;
-          font-weight: 500;
-          line-height: 1.4;
+          justify-content: center;
           z-index: 3;
           pointer-events: auto;
-          transition: padding 160ms ease, border-radius 160ms ease;
         }
-        .broken-badge-hover {
-          padding-right: 6px;
+        .broken-backdrop {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+          animation: brokenBackdropIn 200ms ease;
         }
-        .broken-badge-text {
-          white-space: nowrap;
+        @keyframes brokenBackdropIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
         }
-        .broken-badge-actions {
-          display: flex;
-          gap: 4px;
-          animation: brokenFadeIn 160ms ease;
-        }
-        @keyframes brokenFadeIn {
-          from { opacity: 0; transform: scale(0.9); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        .broken-btn {
-          padding: 3px 7px;
+        .broken-trigger {
+          position: relative;
+          z-index: 1;
+          height: 32px;
+          padding: 0 16px;
+          border-radius: 999px;
           border: none;
-          border-radius: 4px;
-          font-size: 11px;
-          font-weight: 600;
+          background: #ef4444;
+          color: #fff;
+          font-size: 14px;
+          font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
-          transition: transform 120ms ease, background 120ms ease;
+          transition: opacity 200ms ease, transform 200ms ease;
         }
-        .broken-btn:active {
-          transform: scale(0.94);
+        .broken-trigger:hover {
+          background: #dc2626;
         }
-        .broken-btn:disabled {
-          opacity: 0.7;
+        .broken-trigger-out {
+          opacity: 0;
+          transform: scale(0.9);
+          pointer-events: none;
+        }
+        .broken-actions {
+          position: absolute;
+          z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          opacity: 0;
+          transform: scale(0.9);
+          pointer-events: none;
+          transition: opacity 200ms ease, transform 200ms ease;
+        }
+        .broken-actions-in {
+          opacity: 1;
+          transform: scale(1);
+          pointer-events: auto;
+        }
+        .broken-pill {
+          height: 32px;
+          padding: 0 16px;
+          border-radius: 999px;
+          border: none;
+          font-size: 14px;
+          font-weight: 500;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: all 0.2s ease;
+        }
+        .broken-pill:disabled {
+          opacity: 0.6;
           cursor: default;
         }
-        .broken-btn-confirm {
-          background: rgba(255, 255, 255, 0.92);
-          color: #dc2626;
-        }
-        .broken-btn-confirm:hover:not(:disabled) {
-          background: #fff;
-        }
-        .broken-btn-dispute {
-          background: rgba(0, 0, 0, 0.22);
+        .broken-pill-confirm {
+          background: #ef4444;
           color: #fff;
         }
-        .broken-btn-dispute:hover:not(:disabled) {
-          background: rgba(0, 0, 0, 0.36);
+        .broken-pill-confirm:hover:not(:disabled) {
+          background: #dc2626;
+          transform: scale(1.05);
         }
-        .broken-badge-confirmed {
-          background: #b91c1c;
+        .broken-pill-active {
+          background: #22c55e;
+          color: #fff;
+        }
+        .broken-pill-active:hover:not(:disabled) {
+          background: #16a34a;
+          transform: scale(1.05);
+        }
+        .broken-cancel {
+          margin-top: 4px;
+          background: none;
+          border: none;
+          color: rgba(255, 255, 255, 0.8);
+          font-size: 12px;
+          cursor: pointer;
+          transition: color 120ms ease;
+        }
+        .broken-cancel:hover {
+          color: #fff;
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
