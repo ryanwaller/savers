@@ -184,12 +184,21 @@ async function processJob(job: Job<LinkCheckJobData>) {
 
   const result = await checkUrl(url);
 
+  const updateFields: Record<string, unknown> = {
+    link_status: result.status,
+    last_link_check: new Date().toISOString(),
+  };
+
+  // When a link is newly flagged as broken, set the verification status
+  // so the user can confirm or dispute it.
+  if (result.status === "broken") {
+    updateFields.broken_status = "flagged";
+    updateFields.broken_checked_at = new Date().toISOString();
+  }
+
   await supabase
     .from("bookmarks")
-    .update({
-      link_status: result.status,
-      last_link_check: new Date().toISOString(),
-    })
+    .update(updateFields)
     .eq("id", bookmarkId)
     .eq("user_id", userId);
 

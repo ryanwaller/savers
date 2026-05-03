@@ -51,6 +51,14 @@ export interface Bookmark {
   link_status?: string | null
   /** Timestamp of the most recent link health check. */
   last_link_check?: string | null
+  /** User verification status for broken links: 'flagged' | 'confirmed_broken' | 'verified_active' | 'false_positive' */
+  broken_status?: string | null
+  /** When the link was first flagged as broken by the health checker. */
+  broken_checked_at?: string | null
+  /** When the user verified (confirmed or disputed) the broken link. */
+  broken_verified_at?: string | null
+  /** Which user verified this broken link. */
+  broken_verified_by?: string | null
 }
 
 export interface TagAlias {

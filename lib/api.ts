@@ -366,6 +366,24 @@ export const api = {
       })
     );
   },
+
+  /** Confirm or dispute a broken link. */
+  async verifyBrokenLink(
+    bookmarkId: string,
+    action: "confirm" | "dispute",
+  ): Promise<{
+    success: boolean;
+    broken_status: string;
+    link_status: string;
+  }> {
+    return j(
+      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/verify-broken`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      }),
+    );
+  },
 };
 
 // Stable domain -> placeholder tint (neutral warm/cool grays, no vivid color)

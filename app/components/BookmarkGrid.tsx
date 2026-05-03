@@ -161,8 +161,11 @@ function BookmarkCard({
   const [undoPromptOpen, setUndoPromptOpen] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
-  const [markingActive, setMarkingActive] = useState(false);
   const [rechecking, setRechecking] = useState(false);
+  const [brokenStatus, setBrokenStatus] = useState<string | null | undefined>(b.broken_status);
+  const [verifyingBroken, setVerifyingBroken] = useState(false);
+  const [badgeHovered, setBadgeHovered] = useState(false);
+  const badgeTimerRef = useRef<number | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
   const coverPending =
@@ -302,20 +305,6 @@ function BookmarkCard({
     }
   }
 
-  async function handleMarkActive(event: { stopPropagation: () => void }) {
-    event.stopPropagation();
-    setMenuOpen(false);
-    if (markingActive) return;
-    setMarkingActive(true);
-    try {
-      await api.resetLinkStatus(b.id, "active");
-    } catch {
-      // Silently ignore — the badge will update on next render
-    } finally {
-      setMarkingActive(false);
-    }
-  }
-
   async function handleRecheckLink(event: { stopPropagation: () => void }) {
     event.stopPropagation();
     setMenuOpen(false);
@@ -327,6 +316,21 @@ function BookmarkCard({
       // Silently ignore
     } finally {
       setRechecking(false);
+    }
+  }
+
+  async function handleVerifyBroken(action: "confirm" | "dispute", event: { stopPropagation: () => void }) {
+    event.stopPropagation();
+    if (verifyingBroken) return;
+    setVerifyingBroken(true);
+    try {
+      const result = await api.verifyBrokenLink(b.id, action);
+      setBrokenStatus(result.broken_status);
+      setBadgeHovered(false);
+    } catch {
+      // Silently ignore
+    } finally {
+      setVerifyingBroken(false);
     }
   }
 
@@ -581,9 +585,40 @@ function BookmarkCard({
                 <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
-            {b.link_status === "broken" && (
-              <span className="broken-badge" title="This link appears to be dead (404 or server error).">
-                Dead link
+            {b.link_status === "broken" && brokenStatus !== "verified_active" && (
+              <span
+                className={`broken-badge ${badgeHovered ? "broken-badge-hover" : ""} ${brokenStatus === "confirmed_broken" ? "broken-badge-confirmed" : ""}`}
+                onMouseEnter={() => {
+                  if (badgeTimerRef.current) window.clearTimeout(badgeTimerRef.current);
+                  setBadgeHovered(true);
+                }}
+                onMouseLeave={() => {
+                  badgeTimerRef.current = window.setTimeout(() => setBadgeHovered(false), 200);
+                }}
+              >
+                <span className="broken-badge-text">
+                  {brokenStatus === "confirmed_broken" ? "Broken link · confirmed" : "Broken link"}
+                </span>
+                {badgeHovered && brokenStatus !== "confirmed_broken" && (
+                  <span className="broken-badge-actions" onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+                    <button
+                      type="button"
+                      className="broken-btn broken-btn-confirm"
+                      disabled={verifyingBroken}
+                      onClick={(e) => handleVerifyBroken("confirm", e)}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      type="button"
+                      className="broken-btn broken-btn-dispute"
+                      disabled={verifyingBroken}
+                      onClick={(e) => handleVerifyBroken("dispute", e)}
+                    >
+                      Still works
+                    </button>
+                  </span>
+                )}
               </span>
             )}
             {undoPromptOpen && !uploadingPreview && (
@@ -746,11 +781,15 @@ function BookmarkCard({
             <button className="menu-item danger" onClick={handleDelete} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </button>
-            {b.link_status === "broken" && (
+            {b.link_status === "broken" && brokenStatus !== "verified_active" && (
               <>
                 <div className="menu-separator" />
-                <button className="menu-item" onClick={handleMarkActive} disabled={markingActive}>
-                  {markingActive ? "Marking…" : "Mark as Active"}
+                <button
+                  className="menu-item"
+                  onClick={(e) => handleVerifyBroken("dispute", e)}
+                  disabled={verifyingBroken}
+                >
+                  {verifyingBroken ? "Marking…" : "Mark as Active"}
                 </button>
                 <button className="menu-item" onClick={handleRecheckLink} disabled={rechecking}>
                   {rechecking ? "Checking…" : "Re-check Link"}
@@ -1066,17 +1105,68 @@ function BookmarkCard({
           position: absolute;
           top: 6px;
           right: 6px;
-          padding: 3px 8px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 10px;
           border-radius: 999px;
-          background: #dc2626;
+          background: #ef4444;
           color: #fff;
-          font-size: 10px;
-          font-weight: 600;
+          font-size: 11px;
+          font-weight: 500;
           line-height: 1.4;
-          letter-spacing: 0.02em;
-          text-transform: uppercase;
-          pointer-events: none;
-          z-index: 2;
+          z-index: 3;
+          pointer-events: auto;
+          transition: padding 160ms ease, border-radius 160ms ease;
+        }
+        .broken-badge-hover {
+          padding-right: 6px;
+        }
+        .broken-badge-text {
+          white-space: nowrap;
+        }
+        .broken-badge-actions {
+          display: flex;
+          gap: 4px;
+          animation: brokenFadeIn 160ms ease;
+        }
+        @keyframes brokenFadeIn {
+          from { opacity: 0; transform: scale(0.9); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        .broken-btn {
+          padding: 3px 7px;
+          border: none;
+          border-radius: 4px;
+          font-size: 11px;
+          font-weight: 600;
+          cursor: pointer;
+          white-space: nowrap;
+          transition: transform 120ms ease, background 120ms ease;
+        }
+        .broken-btn:active {
+          transform: scale(0.94);
+        }
+        .broken-btn:disabled {
+          opacity: 0.7;
+          cursor: default;
+        }
+        .broken-btn-confirm {
+          background: rgba(255, 255, 255, 0.92);
+          color: #dc2626;
+        }
+        .broken-btn-confirm:hover:not(:disabled) {
+          background: #fff;
+        }
+        .broken-btn-dispute {
+          background: rgba(0, 0, 0, 0.22);
+          color: #fff;
+        }
+        .broken-btn-dispute:hover:not(:disabled) {
+          background: rgba(0, 0, 0, 0.36);
+        }
+        .broken-badge-confirmed {
+          background: #b91c1c;
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
