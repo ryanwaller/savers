@@ -243,6 +243,8 @@ function BookmarkCard({
   const [undoPromptOpen, setUndoPromptOpen] = useState(false);
   const [undoing, setUndoing] = useState(false);
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [markingActive, setMarkingActive] = useState(false);
+  const [rechecking, setRechecking] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
   const coverPending =
@@ -379,6 +381,34 @@ function BookmarkCard({
       await onPin();
     } finally {
       setPinning(false);
+    }
+  }
+
+  async function handleMarkActive(event: { stopPropagation: () => void }) {
+    event.stopPropagation();
+    setMenuOpen(false);
+    if (markingActive) return;
+    setMarkingActive(true);
+    try {
+      await api.resetLinkStatus(b.id, "active");
+    } catch {
+      // Silently ignore — the badge will update on next render
+    } finally {
+      setMarkingActive(false);
+    }
+  }
+
+  async function handleRecheckLink(event: { stopPropagation: () => void }) {
+    event.stopPropagation();
+    setMenuOpen(false);
+    if (rechecking) return;
+    setRechecking(true);
+    try {
+      await api.recheckLink(b.id);
+    } catch {
+      // Silently ignore
+    } finally {
+      setRechecking(false);
     }
   }
 
@@ -798,6 +828,17 @@ function BookmarkCard({
             <button className="menu-item danger" onClick={handleDelete} disabled={deleting}>
               {deleting ? "Deleting…" : "Delete"}
             </button>
+            {b.link_status === "broken" && (
+              <>
+                <div className="menu-separator" />
+                <button className="menu-item" onClick={handleMarkActive} disabled={markingActive}>
+                  {markingActive ? "Marking…" : "Mark as Active"}
+                </button>
+                <button className="menu-item" onClick={handleRecheckLink} disabled={rechecking}>
+                  {rechecking ? "Checking…" : "Re-check Link"}
+                </button>
+              </>
+            )}
           </div>
         )}
       </div>
@@ -983,6 +1024,11 @@ function BookmarkCard({
         }
         .menu-item:hover {
           background: var(--color-bg-hover);
+        }
+        .menu-separator {
+          height: 1px;
+          margin: 4px 8px;
+          background: var(--color-border);
         }
         .thumb-wrap {
           position: relative;

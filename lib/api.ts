@@ -332,6 +332,29 @@ export const api = {
       })
     );
   },
+
+  /** Reset a bookmark's link_status (e.g. mark a false positive as active). */
+  async resetLinkStatus(
+    bookmarkId: string,
+    link_status: "active" | "unknown",
+  ): Promise<{ success: boolean }> {
+    return j(
+      await fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ link_status }),
+      })
+    );
+  },
+
+  /** Trigger an immediate recheck of a bookmark's URL. */
+  async recheckLink(bookmarkId: string): Promise<{ success: boolean }> {
+    return j(
+      await fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
+        method: "POST",
+      })
+    );
+  },
 };
 
 // Stable domain -> placeholder tint (neutral warm/cool grays, no vivid color)

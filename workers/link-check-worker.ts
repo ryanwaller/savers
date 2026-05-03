@@ -18,8 +18,13 @@ import type { LinkCheckJobData } from "@/lib/link-check-queue";
 import { LINK_CHECK_QUEUE_NAME, enqueueLinkCheck } from "@/lib/link-check-queue";
 
 const USER_AGENT =
-  "Mozilla/5.0 (compatible; SaversBot/1.0; +https://savers.com)";
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
 const REQUEST_TIMEOUT_MS = 8000;
+
+const BROWSER_HEADERS: Record<string, string> = {
+  "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+  "Accept-Language": "en-US,en;q=0.9",
+};
 
 function getSupabaseAdmin() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -39,7 +44,7 @@ const WORKER_NAME =
   process.env.WORKER_NAME || `link-check-worker-${process.pid}`;
 
 interface CheckResult {
-  status: "active" | "broken" | "redirect";
+  status: "active" | "broken" | "redirect" | "unknown";
   statusCode?: number;
   error?: string;
 }
@@ -54,7 +59,7 @@ async function checkUrl(url: string): Promise<CheckResult> {
       method: "HEAD",
       signal: controller.signal,
       redirect: "manual",
-      headers: { "User-Agent": USER_AGENT },
+      headers: { "User-Agent": USER_AGENT, ...BROWSER_HEADERS },
     }).catch(() => null);
 
     if (headRes) {
@@ -88,6 +93,7 @@ async function checkUrl(url: string): Promise<CheckResult> {
         redirect: "follow",
         headers: {
           "User-Agent": USER_AGENT,
+          ...BROWSER_HEADERS,
           Range: "bytes=0-0", // Only fetch first byte
         },
       });
@@ -98,15 +104,29 @@ async function checkUrl(url: string): Promise<CheckResult> {
       }
 
       return classifyStatus(getRes.status);
-    } catch {
+    } catch (getErr) {
       clearTimeout(getTimeout);
-      throw new Error("GET request failed after HEAD fallback");
+      throw getErr;
     }
   } catch (err) {
     clearTimeout(timeout);
     const message = err instanceof Error ? err.message : String(err);
-    // AbortError = timeout; TypeError = DNS/network failure
-    return { status: "broken", error: message };
+    const code = (err as NodeJS.ErrnoException).code;
+
+    // Timeout — temporary, may work later
+    if (err instanceof DOMException && err.name === "AbortError") {
+      return { status: "unknown", error: "timeout" };
+    }
+    // DNS resolution failure — likely permanent
+    if (code === "ENOTFOUND") {
+      return { status: "broken", error: message };
+    }
+    // Connection refused — likely permanent
+    if (code === "ECONNREFUSED") {
+      return { status: "broken", error: message };
+    }
+    // Other network errors (ETIMEDOUT, ECONNRESET, etc.) — temporary
+    return { status: "unknown", error: message };
   }
 }
 
@@ -119,7 +139,7 @@ async function followRedirect(url: string): Promise<CheckResult | null> {
       method: "HEAD",
       signal: controller.signal,
       redirect: "follow",
-      headers: { "User-Agent": USER_AGENT },
+      headers: { "User-Agent": USER_AGENT, ...BROWSER_HEADERS },
     });
     clearTimeout(timeout);
     return classifyStatus(res.status);
@@ -130,21 +150,28 @@ async function followRedirect(url: string): Promise<CheckResult | null> {
 }
 
 function classifyStatus(status: number): CheckResult {
+  // 2xx/3xx — definitely alive
+  if (status < 400) {
+    return { status: "active", statusCode: status };
+  }
+  // 404/410 — genuinely gone
   if (status === 404 || status === 410) {
     return { status: "broken", statusCode: status };
   }
-  if (status >= 500) {
-    return { status: "broken", statusCode: status };
-  }
-  // 403 Forbidden is not broken — many sites block bots
-  // 401 Unauthorized is not broken — might require login
-  if (status === 403 || status === 401) {
+  // 401 — auth wall, page exists behind it
+  if (status === 401) {
     return { status: "active", statusCode: status };
   }
-  if (status >= 400) {
-    return { status: "broken", statusCode: status };
+  // 403/429 — bot blocking or rate limiting, temporary, retry later
+  if (status === 403 || status === 429) {
+    return { status: "unknown", statusCode: status };
   }
-  return { status: "active", statusCode: status };
+  // 5xx — temporary server error, retry later
+  if (status >= 500) {
+    return { status: "unknown", statusCode: status };
+  }
+  // Other 4xx (400, 402, 405-499) — client error, likely dead
+  return { status: "broken", statusCode: status };
 }
 
 async function processJob(job: Job<LinkCheckJobData>) {
@@ -165,6 +192,21 @@ async function processJob(job: Job<LinkCheckJobData>) {
     })
     .eq("id", bookmarkId)
     .eq("user_id", userId);
+
+  // Retry temporary failures (403, 429, 5xx, timeouts) after a delay.
+  // Only retry once — the "retry" key prevents infinite loops.
+  if (result.status === "unknown" && !job.data.retry) {
+    try {
+      await enqueueLinkCheck({
+        bookmarkId,
+        url,
+        userId,
+        retry: true,
+      });
+    } catch {
+      // Fire-and-forget
+    }
+  }
 
   return result;
 }

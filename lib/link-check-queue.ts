@@ -7,6 +7,8 @@ export interface LinkCheckJobData {
   bookmarkId: string;
   url: string;
   userId: string;
+  /** Internal flag — true when this is a retry of a previous temporary failure. */
+  retry?: boolean;
 }
 
 let queue: Queue<LinkCheckJobData> | null = null;
@@ -33,6 +35,7 @@ export async function enqueueLinkCheck(job: LinkCheckJobData): Promise<void> {
     return;
   }
   await getLinkCheckQueue().add("check", job, {
-    jobId: `linkcheck-${job.bookmarkId}`,
+    jobId: `linkcheck-${job.bookmarkId}${job.retry ? "-retry" : ""}`,
+    delay: job.retry ? 5 * 60 * 1000 : undefined, // 5 min delay for retries
   });
 }
