@@ -393,8 +393,8 @@ export default function SettingsModal({
         .close {
           background: transparent;
           border: 0;
-          font-size: 22px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           cursor: pointer;
           padding: 4px 8px;
@@ -534,7 +534,7 @@ export default function SettingsModal({
           padding-left: 18px;
           font-size: 12px;
           color: var(--color-text-muted);
-          line-height: 1.7;
+          line-height: 17px;
         }
         @media (max-width: 768px) {
           .backdrop {

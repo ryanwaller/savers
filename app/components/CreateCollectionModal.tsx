@@ -146,7 +146,7 @@ export default function CreateCollectionModal({
         }
         .title {
           font-weight: 600;
-          font-size: 13px;
+          font-size: 12px;
         }
         .close {
           width: 32px;
@@ -159,8 +159,8 @@ export default function CreateCollectionModal({
           background: var(--color-bg);
           color: var(--color-text-muted);
           cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {
@@ -216,7 +216,7 @@ export default function CreateCollectionModal({
           background: var(--color-bg);
           color: var(--color-text);
           font: inherit;
-          font-size: 14px;
+          font-size: 12px;
           outline: none;
         }
         .name-input:focus {

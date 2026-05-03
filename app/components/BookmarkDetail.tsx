@@ -1123,7 +1123,7 @@ export default function BookmarkDetail({
           .body :global(input),
           .body :global(textarea),
           .body :global(select) {
-            font-size: 13px;
+            font-size: 12px;
             padding: 8px 10px;
           }
           .head {
@@ -1164,14 +1164,14 @@ export default function BookmarkDetail({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
           flex-shrink: 0;
         }
         .close-glyph {
           display: block;
-          line-height: 1;
+          line-height: 17px;
           transform: translateY(-1px);
         }
         .close:hover { border-color: var(--color-border-strong); }
@@ -1202,7 +1202,7 @@ export default function BookmarkDetail({
           flex: 1 1 auto;
         }
         .url-domain {
-          font-size: 13px;
+          font-size: 12px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1273,7 +1273,7 @@ export default function BookmarkDetail({
         .ai-copy {
           font-size: 12px;
           color: var(--color-text);
-          line-height: 1.45;
+          line-height: 17px;
         }
         .ai-confidence {
           font-weight: 600;
@@ -1335,13 +1335,13 @@ export default function BookmarkDetail({
           border-radius: 999px;
           background: var(--color-bg-secondary);
           overflow: hidden;
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-proposal-add {
           padding: 4px 8px;
           font-size: 12px;
           color: var(--color-text);
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-proposal-add:hover {
           background: var(--color-bg-hover);
@@ -1365,7 +1365,7 @@ export default function BookmarkDetail({
           gap: 6px;
         }
         .auto-tags-label {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
         }
         .auto-tags-list {
@@ -1385,7 +1385,7 @@ export default function BookmarkDetail({
           border: none;
           cursor: pointer;
           padding: 3px 8px;
-          font-size: 13px;
+          font-size: 12px;
           color: var(--color-text-muted);
           font-family: inherit;
         }
@@ -1399,10 +1399,10 @@ export default function BookmarkDetail({
           border-left: 1px dashed var(--color-border);
           cursor: pointer;
           padding: 3px 6px;
-          font-size: 14px;
+          font-size: 12px;
           color: var(--color-text-muted);
           font-family: inherit;
-          line-height: 1;
+          line-height: 17px;
         }
         .auto-tag-reject:hover {
           color: var(--color-text);
@@ -1415,8 +1415,8 @@ export default function BookmarkDetail({
         }
         .cover-status-note,
         .cover-status-error {
-          font-size: 11px;
-          line-height: 1.45;
+          font-size: 12px;
+          line-height: 17px;
           border: 1px solid var(--color-border);
           border-radius: 12px;
           padding: 8px 10px;
@@ -1448,7 +1448,7 @@ export default function BookmarkDetail({
           border-radius: 999px;
           background: var(--color-bg-secondary);
           color: var(--color-text);
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-pill-remove {
           width: 14px;
@@ -1458,7 +1458,7 @@ export default function BookmarkDetail({
           justify-content: center;
           border-radius: 999px;
           color: var(--color-text-muted);
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-pill-remove:hover:not(:disabled) {
           color: var(--color-text);

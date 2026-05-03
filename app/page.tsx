@@ -2313,7 +2313,7 @@ export default function Home() {
           color: var(--color-text);
           font: inherit;
           font-size: 12px;
-          line-height: 1;
+          line-height: 17px;
         }
         .bulk-tag-input::placeholder {
           color: var(--color-text-muted);
@@ -2410,7 +2410,7 @@ export default function Home() {
           border: none;
           background: transparent;
           color: var(--color-text-muted);
-          font-size: 11px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: 0.02em;
           border-radius: 999px;
@@ -2554,8 +2554,8 @@ export default function Home() {
           border-radius: 999px;
           color: var(--color-text-muted);
           flex-shrink: 0;
-          font-size: 16px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
         }
         .crumb-back:hover {
@@ -2569,12 +2569,12 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 14px;
+          font-size: 12px;
           white-space: nowrap;
           min-width: 0;
         }
         .crumb-link {
-          font-size: 14px;
+          font-size: 12px;
           white-space: nowrap;
           display: inline-flex;
           align-items: center;
@@ -2621,7 +2621,7 @@ export default function Home() {
         .crumb-link:hover {
           color: var(--color-text);
         }
-        .sep { color: var(--color-text-faint); font-size: 14px; }
+        .sep { color: var(--color-text-faint); font-size: 12px; }
         .top-right {
           display: flex;
           align-items: center;
@@ -2684,7 +2684,7 @@ export default function Home() {
           border-radius: 999px;
           border: 1px solid var(--color-border);
           background: var(--color-bg-secondary);
-          font-size: 13px;
+          font-size: 12px;
         }
         /* .circle-btn and .circle-btn-primary are now in globals.css */
         .session-chip {
@@ -2779,7 +2779,7 @@ export default function Home() {
           width: 200px;
           height: 30px;
           padding: 6px 10px;
-          line-height: 1.2;
+          line-height: 17px;
           font-size: 12px;
         }
         @media (max-width: 1080px) {
@@ -2878,8 +2878,8 @@ export default function Home() {
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 16px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           border-radius: 4px;
         }

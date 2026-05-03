@@ -227,11 +227,11 @@ export default async function PublicCollectionPage({
         }
         .public-title {
           flex: 1 1 auto;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: -0.005em;
           margin: 0;
-          line-height: 1.2;
+          line-height: 17px;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
@@ -252,8 +252,8 @@ export default async function PublicCollectionPage({
           font-feature-settings: "tnum" 1;
         }
         .public-desc {
-          font-size: 13px;
-          line-height: 1.5;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--public-muted);
           max-width: 56ch;
           margin: 0;
@@ -274,7 +274,7 @@ export default async function PublicCollectionPage({
           background: var(--public-surface);
           color: var(--public-text);
           text-decoration: none;
-          font-size: 13px;
+          font-size: 12px;
           transition: border-color 120ms ease, background 120ms ease;
         }
         .public-child:hover {
@@ -303,7 +303,7 @@ export default async function PublicCollectionPage({
           justify-content: center;
         }
         .public-cta {
-          font-size: 14px;
+          font-size: 12px;
           color: var(--public-text);
           text-decoration: none;
           padding: 8px 14px;
@@ -426,9 +426,9 @@ function PublicCard({
           padding: 12px 14px 14px;
         }
         .public-card-title {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 600;
-          line-height: 1.3;
+          line-height: 17px;
           letter-spacing: -0.005em;
           display: -webkit-box;
           -webkit-line-clamp: 2;
@@ -446,7 +446,7 @@ function PublicCard({
           border-radius: 2px;
         }
         .public-card-desc {
-          line-height: 1.4;
+          line-height: 17px;
           display: -webkit-box;
           -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;

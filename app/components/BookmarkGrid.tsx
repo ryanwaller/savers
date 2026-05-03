@@ -922,8 +922,8 @@ function BookmarkCard({
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: color-mix(in srgb, var(--color-bg) 94%, transparent);
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           opacity: 0;
           transform: translateY(6px) scale(0.92);
@@ -977,7 +977,7 @@ function BookmarkCard({
           .actions-collapsed .action-btn {
             width: 22px;
             height: 22px;
-            font-size: 11px;
+            font-size: 12px;
           }
           .actions-collapsed .action-btn :global(svg) {
             width: 10px;
@@ -1126,7 +1126,7 @@ function BookmarkCard({
           border: 1px solid var(--color-border);
           color: var(--color-text);
           font-size: 12px;
-          line-height: 1;
+          line-height: 17px;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
         }
         .broken-overlay {
@@ -1158,7 +1158,7 @@ function BookmarkCard({
           border: none;
           background: #ef4444;
           color: #fff;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
@@ -1185,7 +1185,7 @@ function BookmarkCard({
           padding: 0 16px;
           border-radius: 999px;
           border: none;
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
           cursor: pointer;
           white-space: nowrap;
@@ -1304,8 +1304,8 @@ function BookmarkCard({
           width: 100%;
         }
         .title {
-          font-size: 13px;
-          line-height: 1.4;
+          font-size: 12px;
+          line-height: 17px;
           font-weight: 600;
           display: -webkit-box;
           -webkit-line-clamp: 3;
@@ -1317,7 +1317,7 @@ function BookmarkCard({
             font-size: 12px;
             font-weight: 600;
             -webkit-line-clamp: 2;
-            line-height: 1.35;
+            line-height: 17px;
           }
         }
         .meta {
@@ -1342,7 +1342,7 @@ function BookmarkCard({
           -webkit-line-clamp: 3;
           -webkit-box-orient: vertical;
           overflow: hidden;
-          line-height: 1.4;
+          line-height: 17px;
         }
         .tags-overlay {
           position: absolute;
@@ -1398,7 +1398,7 @@ function BookmarkCard({
           background: var(--color-bg);
         }
         .tag-overflow {
-          font-size: 11px;
+          font-size: 12px;
           padding: 4px 8px;
           border: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
           border-radius: 999px;
@@ -1433,7 +1433,7 @@ function BookmarkCard({
           max-width: 480px;
         }
         .tag-overlay-panel .tag {
-          font-size: 14px;
+          font-size: 12px;
           padding: 6px 12px;
         }
         .tagging-badge {

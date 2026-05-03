@@ -78,7 +78,7 @@ export default function WebsitePreview({
           color: var(--color-text);
         }
         .compact {
-          font-size: 0.92em;
+          font-size: 12px;
         }
         .chrome {
           display: flex;
@@ -105,7 +105,7 @@ export default function WebsitePreview({
           border: 1px solid color-mix(in srgb, var(--color-border) 84%, transparent);
           border-radius: 999px;
           background: color-mix(in srgb, var(--color-bg) 92%, transparent);
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
         }
         .address span:last-child {
@@ -172,7 +172,7 @@ export default function WebsitePreview({
           display: block;
         }
         .identity-letter {
-          font-size: ${compact ? "13px" : "13px"};
+          font-size: 12px;
           font-weight: 700;
           color: var(--color-text);
         }
@@ -183,14 +183,14 @@ export default function WebsitePreview({
           gap: 4px;
         }
         .eyebrow {
-          font-size: 10px;
+          font-size: 12px;
           letter-spacing: 0.08em;
           text-transform: uppercase;
           color: var(--color-text-muted);
         }
         .title {
-          font-size: ${compact ? "13px" : "13px"};
-          line-height: 1.25;
+          font-size: 12px;
+          line-height: 17px;
           font-weight: 600;
           display: -webkit-box;
           -webkit-line-clamp: ${compact ? 2 : 3};
@@ -198,8 +198,8 @@ export default function WebsitePreview({
           overflow: hidden;
         }
         .summary {
-          font-size: ${compact ? "11px" : "12px"};
-          line-height: 1.45;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           display: -webkit-box;
           -webkit-line-clamp: ${compact ? 3 : 4};

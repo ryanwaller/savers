@@ -149,8 +149,8 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           text-align: left;
           flex-shrink: 0;
           scroll-snap-align: start;
-          font-size: 14px;
-          line-height: 1.4;
+          font-size: 12px;
+          line-height: 17px;
           transition: transform 200ms cubic-bezier(0.34, 1.56, 0.64, 1),
                       border-color 160ms ease,
                       box-shadow 160ms ease;
@@ -203,7 +203,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         }
 
         .sub-chip-title {
-          font-size: 14px;
+          font-size: 12px;
           font-weight: 500;
           color: var(--color-text);
           white-space: nowrap;
@@ -212,7 +212,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         }
 
         .sub-chip-meta {
-          font-size: 14px;
+          font-size: 12px;
           color: var(--color-text-muted);
           white-space: nowrap;
         }

@@ -142,12 +142,12 @@ export default function AISuggestionToast({
           gap: 10px;
         }
         .text { flex: 1; display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-        .line { font-size: 12px; line-height: 1.4; }
+        .line { font-size: 12px; line-height: 17px; }
         .em { font-weight: 500; }
         .close {
           color: var(--color-text-muted);
-          font-size: 16px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding: 0 4px;
         }
         .close:hover { color: var(--color-text); }

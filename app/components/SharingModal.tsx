@@ -245,7 +245,7 @@ export default function SharingModal({
         }
         .title {
           font-weight: 600;
-          font-size: 13px;
+          font-size: 12px;
         }
         .close {
           width: 32px;
@@ -258,8 +258,8 @@ export default function SharingModal({
           background: var(--color-bg);
           color: var(--color-text-muted);
           cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {

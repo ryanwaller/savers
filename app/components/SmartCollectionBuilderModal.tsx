@@ -523,7 +523,7 @@ export default function SmartCollectionBuilderModal({
         }
         .title {
           font-weight: 600;
-          font-size: 13px;
+          font-size: 12px;
           display: flex;
           align-items: center;
           gap: 8px;
@@ -539,8 +539,8 @@ export default function SmartCollectionBuilderModal({
           background: var(--color-bg);
           color: var(--color-text-muted);
           cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {
@@ -599,7 +599,7 @@ export default function SmartCollectionBuilderModal({
           background: var(--color-bg);
           color: var(--color-text);
           font: inherit;
-          font-size: 14px;
+          font-size: 12px;
           outline: none;
         }
         .name-input:focus {
@@ -611,7 +611,7 @@ export default function SmartCollectionBuilderModal({
           gap: 8px;
         }
         .group-op-label {
-          font-size: 13px;
+          font-size: 12px;
           color: var(--color-text);
         }
         .group-op-toggle {
@@ -691,7 +691,7 @@ export default function SmartCollectionBuilderModal({
           border-radius: 6px;
           background: transparent;
           color: var(--color-text-muted);
-          font-size: 16px;
+          font-size: 12px;
           cursor: pointer;
           flex-shrink: 0;
         }
@@ -731,7 +731,7 @@ export default function SmartCollectionBuilderModal({
           background: var(--color-bg-secondary);
           color: var(--color-text-muted);
           font: inherit;
-          font-size: 11px;
+          font-size: 12px;
           cursor: pointer;
           white-space: nowrap;
         }

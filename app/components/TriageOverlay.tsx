@@ -622,7 +622,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border-bottom: 1px solid var(--color-border);
         }
         .triage-head-title {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 600;
           color: var(--color-text);
           overflow: hidden;
@@ -636,7 +636,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           gap: 12px;
         }
         .triage-head-progress {
-          font-size: 13px;
+          font-size: 12px;
           font-feature-settings: "tnum" 1;
         }
         .triage-close {
@@ -651,8 +651,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           background: var(--color-bg);
           color: var(--color-text);
           cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
         }
         .triage-close:hover {
@@ -667,12 +667,12 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           text-align: center;
         }
         .triage-state h2 {
-          font-size: 15px;
+          font-size: 12px;
           font-weight: 600;
           margin: 0;
         }
         .triage-empty-mark {
-          font-size: 36px;
+          font-size: 12px;
           opacity: 0.3;
         }
         .triage-main {
@@ -701,7 +701,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           align-items: center;
           justify-content: center;
           color: var(--color-text-muted);
-          font-size: 13px;
+          font-size: 12px;
         }
         .triage-info {
           display: flex;
@@ -712,7 +712,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           display: inline-flex;
           align-items: center;
           gap: 6px;
-          font-size: 13px;
+          font-size: 12px;
         }
         .triage-favicon {
           width: 14px;
@@ -720,15 +720,15 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border-radius: 2px;
         }
         .triage-title {
-          font-size: 15px;
+          font-size: 12px;
           font-weight: 600;
           letter-spacing: -0.005em;
-          line-height: 1.35;
+          line-height: 17px;
           margin: 0;
         }
         .triage-description {
-          font-size: 13px;
-          line-height: 1.5;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           margin: 4px 0 0;
         }
@@ -748,8 +748,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           background: var(--color-bg);
           color: var(--color-text);
           font: inherit;
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           cursor: pointer;
           transition: border-color 120ms ease, background 120ms ease;
         }
@@ -782,7 +782,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border-radius: 999px;
           background: var(--color-bg-secondary);
           color: var(--color-text-muted);
-          font-size: 10px;
+          font-size: 12px;
           font-feature-settings: "tnum" 1;
           flex-shrink: 0;
         }
@@ -792,7 +792,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-choice-ai {
           margin-left: 2px;
-          font-size: 11px;
+          font-size: 12px;
           opacity: 0.7;
         }
         .triage-tag-row {
@@ -809,8 +809,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border: 1px solid var(--color-border);
           border-radius: 999px;
           background: var(--color-bg-secondary);
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
         }
         .triage-tag-remove {
           appearance: none;
@@ -818,8 +818,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border: 0;
           color: var(--color-text-muted);
           cursor: pointer;
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding: 0;
         }
         .triage-tag-remove:hover {
@@ -835,8 +835,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           background: transparent;
           color: var(--color-text-muted);
           font: inherit;
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           cursor: pointer;
         }
         .triage-tag-suggest:hover {
@@ -854,8 +854,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           background: var(--color-bg);
           color: var(--color-text-muted);
           font: inherit;
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           cursor: pointer;
         }
         .triage-tag-autocomplete:hover {
@@ -872,8 +872,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border-radius: 6px;
           color: var(--color-text);
           font: inherit;
-          font-size: 13px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding: 0 10px;
         }
         .triage-tag-input::placeholder {
@@ -908,7 +908,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           color: var(--color-text);
           font: inherit;
           font-size: 12px;
-          line-height: 1;
+          line-height: 17px;
           white-space: nowrap;
           cursor: pointer;
         }
@@ -946,7 +946,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           background: var(--color-bg);
           color: var(--color-text);
           font: inherit;
-          font-size: 13px;
+          font-size: 12px;
           cursor: pointer;
         }
         .triage-undo {
@@ -958,7 +958,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           color: var(--color-bg);
           padding: 10px 16px;
           border-radius: 999px;
-          font-size: 13px;
+          font-size: 12px;
           display: inline-flex;
           align-items: center;
           gap: 14px;
@@ -971,7 +971,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border: 0;
           color: var(--color-bg);
           font: inherit;
-          font-size: 13px;
+          font-size: 12px;
           text-decoration: underline;
           cursor: pointer;
           padding: 0;

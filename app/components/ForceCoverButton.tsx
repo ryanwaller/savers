@@ -61,12 +61,12 @@ export function ForceCoverButton({
       {error && <span className="cover-error">{error}</span>}
       <style jsx>{`
         .btn-sm {
-          font-size: 11px;
+          font-size: 12px;
           padding: 4px 10px;
           white-space: nowrap;
         }
         .cover-error {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-danger, #e00);
         }
       `}</style>

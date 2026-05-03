@@ -152,7 +152,7 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
           padding-top: 10px;
         }
         .group-label {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
           padding: 2px 4px;
           letter-spacing: 0.01em;

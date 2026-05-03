@@ -816,13 +816,13 @@ export default function AddBookmarkModal({
           border-radius: 999px;
           background: var(--color-bg-secondary);
           overflow: hidden;
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-proposal-add {
           padding: 4px 8px;
           font-size: 12px;
           color: var(--color-text);
-          line-height: 1;
+          line-height: 17px;
         }
         .tag-proposal-add:hover {
           background: var(--color-bg-hover);
@@ -885,8 +885,8 @@ export default function AddBookmarkModal({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
           flex-shrink: 0;
         }
@@ -996,7 +996,7 @@ export default function AddBookmarkModal({
         .ai-copy {
           font-size: 12px;
           color: var(--color-text);
-          line-height: 1.45;
+          line-height: 17px;
         }
         .ai-confidence { font-weight: 600; }
         .ai-actions {
@@ -1065,12 +1065,12 @@ export default function AddBookmarkModal({
           .body :global(input),
           .body :global(textarea),
           .body :global(select) {
-            font-size: 13px;
+            font-size: 12px;
             padding: 8px 10px;
           }
           .btn-small {
             height: 32px;
-            font-size: 13px;
+            font-size: 12px;
           }
           .preview {
             flex-direction: column;
@@ -1085,7 +1085,7 @@ export default function AddBookmarkModal({
           .foot :global(.btn) {
             flex: 1 1 140px;
             height: 40px;
-            font-size: 13px;
+            font-size: 12px;
           }
         }
       `}</style>

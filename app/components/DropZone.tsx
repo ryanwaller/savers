@@ -144,7 +144,7 @@ export default function DropZone({ onUrls, children }: Props) {
               min-width: 240px;
             }
             .drop-mark {
-              font-size: 24px;
+              font-size: 12px;
               color: var(--color-text-muted);
               margin-bottom: 4px;
             }

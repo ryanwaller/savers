@@ -583,8 +583,8 @@ export default function Sidebar({
           border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           padding-bottom: 2px;
           flex-shrink: 0;
         }
@@ -614,7 +614,7 @@ export default function Sidebar({
         .flex-1 { flex: 1; }
         .px-1 { padding-left: 4px; padding-right: 4px; }
         .tag-sort-btn {
-          font-size: 11px;
+          font-size: 12px;
           padding: 2px 6px;
           border-radius: var(--radius-sm);
           transition: color 120ms ease, background 120ms ease;
@@ -639,7 +639,7 @@ export default function Sidebar({
           color: var(--color-text);
           border: 1px solid var(--color-border);
           font-size: 12px;
-          line-height: 1.2;
+          line-height: 17px;
           cursor: pointer;
           max-width: 100%;
           white-space: nowrap;
@@ -661,7 +661,7 @@ export default function Sidebar({
           text-overflow: ellipsis;
         }
         .tag-pill-count {
-          font-size: 11px;
+          font-size: 12px;
           color: var(--color-text-muted);
           font-feature-settings: "tnum" 1;
         }
@@ -706,8 +706,8 @@ export default function Sidebar({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 20px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           flex-shrink: 0;
           transform: translateY(-1px);
@@ -934,7 +934,7 @@ export default function Sidebar({
           background: #fff;
           color: rgba(0, 0, 0, 0.72);
           font-size: 12px;
-          line-height: 1;
+          line-height: 17px;
           cursor: pointer;
           flex-shrink: 0;
         }
@@ -1333,7 +1333,7 @@ function SidebarItem({
           padding: 3px 8px;
           border-radius: var(--radius-sm);
           text-align: left;
-          font-size: 14px;
+          font-size: 12px;
           color: var(--color-text);
           transition: background 140ms ease, transform 180ms ease;
         }
@@ -1845,8 +1845,8 @@ function CollectionNode({
         .chev {
           width: 22px;
           height: 22px;
-          font-size: 18px;
-          line-height: 1;
+          font-size: 12px;
+          line-height: 17px;
           color: var(--color-text-muted);
           display: inline-flex;
           align-items: center;
@@ -1883,7 +1883,7 @@ function CollectionNode({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          font-size: 14px;
+          font-size: 12px;
           display: inline-flex;
           align-items: center;
           gap: 6px;

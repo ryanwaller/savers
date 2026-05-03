@@ -106,7 +106,7 @@ export default function ConfirmDialog({
         }
         .confirm-description {
           font-size: 12px;
-          line-height: 1.45;
+          line-height: 17px;
         }
         .confirm-actions {
           display: flex;

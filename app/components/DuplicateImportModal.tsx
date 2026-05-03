@@ -128,14 +128,14 @@ export default function DuplicateImportModal({ open, urls, onClose, onAddAnyway 
           gap: 10px;
         }
         .dup-title {
-          font-size: 13px;
+          font-size: 12px;
           font-weight: 700;
           color: #ff8f8f;
         }
         .dup-copy {
           font-size: 12px;
           color: #ff8f8f;
-          line-height: 1.45;
+          line-height: 17px;
         }
         .dup-list {
           list-style: none;

@@ -259,7 +259,7 @@ export default function CollectionPicker({
           text-align: left;
         }
         .trigger:hover { background: var(--color-bg-hover); }
-        .chev { font-size: 10px; color: var(--color-text-muted); margin-left: 8px; }
+        .chev { font-size: 12px; color: var(--color-text-muted); margin-left: 8px; }
         .panel {
           position: absolute;
           left: 0;

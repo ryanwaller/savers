@@ -133,7 +133,7 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections, vari
         </button>
         <style jsx>{`
           .export-wrap { display: flex; align-items: center; gap: 8px; }
-          .error-msg { font-size: 11px; color: #ef4444; }
+          .error-msg { font-size: 12px; color: #ef4444; }
           .export-text-btn {
             appearance: none;
             font: inherit;
@@ -179,7 +179,7 @@ export default function ExportBookmarksButton({ bookmarks, flatCollections, vari
       </button>
       <style jsx>{`
         .export-wrap { display: flex; align-items: center; gap: 8px; }
-        .error-msg { font-size: 11px; color: #ef4444; }
+        .error-msg { font-size: 12px; color: #ef4444; }
         .export-btn {
           width: 30px;
           height: 30px;
