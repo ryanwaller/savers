@@ -596,7 +596,11 @@ function BookmarkCard({
                   <button
                     type="button"
                     className="broken-trigger"
-                    onClick={() => setBrokenActionOpen(true)}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      setBrokenActionOpen(true);
+                    }}
                     aria-label="Broken link — view options"
                   >
                     Broken link
@@ -610,7 +614,9 @@ function BookmarkCard({
                       type="button"
                       className="broken-pill broken-pill-confirm"
                       disabled={verifyingBroken}
-                      onClick={async () => {
+                      onClick={async (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
                         if (verifyingBroken) return;
                         setVerifyingBroken(true);
                         try {
@@ -630,7 +636,11 @@ function BookmarkCard({
                       type="button"
                       className="broken-pill broken-pill-active"
                       disabled={verifyingBroken}
-                      onClick={() => handleVerifyBroken("dispute", { stopPropagation: () => {} })}
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleVerifyBroken("dispute", { stopPropagation: () => {} });
+                      }}
                     >
                       Still Works
                     </button>
