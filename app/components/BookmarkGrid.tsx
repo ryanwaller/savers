@@ -53,6 +53,15 @@ export default function BookmarkGrid({
   selectedIds,
   onToggleSelect,
 }: Props) {
+  const gridRef = useRef<HTMLDivElement>(null);
+
+  // Force transition:none at runtime — CSS pipeline can inject transition:all in production
+  useEffect(() => {
+    if (gridRef.current) {
+      gridRef.current.style.setProperty("transition", "none", "important");
+    }
+  }, []);
+
   const gridStyle: CSSProperties | undefined =
     cardMinWidth || cardCols
       ? ({
@@ -62,7 +71,7 @@ export default function BookmarkGrid({
       : undefined;
 
   return (
-    <motion.div className="grid" style={gridStyle} layoutRoot>
+    <motion.div ref={gridRef} className="grid" style={gridStyle}>
       {bookmarks.map((b) => (
         <BookmarkCard
           key={b.id}
