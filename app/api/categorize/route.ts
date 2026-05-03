@@ -3,6 +3,7 @@ import { Collection } from '@/lib/types'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { deepseekJson } from '@/lib/ai-client'
+import { fetchPageContent } from '@/lib/page-content'
 
 function logUnexpectedError(scope: string, error: unknown) {
   if (error instanceof UnauthorizedError) {
@@ -71,14 +72,20 @@ export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser()
     const { url, title, description, collections } = await req.json()
+    const content = typeof url === 'string' ? await fetchPageContent(url).catch(() => null) : null
 
     const hasCollections = Array.isArray(collections) && collections.length > 0
     const flat = hasCollections ? flattenCollections(collections) : []
+    const rankedFlat = [...flat].sort((a, b) => {
+      const depthDiff = b.path.split(' / ').length - a.path.split(' / ').length
+      if (depthDiff !== 0) return depthDiff
+      return a.path.localeCompare(b.path)
+    })
     const examplesById = hasCollections
-      ? await loadCollectionExamples(flat.map((c) => c.id), user.id)
+      ? await loadCollectionExamples(rankedFlat.map((c) => c.id), user.id)
       : new Map<string, string[]>()
     const collectionList = hasCollections
-      ? flat
+      ? rankedFlat
           .map((c, i) => {
             const examples = examplesById.get(c.id) ?? []
             const examplesLine = examples.length ? `\n   Examples: ${examples.join(' | ')}` : ''
@@ -104,6 +111,9 @@ Important taxonomy guidance:
 - Use the root "Recipes" only if it is recipe-related but no child is clearly better.
 - "Misc" is a last resort and should be avoided if any meaningful category fits.
 - Domain can be a hint, but do not classify using domain alone if title/description point elsewhere.
+- Look carefully at nested subcollections. If a child path clearly matches the page's exact subject, discipline, material, product type, or use case, choose that child instead of a broader parent.
+- Use specific signals from the body text when available: institution names, locations, disciplines, materials, and product/category language.
+- If both a parent and a child could fit, the child should usually win.
 
 When proposing a new collection:
 - Keep the new collection name short, natural, and title cased.
@@ -123,6 +133,10 @@ Bookmark:
 - URL: ${url}
 - Title: ${title ?? 'Unknown'}
 - Description: ${description ?? 'None'}
+- Page text excerpt:
+"""
+${content?.body_text || '(no body text extracted)'}
+"""
 
 Collections:
 ${collectionList}
@@ -137,7 +151,11 @@ Rules for output:
 - If the bookmark is too ambiguous, use confidence "low".`;
 
     const parsed = await deepseekJson<Record<string, unknown>>(prompt, {
-      max_tokens: 400,
+      systemPrompt:
+        'You are a precise bookmark taxonomist. Prefer existing collections over new ones, prefer the deepest valid subcollection over its parent, and avoid vague catch-all categories.',
+      responseFormat: 'json_object',
+      max_tokens: 450,
+      temperature: 0.2,
     })
 
     if (!parsed) {

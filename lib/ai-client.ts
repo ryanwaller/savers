@@ -18,6 +18,8 @@ export interface CompletionOptions {
   max_tokens?: number;
   temperature?: number;
   timeout?: number;
+  systemPrompt?: string;
+  responseFormat?: "json_object";
 }
 
 export interface JsonCompletionOptions extends CompletionOptions {
@@ -55,9 +57,17 @@ export async function deepseekComplete(
       },
       body: JSON.stringify({
         model: options?.model ?? DEFAULT_MODEL,
-        messages: [{ role: "user", content: prompt }],
+        messages: [
+          ...(options?.systemPrompt
+            ? [{ role: "system", content: options.systemPrompt }]
+            : []),
+          { role: "user", content: prompt },
+        ],
         max_tokens: options?.max_tokens ?? 400,
         temperature: options?.temperature ?? 0.3,
+        ...(options?.responseFormat
+          ? { response_format: { type: options.responseFormat } }
+          : null),
       }),
     });
 

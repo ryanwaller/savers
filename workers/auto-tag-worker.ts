@@ -22,6 +22,12 @@ import { fetchPageContent } from "@/lib/page-content";
 import { enrichWithCountries, normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 import { deepseekJson } from "@/lib/ai-client";
+import {
+  buildStructuredTaggingPrompt,
+  flattenStructuredTags,
+  MAX_AI_TAGS,
+  TAGGING_SYSTEM_PROMPT,
+} from "@/lib/structured-tagging";
 
 const CACHE_TTL_SECONDS = 30 * 24 * 60 * 60; // 30 days
 const CACHE_KEY_PREFIX = "autotag:";
@@ -56,36 +62,28 @@ async function loadAliases(supabase: ReturnType<typeof getSupabaseAdmin>): Promi
 async function extractTagsViaLLM(
   url: string,
   title: string | null,
+  description: string | null,
   bodyText: string,
 ): Promise<string[]> {
   const truncated = bodyText.slice(0, BODY_TEXT_MAX_CHARS);
 
-  const prompt = `Extract 3-5 concise, lowercase tags from this bookmarked page. Return JSON only.
-
-Prioritize specific facts: creator location (city/country), named studio/agency, narrow discipline, languages/scripts, techniques, materials, eras.
-
-Hard rules:
-- Lowercase, 1-3 words each, no "#" prefix
-- Skip the obvious category (it's a website, it's a portfolio, it's design)
-- Don't guess — if the page doesn't state it, don't tag it
-- Fewer concrete tags beat more generic ones
-
-URL: ${url}
-Title: ${title ?? "Unknown"}
-Page text:
-"""
-${truncated || "(no text extracted)"}
-"""
-
-Respond with JSON only, no explanation:
-{"tags": ["example-tag", "another-tag"]}`;
-
-  const parsed = await deepseekJson<{ tags?: unknown }>(prompt, {
-    max_tokens: 200,
+  const prompt = buildStructuredTaggingPrompt({
+    url,
+    title,
+    description,
+    bodyText: truncated,
+    maxTags: MAX_AI_TAGS,
   });
 
-  if (!parsed || !Array.isArray(parsed.tags)) return [];
-  return parsed.tags.flatMap((t) => normalizeTagList(t));
+  const parsed = await deepseekJson<Record<string, unknown>>(prompt, {
+    systemPrompt: TAGGING_SYSTEM_PROMPT,
+    responseFormat: "json_object",
+    max_tokens: 500,
+    temperature: 0.2,
+  });
+
+  if (!parsed) return [];
+  return flattenStructuredTags(parsed).flatMap((t) => normalizeTagList(t));
 }
 
 async function processJob(job: Job<AutoTagJobData>) {
@@ -160,7 +158,12 @@ async function processJob(job: Job<AutoTagJobData>) {
   // Extract tags via LLM
   let rawTags: string[] = [];
   try {
-    rawTags = await extractTagsViaLLM(url, title, content.body_text);
+    rawTags = await extractTagsViaLLM(
+      url,
+      title,
+      content.description ?? null,
+      content.body_text,
+    );
   } catch (e) {
     console.error("[auto-tag-worker] LLM call failed:", e instanceof Error ? e.message : String(e));
   }
@@ -185,7 +188,7 @@ async function processJob(job: Job<AutoTagJobData>) {
   } catch (e) {
     console.warn("[auto-tag-worker] loadAliases failed (continuing without normalization):", e instanceof Error ? e.message : String(e));
   }
-  const tags = enrichWithCountries(resolveAliases(rawTags, aliases));
+  const tags = enrichWithCountries(resolveAliases(rawTags, aliases)).slice(0, MAX_AI_TAGS);
 
   // Cache the result
   try {
