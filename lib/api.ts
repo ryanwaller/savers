@@ -142,6 +142,21 @@ export const api = {
     );
   },
 
+  async refreshGeneratedPreviews(): Promise<{
+    queued_ids: string[];
+    queued_count: number;
+    failed_ids: string[];
+    failed_count: number;
+    skipped_custom_count: number;
+    skipped_in_flight_count: number;
+  }> {
+    return j(
+      await fetch("/api/bookmarks/refresh-previews", {
+        method: "POST",
+      })
+    );
+  },
+
   async deleteBookmarks(ids: string[]): Promise<{ deleted: number }> {
     return j(
       await fetch("/api/bookmarks/bulk-delete", {

@@ -1356,6 +1356,46 @@ export default function Home() {
     }
   }
 
+  function handleGeneratedPreviewsQueued(ids: string[]) {
+    if (ids.length === 0) return;
+    const queuedIds = new Set(ids);
+    updateAllBookmarksState((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setBookmarks((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setDetail((prev) =>
+      prev && queuedIds.has(prev.id)
+        ? {
+            ...prev,
+            screenshot_status: "pending",
+            screenshot_error: null,
+          }
+        : prev,
+    );
+    setDropStatus(
+      `Refreshing ${ids.length} generated preview${ids.length === 1 ? "" : "s"} in the background.`,
+    );
+    window.setTimeout(() => setDropStatus(null), 3200);
+  }
+
   async function handleUploadCustomPreview(id: string, source: CustomPreviewSource) {
     const { bookmark } = await api.uploadCustomPreview(id, source);
     updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
@@ -2090,6 +2130,7 @@ export default function Home() {
         onClose={() => setShowSettings(false)}
         bookmarks={allBookmarks}
         flatCollections={flat}
+        onGeneratedPreviewsQueued={handleGeneratedPreviewsQueued}
       />
 
       <TriageOverlay

@@ -36,9 +36,16 @@ type Props = {
   onClose: () => void;
   bookmarks: Bookmark[];
   flatCollections: Collection[];
+  onGeneratedPreviewsQueued?: (ids: string[]) => void;
 };
 
-export default function SettingsModal({ open, onClose, bookmarks, flatCollections }: Props) {
+export default function SettingsModal({
+  open,
+  onClose,
+  bookmarks,
+  flatCollections,
+  onGeneratedPreviewsQueued,
+}: Props) {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -49,6 +56,10 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
   const [revoking, setRevoking] = useState<string | null>(null);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
   const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
+  const [refreshingPreviews, setRefreshingPreviews] = useState(false);
+  const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
+
+  const generatedPreviewCount = bookmarks.filter((bookmark) => !bookmark.custom_preview_path).length;
 
   useEffect(() => {
     if (!open) {
@@ -56,6 +67,7 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
       setCopied(false);
       setError(null);
       setNewTokenName("");
+      setPreviewRefreshMessage(null);
       return;
     }
     void load();
@@ -126,6 +138,47 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
     }
   }
 
+  async function refreshGeneratedPreviews() {
+    if (refreshingPreviews) return;
+    setRefreshingPreviews(true);
+    setPreviewRefreshMessage(null);
+    try {
+      const result = await api.refreshGeneratedPreviews();
+      if (result.queued_ids.length > 0) {
+        onGeneratedPreviewsQueued?.(result.queued_ids);
+      }
+
+      const parts: string[] = [];
+      if (result.queued_count > 0) {
+        parts.push(
+          `Queued ${result.queued_count} generated preview${result.queued_count === 1 ? "" : "s"} for refresh.`,
+        );
+      } else {
+        parts.push("No generated previews needed refreshing.");
+      }
+      if (result.skipped_custom_count > 0) {
+        parts.push(
+          `Skipped ${result.skipped_custom_count} manual upload${result.skipped_custom_count === 1 ? "" : "s"}.`,
+        );
+      }
+      if (result.skipped_in_flight_count > 0) {
+        parts.push(
+          `Skipped ${result.skipped_in_flight_count} preview${result.skipped_in_flight_count === 1 ? "" : "s"} already updating.`,
+        );
+      }
+      if (result.failed_count > 0) {
+        parts.push(
+          `${result.failed_count} enqueue${result.failed_count === 1 ? "" : "s"} failed.`,
+        );
+      }
+      setPreviewRefreshMessage(parts.join(" "));
+    } catch (e) {
+      setPreviewRefreshMessage(e instanceof Error ? e.message : "Could not refresh previews");
+    } finally {
+      setRefreshingPreviews(false);
+    }
+  }
+
   if (!open) return null;
 
   return (
@@ -141,6 +194,25 @@ export default function SettingsModal({ open, onClose, bookmarks, flatCollection
         <div className="body">
           <section className="section">
             <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
+          </section>
+
+          <section className="section">
+            <div className="section-title">Previews</div>
+            <p className="small muted">
+              Re-run cover generation for saved previews while preserving bookmarks with manual uploaded images.
+            </p>
+            <button
+              className="btn"
+              onClick={() => void refreshGeneratedPreviews()}
+              disabled={refreshingPreviews || generatedPreviewCount === 0}
+            >
+              {refreshingPreviews
+                ? "Queueing refresh…"
+                : `Refresh generated previews${generatedPreviewCount > 0 ? ` (${generatedPreviewCount})` : ""}`}
+            </button>
+            {previewRefreshMessage && (
+              <div className="small muted">{previewRefreshMessage}</div>
+            )}
           </section>
 
           <section className="section">
