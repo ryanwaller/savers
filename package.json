@@ -11,6 +11,7 @@
     "start": "next start",
     "worker": "tsx workers/screenshot-worker.ts",
     "auto-worker": "tsx workers/auto-tag-worker.ts",
+    "link-worker": "tsx workers/link-check-worker.ts",
     "backfill-auto-tags": "tsx scripts/backfill-auto-tags.ts",
     "lint": "eslint"
   },
