@@ -88,6 +88,87 @@ export async function extractPrimaryProductImage(
         return null;
       };
 
+      // Containers that hold related / recommended / upsell products.
+      // Images inside these are never the primary product image.
+      const EXCLUDE_CONTAINERS = [
+        "[class*='related-products']",
+        "[class*='related-product']",
+        "[class*='product-recommendations']",
+        "[class*='recommendations']",
+        "[class*='recommended']",
+        "[class*='upsell']",
+        "[class*='cross-sell']",
+        "[class*='also-like']",
+        "[class*='also_like']",
+        "[data-related-products]",
+        "[data-recommendations]",
+        "[id*='related']",
+        "[id*='recommend']",
+        "[id*='upsell']",
+        "[id*='cross-sell']",
+        ".product-upsell",
+        ".product-recommend",
+        ".recommended-products",
+        ".related-items",
+        ".additional-products",
+        ".complementary-products",
+        "upsell-product",
+        "recommended-product",
+        "related-product",
+        "product-item--recommended",
+        "product-item--related",
+      ];
+
+      const isExcluded = function (img) {
+        return EXCLUDE_CONTAINERS.some(function (sel) {
+          try {
+            return img.closest(sel) !== null;
+          } catch {
+            return false;
+          }
+        });
+      };
+
+      // Also nuke heading text blocks that label related-product sections
+      // so their sibling images get caught by exclusion proximity checks.
+      try {
+        var relatedHeadings = document.querySelectorAll(
+          "h2, h3, h4, .heading, .title, [class*='title']"
+        );
+        for (var ri = 0; ri < relatedHeadings.length; ri++) {
+          var txt = (relatedHeadings[ri].textContent || "").toLowerCase();
+          if (
+            txt.includes("you may also") ||
+            txt.includes("recommended for you") ||
+            txt.includes("customers also") ||
+            txt.includes("related products") ||
+            txt.includes("complete the look") ||
+            txt.includes("pair it with")
+          ) {
+            var section = relatedHeadings[ri].closest(
+              "section, div, .shopify-section"
+            );
+            if (section) {
+              section.setAttribute("data-savers-exclude", "1");
+            }
+          }
+        }
+      } catch (e) {}
+
+      // Rebuild EXCLUDE_CONTAINERS to include our dynamically marked sections
+      var dynamicExcludes = [].concat(EXCLUDE_CONTAINERS);
+      dynamicExcludes.push("[data-savers-exclude]");
+
+      var isExcluded2 = function (img) {
+        return dynamicExcludes.some(function (sel) {
+          try {
+            return img.closest(sel) !== null;
+          } catch {
+            return false;
+          }
+        });
+      };
+
       const mainSelectors = [
         ".product-media__image",
         ".product-media img",
@@ -139,6 +220,7 @@ export async function extractPrimaryProductImage(
 
           for (const match of sorted) {
             const img = match;
+            if (isExcluded2(img)) continue;
             const width = img.naturalWidth || img.width;
             if (width <= 300) continue;
             const src = readImageSrc(img);
@@ -187,6 +269,7 @@ export async function extractPrimaryProductImage(
       ];
 
       const valid = allImages.filter((img) => {
+        if (isExcluded2(img)) return false;
         const width = img.naturalWidth || img.width;
         const height = img.naturalHeight || img.height;
         if (width < 400 || height < 400) return false;
@@ -213,6 +296,7 @@ export async function extractPrimaryProductImage(
       }
 
       const large = allImages.filter((img) => {
+        if (isExcluded2(img)) return false;
         const width = img.naturalWidth || img.width;
         const height = img.naturalHeight || img.height;
         const src = img.src || img.currentSrc;

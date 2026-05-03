@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { canForceProductInsetUrl, isRecipeContext, isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
+import { isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
 import type { Bookmark, Collection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
@@ -451,9 +451,6 @@ export default function BookmarkDetail({
 
               const buttons: React.ReactNode[] = [];
 
-              const supportsProductInsetAction =
-                looksLikeProductDetailUrl(bookmark.url) ||
-                canForceProductInsetUrl(bookmark.url);
               const tags: string[] = Array.isArray(bookmark.tags) ? bookmark.tags : [];
               let collectionPath = "";
               if (bookmark.collection_id) {
@@ -473,14 +470,12 @@ export default function BookmarkDetail({
                 isRecipeContext(collectionPath, tags) ||
                 bookmark.asset_type === "recipe_hero";
               const isShopping =
-                !isRecipe &&
-                (isShoppingContext(collectionPath, tags) ||
-                  supportsProductInsetAction);
+                !isRecipe && isShoppingContext(collectionPath, tags);
 
               // Recipe bookmarks: offer recipe hero regeneration.
               // Uses product_inset mode — the worker detects the recipe
               // context and runs hero extraction instead of product inset.
-              if (isRecipe && supportsProductInsetAction) {
+              if (isRecipe) {
                 buttons.push(
                   <ForceCoverButton
                     key="recipe"
@@ -500,9 +495,9 @@ export default function BookmarkDetail({
                 );
               }
 
-              // Only offer product-image forcing on likely product-detail URLs.
-              // Collection/search pages tend to fall back or choose noisy assets.
-              if (isShopping && supportsProductInsetAction) {
+              // Product-image action: only for bookmarks explicitly in a
+              // shopping collection or with shopping tags.
+              if (isShopping) {
                 buttons.push(
                   <ForceCoverButton
                     key="product"

@@ -24,7 +24,7 @@ export const PUPPETEER_LAUNCH_OPTIONS = {
   ],
   defaultViewport: {
     width: 1280,
-    height: 900,
+    height: 800,
     deviceScaleFactor: 1,
   },
   timeout: 30000,
