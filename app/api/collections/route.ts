@@ -82,8 +82,32 @@ export async function GET() {
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
 
-    const tree = buildTree(data as Collection[])
-    return NextResponse.json({ collections: tree, flat: data })
+    const collections = (data as Collection[]) ?? []
+
+    const { data: bookmarkRows, error: bookmarkCountError } = await supabaseAdmin
+      .from('bookmarks')
+      .select('collection_id')
+      .eq('user_id', user.id)
+      .not('collection_id', 'is', null)
+
+    if (bookmarkCountError) {
+      logUnexpectedError('Load collection bookmark counts error:', bookmarkCountError)
+    }
+
+    const counts = new Map<string, number>()
+    for (const row of bookmarkRows ?? []) {
+      const collectionId = row.collection_id
+      if (!collectionId || typeof collectionId !== 'string') continue
+      counts.set(collectionId, (counts.get(collectionId) ?? 0) + 1)
+    }
+
+    const withCounts = collections.map((collection) => ({
+      ...collection,
+      bookmark_count: counts.get(collection.id) ?? 0,
+    }))
+
+    const tree = buildTree(withCounts)
+    return NextResponse.json({ collections: tree, flat: withCounts })
   } catch (err) {
     logUnexpectedError('Load collections catch error:', err)
     if (err instanceof UnauthorizedError) {

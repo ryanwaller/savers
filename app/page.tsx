@@ -53,7 +53,11 @@ export default function Home() {
   const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([]);
   const allBookmarksRef = useRef<Bookmark[]>([]);
   const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
-  const tree = useMemo(() => annotateCounts(treeRaw, allBookmarks), [treeRaw, allBookmarks]);
+  const [bookmarkCountsHydrated, setBookmarkCountsHydrated] = useState(false);
+  const tree = useMemo(
+    () => annotateCounts(treeRaw, allBookmarks, bookmarkCountsHydrated),
+    [treeRaw, allBookmarks, bookmarkCountsHydrated]
+  );
   const [flat, setFlat] = useState<Collection[]>([]);
   const [smartCollections, setSmartCollections] = useState<SmartCollection[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
@@ -525,6 +529,7 @@ export default function Home() {
   useEffect(() => {
     if (user) return;
     allBookmarksRef.current = [];
+    setBookmarkCountsHydrated(false);
     setAllBookmarks([]);
     setBookmarks([]);
     setTreeRaw([]);
@@ -619,6 +624,7 @@ export default function Home() {
       const { bookmarks } = await api.listBookmarks();
       allBookmarksRef.current = bookmarks;
       setAllBookmarks(bookmarks);
+      setBookmarkCountsHydrated(true);
       setLoadError(null);
       return bookmarks;
     } catch (e) {
@@ -2861,7 +2867,11 @@ function filterBookmarks(bookmarks: Bookmark[], search: string, activeTag: strin
   });
 }
 
-function annotateCounts(tree: Collection[], bookmarks: Bookmark[]): Collection[] {
+function annotateCounts(
+  tree: Collection[],
+  bookmarks: Bookmark[],
+  useLocalCounts: boolean
+): Collection[] {
   const counts = new Map<string, number>();
   for (const b of bookmarks) {
     if (!b.collection_id) continue;
@@ -2870,7 +2880,7 @@ function annotateCounts(tree: Collection[], bookmarks: Bookmark[]): Collection[]
   const walk = (nodes: Collection[]): Collection[] =>
     nodes.map((n) => ({
       ...n,
-      bookmark_count: counts.get(n.id) ?? 0,
+      bookmark_count: useLocalCounts ? (counts.get(n.id) ?? 0) : (n.bookmark_count ?? 0),
       children: n.children ? walk(n.children) : undefined,
     }));
   return walk(tree);
