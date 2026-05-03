@@ -2,6 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import {
@@ -61,7 +62,7 @@ export default function BookmarkGrid({
       : undefined;
 
   return (
-    <div className="grid" style={gridStyle}>
+    <motion.div className="grid" style={gridStyle} layout>
       {bookmarks.map((b) => (
         <BookmarkCard
           key={b.id}
@@ -109,7 +110,7 @@ export default function BookmarkGrid({
           font-size: 12px;
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 }
 
@@ -507,7 +508,11 @@ function BookmarkCard({
   }
 
   return (
-    <div className="card-shell">
+    <motion.div
+      className="card-shell"
+      layout
+      transition={{ type: "spring", stiffness: 400, damping: 35 }}
+    >
       <ConfirmDialog
         open={confirmDeleteOpen}
         title={`Delete "${b.title || host}"?`}
@@ -619,7 +624,8 @@ function BookmarkCard({
                     }}
                     aria-label="Broken link — view options"
                   >
-                    Broken link
+                    <span className="text-full">Broken link</span>
+                    <span className="text-short">Broken</span>
                   </button>
                 )}
 
@@ -1163,9 +1169,40 @@ function BookmarkCard({
           cursor: pointer;
           white-space: nowrap;
           pointer-events: auto;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          transition: all 0.2s ease;
         }
         .broken-trigger:hover {
           background: #dc2626;
+        }
+        .broken-trigger .text-short {
+          display: none;
+        }
+        @media (max-width: 1024px) {
+          .broken-trigger {
+            height: 28px;
+            padding: 0 12px;
+          }
+        }
+        @media (max-width: 640px) {
+          .broken-trigger {
+            height: 26px;
+            padding: 0 10px;
+          }
+          .broken-trigger .text-full {
+            display: none;
+          }
+          .broken-trigger .text-short {
+            display: inline;
+          }
+        }
+        @media (max-width: 375px) {
+          .broken-trigger {
+            height: 24px;
+            padding: 0 8px;
+          }
         }
         .broken-actions {
           position: relative;
@@ -1191,10 +1228,31 @@ function BookmarkCard({
           white-space: nowrap;
           pointer-events: auto;
           transition: all 0.2s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
         }
         .broken-pill:disabled {
           opacity: 0.6;
           cursor: default;
+        }
+        @media (max-width: 1024px) {
+          .broken-pill {
+            height: 28px;
+            padding: 0 12px;
+          }
+        }
+        @media (max-width: 640px) {
+          .broken-pill {
+            height: 26px;
+            padding: 0 10px;
+          }
+        }
+        @media (max-width: 375px) {
+          .broken-pill {
+            height: 24px;
+            padding: 0 8px;
+          }
         }
         .broken-pill-confirm {
           background: #ef4444;
@@ -1448,6 +1506,6 @@ function BookmarkCard({
           z-index: 1;
         }
       `}</style>
-    </div>
+    </motion.div>
   );
 }
