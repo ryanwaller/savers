@@ -6,7 +6,7 @@ const STORAGE_KEY = "savers.sidebar.collapsedCollections";
 
 function loadCollapsedIds(): Set<string> {
   try {
-    const raw = sessionStorage.getItem(STORAGE_KEY);
+    const raw = localStorage.getItem(STORAGE_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) return new Set(parsed);
@@ -19,16 +19,16 @@ function loadCollapsedIds(): Set<string> {
 
 function persistCollapsedIds(ids: Set<string>) {
   try {
-    sessionStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([...ids]));
   } catch {
     // storage full or unavailable — ignore
   }
 }
 
 /**
- * Persists sidebar collection expanded/collapsed state in sessionStorage.
+ * Persists sidebar collection expanded/collapsed state in localStorage.
  * Stores collapsed IDs internally so new or unknown collections default to expanded.
- * Survives page reloads within the same tab session.
+ * Survives page reloads and browser restarts.
  */
 export function useCollectionExpansionState() {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsedIds);
