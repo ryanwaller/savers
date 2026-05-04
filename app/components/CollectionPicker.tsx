@@ -173,7 +173,7 @@ export default function CollectionPicker({
                   value={createParentId ?? ""}
                   onChange={(e) => setCreateParentId(e.target.value || null)}
                 >
-                  <option value="">Top-level</option>
+                  <option value="">None</option>
                   {flat.map((c) => (
                     <option key={c.id} value={c.id}>
                       {paths.get(c.id) ?? c.name}
@@ -247,8 +247,8 @@ export default function CollectionPicker({
                   <span className="opt-icon">
                     <CollectionIcon name={c.icon} size={13} />
                   </span>
-                  <span className="opt-label">
-                    {isChild ? c.name : paths.get(c.id)}
+                  <span className={`opt-label ${!isChild ? "opt-label-bold" : ""}`}>
+                    {isChild ? `↳ ${c.name}` : paths.get(c.id)}
                   </span>
                 </button>
               );
@@ -354,6 +354,10 @@ export default function CollectionPicker({
           text-overflow: ellipsis;
           white-space: nowrap;
           flex: 1;
+          font-size: 12px;
+        }
+        .opt-label-bold {
+          font-weight: 600;
         }
         .opt-icon {
           display: inline-flex;

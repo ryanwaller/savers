@@ -640,7 +640,7 @@ export default function AddBookmarkModal({
                   value={inlineCreateParentId ?? ""}
                   onChange={(e) => setInlineCreateParentId(e.target.value || null)}
                 >
-                  <option value="">Top-level</option>
+                  <option value="">None</option>
                   {flat.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
