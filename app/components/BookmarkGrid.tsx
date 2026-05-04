@@ -118,6 +118,7 @@ export default function BookmarkGrid({
           gap: ${DESKTOP_GAP_PX}px;
           padding: ${DESKTOP_PADDING_X_PX}px;
           padding-bottom: 80px;
+          align-items: start;
         }
         .grid-cell {
           width: 100%;
@@ -879,7 +880,6 @@ function BookmarkCard({
       <style jsx>{`
         .card-shell {
           position: relative;
-          height: 100%;
         }
         .card {
           display: flex;
@@ -888,15 +888,9 @@ function BookmarkCard({
           border-radius: var(--radius);
           overflow: hidden;
           background: var(--color-bg);
-          height: 100%;
+          height: auto;
           width: 100%;
           transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
-        }
-        @media (max-width: 768px) {
-          .card-shell,
-          .card {
-            height: auto;
-          }
         }
         .card:hover {
           border-color: var(--color-border-strong);
