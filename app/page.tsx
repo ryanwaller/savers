@@ -2824,7 +2824,7 @@ export default function Home() {
           font-size: 12px;
           font-weight: 600;
           color: var(--color-text-muted);
-          padding: 12px 8px 8px;
+          padding: 12px 20px 8px;
           line-height: 17px;
         }
         .top-right {
@@ -3033,6 +3033,9 @@ export default function Home() {
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
         }
         @media (max-width: 768px) {
+          .collection-group-header {
+            padding-left: 12px;
+          }
           .main {
             overflow-y: auto;
             overflow-x: hidden;
