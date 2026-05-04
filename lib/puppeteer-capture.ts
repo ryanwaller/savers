@@ -99,15 +99,22 @@ export async function captureTextExcerptImage(
   try {
     await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
 
+    // Sizing math: viewport is 1280×800 and the rendered card thumb is
+    // ~350px wide, so px-in-template × (350/1280) ≈ px-on-card.
+    //   • 66px font  → ~18px on card (comfortably readable serif)
+    //   • 88px pad   → ~24px on card
+    //   • 1.4 line-height keeps a serif at this size easy to scan
+    //   • clamp at 6 lines: 6 × 66 × 1.4 = 555px of content, fits inside
+    //     800 − 88×2 = 624px of available height with breathing room.
     const html = `<!DOCTYPE html>
 <html>
 <head><meta charset="utf-8"></head>
 <body style="margin:0;background:#000;color:#fff;
   font-family:"Times New Roman",Times,serif;
-  font-size:52px;font-weight:700;line-height:1.5;padding:90px 90px;
+  font-size:66px;font-weight:700;line-height:1.4;padding:88px;
   display:flex;align-items:center;justify-content:center;
   min-height:0;box-sizing:border-box;">
-  <div style="display:-webkit-box;-webkit-line-clamp:10;-webkit-box-orient:vertical;overflow:hidden;max-width:1100px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
+  <div style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;max-width:1100px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
 
