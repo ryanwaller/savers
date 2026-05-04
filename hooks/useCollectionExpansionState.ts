@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 
 const STORAGE_KEY = "savers.sidebar.collapsedCollections";
 
@@ -35,6 +35,7 @@ function persistCollapsedIds(ids: Set<string>) {
 export function useCollectionExpansionState() {
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
   const [ready, setReady] = useState(false);
+  const initialLoadDone = useRef(false);
 
   // Load persisted state after hydration (client-side only).
   // SSR returns empty Set; the real localStorage read happens here once.
@@ -53,6 +54,16 @@ export function useCollectionExpansionState() {
   useEffect(() => {
     if (!ready) return;
     persistCollapsedIds(collapsedIds);
+  }, [ready, collapsedIds]);
+
+  // Only after the first persist cycle is committed, allow syncWithValidIds
+  // to run. Before this point, the tree may be empty or stale and
+  // syncWithValidIds would prune all loaded IDs, which the persist effect
+  // would then cement into localStorage as permanent data loss.
+  useEffect(() => {
+    if (ready) {
+      initialLoadDone.current = true;
+    }
   }, [ready, collapsedIds]);
 
   const isExpanded = useCallback(
@@ -95,6 +106,7 @@ export function useCollectionExpansionState() {
   }, []);
 
   const syncWithValidIds = useCallback((validIds: Set<string>) => {
+    if (!initialLoadDone.current) return;
     setCollapsedIds((prev) => {
       const next = new Set<string>();
       for (const id of prev) {
