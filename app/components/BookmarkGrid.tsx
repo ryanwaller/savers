@@ -879,6 +879,7 @@ function BookmarkCard({
       <style jsx>{`
         .card-shell {
           position: relative;
+          height: 100%;
         }
         .card {
           display: flex;
@@ -887,9 +888,15 @@ function BookmarkCard({
           border-radius: var(--radius);
           overflow: hidden;
           background: var(--color-bg);
-          height: auto;
+          height: 100%;
           width: 100%;
           transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
+        }
+        @media (max-width: 768px) {
+          .card-shell,
+          .card {
+            height: auto;
+          }
         }
         .card:hover {
           border-color: var(--color-border-strong);
