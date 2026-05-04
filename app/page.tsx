@@ -1832,7 +1832,19 @@ export default function Home() {
                 aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
                 aria-expanded={sidebarOpen}
               >
-                <List size={14} />
+                {sidebarOpen ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="4" />
+                    <line x1="15" y1="3" x2="15" y2="21" />
+                    <polyline points="9,8 5,12 9,16" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="3" y="3" width="18" height="18" rx="4" />
+                    <line x1="9" y1="3" x2="9" y2="21" />
+                    <polyline points="13,8 17,12 13,16" />
+                  </svg>
+                )}
               </button>
               {canGoBack && (
                 <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
