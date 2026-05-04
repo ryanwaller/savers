@@ -1,7 +1,8 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import {
@@ -14,6 +15,46 @@ import {
 import { compressImageForPreview } from "@/lib/image-compress";
 import { openExternalLink, isNative as isNativeShell } from "@/lib/capacitor-bridge";
 import ConfirmDialog from "./ConfirmDialog";
+
+// Desktop grid configuration — must match the rest of the app's design tokens.
+const DESKTOP_GAP_PX = 20;
+const DESKTOP_PADDING_X_PX = 20;
+
+/**
+ * Track the container's clientWidth via ResizeObserver. We need a stable
+ * pixel measurement to compute deterministic column counts for the grid;
+ * relying on CSS auto-fill makes Framer Motion's FLIP measurements unstable.
+ */
+function useElementWidth<T extends HTMLElement>(): [
+  React.RefObject<T | null>,
+  number,
+] {
+  const ref = useRef<T | null>(null);
+  const [width, setWidth] = useState(0);
+
+  useLayoutEffect(() => {
+    const node = ref.current;
+    if (!node) return;
+    setWidth(node.clientWidth);
+    if (typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        // Use contentBoxSize when available (skips padding); fall back to
+        // contentRect.width which is also content-box on modern browsers.
+        const contentWidth = Array.isArray(entry.contentBoxSize)
+          ? entry.contentBoxSize[0]?.inlineSize ?? entry.contentRect.width
+          : entry.contentRect.width;
+        if (typeof contentWidth === "number") {
+          setWidth(contentWidth);
+        }
+      }
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+
+  return [ref, width];
+}
 
 type Props = {
   bookmarks: Bookmark[];
@@ -52,34 +93,74 @@ export default function BookmarkGrid({
   selectedIds,
   onToggleSelect,
 }: Props) {
-  const gridStyle: CSSProperties | undefined =
-    cardMinWidth || cardCols
+  const [gridRef, containerWidth] = useElementWidth<HTMLDivElement>();
+
+  // Compute desktop grid template as an explicit pixel string. We never rely
+  // on CSS variables or `auto-fill` here — those introduce parser-dependent
+  // behaviors that break Framer Motion's FLIP measurements.
+  //
+  // Contract: when (containerWidth + gap) / (cardMinWidth + gap) yields N
+  // columns of (cardMinWidth)px, every track is a deterministic pixel value.
+  const desktopTemplate = useMemo(() => {
+    if (!cardMinWidth || containerWidth === 0) return null;
+    const innerWidth = Math.max(0, containerWidth - DESKTOP_PADDING_X_PX * 2);
+    const trackPlusGap = cardMinWidth + DESKTOP_GAP_PX;
+    const cols = Math.max(
+      1,
+      Math.floor((innerWidth + DESKTOP_GAP_PX) / trackPlusGap)
+    );
+    return `repeat(${cols}, ${cardMinWidth}px)`;
+  }, [containerWidth, cardMinWidth]);
+
+  const gridStyle: CSSProperties = {
+    // Mobile branch: --card-cols is consumed by the @media block below.
+    // We keep the variable here so existing mobile tests/styles continue to work.
+    ...(cardCols ? ({ "--card-cols": String(cardCols) } as CSSProperties) : null),
+    ...(desktopTemplate
       ? ({
-          ...(cardMinWidth ? { "--card-min": `${cardMinWidth}px` } : null),
-          ...(cardCols ? { "--card-cols": String(cardCols) } : null),
+          // CSS custom property carries the computed value into the @media
+          // (min-width: 769px) rule. We set it as a property so we can also
+          // inspect it from JS / dev tools.
+          "--desktop-grid-template": desktopTemplate,
         } as CSSProperties)
-      : undefined;
+      : null),
+  };
+
+  // Belt-and-braces: kill any ambient `transition: all` injected by global
+  // CSS resets or scoped styled-jsx compilation. FLIP needs a still grid to
+  // measure against; a transitioning grid will fight the layout animation.
+  useEffect(() => {
+    const node = gridRef.current;
+    if (!node) return;
+    node.style.setProperty("transition", "none", "important");
+  }, [gridRef]);
 
   return (
-    <div className="grid" style={gridStyle}>
+    <div className="grid" ref={gridRef} style={gridStyle}>
       {bookmarks.map((b) => (
-        <BookmarkCard
+        <motion.div
           key={b.id}
-          b={b}
-          onEdit={() => onOpenBookmark(b)}
-          onDelete={() => onDeleteBookmark(b.id)}
-          onPatchBookmark={onPatchBookmark}
-          onPin={() => onPinBookmark(b.id, !b.pinned)}
-          onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
-          onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
-          onClearCustomPreview={() => onClearCustomPreview(b.id)}
-          onTagClick={onTagClick}
-          cardMinWidth={cardMinWidth}
-          cardCols={cardCols}
-          isEditMode={isEditMode}
-          isSelected={selectedIds?.has(b.id) ?? false}
-          onToggleSelect={onToggleSelect}
-        />
+          layout="position"
+          transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
+          className="grid-cell"
+        >
+          <BookmarkCard
+            b={b}
+            onEdit={() => onOpenBookmark(b)}
+            onDelete={() => onDeleteBookmark(b.id)}
+            onPatchBookmark={onPatchBookmark}
+            onPin={() => onPinBookmark(b.id, !b.pinned)}
+            onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
+            onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
+            onClearCustomPreview={() => onClearCustomPreview(b.id)}
+            onTagClick={onTagClick}
+            cardMinWidth={cardMinWidth}
+            cardCols={cardCols}
+            isEditMode={isEditMode}
+            isSelected={selectedIds?.has(b.id) ?? false}
+            onToggleSelect={onToggleSelect}
+          />
+        </motion.div>
       ))}
       {!loading && bookmarks.length === 0 && (
         <div className="empty">{emptyLabel ?? "Nothing here yet."}</div>
@@ -87,10 +168,17 @@ export default function BookmarkGrid({
       <style jsx>{`
         .grid {
           display: grid;
-          grid-template-columns: repeat(auto-fill, minmax(var(--card-min, 300px), 1fr));
-          gap: 20px;
-          padding: 20px;
+          /* JS-computed deterministic tracks; no auto-fill, no var() in repeat() */
+          grid-template-columns: var(--desktop-grid-template, repeat(1, 1fr));
+          gap: ${DESKTOP_GAP_PX}px;
+          padding: ${DESKTOP_PADDING_X_PX}px;
           padding-bottom: 80px;
+        }
+        .grid-cell {
+          /* Cards fill their explicit pixel track. Required so FLIP's
+             snapshot dimensions match the post-layout dimensions. */
+          width: 100%;
+          min-width: 0;
         }
         @media (max-width: 768px) {
           .grid {
