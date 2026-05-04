@@ -330,18 +330,32 @@ function BookmarkCard({
   async function handleVerifyBroken(action: "confirm" | "dispute", event: { stopPropagation: () => void }) {
     event.stopPropagation();
     if (verifyingBroken) return;
-    setVerifyingBroken(true);
-    try {
-      if (action === "confirm") {
+
+    if (action === "confirm") {
+      setVerifyingBroken(true);
+      try {
         await onDelete();
-        return;
+      } catch {
+        // Silently ignore
+      } finally {
+        setVerifyingBroken(false);
       }
-      const result = await api.resetLinkStatus(b.id, "active");
-      setBrokenStatus(result.bookmark.broken_status);
-      await onPatchBookmark(result.bookmark);
-      setBrokenActionOpen(false);
-    } catch {
-      // Silently ignore
+      return;
+    }
+
+    // "Still Works" — optimistic UI then persist
+    setVerifyingBroken(true);
+    const previous = { ...b };
+    setBrokenStatus("verified_active");
+    setBrokenActionOpen(false);
+    await onPatchBookmark({ ...b, link_status: "active", broken_status: "verified_active" });
+
+    try {
+      await api.resetLinkStatus(b.id, "active");
+    } catch (err) {
+      console.error("Still Works failed:", err);
+      setBrokenStatus(previous.broken_status);
+      await onPatchBookmark(previous);
     } finally {
       setVerifyingBroken(false);
     }
