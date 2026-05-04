@@ -95,13 +95,14 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
       <style jsx>{`
         .sub-row-wrapper {
           position: relative;
-          margin-top: 0;
+          margin-top: 20px;
           margin-bottom: 0;
           padding-left: 20px;
           padding-right: 20px;
         }
         @media (max-width: 768px) {
           .sub-row-wrapper {
+            margin-top: 12px;
             margin-bottom: 0;
             padding-left: 12px;
             padding-right: 12px;
@@ -116,7 +117,6 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           scroll-snap-type: x mandatory;
           scrollbar-width: none;
           -ms-overflow-style: none;
-          padding-bottom: 4px;
 
           /* Default: both fades */
           -webkit-mask-image: linear-gradient(to right, transparent, black 20px, black calc(100% - 20px), transparent);
