@@ -645,16 +645,20 @@ export default function Sidebar({
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          transition: background 120ms ease, border-color 120ms ease;
+          transition: background 120ms ease, border-color 120ms ease, transform 180ms ease;
         }
         .tag-pill:hover {
           background: var(--color-bg-hover);
           border-color: var(--color-border-strong);
+          transform: translateX(4px);
         }
         .tag-pill.active {
           background: var(--color-text);
           color: var(--color-bg);
           border-color: var(--color-text);
+        }
+        .tag-pill.active:hover {
+          transform: none;
         }
         .tag-pill-name {
           overflow: hidden;
