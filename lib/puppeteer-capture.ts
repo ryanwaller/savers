@@ -106,14 +106,20 @@ export async function captureTextExcerptImage(
     //   • 1.4 line-height keeps a serif at this size easy to scan
     //   • clamp at 6 lines: 6 × 66 × 1.4 = 555px of content, fits inside
     //     800 − 88×2 = 624px of available height with breathing room.
+    //
+    // CRITICAL: html and body must explicitly fill the viewport. Without
+    // explicit `height: 100%` on both, the body collapses to its content
+    // height, the flex centering happens in that tiny box at the top-left,
+    // and the rest of the viewport is blank — text appears as a thumbnail
+    // crammed into the corner of an otherwise empty 1280×800 screenshot.
     const html = `<!DOCTYPE html>
-<html>
+<html style="margin:0;height:100%;">
 <head><meta charset="utf-8"></head>
-<body style="margin:0;background:#000;color:#fff;
-  font-family:"Times New Roman",Times,serif;
+<body style="margin:0;width:100%;height:100%;background:#000;color:#fff;
+  font-family:'Times New Roman',Times,serif;
   font-size:66px;font-weight:700;line-height:1.4;padding:88px;
   display:flex;align-items:center;justify-content:center;
-  min-height:0;box-sizing:border-box;">
+  box-sizing:border-box;">
   <div style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;max-width:1100px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
