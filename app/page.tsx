@@ -109,12 +109,12 @@ export default function Home() {
   }, [allBookmarks, selection, smartCollections]);
 
   const [sortBy, setSortBy] = useState<"date" | "collection">(() => {
-    if (typeof window === "undefined") return "date";
+    if (typeof window === "undefined") return "collection";
     try {
       const raw = window.localStorage.getItem("savers.sortBy");
       if (raw === "date" || raw === "collection") return raw;
     } catch { /* ignore */ }
-    return "date";
+    return "collection";
   });
 
   useEffect(() => {
@@ -186,6 +186,8 @@ export default function Home() {
         });
       }
     }
+    // Sort by path so parent collections group together
+    groups.sort((a, b) => a.path.localeCompare(b.path));
     return groups;
   }, [isGroupedView, sortedBookmarks, collectionNameMap, buildCollectionPath]);
 
