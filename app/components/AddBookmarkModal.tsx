@@ -15,6 +15,7 @@ type Props = {
   flat: Collection[];
   tree: Collection[];
   defaultCollectionId: string | null;
+  defaultUrl?: string | null;
   onCreateCollection: (name: string, parentId: string | null) => Promise<Collection>;
   onClose: () => void;
   onCreated: (b: Bookmark) => void;
@@ -25,6 +26,7 @@ export default function AddBookmarkModal({
   flat,
   tree,
   defaultCollectionId,
+  defaultUrl,
   onCreateCollection,
   onClose,
   onCreated,
@@ -53,6 +55,7 @@ export default function AddBookmarkModal({
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState("");
   const [creatingCollection, setCreatingCollection] = useState(false);
+  const [inlineCreateParentId, setInlineCreateParentId] = useState<string | null>(null);
 
   // Tag suggestion state
   const [tagProposals, setTagProposals] = useState<string[]>([]);
@@ -180,6 +183,13 @@ export default function AddBookmarkModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
+
+  // Pre-fill URL from the `defaultUrl` prop (used by extension redirect).
+  useEffect(() => {
+    if (defaultUrl) {
+      setUrl(defaultUrl);
+    }
+  }, [defaultUrl]);
 
   const fetchMetadata = useCallback(async (force = false) => {
     const u = normalizeUrl(url);
@@ -326,9 +336,10 @@ export default function AddBookmarkModal({
     setCreatingCollection(true);
     setError(null);
     try {
-      const created = await onCreateCollection(name, null);
+      const created = await onCreateCollection(name, inlineCreateParentId);
       setCollectionId(created.id);
       setNewCollectionName("");
+      setInlineCreateParentId(null);
       setShowCreateCollection(false);
       setAiStatus(`Created ${created.name}.`);
     } catch (e) {
@@ -546,6 +557,7 @@ export default function AddBookmarkModal({
                 onClick={() => {
                   setShowCreateCollection((v) => !v);
                   setNewCollectionName("");
+                  setInlineCreateParentId(null);
                 }}
                 disabled={creatingCollection}
               >
@@ -598,6 +610,7 @@ export default function AddBookmarkModal({
                           e.preventDefault();
                           setShowCreateCollection(false);
                           setNewCollectionName("");
+                          setInlineCreateParentId(null);
                         }
                       }
                     }}
@@ -622,6 +635,18 @@ export default function AddBookmarkModal({
                     </div>
                   )}
                 </div>
+                <select
+                  className="create-parent-select"
+                  value={inlineCreateParentId ?? ""}
+                  onChange={(e) => setInlineCreateParentId(e.target.value || null)}
+                >
+                  <option value="">Top-level</option>
+                  {flat.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+                </select>
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -637,6 +662,7 @@ export default function AddBookmarkModal({
                     onClick={() => {
                       setShowCreateCollection(false);
                       setNewCollectionName("");
+                      setInlineCreateParentId(null);
                     }}
                     disabled={creatingCollection}
                   >
@@ -1027,6 +1053,14 @@ export default function AddBookmarkModal({
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           background: var(--color-bg-secondary);
+        }
+        .create-parent-select {
+          font-size: 12px;
+          padding: 4px 6px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg);
+          color: var(--color-text);
         }
         .error {
           padding: 8px 10px;

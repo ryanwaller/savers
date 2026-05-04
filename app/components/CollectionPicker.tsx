@@ -44,6 +44,7 @@ export default function CollectionPicker({
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
   const [creatingBusy, setCreatingBusy] = useState(false);
+  const [createParentId, setCreateParentId] = useState<string | null>(null);
 
   const paths = useMemo(() => pathMap(flat), [flat]);
   const byId = useMemo(() => new Map(flat.map((c) => [c.id, c])), [flat]);
@@ -89,10 +90,11 @@ export default function CollectionPicker({
     if (!name || !onCreateCollection) return;
     setCreatingBusy(true);
     try {
-      const collection = await onCreateCollection(name, null);
+      const collection = await onCreateCollection(name, createParentId);
       onChange(collection.id);
       setQ("");
       setNewName("");
+      setCreateParentId(null);
       setCreating(false);
       setOpen(false);
     } finally {
@@ -166,6 +168,18 @@ export default function CollectionPicker({
                     }
                   }}
                 />
+                <select
+                  className="create-parent-select"
+                  value={createParentId ?? ""}
+                  onChange={(e) => setCreateParentId(e.target.value || null)}
+                >
+                  <option value="">Top-level</option>
+                  {flat.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {paths.get(c.id) ?? c.name}
+                    </option>
+                  ))}
+                </select>
                 <div className="create-actions">
                   <button
                     type="button"
@@ -173,6 +187,7 @@ export default function CollectionPicker({
                     onClick={() => {
                       setCreating(false);
                       setNewName("");
+                      setCreateParentId(null);
                     }}
                     disabled={creatingBusy}
                   >
@@ -195,6 +210,7 @@ export default function CollectionPicker({
                 onClick={() => {
                   setCreating(true);
                   setNewName(q.trim());
+                  setCreateParentId(null);
                 }}
               >
                 + New collection
@@ -281,6 +297,14 @@ export default function CollectionPicker({
           flex-direction: column;
           gap: 6px;
           margin-bottom: 4px;
+        }
+        .create-parent-select {
+          font-size: 12px;
+          padding: 4px 6px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg);
+          color: var(--color-text);
         }
         .create-actions {
           display: flex;

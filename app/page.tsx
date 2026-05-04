@@ -273,6 +273,23 @@ export default function Home() {
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
+
+  // Handle ?add=<url> param from extension redirect.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const addUrl = params.get("add");
+    if (addUrl) {
+      setDefaultAddUrl(addUrl);
+      setShowAdd(true);
+      // Clean the URL without reloading.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("add");
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
 
   // Listen for smart collection builder events from Sidebar.
   useEffect(() => {
@@ -2291,8 +2308,9 @@ export default function Home() {
           flat={flat}
           tree={tree}
           defaultCollectionId={defaultCollectionForAdd}
+          defaultUrl={defaultAddUrl}
           onCreateCollection={handleCreateCollection}
-          onClose={() => setShowAdd(false)}
+          onClose={() => { setShowAdd(false); setDefaultAddUrl(null); }}
           onCreated={handleBookmarkCreated}
         />
       )}
