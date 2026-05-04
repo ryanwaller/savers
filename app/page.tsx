@@ -108,7 +108,18 @@ export default function Home() {
     return allBookmarks;
   }, [allBookmarks, selection, smartCollections]);
 
-  const [sortBy, setSortBy] = useState<"date" | "collection">("date");
+  const [sortBy, setSortBy] = useState<"date" | "collection">(() => {
+    if (typeof window === "undefined") return "date";
+    try {
+      const raw = window.localStorage.getItem("savers.sortBy");
+      if (raw === "date" || raw === "collection") return raw;
+    } catch { /* ignore */ }
+    return "date";
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sortBy", sortBy); } catch { /* ignore */ }
+  }, [sortBy]);
   const [showSortMenu, setShowSortMenu] = useState(false);
 
   const collectionNameMap = useMemo(() => {

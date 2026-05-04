@@ -108,10 +108,43 @@ export default function Sidebar({
   onDeleteSmartCollection,
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [collectionsExpanded, setCollectionsExpanded] = useState(true);
-  const [smartCollectionsExpanded, setSmartCollectionsExpanded] = useState(true);
+  const [collectionsExpanded, setCollectionsExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.collectionsExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.collectionsExpanded", String(collectionsExpanded)); } catch { /* ignore */ }
+  }, [collectionsExpanded]);
+
+  const [smartCollectionsExpanded, setSmartCollectionsExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.smartCollectionsExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.smartCollectionsExpanded", String(smartCollectionsExpanded)); } catch { /* ignore */ }
+  }, [smartCollectionsExpanded]);
+
   const [smartMenuOpen, setSmartMenuOpen] = useState<string | null>(null);
-  const [tagsExpanded, setTagsExpanded] = useState(true);
+
+  const [tagsExpanded, setTagsExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.tagsExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.tagsExpanded", String(tagsExpanded)); } catch { /* ignore */ }
+  }, [tagsExpanded]);
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
   const [rootNestHover, setRootNestHover] = useState(false);
   const rootNestTimerRef = useRef<number | null>(null);
