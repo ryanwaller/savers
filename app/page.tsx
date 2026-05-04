@@ -2822,7 +2822,7 @@ export default function Home() {
           font-size: 12px;
           font-weight: 600;
           color: var(--color-text-muted);
-          padding: 16px 8px 8px;
+          padding: 12px 8px 8px;
           line-height: 17px;
         }
         .top-right {

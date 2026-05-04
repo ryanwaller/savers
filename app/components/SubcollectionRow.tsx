@@ -95,8 +95,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
       <style jsx>{`
         .sub-row-wrapper {
           position: relative;
-          margin-top: 24px;
-          padding-top: 8px;
+          margin-top: 0;
           margin-bottom: 12px;
           padding-left: 20px;
           padding-right: 20px;
