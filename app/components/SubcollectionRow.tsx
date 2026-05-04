@@ -96,13 +96,13 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
         .sub-row-wrapper {
           position: relative;
           margin-top: 0;
-          margin-bottom: 20px;
+          margin-bottom: 0;
           padding-left: 20px;
           padding-right: 20px;
         }
         @media (max-width: 768px) {
           .sub-row-wrapper {
-            margin-bottom: 12px;
+            margin-bottom: 0;
             padding-left: 12px;
             padding-right: 12px;
           }
