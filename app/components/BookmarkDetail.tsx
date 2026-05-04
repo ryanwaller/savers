@@ -1094,7 +1094,6 @@ export default function BookmarkDetail({
           background: rgba(0, 0, 0, 0.28);
           display: flex;
           justify-content: flex-end;
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
           z-index: 50;
         }
         .panel {

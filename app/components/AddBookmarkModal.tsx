@@ -78,6 +78,44 @@ export default function AddBookmarkModal({
     return Array.from(set).sort();
   }, [existingBookmarks]);
 
+  const collectionPaths = useMemo(() => {
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const cache = new Map<string, string>();
+    function resolve(id: string): string {
+      if (cache.has(id)) return cache.get(id)!;
+      const c = byId.get(id);
+      if (!c) return "";
+      const p = c.parent_id ? `${resolve(c.parent_id)} / ${c.name}` : c.name;
+      cache.set(id, p);
+      return p;
+    }
+    for (const c of flat) resolve(c.id);
+    return cache;
+  }, [flat]);
+
+  const collectionDepths = useMemo(() => {
+    const depths = new Map<string, number>();
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    for (const c of flat) {
+      let depth = 0;
+      let cur: Collection | undefined = c;
+      while (cur?.parent_id) {
+        depth++;
+        cur = byId.get(cur.parent_id);
+        if (!cur) break;
+      }
+      depths.set(c.id, depth);
+    }
+    return depths;
+  }, [flat]);
+
+  const sortedCollections = useMemo(
+    () => [...flat].sort((a, b) =>
+      (collectionPaths.get(a.id) || "").localeCompare(collectionPaths.get(b.id) || "")
+    ),
+    [flat, collectionPaths]
+  );
+
   const currentTagPart = useMemo(() => {
     if (!tags) return "";
     const parts = tags.split(",");
@@ -635,18 +673,31 @@ export default function AddBookmarkModal({
                     </div>
                   )}
                 </div>
-                <select
-                  className="create-parent-select"
-                  value={inlineCreateParentId ?? ""}
-                  onChange={(e) => setInlineCreateParentId(e.target.value || null)}
-                >
-                  <option value="">None</option>
-                  {flat.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="parent-tree-list">
+                  <button
+                    type="button"
+                    className={`parent-tree-opt ${inlineCreateParentId === null ? "on" : ""}`}
+                    onClick={() => setInlineCreateParentId(null)}
+                  >
+                    No Parent
+                  </button>
+                  {sortedCollections.map((c) => {
+                    const depth = collectionDepths.get(c.id) ?? 0;
+                    const isChild = depth > 0;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`parent-tree-opt ${inlineCreateParentId === c.id ? "on" : ""} ${isChild ? "child" : "parent"}`}
+                        style={{ paddingLeft: isChild ? `${8 + depth * 16}px` : undefined }}
+                        onClick={() => setInlineCreateParentId(c.id)}
+                        title={collectionPaths.get(c.id)}
+                      >
+                        {isChild ? `↳ ${c.name}` : c.name}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="inline-actions">
                   <button
                     type="button"
@@ -872,7 +923,6 @@ export default function AddBookmarkModal({
           background: rgba(0, 0, 0, 0.28);
           display: flex;
           justify-content: flex-end;
-          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 8px);
           z-index: 50;
         }
         .modal {
@@ -1054,12 +1104,36 @@ export default function AddBookmarkModal({
           border-radius: var(--radius-sm);
           background: var(--color-bg-secondary);
         }
-        .create-parent-select {
-          font-size: 12px;
-          padding: 4px 6px;
+        .parent-tree-list {
+          max-height: 180px;
+          overflow-y: auto;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           background: var(--color-bg);
+        }
+        .parent-tree-opt {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 5px 8px;
+          font-size: 12px;
+          border-radius: 3px;
+          color: var(--color-text);
+        }
+        .parent-tree-opt:hover {
+          background: var(--color-bg-hover);
+        }
+        .parent-tree-opt.on {
+          background: var(--color-bg-active);
+        }
+        .parent-tree-opt.parent {
+          font-weight: 600;
+        }
+        .parent-tree-opt.child {
+          color: var(--color-text-muted);
+        }
+        .parent-tree-opt.child:hover,
+        .parent-tree-opt.child.on {
           color: var(--color-text);
         }
         .error {

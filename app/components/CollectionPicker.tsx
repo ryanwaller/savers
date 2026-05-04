@@ -168,18 +168,31 @@ export default function CollectionPicker({
                     }
                   }}
                 />
-                <select
-                  className="create-parent-select"
-                  value={createParentId ?? ""}
-                  onChange={(e) => setCreateParentId(e.target.value || null)}
-                >
-                  <option value="">None</option>
-                  {flat.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {paths.get(c.id) ?? c.name}
-                    </option>
-                  ))}
-                </select>
+                <div className="parent-tree-list">
+                  <button
+                    type="button"
+                    className={`parent-tree-opt ${createParentId === null ? "on" : ""}`}
+                    onClick={() => setCreateParentId(null)}
+                  >
+                    No Parent
+                  </button>
+                  {sorted.map((c) => {
+                    const depth = depthMap.get(c.id) ?? 0;
+                    const isChild = depth > 0;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        className={`parent-tree-opt ${createParentId === c.id ? "on" : ""} ${isChild ? "child" : "parent"}`}
+                        style={{ paddingLeft: isChild ? `${8 + depth * 16}px` : undefined }}
+                        onClick={() => setCreateParentId(c.id)}
+                        title={paths.get(c.id)}
+                      >
+                        {isChild ? `↳ ${c.name}` : c.name}
+                      </button>
+                    );
+                  })}
+                </div>
                 <div className="create-actions">
                   <button
                     type="button"
@@ -298,12 +311,36 @@ export default function CollectionPicker({
           gap: 6px;
           margin-bottom: 4px;
         }
-        .create-parent-select {
-          font-size: 12px;
-          padding: 4px 6px;
+        .parent-tree-list {
+          max-height: 180px;
+          overflow-y: auto;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           background: var(--color-bg);
+        }
+        .parent-tree-opt {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 5px 8px;
+          font-size: 12px;
+          border-radius: 3px;
+          color: var(--color-text);
+        }
+        .parent-tree-opt:hover {
+          background: var(--color-bg-hover);
+        }
+        .parent-tree-opt.on {
+          background: var(--color-bg-active);
+        }
+        .parent-tree-opt.parent {
+          font-weight: 600;
+        }
+        .parent-tree-opt.child {
+          color: var(--color-text-muted);
+        }
+        .parent-tree-opt.child:hover,
+        .parent-tree-opt.child.on {
           color: var(--color-text);
         }
         .create-actions {
