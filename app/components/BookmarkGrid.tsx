@@ -101,6 +101,7 @@ export default function BookmarkGrid({
             onTagClick={onTagClick}
             cardMinWidth={cardMinWidth}
             mobileCols={mobileCols}
+            desktopCols={desktopCols}
             isEditMode={isEditMode}
             isSelected={selectedIds?.has(b.id) ?? false}
             onToggleSelect={onToggleSelect}
@@ -155,6 +156,7 @@ function BookmarkCard({
   onTagClick,
   cardMinWidth,
   mobileCols,
+  desktopCols,
   isEditMode,
   isSelected,
   onToggleSelect,
@@ -170,6 +172,7 @@ function BookmarkCard({
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
   mobileCols?: number;
+  desktopCols?: number;
   isEditMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
@@ -800,7 +803,7 @@ function BookmarkCard({
               )}
               <span className="host small muted">{host}</span>
             </div>
-            {b.description && <div className="desc small muted">{b.description}</div>}
+            {b.description && (desktopCols ?? 0) < 6 && <div className="desc small muted">{b.description}</div>}
           </div>
         </div>
       </div>
@@ -1305,10 +1308,10 @@ function BookmarkCard({
           transform: translateY(-1px);
         }
         .body {
-          padding: 14px 14px 16px;
+          padding: 18px 14px 14px;
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
           flex: 1;
           text-align: left;
           cursor: pointer;
@@ -1342,7 +1345,7 @@ function BookmarkCard({
         .body-button {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 4px;
           align-items: stretch;
           text-align: left;
           width: 100%;
