@@ -180,6 +180,7 @@ function BookmarkCard({
   // On the smallest mobile preset (3 cols) there's no room for both a pin
   // button and the overflow menu, so the pin moves into the menu.
   const collapseActions = (mobileCols ?? 0) >= 3;
+  const isCompact = (desktopCols ?? 0) >= 6;
 
   const w = cardMinWidth ?? 300;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
@@ -581,7 +582,7 @@ function BookmarkCard({
           )}
         </button>
       )}
-      <div className="card" title={b.title ?? b.url}>
+      <div className={`card${isCompact ? " card-compact" : ""}`} title={b.title ?? b.url}>
         <div className="thumb-wrap">
           <a
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
@@ -1317,6 +1318,13 @@ function BookmarkCard({
           cursor: pointer;
           background: var(--color-bg-secondary);
         }
+        .card-compact .body {
+          flex: 0 0 auto;
+          padding: 12px 12px 12px;
+        }
+        .card-compact .title {
+          -webkit-line-clamp: 2;
+        }
         @media (max-width: 768px) {
           .body {
             padding: 8px 10px 10px;
@@ -1345,10 +1353,13 @@ function BookmarkCard({
         .body-button {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 2px;
           align-items: stretch;
           text-align: left;
           width: 100%;
+        }
+        .body-button > .meta {
+          margin-top: 4px;
         }
         .title {
           font-size: 12px;
