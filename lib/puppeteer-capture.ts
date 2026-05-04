@@ -99,13 +99,15 @@ export async function captureTextExcerptImage(
   try {
     await page.setViewport({ width: 1280, height: 800, deviceScaleFactor: 1 });
 
-    // Sizing math: viewport is 1280×800 and the rendered card thumb is
-    // ~350px wide, so px-in-template × (350/1280) ≈ px-on-card.
-    //   • 66px font  → ~18px on card (comfortably readable serif)
-    //   • 88px pad   → ~24px on card
-    //   • 1.4 line-height keeps a serif at this size easy to scan
-    //   • clamp at 6 lines: 6 × 66 × 1.4 = 555px of content, fits inside
-    //     800 − 88×2 = 624px of available height with breathing room.
+    // Sizing math: viewport is 1280×800, card thumb is ~350px wide, so
+    // px-in-template × (350/1280) ≈ px-on-card.
+    //   • 52px font   → ~14px on card (kept at prior size)
+    //   • 90px pad    → ~25px on card
+    //   • 1.2 line-height (tightened leading per design)
+    //   • Letter + word spacing nudges the bold serif toward an editorial
+    //     feel without making it feel airy.
+    //   • Clamp at 8 lines: 8 × 52 × 1.2 = 499px of content, fits inside
+    //     800 − 90×2 = 620px of available height with comfortable slack.
     //
     // CRITICAL: html and body must explicitly fill the viewport. Without
     // explicit `height: 100%` on both, the body collapses to its content
@@ -117,10 +119,11 @@ export async function captureTextExcerptImage(
 <head><meta charset="utf-8"></head>
 <body style="margin:0;width:100%;height:100%;background:#000;color:#fff;
   font-family:'Times New Roman',Times,serif;
-  font-size:66px;font-weight:700;line-height:1.4;padding:88px;
+  font-size:52px;font-weight:700;line-height:1.2;padding:90px;
+  letter-spacing:0.01em;word-spacing:0.04em;
   display:flex;align-items:center;justify-content:center;
   box-sizing:border-box;">
-  <div style="display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;max-width:1100px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
+  <div style="display:-webkit-box;-webkit-line-clamp:8;-webkit-box-orient:vertical;overflow:hidden;max-width:1100px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
 
