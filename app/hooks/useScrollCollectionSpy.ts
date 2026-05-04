@@ -1,58 +1,85 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
 
-export function useScrollCollectionSpy(enabled: boolean) {
+interface UseScrollCollectionSpyOptions {
+  enabled: boolean;
+  scrollContainerRef?: React.RefObject<HTMLElement | null>;
+  collectionIds: string[];
+}
+
+export function useScrollCollectionSpy({
+  enabled,
+  scrollContainerRef,
+  collectionIds,
+}: UseScrollCollectionSpyOptions) {
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
-  const visibleMapRef = useRef<Map<Element, boolean>>(new Map());
+  const sectionsRef = useRef<Map<string, Element>>(new Map());
 
   useEffect(() => {
-    if (typeof window === "undefined" || !enabled) return;
+    if (!enabled || collectionIds.length === 0) {
+      setActiveCollection(null);
+      return;
+    }
 
-    const handleIntersect = (entries: IntersectionObserverEntry[]) => {
-      for (const entry of entries) {
-        visibleMapRef.current.set(entry.target, entry.isIntersecting);
-      }
+    const scrollContainer = scrollContainerRef?.current || document.querySelector(".content");
 
-      let topmost: Element | null = null;
-      let topmostTop = Infinity;
+    if (!scrollContainer) {
+      console.warn("⚠️ Scroll spy: .content container not found, using viewport");
+    }
 
-      for (const [el, visible] of visibleMapRef.current) {
-        if (!visible) continue;
-        const top = el.getBoundingClientRect().top;
-        if (top < topmostTop) {
-          topmostTop = top;
-          topmost = el;
+    console.log("🔍 Initializing scroll spy for collections:", collectionIds);
+
+    if (observerRef.current) {
+      observerRef.current.disconnect();
+    }
+
+    observerRef.current = new IntersectionObserver(
+      (entries) => {
+        console.log("📍 IntersectionObserver fired:", entries.length, "entries");
+
+        const visible = entries.filter((e) => e.isIntersecting);
+
+        if (visible.length === 0) {
+          console.log("📍 No visible sections");
+          setActiveCollection(null);
+          return;
         }
+
+        const sorted = visible.sort((a, b) => {
+          return a.boundingClientRect.top - b.boundingClientRect.top;
+        });
+
+        const topmost = sorted[0].target.getAttribute("data-collection-path");
+        console.log("📍 Active collection:", topmost);
+        setActiveCollection(topmost);
+      },
+      {
+        root: scrollContainer || null,
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: 0,
+      },
+    );
+
+    let observedCount = 0;
+    collectionIds.forEach((id) => {
+      const section = document.querySelector(`[data-collection="${id}"]`);
+      if (section) {
+        sectionsRef.current.set(id, section);
+        observerRef.current!.observe(section);
+        observedCount++;
+      } else {
+        console.warn(`⚠️ Section not found for collection: ${id}`);
       }
-
-      setActiveCollection(
-        topmost ? topmost.getAttribute("data-collection") || null : null,
-      );
-    };
-
-    const root = document.querySelector(".content");
-
-    observerRef.current = new IntersectionObserver(handleIntersect, {
-      root,
-      rootMargin: "0px 0px 0px 0px",
-      threshold: 0,
     });
 
-    const observe = () => {
-      const sections = document.querySelectorAll("[data-collection]");
-      for (const el of sections) observerRef.current?.observe(el);
-    };
-    observe();
-
-    const mo = new MutationObserver(observe);
-    mo.observe(document.body, { childList: true, subtree: true });
+    console.log(`✅ Observing ${observedCount} of ${collectionIds.length} sections`);
 
     return () => {
       observerRef.current?.disconnect();
-      mo.disconnect();
+      sectionsRef.current.clear();
     };
-  }, [enabled]);
+  }, [enabled, collectionIds, scrollContainerRef]);
 
   return activeCollection;
 }

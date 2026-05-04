@@ -117,6 +117,27 @@ export default function Home() {
     return map;
   }, [flat]);
 
+  const collectionById = useMemo(() => {
+    const map = new Map(flat.map((c) => [c.id, c]));
+    return map;
+  }, [flat]);
+
+  const buildCollectionPath = useCallback(
+    (collectionId: string | null): string => {
+      if (!collectionId) return "Uncategorized";
+      const parts: string[] = [];
+      let id: string | null = collectionId;
+      while (id) {
+        const c = collectionById.get(id);
+        if (!c) break;
+        parts.unshift(c.name);
+        id = c.parent_id;
+      }
+      return parts.join(" > ");
+    },
+    [collectionById],
+  );
+
   const sortedBookmarks = useMemo(() => {
     if (sortBy === "date") {
       return [...bookmarks].sort(
@@ -137,7 +158,7 @@ export default function Home() {
 
   const groupedBookmarks = useMemo(() => {
     if (!isGroupedView) return null;
-    const groups: { collectionId: string; collectionName: string; bookmarks: Bookmark[] }[] = [];
+    const groups: { collectionId: string; collectionName: string; path: string; bookmarks: Bookmark[] }[] = [];
     const seen = new Map<string, number>();
     for (const b of sortedBookmarks) {
       const cid = b.collection_id || "__uncategorized__";
@@ -146,13 +167,23 @@ export default function Home() {
         groups[seen.get(cid)!].bookmarks.push(b);
       } else {
         seen.set(cid, groups.length);
-        groups.push({ collectionId: cid, collectionName: name, bookmarks: [b] });
+        groups.push({
+          collectionId: cid,
+          collectionName: name,
+          path: buildCollectionPath(b.collection_id),
+          bookmarks: [b],
+        });
       }
     }
     return groups;
-  }, [isGroupedView, sortedBookmarks, collectionNameMap]);
+  }, [isGroupedView, sortedBookmarks, collectionNameMap, buildCollectionPath]);
 
-  const scrollCollection = useScrollCollectionSpy(isGroupedView);
+  const contentRef = useRef<HTMLElement>(null);
+  const scrollCollection = useScrollCollectionSpy({
+    enabled: isGroupedView,
+    scrollContainerRef: contentRef,
+    collectionIds: groupedBookmarks?.map((g) => g.collectionId) || [],
+  });
 
   const tagCounts = useMemo(() => {
     if (selection.kind === "all") return globalTagCounts;
@@ -1816,7 +1847,19 @@ export default function Home() {
               {isGroupedView && scrollCollection && (
                 <span className="crumb" key="scroll-spy">
                   <span className="sep">›</span>
-                  <span className="crumb-label scroll-collection-label">{scrollCollection}</span>
+                  {scrollCollection.split(" > ").map((part, i, arr) => {
+                    const isLast = i === arr.length - 1;
+                    return (
+                      <span key={i} className="crumb-path-segment">
+                        {i > 0 && <span className="sep">›</span>}
+                        <span
+                          className={`crumb-label ${isLast ? "scroll-collection-label" : ""}`}
+                        >
+                          {part}
+                        </span>
+                      </span>
+                    );
+                  })}
                 </span>
               )}
               {activeTag && (
@@ -1932,7 +1975,7 @@ export default function Home() {
           </div>
         </header>
 
-        <section className="content">
+        <section ref={contentRef} className="content">
           {loadError && (
             <div className="load-error small" role="alert">
               <span className="load-error-msg">{loadError}</span>
@@ -1955,7 +1998,7 @@ export default function Home() {
           )}
           {isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
-              <section key={group.collectionId} data-collection={group.collectionName}>
+              <section key={group.collectionId} data-collection={group.collectionId} data-collection-path={group.path}>
                 <div className="collection-group-header">{group.collectionName}</div>
                 <BookmarkGrid
                   bookmarks={group.bookmarks}
@@ -2739,8 +2782,14 @@ export default function Home() {
           color: var(--color-text);
         }
         .sep { color: var(--color-text-faint); font-size: 12px; }
+        .crumb-path-segment {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
         .scroll-collection-label {
           animation: fadeSlideIn 200ms ease;
+          will-change: transform, opacity;
         }
         @keyframes fadeSlideIn {
           from { opacity: 0; transform: translateY(4px); }
