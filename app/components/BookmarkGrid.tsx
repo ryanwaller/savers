@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
@@ -20,41 +20,6 @@ import ConfirmDialog from "./ConfirmDialog";
 const DESKTOP_GAP_PX = 20;
 const DESKTOP_PADDING_X_PX = 20;
 
-/**
- * Track the container's clientWidth via ResizeObserver. We need a stable
- * pixel measurement to compute deterministic column counts for the grid;
- * relying on CSS auto-fill makes Framer Motion's FLIP measurements unstable.
- */
-function useElementWidth<T extends HTMLElement>(): [
-  React.RefObject<T | null>,
-  number,
-] {
-  const ref = useRef<T | null>(null);
-  const [width, setWidth] = useState(0);
-
-  useLayoutEffect(() => {
-    const node = ref.current;
-    if (!node) return;
-    setWidth(node.clientWidth);
-    if (typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        // Use contentBoxSize when available (skips padding); fall back to
-        // contentRect.width which is also content-box on modern browsers.
-        const contentWidth = Array.isArray(entry.contentBoxSize)
-          ? entry.contentBoxSize[0]?.inlineSize ?? entry.contentRect.width
-          : entry.contentRect.width;
-        if (typeof contentWidth === "number") {
-          setWidth(contentWidth);
-        }
-      }
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
-  return [ref, width];
-}
 
 type Props = {
   bookmarks: Bookmark[];
@@ -67,7 +32,8 @@ type Props = {
   onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
-  cardCols?: number;
+  desktopCols?: number;
+  mobileCols?: number;
   loading?: boolean;
   emptyLabel?: string;
   isEditMode?: boolean;
@@ -86,43 +52,22 @@ export default function BookmarkGrid({
   onClearCustomPreview,
   onTagClick,
   cardMinWidth,
-  cardCols,
+  desktopCols,
+  mobileCols,
   loading,
   emptyLabel,
   isEditMode,
   selectedIds,
   onToggleSelect,
 }: Props) {
-  const [gridRef, containerWidth] = useElementWidth<HTMLDivElement>();
-
-  // Compute desktop grid template as an explicit pixel string. We never rely
-  // on CSS variables or `auto-fill` here — those introduce parser-dependent
-  // behaviors that break Framer Motion's FLIP measurements.
-  //
-  // Contract: when (containerWidth + gap) / (cardMinWidth + gap) yields N
-  // columns of (cardMinWidth)px, every track is a deterministic pixel value.
-  const desktopTemplate = useMemo(() => {
-    if (!cardMinWidth || containerWidth === 0) return null;
-    const innerWidth = Math.max(0, containerWidth - DESKTOP_PADDING_X_PX * 2);
-    const trackPlusGap = cardMinWidth + DESKTOP_GAP_PX;
-    const cols = Math.max(
-      1,
-      Math.floor((innerWidth + DESKTOP_GAP_PX) / trackPlusGap)
-    );
-    return `repeat(${cols}, ${cardMinWidth}px)`;
-  }, [containerWidth, cardMinWidth]);
+  const gridRef = useRef<HTMLDivElement | null>(null);
 
   const gridStyle: CSSProperties = {
-    // Mobile branch: --card-cols is consumed by the @media block below.
-    // We keep the variable here so existing mobile tests/styles continue to work.
-    ...(cardCols ? ({ "--card-cols": String(cardCols) } as CSSProperties) : null),
-    ...(desktopTemplate
-      ? ({
-          // CSS custom property carries the computed value into the @media
-          // (min-width: 769px) rule. We set it as a property so we can also
-          // inspect it from JS / dev tools.
-          "--desktop-grid-template": desktopTemplate,
-        } as CSSProperties)
+    ...(desktopCols
+      ? ({ "--desktop-grid-cols": String(desktopCols) } as CSSProperties)
+      : null),
+    ...(mobileCols
+      ? ({ "--mobile-grid-cols": String(mobileCols) } as CSSProperties)
       : null),
   };
 
@@ -155,7 +100,7 @@ export default function BookmarkGrid({
             onClearCustomPreview={() => onClearCustomPreview(b.id)}
             onTagClick={onTagClick}
             cardMinWidth={cardMinWidth}
-            cardCols={cardCols}
+            mobileCols={mobileCols}
             isEditMode={isEditMode}
             isSelected={selectedIds?.has(b.id) ?? false}
             onToggleSelect={onToggleSelect}
@@ -168,21 +113,18 @@ export default function BookmarkGrid({
       <style jsx>{`
         .grid {
           display: grid;
-          /* JS-computed deterministic tracks; no auto-fill, no var() in repeat() */
-          grid-template-columns: var(--desktop-grid-template, repeat(1, 1fr));
+          grid-template-columns: repeat(var(--desktop-grid-cols, 4), minmax(0, 1fr));
           gap: ${DESKTOP_GAP_PX}px;
           padding: ${DESKTOP_PADDING_X_PX}px;
           padding-bottom: 80px;
         }
         .grid-cell {
-          /* Cards fill their explicit pixel track. Required so FLIP's
-             snapshot dimensions match the post-layout dimensions. */
           width: 100%;
           min-width: 0;
         }
         @media (max-width: 768px) {
           .grid {
-            grid-template-columns: repeat(var(--card-cols, 2), minmax(0, 1fr));
+            grid-template-columns: repeat(var(--mobile-grid-cols, 2), minmax(0, 1fr));
             padding: 12px;
             padding-bottom: 80px;
             gap: 12px;
@@ -212,7 +154,7 @@ function BookmarkCard({
   onClearCustomPreview,
   onTagClick,
   cardMinWidth,
-  cardCols,
+  mobileCols,
   isEditMode,
   isSelected,
   onToggleSelect,
@@ -227,14 +169,14 @@ function BookmarkCard({
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
-  cardCols?: number;
+  mobileCols?: number;
   isEditMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
 }) {
   // On the smallest mobile preset (3 cols) there's no room for both a pin
   // button and the overflow menu, so the pin moves into the menu.
-  const collapseActions = (cardCols ?? 0) >= 3;
+  const collapseActions = (mobileCols ?? 0) >= 3;
 
   const w = cardMinWidth ?? 300;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;

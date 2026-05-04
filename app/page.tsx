@@ -225,25 +225,33 @@ export default function Home() {
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const CARD_SIZES = ["s", "m", "l", "xl"] as const;
   type CardSize = (typeof CARD_SIZES)[number];
+  // Desktop: choose column count, let cards stretch with 1fr.
+  const CARD_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
+    s: 6,
+    m: 4,
+    l: 3,
+    xl: 2,
+  };
+  // Mobile: fewer columns due to narrow viewport.
+  const CARD_SIZE_MOBILE_COLS: Record<CardSize, number> = {
+    s: 3,
+    m: 2,
+    l: 1,
+    xl: 1,
+  };
   const CARD_SIZE_PX: Record<CardSize, number> = {
     s: 220,
     m: 300,
     l: 380,
     xl: 480,
   };
-  // Mobile column counts: S = 3 across, M = 2 across, L/XL = 1 across.
-  const CARD_SIZE_COLS: Record<CardSize, number> = {
-    s: 3,
-    m: 2,
-    l: 1,
-    xl: 1,
-  };
   const [cardSize, setCardSize] = useState<CardSize>("m");
   const cardMinWidth = CARD_SIZE_PX[cardSize];
-  const cardCols = CARD_SIZE_COLS[cardSize];
+  const desktopCols = CARD_SIZE_DESKTOP_COLS[cardSize];
+  const mobileCols = CARD_SIZE_MOBILE_COLS[cardSize];
   useEffect(() => {
-    console.log("Grid updated:", { cardSize, cardMinWidth, cardCols });
-  }, [cardSize, cardMinWidth, cardCols]);
+    console.log("Grid updated:", { cardSize, cardMinWidth, desktopCols, mobileCols });
+  }, [cardSize, cardMinWidth, desktopCols, mobileCols]);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdRef = useRef<string | null>(null);
@@ -2036,7 +2044,8 @@ export default function Home() {
                   onClearCustomPreview={handleClearCustomPreview}
                   onTagClick={handleCardTagClick}
                   cardMinWidth={cardMinWidth}
-                  cardCols={cardCols}
+                  desktopCols={desktopCols}
+                  mobileCols={mobileCols}
                   loading={loadingBookmarks}
                   isEditMode={isEditMode}
                   selectedIds={selectedIds}
@@ -2075,7 +2084,8 @@ export default function Home() {
               onClearCustomPreview={handleClearCustomPreview}
               onTagClick={handleCardTagClick}
               cardMinWidth={cardMinWidth}
-              cardCols={cardCols}
+              desktopCols={desktopCols}
+              mobileCols={mobileCols}
               loading={loadingBookmarks}
               isEditMode={isEditMode}
               selectedIds={selectedIds}
