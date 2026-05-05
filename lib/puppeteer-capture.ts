@@ -141,11 +141,11 @@ export async function captureTextExcerptImage(
 </style></head>
 <body style="margin:0;width:100%;height:100%;background:#000;color:#fff;
   font-family:'Times New Roman Bold','Times New Roman',Times,serif;
-  font-size:52px;font-weight:700;line-height:1.2;padding:90px;
+  font-size:52px;font-weight:700;line-height:1.2;padding:80px;
   letter-spacing:0.03em;word-spacing:0.08em;
   display:flex;align-items:flex-start;
   box-sizing:border-box;">
-  <div style="display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
+  <div style="display:-webkit-box;-webkit-line-clamp:10;-webkit-box-orient:vertical;overflow:hidden;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
 
