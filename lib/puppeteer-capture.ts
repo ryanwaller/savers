@@ -120,7 +120,7 @@ export async function captureTextExcerptImage(
 <html style="margin:0;height:100%;">
 <head><meta charset="utf-8"></head>
 <body style="margin:0;width:100%;height:100%;background:#000;color:#fff;
-  font-family:'Times New Roman',Times,serif;
+  font-family:'Liberation Serif','Times New Roman',Times,serif;
   font-size:52px;font-weight:700;line-height:1.2;padding:90px;
   letter-spacing:0.03em;word-spacing:0.08em;
   display:flex;align-items:flex-start;
