@@ -46,6 +46,7 @@ COPY package*.json ./
 RUN npm ci --omit=dev
 
 COPY . .
+COPY font/ /app/font/
 
 ENV NODE_ENV=production
 

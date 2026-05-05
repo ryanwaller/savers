@@ -1,8 +1,19 @@
+import { readFileSync } from "fs";
+import { resolve } from "path";
 import type { Browser } from "puppeteer";
 import { captureCleanScreenshot } from "./captureCleanScreenshot";
 import { getSaversUserAgent, normalizeUrl } from "./site-url";
 
 const USER_AGENT = getSaversUserAgent();
+
+// Cache the embedded font as base64 so we only read it once.
+let _fontBase64: string | null = null;
+function getFontBase64(): string {
+  if (_fontBase64) return _fontBase64;
+  const fontPath = resolve(process.cwd(), "font", "TimesNRSevenMTStd-Bold.otf");
+  _fontBase64 = readFileSync(fontPath).toString("base64");
+  return _fontBase64;
+}
 
 export const PUPPETEER_LAUNCH_OPTIONS = {
   headless: true,
@@ -116,11 +127,20 @@ export async function captureTextExcerptImage(
     // height, the flex centering happens in that tiny box at the top-left,
     // and the rest of the viewport is blank — text appears as a thumbnail
     // crammed into the corner of an otherwise empty 1280×800 screenshot.
+    const fontBase64 = getFontBase64();
     const html = `<!DOCTYPE html>
 <html style="margin:0;height:100%;">
-<head><meta charset="utf-8"></head>
+<head><meta charset="utf-8">
+<style>
+  @font-face {
+    font-family: 'Times New Roman Bold';
+    src: url(data:font/opentype;base64,${fontBase64}) format('opentype');
+    font-weight: 700;
+    font-style: normal;
+  }
+</style></head>
 <body style="margin:0;width:100%;height:100%;background:#000;color:#fff;
-  font-family:'Liberation Serif','Times New Roman',Times,serif;
+  font-family:'Times New Roman Bold','Times New Roman',Times,serif;
   font-size:52px;font-weight:700;line-height:1.2;padding:90px;
   letter-spacing:0.03em;word-spacing:0.08em;
   display:flex;align-items:flex-start;
