@@ -125,7 +125,7 @@ export async function captureTextExcerptImage(
   letter-spacing:0.03em;word-spacing:0.08em;
   display:flex;align-items:flex-start;
   box-sizing:border-box;">
-  <div style="display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;max-width:800px;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
+  <div style="display:-webkit-box;-webkit-line-clamp:9;-webkit-box-orient:vertical;overflow:hidden;text-align:left;margin:0;">${escapeHtml(excerpt)}</div>
 </body>
 </html>`;
 
