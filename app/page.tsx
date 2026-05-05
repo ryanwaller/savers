@@ -3090,6 +3090,7 @@ export default function Home() {
           flex: 1;
           overflow-y: auto;
           overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
           min-height: 0;
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
         }

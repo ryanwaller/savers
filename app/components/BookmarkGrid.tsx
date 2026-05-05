@@ -61,6 +61,13 @@ export default function BookmarkGrid({
   onToggleSelect,
 }: Props) {
   const gridRef = useRef<HTMLDivElement | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const check = () => setIsMobile(window.innerWidth < 768);
+    check();
+    window.addEventListener("resize", check, { passive: true });
+    return () => window.removeEventListener("resize", check);
+  }, []);
 
   const gridStyle: CSSProperties = {
     ...(desktopCols
@@ -82,32 +89,54 @@ export default function BookmarkGrid({
 
   return (
     <div className="grid" ref={gridRef} style={gridStyle}>
-      {bookmarks.map((b) => (
-        <motion.div
-          key={b.id}
-          layout="position"
-          transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
-          className="grid-cell"
-        >
-          <BookmarkCard
-            b={b}
-            onEdit={() => onOpenBookmark(b)}
-            onDelete={() => onDeleteBookmark(b.id)}
-            onPatchBookmark={onPatchBookmark}
-            onPin={() => onPinBookmark(b.id, !b.pinned)}
-            onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
-            onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
-            onClearCustomPreview={() => onClearCustomPreview(b.id)}
-            onTagClick={onTagClick}
-            cardMinWidth={cardMinWidth}
-            mobileCols={mobileCols}
-            desktopCols={desktopCols}
-            isEditMode={isEditMode}
-            isSelected={selectedIds?.has(b.id) ?? false}
-            onToggleSelect={onToggleSelect}
-          />
-        </motion.div>
-      ))}
+      {bookmarks.map((b) =>
+        isMobile ? (
+          <div key={b.id} className="grid-cell">
+            <BookmarkCard
+              b={b}
+              onEdit={() => onOpenBookmark(b)}
+              onDelete={() => onDeleteBookmark(b.id)}
+              onPatchBookmark={onPatchBookmark}
+              onPin={() => onPinBookmark(b.id, !b.pinned)}
+              onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
+              onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
+              onClearCustomPreview={() => onClearCustomPreview(b.id)}
+              onTagClick={onTagClick}
+              cardMinWidth={cardMinWidth}
+              mobileCols={mobileCols}
+              desktopCols={desktopCols}
+              isEditMode={isEditMode}
+              isSelected={selectedIds?.has(b.id) ?? false}
+              onToggleSelect={onToggleSelect}
+            />
+          </div>
+        ) : (
+          <motion.div
+            key={b.id}
+            layout="position"
+            transition={{ type: "spring", stiffness: 420, damping: 36, mass: 0.9 }}
+            className="grid-cell"
+          >
+            <BookmarkCard
+              b={b}
+              onEdit={() => onOpenBookmark(b)}
+              onDelete={() => onDeleteBookmark(b.id)}
+              onPatchBookmark={onPatchBookmark}
+              onPin={() => onPinBookmark(b.id, !b.pinned)}
+              onRefreshPreview={(version) => onRefreshPreview(b.id, version)}
+              onUploadCustomPreview={(file) => onUploadCustomPreview(b.id, file)}
+              onClearCustomPreview={() => onClearCustomPreview(b.id)}
+              onTagClick={onTagClick}
+              cardMinWidth={cardMinWidth}
+              mobileCols={mobileCols}
+              desktopCols={desktopCols}
+              isEditMode={isEditMode}
+              isSelected={selectedIds?.has(b.id) ?? false}
+              onToggleSelect={onToggleSelect}
+            />
+          </motion.div>
+        )
+      )}
       {!loading && bookmarks.length === 0 && (
         <div className="empty">{emptyLabel ?? "Nothing here yet."}</div>
       )}
@@ -316,6 +345,16 @@ function BookmarkCard({
     event.stopPropagation();
     setMenuOpen(false);
     onEdit();
+  }
+
+  function handleVisit(event: { stopPropagation: () => void; preventDefault?: () => void }) {
+    event.stopPropagation();
+    event.preventDefault?.();
+    if (isNativeShell()) {
+      void openExternalLink(b.url);
+      return;
+    }
+    window.open(b.url, "_blank", "noopener,noreferrer");
   }
 
   async function handleReloadPreview(event: { stopPropagation: () => void }) {
@@ -585,20 +624,10 @@ function BookmarkCard({
       )}
       <div className={`card${isCompact ? " card-compact" : ""}`} title={b.title ?? b.url} data-bookmark-id={b.id}>
         <div className="thumb-wrap">
-          <a
+          <div
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
-            href={b.url}
-            target="_blank"
-            rel="noopener noreferrer"
             draggable={false}
             style={{ background: tint }}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (isNativeShell()) {
-                event.preventDefault();
-                void openExternalLink(b.url);
-              }
-            }}
             onDragEnter={handlePreviewDragEnter}
             onDragOver={handlePreviewDragOver}
             onDragLeave={handlePreviewDragLeave}
@@ -647,7 +676,23 @@ function BookmarkCard({
                 <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
-          </a>
+            <span className="thumb-actions" aria-hidden={dropActive || uploadingPreview || coverPending}>
+              <button
+                type="button"
+                className="thumb-pill thumb-pill-primary"
+                onClick={handleVisit}
+              >
+                Visit
+              </button>
+              <button
+                type="button"
+                className="thumb-pill thumb-pill-secondary"
+                onClick={handleEdit}
+              >
+                Edit
+              </button>
+            </span>
+          </div>
 
           {/* Broken link overlay — outside the <a> tag so clicks don't navigate */}
           {b.link_status === "broken" && brokenStatus !== "verified_active" && (
@@ -891,6 +936,9 @@ function BookmarkCard({
           background: var(--color-bg);
           height: auto;
           width: 100%;
+          contain: layout style;
+          will-change: transform;
+          transform: translateZ(0);
           transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
         }
         .card:hover {
@@ -913,6 +961,18 @@ function BookmarkCard({
         @media (hover: none) {
           .card:active {
             transform: scale(0.97);
+          }
+        }
+        @media (max-width: 768px) {
+          .card {
+            contain: none;
+            will-change: auto;
+            transform: none;
+            transition: border-color 120ms ease;
+          }
+          .card:hover {
+            transform: none;
+            box-shadow: none;
           }
         }
         .select-btn {
@@ -1120,7 +1180,8 @@ function BookmarkCard({
         @media (hover: hover) {
           .card-shell:hover .thumb :global(img),
           .card-shell:focus-within .thumb :global(img) {
-            transform: scale(1.04);
+            transform: scale(1.03);
+            filter: blur(10px);
           }
         }
         @media (prefers-reduced-motion: reduce) {
@@ -1170,6 +1231,55 @@ function BookmarkCard({
           font-size: 12px;
           line-height: 17px;
           box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+        }
+        .thumb-actions {
+          position: absolute;
+          inset: 0;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+          opacity: 0;
+          pointer-events: none;
+          transition: opacity 180ms ease;
+          background: color-mix(in srgb, var(--color-bg) 22%, transparent);
+        }
+        .thumb-pill {
+          height: 36px;
+          min-width: 84px;
+          padding: 0 16px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          color: var(--color-text);
+          font-size: 12px;
+          line-height: 17px;
+          pointer-events: auto;
+          backdrop-filter: blur(12px);
+          -webkit-backdrop-filter: blur(12px);
+          box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+        .thumb-pill:hover {
+          border-color: var(--color-border-strong);
+          background: var(--color-bg);
+        }
+        .thumb-pill-primary {
+          background: color-mix(in srgb, var(--color-bg) 96%, transparent);
+        }
+        .thumb-pill-secondary {
+          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+        }
+        @media (hover: hover) {
+          .card-shell:hover .thumb-actions,
+          .card-shell:focus-within .thumb-actions {
+            opacity: 1;
+          }
+        }
+        @media (hover: none) {
+          .thumb-actions {
+            display: none;
+          }
         }
         .broken-overlay {
           position: absolute;
