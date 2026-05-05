@@ -211,8 +211,8 @@ function BookmarkCard({
   // button and the overflow menu, so the pin moves into the menu.
   const collapseActions = (mobileCols ?? 0) >= 3;
   const isCompact = (desktopCols ?? 0) >= 6;
-
   const w = cardMinWidth ?? 300;
+  const stackBrokenPrimary = w <= 260 || isCompact || collapseActions;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -235,13 +235,51 @@ function BookmarkCard({
   const [brokenActionOpen, setBrokenActionOpen] = useState(false);
   const [verifyingBroken, setVerifyingBroken] = useState(false);
   const actionsRef = useRef<HTMLDivElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
+  const brokenDismissTimerRef = useRef<number | null>(null);
   const coverPending =
     b.screenshot_status === "pending" || b.screenshot_status === "processing";
 
   useEffect(() => {
     setBrokenStatus(b.broken_status);
   }, [b.broken_status]);
+
+  function clearBrokenDismissTimer() {
+    if (brokenDismissTimerRef.current !== null) {
+      window.clearTimeout(brokenDismissTimerRef.current);
+      brokenDismissTimerRef.current = null;
+    }
+  }
+
+  function scheduleBrokenDismiss(delay = 700) {
+    clearBrokenDismissTimer();
+    brokenDismissTimerRef.current = window.setTimeout(() => {
+      setBrokenActionOpen(false);
+      brokenDismissTimerRef.current = null;
+    }, delay);
+  }
+
+  useEffect(() => {
+    return () => {
+      clearBrokenDismissTimer();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!brokenActionOpen || typeof IntersectionObserver === "undefined" || !cardRef.current) return;
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry?.isIntersecting) {
+          clearBrokenDismissTimer();
+          setBrokenActionOpen(false);
+        }
+      },
+      { threshold: 0.15 }
+    );
+    observer.observe(cardRef.current);
+    return () => observer.disconnect();
+  }, [brokenActionOpen]);
 
   // Close the card menu on any click outside .actions (or Escape).
   useEffect(() => {
@@ -595,7 +633,24 @@ function BookmarkCard({
   }
 
   return (
-    <div className="card-shell">
+      <div
+        ref={cardRef}
+        className="card-shell"
+        onMouseEnter={() => clearBrokenDismissTimer()}
+        onMouseLeave={() => {
+          if (brokenActionOpen) scheduleBrokenDismiss();
+        }}
+        onFocus={() => clearBrokenDismissTimer()}
+        onBlur={(event) => {
+          if (
+            brokenActionOpen &&
+            event.currentTarget instanceof HTMLElement &&
+            !event.currentTarget.contains(event.relatedTarget as Node | null)
+          ) {
+            scheduleBrokenDismiss(500);
+          }
+        }}
+      >
       <ConfirmDialog
         open={confirmDeleteOpen}
         title={`Delete "${b.title || host}"?`}
@@ -678,7 +733,11 @@ function BookmarkCard({
               </span>
             )}
             <span
-              className={`thumb-actions${brokenActionOpen ? " thumb-actions-hidden" : ""}`}
+              className={`thumb-actions${brokenActionOpen ? " thumb-actions-hidden" : ""}${
+                stackBrokenPrimary && b.link_status === "broken" && brokenStatus !== "verified_active"
+                  ? " thumb-actions-broken-stacked"
+                  : ""
+              }`}
               aria-hidden={dropActive || uploadingPreview || coverPending || brokenActionOpen}
             >
               {b.link_status === "broken" &&
@@ -696,20 +755,22 @@ function BookmarkCard({
                     Broken
                   </button>
                 )}
-              <button
-                type="button"
-                className="pill-btn thumb-pill thumb-pill-primary"
-                onClick={handleVisit}
-              >
-                Visit
-              </button>
-              <button
-                type="button"
-                className="pill-btn thumb-pill thumb-pill-secondary"
-                onClick={handleEdit}
-              >
-                Edit
-              </button>
+              <span className="thumb-actions-row">
+                <button
+                  type="button"
+                  className="pill-btn thumb-pill thumb-pill-primary"
+                  onClick={handleVisit}
+                >
+                  Visit
+                </button>
+                <button
+                  type="button"
+                  className="pill-btn thumb-pill thumb-pill-secondary"
+                  onClick={handleEdit}
+                >
+                  Edit
+                </button>
+              </span>
             </span>
           </div>
 
@@ -1258,6 +1319,16 @@ function BookmarkCard({
           pointer-events: none;
           transition: opacity 180ms ease;
           background: color-mix(in srgb, var(--color-bg) 22%, transparent);
+        }
+        .thumb-actions-row {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          gap: 10px;
+        }
+        .thumb-actions-broken-stacked {
+          flex-direction: column;
+          gap: 8px;
         }
         .thumb-actions-hidden {
           opacity: 0 !important;
