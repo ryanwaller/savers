@@ -278,7 +278,7 @@ export default function SmartCollectionBuilderModal({
       return (
         <button
           type="button"
-          className={`boolean-toggle ${condition.value ? "on" : ""}`}
+          className={`pill-btn pill-btn-sm boolean-toggle ${condition.value ? "on" : ""}`}
           onClick={() => setCondition(index, { value: !condition.value })}
         >
           {condition.value ? "Yes" : "No"}
@@ -306,7 +306,7 @@ export default function SmartCollectionBuilderModal({
               <button
                 key={p.value}
                 type="button"
-                className={`date-preset ${condition.value === p.value ? "active" : ""}`}
+                className={`pill-btn pill-btn-sm date-preset ${condition.value === p.value ? "active" : ""}`}
                 onClick={() => setCondition(index, { value: p.value })}
               >
                 {p.label}
@@ -342,7 +342,7 @@ export default function SmartCollectionBuilderModal({
             <Funnel size={14} />
             <span>{isEdit ? "Edit smart collection" : "New smart collection"}</span>
           </div>
-          <button className="close" onClick={onClose} aria-label="Close">
+          <button className="icon-btn close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -393,14 +393,14 @@ export default function SmartCollectionBuilderModal({
             <div className="group-op-toggle">
               <button
                 type="button"
-                className={`group-op-btn ${groupOp === "and" ? "active" : ""}`}
+                className={`pill-btn pill-btn-sm group-op-btn ${groupOp === "and" ? "active" : ""}`}
                 onClick={() => setGroupOp("and")}
               >
                 ALL
               </button>
               <button
                 type="button"
-                className={`group-op-btn ${groupOp === "or" ? "active" : ""}`}
+                className={`pill-btn pill-btn-sm group-op-btn ${groupOp === "or" ? "active" : ""}`}
                 onClick={() => setGroupOp("or")}
               >
                 ANY
@@ -456,7 +456,7 @@ export default function SmartCollectionBuilderModal({
             ))}
           </div>
 
-          <button className="add-cond-btn" onClick={addCondition}>
+          <button className="pill-btn pill-btn-dashed add-cond-btn" onClick={addCondition}>
             + Add condition
           </button>
 
@@ -482,10 +482,10 @@ export default function SmartCollectionBuilderModal({
             )}
           </div>
           <div className="foot-right">
-            <button className="cancel-btn" onClick={onClose} disabled={saving}>
+            <button className="btn cancel-btn" onClick={onClose} disabled={saving}>
               Cancel
             </button>
-            <button className="save-btn" onClick={save} disabled={saving}>
+            <button className="btn btn-primary save-btn" onClick={save} disabled={saving}>
               {saving ? "Saving…" : isEdit ? "Save changes" : "Create smart collection"}
             </button>
           </div>
@@ -529,22 +529,10 @@ export default function SmartCollectionBuilderModal({
           gap: 8px;
         }
         .close {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {
-          border-color: var(--color-border-strong);
           color: var(--color-text);
         }
         .body {
@@ -565,19 +553,7 @@ export default function SmartCollectionBuilderModal({
         .icon-btn {
           width: 36px;
           height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text-muted);
-          cursor: pointer;
           flex-shrink: 0;
-        }
-        .icon-btn:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
         }
         .icon-picker-wrap {
           position: absolute;
@@ -616,22 +592,16 @@ export default function SmartCollectionBuilderModal({
         }
         .group-op-toggle {
           display: inline-flex;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          overflow: hidden;
+          align-items: center;
+          gap: 6px;
         }
         .group-op-btn {
-          padding: 4px 10px;
-          font-size: 12px;
           font-weight: 600;
-          border: 0;
-          background: var(--color-bg-secondary);
-          color: var(--color-text-muted);
-          cursor: pointer;
         }
         .group-op-btn.active {
           background: var(--color-text);
           color: var(--color-bg);
+          border-color: var(--color-text);
         }
         .group-op-sublabel {
           font-size: 12px;
@@ -701,18 +671,6 @@ export default function SmartCollectionBuilderModal({
         }
         .add-cond-btn {
           align-self: flex-start;
-          padding: 4px 10px;
-          border: 1px dashed var(--color-border);
-          border-radius: 6px;
-          background: transparent;
-          color: var(--color-text-muted);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
-        }
-        .add-cond-btn:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
         }
         .date-input-row {
           display: flex;
@@ -725,19 +683,7 @@ export default function SmartCollectionBuilderModal({
           gap: 4px;
         }
         .date-preset {
-          padding: 2px 8px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          color: var(--color-text-muted);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
           white-space: nowrap;
-        }
-        .date-preset:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
         }
         .date-preset.active {
           background: var(--color-text);
@@ -745,15 +691,7 @@ export default function SmartCollectionBuilderModal({
           border-color: var(--color-text);
         }
         .boolean-toggle {
-          height: 32px;
-          padding: 0 12px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg-secondary);
-          color: var(--color-text-muted);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
+          min-width: 56px;
         }
         .boolean-toggle.on {
           background: var(--color-text);
@@ -771,30 +709,8 @@ export default function SmartCollectionBuilderModal({
           background: var(--color-bg);
           min-height: 32px;
         }
-        .tag-chip {
-          display: inline-flex;
-          align-items: center;
-          gap: 4px;
-          padding: 2px 8px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          font-size: 12px;
-          color: var(--color-text);
-        }
         .tag-chip-remove {
-          width: 14px;
-          height: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          font-size: 12px;
           color: var(--color-text-muted);
-          cursor: pointer;
-          background: transparent;
-          border: 0;
-          padding: 0;
         }
         .tag-chip-remove:hover {
           color: #d13030;
@@ -835,29 +751,10 @@ export default function SmartCollectionBuilderModal({
         }
         .cancel-btn {
           height: 32px;
-          padding: 0 12px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
-        }
-        .cancel-btn:hover {
-          border-color: var(--color-border-strong);
         }
         .save-btn {
           height: 32px;
-          padding: 0 14px;
-          border: 1px solid transparent;
-          border-radius: 6px;
-          background: var(--color-text);
-          color: var(--color-bg);
-          font: inherit;
-          font-size: 12px;
           font-weight: 500;
-          cursor: pointer;
         }
         .save-btn:hover:not(:disabled) {
           opacity: 0.88;
@@ -918,10 +815,10 @@ function TagValueInput({
   return (
     <div className="tag-input-wrap">
       {tags.map((tag) => (
-        <span key={tag} className="tag-chip">
+        <span key={tag} className="chip tag-chip">
           {tag}
           <button
-            className="tag-chip-remove"
+            className="chip-remove tag-chip-remove"
             onClick={() => removeTag(tag)}
             aria-label={`Remove ${tag}`}
           >
@@ -957,29 +854,10 @@ function TagValueInput({
           min-height: 32px;
         }
         .tag-chip {
-          display: inline-flex;
-          align-items: center;
           gap: 4px;
-          padding: 2px 8px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          font-size: 12px;
-          color: var(--color-text);
         }
         .tag-chip-remove {
-          width: 14px;
-          height: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
-          font-size: 12px;
           color: var(--color-text-muted);
-          cursor: pointer;
-          background: transparent;
-          border: 0;
-          padding: 0;
         }
         .tag-chip-remove:hover {
           color: #d13030;

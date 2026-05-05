@@ -507,7 +507,7 @@ export default function Sidebar({
                       <button
                         key={tag}
                         type="button"
-                        className={`tag-pill ${isActive ? "active" : ""}`}
+                        className={`pill-btn tag-pill ${isActive ? "active" : ""}`}
                         onClick={() =>
                           onTagClick(tag === activeTag ? null : tag)
                         }
@@ -663,26 +663,16 @@ export default function Sidebar({
           padding: 4px 4px 8px;
         }
         .tag-pill {
-          display: inline-flex;
-          align-items: center;
           gap: 6px;
           padding: 4px 10px;
-          border-radius: 999px;
           background: var(--color-bg-secondary);
-          color: var(--color-text);
-          border: 1px solid var(--color-border);
-          font-size: 12px;
-          line-height: 17px;
-          cursor: pointer;
           max-width: 100%;
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
-          transition: background 120ms ease, border-color 120ms ease, transform 180ms ease;
+          transition: transform 180ms ease, background 120ms ease, border-color 120ms ease, color 120ms ease;
         }
         .tag-pill:hover {
-          background: var(--color-bg-hover);
-          border-color: var(--color-border-strong);
           transform: translateX(4px);
         }
         .tag-pill.active {

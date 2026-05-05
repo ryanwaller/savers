@@ -685,7 +685,7 @@ function BookmarkCard({
                 !brokenActionOpen && (
                   <button
                     type="button"
-                    className="thumb-pill thumb-pill-danger"
+                    className="pill-btn thumb-pill thumb-pill-danger"
                     onClick={(e) => {
                       e.stopPropagation();
                       setBrokenActionOpen(true);
@@ -697,14 +697,14 @@ function BookmarkCard({
                 )}
               <button
                 type="button"
-                className="thumb-pill thumb-pill-primary"
+                className="pill-btn thumb-pill thumb-pill-primary"
                 onClick={handleVisit}
               >
                 Visit
               </button>
               <button
                 type="button"
-                className="thumb-pill thumb-pill-secondary"
+                className="pill-btn thumb-pill thumb-pill-secondary"
                 onClick={handleEdit}
               >
                 Edit
@@ -724,7 +724,7 @@ function BookmarkCard({
                   <span className="broken-actions broken-actions-in">
                     <button
                       type="button"
-                    className="thumb-pill broken-pill broken-pill-confirm"
+                    className="pill-btn thumb-pill broken-pill broken-pill-confirm"
                     disabled={verifyingBroken}
                     onClick={(e) => {
                       void handleVerifyBroken("confirm", e);
@@ -734,7 +734,7 @@ function BookmarkCard({
                     </button>
                     <button
                       type="button"
-                      className="thumb-pill broken-pill broken-pill-active"
+                      className="pill-btn thumb-pill broken-pill broken-pill-active"
                       disabled={verifyingBroken}
                       onClick={(e) => {
                         void handleVerifyBroken("dispute", e);
@@ -744,7 +744,7 @@ function BookmarkCard({
                     </button>
                     <button
                       type="button"
-                      className="thumb-pill broken-pill broken-pill-cancel"
+                      className="pill-btn thumb-pill broken-pill broken-pill-cancel"
                       onClick={(e) => {
                         e.stopPropagation();
                         setBrokenActionOpen(false);
@@ -1260,22 +1260,16 @@ function BookmarkCard({
           pointer-events: none;
         }
         .thumb-pill {
-          height: 36px;
+          min-height: 36px;
           min-width: 84px;
           padding: 0 16px;
-          border-radius: 999px;
-          border: 1px solid var(--color-border);
           background: color-mix(in srgb, var(--color-bg) 94%, transparent);
-          color: var(--color-text);
-          font-size: 12px;
-          line-height: 17px;
           pointer-events: auto;
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
         }
         .thumb-pill:hover {
-          border-color: var(--color-border-strong);
           background: var(--color-bg);
         }
         .thumb-pill-primary {
@@ -1351,7 +1345,6 @@ function BookmarkCard({
         }
         .broken-pill-confirm:hover:not(:disabled) {
           background: #dc2626;
-          transform: scale(1.05);
         }
         .broken-pill-active {
           background: #22c55e;
@@ -1359,7 +1352,6 @@ function BookmarkCard({
         }
         .broken-pill-active:hover:not(:disabled) {
           background: #16a34a;
-          transform: scale(1.05);
         }
         .broken-pill-cancel {
           background: color-mix(in srgb, var(--color-bg) 94%, transparent);

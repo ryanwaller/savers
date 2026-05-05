@@ -458,7 +458,7 @@ export default function AddBookmarkModal({
       <div className="modal" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title small muted">Add bookmark</div>
-          <button className="close" onClick={onClose} aria-label="Close">×</button>
+          <button className="icon-btn close" onClick={onClose} aria-label="Close">×</button>
         </div>
 
         <div className="body">
@@ -583,7 +583,7 @@ export default function AddBookmarkModal({
             <div className="inline-actions">
               <button
                 type="button"
-                className="btn btn-small"
+                className="pill-btn pill-btn-sm"
                 onClick={() => void runSuggest()}
                 disabled={!urlReady || aiLoading}
               >
@@ -591,7 +591,7 @@ export default function AddBookmarkModal({
               </button>
               <button
                 type="button"
-                className="btn btn-small"
+                className="pill-btn pill-btn-sm"
                 onClick={() => {
                   setShowCreateCollection((v) => !v);
                   setNewCollectionName("");
@@ -701,7 +701,7 @@ export default function AddBookmarkModal({
                 <div className="inline-actions">
                   <button
                     type="button"
-                    className="btn btn-small"
+                    className="pill-btn pill-btn-sm"
                     onClick={() => void createInlineCollection()}
                     disabled={creatingCollection || !newCollectionName.trim()}
                   >
@@ -709,7 +709,7 @@ export default function AddBookmarkModal({
                   </button>
                   <button
                     type="button"
-                    className="btn btn-small btn-ghost"
+                    className="pill-btn pill-btn-sm pill-btn-secondary"
                     onClick={() => {
                       setShowCreateCollection(false);
                       setNewCollectionName("");
@@ -775,7 +775,7 @@ export default function AddBookmarkModal({
             <div className="ai-actions">
               <button
                 type="button"
-                className="btn btn-small"
+                className="pill-btn pill-btn-sm"
                 onClick={(event) => {
                   event.preventDefault();
                   void runTagSuggest();
@@ -794,7 +794,7 @@ export default function AddBookmarkModal({
             {(tagProposals.length > 0 || tagSuggestStatus) && (
               <div className="tag-proposals">
                 {tagProposals.map((tag) => (
-                  <span key={tag} className="tag-proposal">
+                  <span key={tag} className="chip chip-dashed tag-proposal">
                     <button
                       type="button"
                       className="tag-proposal-add"
@@ -808,7 +808,7 @@ export default function AddBookmarkModal({
                     </button>
                     <button
                       type="button"
-                      className="tag-proposal-skip"
+                      className="chip-remove tag-proposal-skip"
                       aria-label={`Skip ${tag}`}
                       onClick={(event) => {
                         event.preventDefault();
@@ -887,26 +887,19 @@ export default function AddBookmarkModal({
           padding: 4px 0 2px;
         }
         .tag-proposal {
-          display: inline-flex;
-          align-items: stretch;
-          border: 1px dashed var(--color-border-strong);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
+          gap: 0;
+          padding-right: 2px;
           overflow: hidden;
-          line-height: 17px;
         }
         .tag-proposal-add {
-          padding: 4px 8px;
-          font-size: 12px;
+          padding: 0 8px;
           color: var(--color-text);
-          line-height: 17px;
+          line-height: 1;
         }
         .tag-proposal-add:hover {
           background: var(--color-bg-hover);
         }
         .tag-proposal-skip {
-          padding: 0 7px;
-          font-size: 12px;
           color: var(--color-text-muted);
           border-left: 1px dashed var(--color-border-strong);
         }
@@ -952,21 +945,11 @@ export default function AddBookmarkModal({
         }
         .title { font-size: 12px; }
         .close {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text);
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
           flex-shrink: 0;
         }
-        .close:hover { border-color: var(--color-border-strong); }
+        .close:hover { color: var(--color-text); }
         .body {
           padding: 14px 16px;
           display: flex;
@@ -1094,11 +1077,6 @@ export default function AddBookmarkModal({
           flex-wrap: wrap;
           margin-top: 6px;
         }
-        .btn-small {
-          height: 26px;
-          padding: 0 10px;
-          font-size: 12px;
-        }
         .create-wrap {
           display: flex;
           flex-direction: column;
@@ -1180,10 +1158,6 @@ export default function AddBookmarkModal({
           .body :global(select) {
             font-size: 12px;
             padding: 8px 10px;
-          }
-          .btn-small {
-            height: 32px;
-            font-size: 12px;
           }
           .preview {
             flex-direction: column;

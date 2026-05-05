@@ -537,7 +537,7 @@ export default function BookmarkDetail({
 
               return buttons;
             })()}
-            <button className="close" onClick={onClose} aria-label="Close">
+            <button className="icon-btn close" onClick={onClose} aria-label="Close">
               <span className="close-glyph">×</span>
             </button>
           </div>
@@ -837,11 +837,11 @@ export default function BookmarkDetail({
             <div className="label">Tags <span className="small muted">(press Enter)</span></div>
             <div className={`tag-editor ${tagSaving ? "busy" : ""}`}>
               {tags.map((tag) => (
-                <span key={tag} className="tag-pill">
+                <span key={tag} className="chip tag-pill">
                   <span>{tag}</span>
                   <button
                     type="button"
-                    className="tag-pill-remove"
+                    className="chip-remove tag-pill-remove"
                     aria-label={`Remove ${tag}`}
                     onClick={() => void removeTag(tag)}
                     disabled={tagSaving}
@@ -931,7 +931,7 @@ export default function BookmarkDetail({
                 <div className="auto-tags-label">Auto-detected — click to keep</div>
                 <div className="auto-tags-list">
                   {autoTags.map((tag) => (
-                    <span key={tag} className="auto-tag-pill">
+                    <span key={tag} className="chip chip-dashed auto-tag-pill">
                       <button
                         type="button"
                         className="auto-tag-accept"
@@ -961,7 +961,7 @@ export default function BookmarkDetail({
             <div className="ai-actions">
               <button
                 type="button"
-                className="btn btn-small"
+                className="pill-btn pill-btn-sm"
                 onClick={(event) => {
                   event.preventDefault();
                   void runTagSuggest();
@@ -975,7 +975,7 @@ export default function BookmarkDetail({
             {(tagProposals.length > 0 || tagSuggestStatus) && (
               <div className="tag-proposals">
                 {tagProposals.map((tag) => (
-                  <span key={tag} className="tag-proposal">
+                  <span key={tag} className="chip chip-dashed tag-proposal">
                     <button
                       type="button"
                       className="tag-proposal-add"
@@ -989,7 +989,7 @@ export default function BookmarkDetail({
                     </button>
                     <button
                       type="button"
-                      className="tag-proposal-skip"
+                      className="chip-remove tag-proposal-skip"
                       aria-label={`Skip ${tag}`}
                       onClick={(event) => {
                         event.preventDefault();
@@ -1154,17 +1154,7 @@ export default function BookmarkDetail({
         }
         .saved-date { color: var(--color-text); }
         .close {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text);
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
           flex-shrink: 0;
         }
@@ -1173,7 +1163,6 @@ export default function BookmarkDetail({
           line-height: 17px;
           transform: translateY(-1px);
         }
-        .close:hover { border-color: var(--color-border-strong); }
         .body {
           padding: 14px 16px;
           display: flex;
@@ -1328,26 +1317,19 @@ export default function BookmarkDetail({
           padding: 4px 0 2px;
         }
         .tag-proposal {
-          display: inline-flex;
-          align-items: stretch;
-          border: 1px dashed var(--color-border-strong);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
+          gap: 0;
+          padding-right: 2px;
           overflow: hidden;
-          line-height: 17px;
         }
         .tag-proposal-add {
-          padding: 4px 8px;
-          font-size: 12px;
+          padding: 0 8px;
           color: var(--color-text);
-          line-height: 17px;
+          line-height: 1;
         }
         .tag-proposal-add:hover {
           background: var(--color-bg-hover);
         }
         .tag-proposal-skip {
-          padding: 0 7px;
-          font-size: 12px;
           color: var(--color-text-muted);
           border-left: 1px dashed var(--color-border-strong);
         }
@@ -1373,10 +1355,6 @@ export default function BookmarkDetail({
           gap: 4px;
         }
         .auto-tag-pill {
-          display: inline-flex;
-          align-items: center;
-          border-radius: var(--radius-sm);
-          border: 1px dashed var(--color-border);
           overflow: hidden;
         }
         .auto-tag-accept {
@@ -1439,29 +1417,13 @@ export default function BookmarkDetail({
           opacity: 0.8;
         }
         .tag-pill {
-          display: inline-flex;
-          align-items: center;
           gap: 4px;
-          padding: 3px 7px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          color: var(--color-text);
-          line-height: 17px;
         }
         .tag-pill-remove {
-          width: 14px;
-          height: 14px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border-radius: 999px;
           color: var(--color-text-muted);
-          line-height: 17px;
         }
         .tag-pill-remove:hover:not(:disabled) {
           color: var(--color-text);
-          background: var(--color-bg-hover);
         }
         .tag-input {
           width: 100%;

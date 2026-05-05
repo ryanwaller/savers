@@ -123,6 +123,137 @@ textarea { resize: vertical; }
 .btn-ghost:hover { background: var(--color-bg-hover); }
 .btn-ghost:active { transform: scale(0.96); }
 
+.btn-danger {
+  color: #d13030;
+}
+.btn-danger:hover {
+  background: rgba(209, 48, 48, 0.08);
+  border-color: rgba(209, 48, 48, 0.2);
+}
+
+.btn-sm {
+  height: 26px;
+  padding: 0 10px;
+}
+
+.pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 140ms ease;
+}
+.pill-btn:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+}
+.pill-btn:active {
+  background: var(--color-bg-active);
+  transform: scale(0.96);
+}
+.pill-btn-primary {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-color: var(--color-text);
+}
+.pill-btn-primary:hover {
+  opacity: 0.9;
+}
+.pill-btn-primary:active {
+  opacity: 0.82;
+}
+.pill-btn-secondary {
+  background: var(--color-bg);
+}
+.pill-btn-danger {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}
+.pill-btn-danger:hover {
+  background: #dc2626;
+  border-color: #dc2626;
+}
+.pill-btn-success {
+  background: #22c55e;
+  color: #fff;
+  border-color: #22c55e;
+}
+.pill-btn-success:hover {
+  background: #16a34a;
+  border-color: #16a34a;
+}
+.pill-btn-dashed {
+  border-style: dashed;
+  background: transparent;
+  color: var(--color-text-muted);
+}
+.pill-btn-dashed:hover {
+  color: var(--color-text);
+}
+.pill-btn-active {
+  background: var(--color-text);
+  color: var(--color-bg);
+  border-color: var(--color-text);
+}
+.pill-btn-sm {
+  min-height: 26px;
+  padding: 0 10px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-height: 24px;
+  padding: 3px 8px;
+  border: 1px solid var(--color-border);
+  border-radius: 999px;
+  background: var(--color-bg-secondary);
+  color: var(--color-text);
+  font-size: 12px;
+  line-height: 17px;
+  white-space: nowrap;
+}
+.chip-interactive {
+  transition: background 120ms ease, border-color 120ms ease, color 120ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.chip-interactive:hover {
+  background: var(--color-bg-hover);
+  border-color: var(--color-border-strong);
+}
+.chip-dashed {
+  border-style: dashed;
+}
+.chip-count {
+  color: var(--color-text-muted);
+  font-feature-settings: "tnum" 1;
+}
+.chip-remove {
+  width: 14px;
+  height: 14px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  color: var(--color-text-muted);
+  line-height: 17px;
+  flex-shrink: 0;
+}
+.chip-remove:hover {
+  color: var(--color-text);
+  background: var(--color-bg-hover);
+}
+
 .kbd {
   display: inline-block;
   padding: 1px 5px;
@@ -282,8 +413,9 @@ textarea { resize: vertical; }
   transform: scaleX(1);
 }
 
-/* Circular action button */
-.circle-btn {
+/* Circular icon button */
+.circle-btn,
+.icon-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -298,30 +430,35 @@ textarea { resize: vertical; }
   flex-shrink: 0;
   transition: background 120ms ease, border-color 120ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
 }
-.circle-btn:hover {
+.circle-btn:hover,
+.icon-btn:hover {
   background: var(--color-bg-hover);
   border-color: var(--color-border-strong);
 }
-.circle-btn:active {
+.circle-btn:active,
+.icon-btn:active {
   transform: scale(0.92);
   background: var(--color-bg-active);
 }
-.circle-btn-primary {
+.circle-btn-primary,
+.icon-btn-primary {
   background: var(--color-text);
   color: var(--color-bg);
   border-color: var(--color-text);
 }
-.circle-btn-primary:hover {
+.circle-btn-primary:hover,
+.icon-btn-primary:hover {
   opacity: 0.88;
 }
-.circle-btn-primary:active {
+.circle-btn-primary:active,
+.icon-btn-primary:active {
   transform: scale(0.92);
   opacity: 0.82;
 }
 
 /* Mobile touch-friendly: all interactive elements get a slight shrink on tap */
 @media (hover: none) {
-  .btn:active, .circle-btn:active, .action-btn:active {
+  .btn:active, .circle-btn:active, .icon-btn:active, .pill-btn:active, .action-btn:active {
     transform: scale(0.92);
   }
 }

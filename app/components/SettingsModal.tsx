@@ -186,7 +186,7 @@ export default function SettingsModal({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title">Settings</div>
-          <button className="close" onClick={onClose} aria-label="Close">
+          <button className="icon-btn close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -391,13 +391,8 @@ export default function SettingsModal({
           font-weight: 600;
         }
         .close {
-          background: transparent;
-          border: 0;
-          font-size: 12px;
-          line-height: 17px;
           color: var(--color-text-muted);
-          cursor: pointer;
-          padding: 4px 8px;
+          padding-bottom: 2px;
         }
         .close:hover {
           color: var(--color-text);

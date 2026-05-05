@@ -114,7 +114,7 @@ export default function SharingModal({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title">Share &ldquo;{collection.name}&rdquo;</div>
-          <button className="close" onClick={onClose} aria-label="Close">
+          <button className="icon-btn close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -147,7 +147,7 @@ export default function SharingModal({
               {shareUrl && (
                 <div className="link-row">
                   <code className="link">{shareUrl}</code>
-                  <button className="copy-btn" onClick={copyLink}>
+                  <button className="btn btn-primary btn-sm copy-btn" onClick={copyLink}>
                     {copied ? "Copied" : "Copy"}
                   </button>
                 </div>
@@ -173,7 +173,7 @@ export default function SharingModal({
                     disabled={saving}
                   />
                   <button
-                    className={`slug-save ${slugDirty ? "" : "idle"}`}
+                    className={`btn btn-sm slug-save ${slugDirty ? "" : "idle"}`}
                     onClick={() => void save(true)}
                     disabled={saving || !slugDirty}
                   >
@@ -200,7 +200,7 @@ export default function SharingModal({
                   disabled={saving}
                 />
                 <button
-                  className={`desc-save ${descDirty ? "" : "idle"}`}
+                  className={`btn btn-sm desc-save ${descDirty ? "" : "idle"}`}
                   onClick={() => void save(true)}
                   disabled={saving || !descDirty}
                 >
@@ -248,22 +248,10 @@ export default function SharingModal({
           font-size: 12px;
         }
         .close {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {
-          border-color: var(--color-border-strong);
           color: var(--color-text);
         }
         .body {
@@ -331,24 +319,8 @@ export default function SharingModal({
           user-select: all;
         }
         .copy-btn {
-          appearance: none;
           flex-shrink: 0;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          height: 34px;
-          padding: 0 12px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-text);
-          color: var(--color-bg);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
           white-space: nowrap;
-        }
-        .copy-btn:hover {
-          opacity: 0.88;
         }
         .field {
           display: flex;
@@ -384,17 +356,13 @@ export default function SharingModal({
           outline: none;
         }
         .slug-save {
-          appearance: none;
           flex-shrink: 0;
-          padding: 0 10px;
           border: 0;
           border-left: 1px solid var(--color-border);
+          border-radius: 0;
           background: var(--color-bg-secondary);
-          color: var(--color-text);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
           white-space: nowrap;
+          min-width: 64px;
         }
         .slug-save:hover:not(:disabled) {
           background: var(--color-bg-hover);
@@ -405,16 +373,7 @@ export default function SharingModal({
           cursor: default;
         }
         .desc-save {
-          appearance: none;
           align-self: flex-end;
-          padding: 4px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 4px;
-          background: var(--color-bg-secondary);
-          color: var(--color-text);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
           margin-top: 4px;
         }
         .desc-save:hover:not(:disabled) {

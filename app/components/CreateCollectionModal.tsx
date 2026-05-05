@@ -58,7 +58,7 @@ export default function CreateCollectionModal({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title">New collection</div>
-          <button className="close" onClick={onClose} aria-label="Close">
+          <button className="icon-btn close" onClick={onClose} aria-label="Close">
             ×
           </button>
         </div>
@@ -106,10 +106,10 @@ export default function CreateCollectionModal({
         </div>
 
         <div className="foot">
-          <button className="cancel-btn" onClick={onClose} disabled={saving}>
+          <button className="btn cancel-btn" onClick={onClose} disabled={saving}>
             Cancel
           </button>
-          <button className="save-btn" onClick={save} disabled={saving}>
+          <button className="btn btn-primary save-btn" onClick={save} disabled={saving}>
             {saving ? "Creating…" : "Create collection"}
           </button>
         </div>
@@ -149,22 +149,10 @@ export default function CreateCollectionModal({
           font-size: 12px;
         }
         .close {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
         }
         .close:hover {
-          border-color: var(--color-border-strong);
           color: var(--color-text);
         }
         .body {
@@ -182,19 +170,7 @@ export default function CreateCollectionModal({
         .icon-btn {
           width: 36px;
           height: 36px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text-muted);
-          cursor: pointer;
           flex-shrink: 0;
-        }
-        .icon-btn:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
         }
         .icon-picker-wrap {
           position: absolute;
@@ -231,30 +207,9 @@ export default function CreateCollectionModal({
           border-top: 1px solid var(--color-border);
         }
         .cancel-btn {
-          height: 32px;
-          padding: 0 12px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font: inherit;
-          font-size: 12px;
-          cursor: pointer;
-        }
-        .cancel-btn:hover {
-          border-color: var(--color-border-strong);
         }
         .save-btn {
-          height: 32px;
-          padding: 0 14px;
-          border: 1px solid transparent;
-          border-radius: 6px;
-          background: var(--color-text);
-          color: var(--color-bg);
-          font: inherit;
-          font-size: 12px;
           font-weight: 500;
-          cursor: pointer;
         }
         .save-btn:hover:not(:disabled) {
           opacity: 0.88;

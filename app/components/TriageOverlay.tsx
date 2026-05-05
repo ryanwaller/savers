@@ -345,7 +345,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     body = (
       <div className="triage-state">
         <p className="triage-error">{step.message}</p>
-        <button onClick={onClose} className="triage-btn">
+        <button onClick={onClose} className="btn">
           Close
         </button>
       </div>
@@ -358,7 +358,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         <p className="muted">
           Nothing left to triage. Your unsorted queue is clear.
         </p>
-        <button className="triage-btn" onClick={onClose}>
+        <button className="btn" onClick={onClose}>
           Close
         </button>
       </div>
@@ -426,7 +426,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
             return (
               <button
                 key={c.id}
-                className={`triage-choice ${isPrimary && !hasOtherSelected ? "primary" : ""} ${isSelected ? "selected" : ""}`}
+                className={`pill-btn triage-choice ${isPrimary && !hasOtherSelected ? "primary" : ""} ${isSelected ? "selected" : ""}`}
                 onClick={() => setSelectedCollection(isSelected ? null : c)}
                 title={pathFor(c.id) ?? c.name}
               >
@@ -451,10 +451,10 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
 
         <div className="triage-tag-row">
           {tags.map((tag) => (
-            <span key={tag} className="triage-tag-pill">
+            <span key={tag} className="chip triage-tag-pill">
               <span>{tag}</span>
               <button
-                className="triage-tag-remove"
+                className="chip-remove triage-tag-remove"
                 onClick={() => removeTag(tag)}
                 aria-label={`Remove tag ${tag}`}
               >
@@ -468,7 +468,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
             .map((tag) => (
               <button
                 key={`suggest-${tag}`}
-                className="triage-tag-suggest"
+                className="pill-btn pill-btn-dashed triage-tag-suggest"
                 onClick={() => {
                   setTags((prev) =>
                     prev.includes(tag) ? prev : [...prev, tag]
@@ -481,7 +481,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           {tagSuggestions.map((tag) => (
             <button
               key={`auto-${tag}`}
-              className="triage-tag-autocomplete"
+              className="pill-btn triage-tag-autocomplete"
               onMouseDown={(e) => {
                 e.preventDefault();
                 commitTagInput(tag);
@@ -556,7 +556,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
               </span>
             )}
             <button
-              className="triage-close"
+              className="icon-btn triage-close"
               onClick={onClose}
               aria-label="Close"
             >
@@ -641,22 +641,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-close {
           appearance: none;
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text);
-          cursor: pointer;
-          font-size: 12px;
-          line-height: 17px;
           padding-bottom: 2px;
-        }
-        .triage-close:hover {
-          border-color: var(--color-border-strong);
         }
         .triage-state {
           padding: 64px 24px;
@@ -739,23 +725,10 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-choice {
           appearance: none;
-          display: inline-flex;
-          align-items: center;
           gap: 8px;
           padding: 7px 12px 7px 6px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text);
           font: inherit;
-          font-size: 12px;
-          line-height: 17px;
-          cursor: pointer;
           transition: border-color 120ms ease, background 120ms ease;
-        }
-        .triage-choice:hover {
-          border-color: var(--color-border-strong);
-          background: var(--color-bg-hover);
         }
         .triage-choice.primary {
           background: var(--color-text);
@@ -802,24 +775,11 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           align-items: center;
         }
         .triage-tag-pill {
-          display: inline-flex;
-          align-items: center;
           gap: 4px;
-          padding: 7px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg-secondary);
-          font-size: 12px;
-          line-height: 17px;
         }
         .triage-tag-remove {
           appearance: none;
-          background: transparent;
-          border: 0;
           color: var(--color-text-muted);
-          cursor: pointer;
-          font-size: 12px;
-          line-height: 17px;
           padding: 0;
         }
         .triage-tag-remove:hover {
@@ -827,41 +787,11 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-tag-suggest {
           appearance: none;
-          display: inline-flex;
-          align-items: center;
-          padding: 7px 10px;
-          border: 1px dashed var(--color-border);
-          border-radius: 999px;
-          background: transparent;
-          color: var(--color-text-muted);
           font: inherit;
-          font-size: 12px;
-          line-height: 17px;
-          cursor: pointer;
-        }
-        .triage-tag-suggest:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
-          background: var(--color-bg-hover);
         }
         .triage-tag-autocomplete {
           appearance: none;
-          display: inline-flex;
-          align-items: center;
-          padding: 7px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
           color: var(--color-text-muted);
-          font: inherit;
-          font-size: 12px;
-          line-height: 17px;
-          cursor: pointer;
-        }
-        .triage-tag-autocomplete:hover {
-          border-color: var(--color-border-strong);
-          color: var(--color-text);
-          background: var(--color-bg-hover);
         }
         .triage-tag-input {
           flex: 1 1 100%;

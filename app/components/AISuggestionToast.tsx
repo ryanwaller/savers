@@ -62,7 +62,7 @@ export default function AISuggestionToast({
             Confidence: {suggestion.confidence}
           </div>
         </div>
-        <button className="close" onClick={onDismiss} aria-label="Dismiss">×</button>
+        <button className="icon-btn close" onClick={onDismiss} aria-label="Dismiss">×</button>
       </div>
 
       {!picking ? (
@@ -146,9 +146,7 @@ export default function AISuggestionToast({
         .em { font-weight: 500; }
         .close {
           color: var(--color-text-muted);
-          font-size: 12px;
-          line-height: 17px;
-          padding: 0 4px;
+          padding-bottom: 2px;
         }
         .close:hover { color: var(--color-text); }
         .actions { display: flex; gap: 6px; flex-wrap: wrap; }
