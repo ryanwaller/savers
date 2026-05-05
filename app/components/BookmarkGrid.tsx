@@ -583,7 +583,7 @@ function BookmarkCard({
           )}
         </button>
       )}
-      <div className={`card${isCompact ? " card-compact" : ""}`} title={b.title ?? b.url}>
+      <div className={`card${isCompact ? " card-compact" : ""}`} title={b.title ?? b.url} data-bookmark-id={b.id}>
         <div className="thumb-wrap">
           <a
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}

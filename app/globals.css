@@ -325,3 +325,17 @@ textarea { resize: vertical; }
     transform: scale(0.92);
   }
 }
+
+/* Deep link highlight pulse for bookmark cards */
+@keyframes highlight-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.5); }
+  50% { box-shadow: 0 0 0 10px rgba(59, 130, 246, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+}
+
+.highlight-pulse {
+  animation: highlight-pulse 2s ease-out;
+  position: relative;
+  z-index: 10;
+  border-radius: var(--radius);
+}

@@ -274,22 +274,55 @@ export default function Home() {
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
+  const [deepLinkBookmarkId, setDeepLinkBookmarkId] = useState<string | null>(null);
+  const deepLinkHandledRef = useRef<string | null>(null);
 
-  // Handle ?add=<url> param from extension redirect.
+  // Handle ?add=<url> and ?bookmark=<id> params from extension redirect.
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const addUrl = params.get("add");
+    const bookmarkId = params.get("bookmark");
+
     if (addUrl) {
       setDefaultAddUrl(addUrl);
       setShowAdd(true);
-      // Clean the URL without reloading.
+    }
+
+    if (bookmarkId) {
+      setDeepLinkBookmarkId(bookmarkId);
+      setSelection({ kind: "all" });
+    }
+
+    // Clean the URL without reloading.
+    if (addUrl || bookmarkId) {
       const url = new URL(window.location.href);
       url.searchParams.delete("add");
+      url.searchParams.delete("bookmark");
       url.searchParams.delete("token");
       window.history.replaceState({}, "", url.toString());
     }
   }, []);
+
+  // Deep link: scroll to and highlight a bookmark by ID.
+  useEffect(() => {
+    if (!deepLinkBookmarkId || deepLinkHandledRef.current === deepLinkBookmarkId) return;
+    if (allBookmarks.length === 0) return;
+
+    const id = deepLinkBookmarkId;
+    const timer = setTimeout(() => {
+      const card = document.querySelector(`[data-bookmark-id="${id}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.classList.add("highlight-pulse");
+        setTimeout(() => card.classList.remove("highlight-pulse"), 3000);
+        deepLinkHandledRef.current = id;
+      }
+      setDeepLinkBookmarkId(null);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [deepLinkBookmarkId, allBookmarks]);
 
   // Listen for smart collection builder events from Sidebar.
   useEffect(() => {

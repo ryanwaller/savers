@@ -10,16 +10,38 @@ export default function SavePage() {
     const sourceUrl = params.get("u") || document.referrer;
 
     if (!sourceUrl) {
-      // Redirect to home without add param — user will see the empty add dialog or just the app
       window.location.replace("/");
       return;
     }
 
-    // Redirect to the main app with the URL pre-filled in the Add Bookmark modal.
-    const target = new URL("/", window.location.origin);
-    target.searchParams.set("add", sourceUrl);
-    if (token) target.searchParams.set("token", token);
-    window.location.replace(target.toString());
+    // Try to save the bookmark directly, then deep-link to its card.
+    async function saveAndRedirect() {
+      try {
+        const res = await fetch("/api/bookmarks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: sourceUrl }),
+        });
+
+        if (res.ok) {
+          const { bookmark } = await res.json();
+          const target = new URL("/", window.location.origin);
+          target.searchParams.set("bookmark", bookmark.id);
+          window.location.replace(target.toString());
+          return;
+        }
+      } catch {
+        // Fall through to the add flow on network errors.
+      }
+
+      // Fallback: redirect to the Add Bookmark modal with URL pre-filled.
+      const target = new URL("/", window.location.origin);
+      target.searchParams.set("add", sourceUrl);
+      if (token) target.searchParams.set("token", token);
+      window.location.replace(target.toString());
+    }
+
+    void saveAndRedirect();
   }, []);
 
   return null;
