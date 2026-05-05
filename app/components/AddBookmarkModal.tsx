@@ -977,6 +977,11 @@ export default function AddBookmarkModal({
           flex: 1;
         }
         .field { display: flex; flex-direction: column; gap: 5px; }
+        .field input,
+        .field textarea {
+          width: 100%;
+          box-sizing: border-box;
+        }
         .label { font-size: 12px; color: var(--color-text-muted); }
         .hint { margin-top: 2px; }
         .preview {
