@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { LinkBreak, PushPin } from "@phosphor-icons/react";
+import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import {
   api,
@@ -677,6 +677,21 @@ function BookmarkCard({
               </span>
             )}
             <span className="thumb-actions" aria-hidden={dropActive || uploadingPreview || coverPending}>
+              {b.link_status === "broken" &&
+                brokenStatus !== "verified_active" &&
+                !brokenActionOpen && (
+                  <button
+                    type="button"
+                    className="thumb-pill thumb-pill-danger"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setBrokenActionOpen(true);
+                    }}
+                    aria-label="Broken link — view options"
+                  >
+                    Broken
+                  </button>
+                )}
               <button
                 type="button"
                 className="thumb-pill thumb-pill-primary"
@@ -695,35 +710,18 @@ function BookmarkCard({
           </div>
 
           {/* Broken link overlay — outside the <a> tag so clicks don't navigate */}
-          {b.link_status === "broken" && brokenStatus !== "verified_active" && (
+          {b.link_status === "broken" &&
+            brokenStatus !== "verified_active" &&
+            brokenActionOpen && (
             <span className="broken-overlay">
                 {/* Backdrop — click to dismiss */}
-                {brokenActionOpen && (
-                  <span className="broken-backdrop" onClick={() => setBrokenActionOpen(false)} />
-                )}
-
-                {/* Initial: trigger badge */}
-                {!brokenActionOpen && (
-                  <button
-                    type="button"
-                    className={`broken-trigger${isCompact ? " broken-trigger-icon" : ""}`}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setBrokenActionOpen(true);
-                    }}
-                    aria-label="Broken link — view options"
-                  >
-                    <LinkBreak size={14} weight="bold" />
-                    <span className="broken-trigger-text">Broken link</span>
-                  </button>
-                )}
+                <span className="broken-backdrop" onClick={() => setBrokenActionOpen(false)} />
 
                 {/* Action pills */}
-                {brokenActionOpen && (
                   <span className="broken-actions broken-actions-in">
                     <button
                       type="button"
-                    className="broken-pill broken-pill-confirm"
+                    className="thumb-pill broken-pill broken-pill-confirm"
                     disabled={verifyingBroken}
                     onClick={(e) => {
                       void handleVerifyBroken("confirm", e);
@@ -733,7 +731,7 @@ function BookmarkCard({
                     </button>
                     <button
                       type="button"
-                      className="broken-pill broken-pill-active"
+                      className="thumb-pill broken-pill broken-pill-active"
                       disabled={verifyingBroken}
                       onClick={(e) => {
                         void handleVerifyBroken("dispute", e);
@@ -741,8 +739,17 @@ function BookmarkCard({
                     >
                       Still Works
                     </button>
+                    <button
+                      type="button"
+                      className="thumb-pill broken-pill broken-pill-cancel"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBrokenActionOpen(false);
+                      }}
+                    >
+                      Cancel
+                    </button>
                   </span>
-                )}
               </span>
             )}
             {undoPromptOpen && !uploadingPreview && (
@@ -1270,6 +1277,15 @@ function BookmarkCard({
         .thumb-pill-secondary {
           background: color-mix(in srgb, var(--color-bg) 88%, transparent);
         }
+        .thumb-pill-danger {
+          color: #fff;
+          border-color: #ef4444;
+          background: #ef4444;
+        }
+        .thumb-pill-danger:hover {
+          border-color: #dc2626;
+          background: #dc2626;
+        }
         @media (hover: hover) {
           .card-shell:hover .thumb-actions,
           .card-shell:focus-within .thumb-actions {
@@ -1301,43 +1317,13 @@ function BookmarkCard({
           from { opacity: 0; }
           to { opacity: 1; }
         }
-        .broken-trigger {
-          position: relative;
-          z-index: 1;
-          display: inline-flex;
-          align-items: center;
-          gap: 6px;
-          height: 32px;
-          padding: 0 16px;
-          border-radius: 999px;
-          border: none;
-          background: #ef4444;
-          color: #fff;
-          font-size: 12px;
-          font-weight: 500;
-          cursor: pointer;
-          white-space: nowrap;
-          pointer-events: auto;
-        }
-        .broken-trigger:hover {
-          background: #dc2626;
-        }
-        .broken-trigger-icon {
-          width: 32px;
-          padding: 0;
-          justify-content: center;
-          border-radius: 50%;
-        }
-        .broken-trigger-icon .broken-trigger-text {
-          display: none;
-        }
         .broken-actions {
           position: relative;
           z-index: 2;
           display: flex;
-          flex-direction: column;
+          flex-direction: row;
           align-items: center;
-          gap: 8px;
+          gap: 10px;
           animation: brokenActionsIn 200ms ease;
         }
         @keyframes brokenActionsIn {
@@ -1374,6 +1360,16 @@ function BookmarkCard({
         }
         .broken-pill-active:hover:not(:disabled) {
           background: #16a34a;
+          transform: scale(1.05);
+        }
+        .broken-pill-cancel {
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+        }
+        .broken-pill-cancel:hover:not(:disabled) {
+          border-color: var(--color-border-strong);
+          background: var(--color-bg);
           transform: scale(1.05);
         }
         .drop-copy {
