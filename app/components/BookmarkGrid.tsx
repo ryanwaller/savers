@@ -676,7 +676,10 @@ function BookmarkCard({
                 <span className="cover-refresh-copy">Updating cover…</span>
               </span>
             )}
-            <span className="thumb-actions" aria-hidden={dropActive || uploadingPreview || coverPending}>
+            <span
+              className={`thumb-actions${brokenActionOpen ? " thumb-actions-hidden" : ""}`}
+              aria-hidden={dropActive || uploadingPreview || coverPending || brokenActionOpen}
+            >
               {b.link_status === "broken" &&
                 brokenStatus !== "verified_active" &&
                 !brokenActionOpen && (
@@ -1252,6 +1255,10 @@ function BookmarkCard({
           transition: opacity 180ms ease;
           background: color-mix(in srgb, var(--color-bg) 22%, transparent);
         }
+        .thumb-actions-hidden {
+          opacity: 0 !important;
+          pointer-events: none;
+        }
         .thumb-pill {
           height: 36px;
           min-width: 84px;
@@ -1331,16 +1338,8 @@ function BookmarkCard({
           to { opacity: 1; transform: scale(1); }
         }
         .broken-pill {
-          height: 32px;
-          padding: 0 16px;
-          border-radius: 999px;
-          border: none;
-          font-size: 12px;
           font-weight: 500;
-          cursor: pointer;
           white-space: nowrap;
-          pointer-events: auto;
-          transition: all 0.2s ease;
         }
         .broken-pill:disabled {
           opacity: 0.6;
