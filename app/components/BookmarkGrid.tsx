@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { PushPin } from "@phosphor-icons/react";
+import { LinkBreak, PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import {
   api,
@@ -661,14 +661,15 @@ function BookmarkCard({
                 {!brokenActionOpen && (
                   <button
                     type="button"
-                    className="broken-trigger"
+                    className={`broken-trigger${isCompact ? " broken-trigger-icon" : ""}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       setBrokenActionOpen(true);
                     }}
                     aria-label="Broken link — view options"
                   >
-                    Broken link
+                    <LinkBreak size={14} weight="bold" />
+                    <span className="broken-trigger-text">Broken link</span>
                   </button>
                 )}
 
@@ -1193,6 +1194,9 @@ function BookmarkCard({
         .broken-trigger {
           position: relative;
           z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
           height: 32px;
           padding: 0 16px;
           border-radius: 999px;
@@ -1207,6 +1211,15 @@ function BookmarkCard({
         }
         .broken-trigger:hover {
           background: #dc2626;
+        }
+        .broken-trigger-icon {
+          width: 32px;
+          padding: 0;
+          justify-content: center;
+          border-radius: 50%;
+        }
+        .broken-trigger-icon .broken-trigger-text {
+          display: none;
         }
         .broken-actions {
           position: relative;
