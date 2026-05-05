@@ -628,6 +628,7 @@ function BookmarkCard({
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
             draggable={false}
             style={{ background: tint }}
+            onClick={handleVisit}
             onDragEnter={handlePreviewDragEnter}
             onDragOver={handlePreviewDragOver}
             onDragLeave={handlePreviewDragLeave}
@@ -1161,6 +1162,9 @@ function BookmarkCard({
           align-items: center;
           justify-content: center;
         }
+        .thumb-link {
+          cursor: pointer;
+        }
         .thumb.is-drop-active {
           outline: 1px solid color-mix(in srgb, var(--color-text) 18%, transparent);
           outline-offset: -1px;
@@ -1280,11 +1284,11 @@ function BookmarkCard({
         }
         .thumb-pill-danger {
           color: #fff;
-          border-color: #ef4444;
+          border-color: transparent;
           background: #ef4444;
         }
         .thumb-pill-danger:hover {
-          border-color: #dc2626;
+          border-color: transparent;
           background: #dc2626;
         }
         @media (hover: hover) {
@@ -1323,8 +1327,12 @@ function BookmarkCard({
           z-index: 2;
           display: flex;
           flex-direction: row;
+          flex-wrap: wrap;
           align-items: center;
+          justify-content: center;
           gap: 10px;
+          max-width: calc(100% - 24px);
+          padding: 0 12px;
           animation: brokenActionsIn 200ms ease;
         }
         @keyframes brokenActionsIn {
@@ -1334,6 +1342,8 @@ function BookmarkCard({
         .broken-pill {
           font-weight: 500;
           white-space: nowrap;
+          flex: 0 1 auto;
+          max-width: 100%;
         }
         .broken-pill:disabled {
           opacity: 0.6;
@@ -1342,6 +1352,8 @@ function BookmarkCard({
         .broken-pill-confirm {
           background: #ef4444;
           color: #fff;
+          border-color: transparent;
+          box-shadow: none;
         }
         .broken-pill-confirm:hover:not(:disabled) {
           background: #dc2626;
@@ -1349,6 +1361,8 @@ function BookmarkCard({
         .broken-pill-active {
           background: #22c55e;
           color: #fff;
+          border-color: transparent;
+          box-shadow: none;
         }
         .broken-pill-active:hover:not(:disabled) {
           background: #16a34a;
@@ -1362,6 +1376,24 @@ function BookmarkCard({
           border-color: var(--color-border-strong);
           background: var(--color-bg);
           transform: scale(1.05);
+        }
+        @media (max-width: 1100px) {
+          .broken-actions {
+            gap: 8px;
+          }
+          .broken-pill {
+            min-height: 34px;
+            padding: 0 14px;
+          }
+        }
+        @media (max-width: 820px) {
+          .broken-actions {
+            flex-direction: column;
+            width: min(220px, calc(100% - 24px));
+          }
+          .broken-pill {
+            width: 100%;
+          }
         }
         .drop-copy {
           border: 1px solid color-mix(in srgb, var(--color-border-strong) 82%, transparent);
@@ -1541,13 +1573,14 @@ function BookmarkCard({
         }
         .tag {
           font-size: 12px;
-          padding: 4px 8px;
+          padding: 3px 7px;
           border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
           border-radius: 999px;
-          color: var(--color-text);
-          background: color-mix(in srgb, var(--color-bg) 82%, transparent);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          color: var(--color-text-muted);
+          background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
+          box-shadow: none;
         }
         .tag-interactive {
           cursor: pointer;
@@ -1555,17 +1588,17 @@ function BookmarkCard({
         .tag-interactive:hover {
           color: var(--color-text);
           border-color: var(--color-border-strong);
-          background: var(--color-bg);
+          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
         }
         .tag-overflow {
           font-size: 12px;
-          padding: 4px 8px;
+          padding: 3px 7px;
           border: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
           border-radius: 999px;
           color: var(--color-text-muted);
-          background: color-mix(in srgb, var(--color-bg) 82%, transparent);
-          backdrop-filter: blur(8px);
-          -webkit-backdrop-filter: blur(8px);
+          background: color-mix(in srgb, var(--color-bg) 72%, transparent);
+          backdrop-filter: blur(4px);
+          -webkit-backdrop-filter: blur(4px);
           cursor: pointer;
           font-family: inherit;
         }

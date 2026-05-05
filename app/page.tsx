@@ -2081,7 +2081,12 @@ export default function Home() {
           )}
           {isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
-              <section key={group.collectionId} data-collection={group.collectionId} data-collection-path={group.path}>
+              <section
+                key={group.collectionId}
+                className="collection-group-section"
+                data-collection={group.collectionId}
+                data-collection-path={group.path}
+              >
                 <div className="collection-group-header">{group.collectionName}</div>
                 <BookmarkGrid
                   bookmarks={group.bookmarks}
@@ -2881,11 +2886,14 @@ export default function Home() {
           from { opacity: 0; transform: translateY(4px); }
           to { opacity: 1; transform: translateY(0); }
         }
+        .collection-group-section :global(.grid) {
+          padding-top: 20px;
+        }
         .collection-group-header {
           font-size: 12px;
           font-weight: 600;
           color: var(--color-text-muted);
-          padding: 12px 20px 8px;
+          padding: 16px 20px 0;
           line-height: 17px;
         }
         .top-right {
@@ -3095,8 +3103,11 @@ export default function Home() {
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
         }
         @media (max-width: 768px) {
+          .collection-group-section :global(.grid) {
+            padding-top: 12px;
+          }
           .collection-group-header {
-            padding-left: 12px;
+            padding: 14px 12px 0;
           }
           .main {
             overflow-y: auto;
