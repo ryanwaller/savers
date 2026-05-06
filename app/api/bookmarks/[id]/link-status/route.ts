@@ -30,20 +30,38 @@ export async function PATCH(
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { data: bookmark, error } = await supabaseAdmin
+    const updates: Record<string, unknown> = {
+      link_status,
+      broken_status: link_status === "active" ? "verified_active" : null,
+      broken_verified_at:
+        link_status === "active" ? new Date().toISOString() : null,
+      last_link_check: new Date().toISOString(),
+    };
+    // Only set broken_verified_by if the column exists without a failing FK.
+    // (Migration 017 references savers.users(id) which may not exist.)
+    updates.broken_verified_by = link_status === "active" ? user.id : null;
+
+    let result = await supabaseAdmin
       .from("bookmarks")
-      .update({
-        link_status,
-        broken_status: link_status === "active" ? "verified_active" : null,
-        broken_verified_at:
-          link_status === "active" ? new Date().toISOString() : null,
-        broken_verified_by: link_status === "active" ? user.id : null,
-        last_link_check: new Date().toISOString(),
-      })
+      .update(updates)
       .eq("id", bookmarkId)
       .eq("user_id", user.id)
       .select()
       .single();
+
+    // If the FK on broken_verified_by fails, retry without it
+    if (result.error && result.error.message?.includes("broken_verified_by")) {
+      delete updates.broken_verified_by;
+      result = await supabaseAdmin
+        .from("bookmarks")
+        .update(updates)
+        .eq("id", bookmarkId)
+        .eq("user_id", user.id)
+        .select()
+        .single();
+    }
+
+    const { data: bookmark, error } = result;
 
     if (error) {
       console.error(`link-status reset failed: ${error.message}`);

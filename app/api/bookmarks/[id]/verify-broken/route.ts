@@ -34,16 +34,29 @@ export async function POST(
     const now = new Date().toISOString();
 
     if (action === "confirm") {
-      const { error } = await supabaseAdmin
+      const confirmUpdates: Record<string, unknown> = {
+        broken_status: "confirmed_broken",
+        broken_verified_at: now,
+        link_status: "broken",
+      };
+      confirmUpdates.broken_verified_by = user.id;
+
+      let confirmResult = await supabaseAdmin
         .from("bookmarks")
-        .update({
-          broken_status: "confirmed_broken",
-          broken_verified_at: now,
-          broken_verified_by: user.id,
-          link_status: "broken",
-        })
+        .update(confirmUpdates)
         .eq("id", bookmarkId)
         .eq("user_id", user.id);
+
+      if (confirmResult.error && confirmResult.error.message?.includes("broken_verified_by")) {
+        delete confirmUpdates.broken_verified_by;
+        confirmResult = await supabaseAdmin
+          .from("bookmarks")
+          .update(confirmUpdates)
+          .eq("id", bookmarkId)
+          .eq("user_id", user.id);
+      }
+
+      const { error } = confirmResult;
 
       if (error) {
         console.error(`verify-broken confirm failed: ${error.message}`);
@@ -58,16 +71,29 @@ export async function POST(
     }
 
     // dispute
-    const { error } = await supabaseAdmin
+    const updates: Record<string, unknown> = {
+      broken_status: "verified_active",
+      broken_verified_at: now,
+      link_status: "active",
+    };
+    updates.broken_verified_by = user.id;
+
+    let result = await supabaseAdmin
       .from("bookmarks")
-      .update({
-        broken_status: "verified_active",
-        broken_verified_at: now,
-        broken_verified_by: user.id,
-        link_status: "active",
-      })
+      .update(updates)
       .eq("id", bookmarkId)
       .eq("user_id", user.id);
+
+    if (result.error && result.error.message?.includes("broken_verified_by")) {
+      delete updates.broken_verified_by;
+      result = await supabaseAdmin
+        .from("bookmarks")
+        .update(updates)
+        .eq("id", bookmarkId)
+        .eq("user_id", user.id);
+    }
+
+    const { error } = result;
 
     if (error) {
       console.error(`verify-broken dispute failed: ${error.message}`);
