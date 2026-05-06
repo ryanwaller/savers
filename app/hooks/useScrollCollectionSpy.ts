@@ -22,10 +22,14 @@ export function useScrollCollectionSpy({
       return;
     }
 
-    const scrollContainer = scrollContainerRef?.current || document.querySelector(".content");
+    // On mobile (<768px) .main is the scroll container; on desktop it's .content
+    const scrollContainer =
+      scrollContainerRef?.current ||
+      document.querySelector(".main") ||
+      document.querySelector(".content");
 
     if (!scrollContainer) {
-      console.warn("⚠️ Scroll spy: .content container not found, using viewport");
+      console.warn("⚠️ Scroll spy: scroll container not found, using viewport");
     }
 
     console.log("🔍 Initializing scroll spy for collections:", collectionIds);

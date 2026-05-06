@@ -1950,7 +1950,7 @@ export default function Home() {
                 </span>
               ))}
               {isGroupedView && scrollCollection && (
-                <span className="crumb" key="scroll-spy">
+                <span className="crumb" key="scroll-spy" data-scroll-spy>
                   <span className="sep">›</span>
                   {scrollCollection.split(" > ").map((part, i, arr) => {
                     const isLast = i === arr.length - 1;
@@ -3151,6 +3151,10 @@ export default function Home() {
           }
           .sep {
             display: none;
+          }
+          .crumb-path-segment .sep,
+          .crumb[data-scroll-spy] > .sep {
+            display: inline;
           }
           .tag-filter {
             max-width: min(48vw, 180px);
