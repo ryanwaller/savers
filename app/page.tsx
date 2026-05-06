@@ -229,10 +229,10 @@ export default function Home() {
   type CardSize = (typeof CARD_SIZES)[number];
   // Desktop: choose column count, let cards stretch with 1fr.
   const CARD_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
-    s: 6,
-    m: 4,
-    l: 3,
-    xl: 2,
+    s: 4,
+    m: 3,
+    l: 2,
+    xl: 1,
   };
   // Mobile: fewer columns due to narrow viewport.
   const CARD_SIZE_MOBILE_COLS: Record<CardSize, number> = {

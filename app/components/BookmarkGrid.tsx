@@ -1645,13 +1645,13 @@ function BookmarkCard({
         .tag {
           font-size: 12px;
           padding: 3px 7px;
-          border: 1px solid color-mix(in srgb, var(--color-border) 70%, transparent);
+          border: 1px solid color-mix(in srgb, var(--color-border-strong) 78%, transparent);
           border-radius: 999px;
-          color: var(--color-text-muted);
-          background: color-mix(in srgb, var(--color-bg) 72%, transparent);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
-          box-shadow: none;
+          color: color-mix(in srgb, var(--color-text) 82%, var(--color-bg) 18%);
+          background: color-mix(in srgb, var(--color-bg) 84%, var(--color-text) 16%);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
         }
         .tag-interactive {
           cursor: pointer;
@@ -1659,24 +1659,25 @@ function BookmarkCard({
         .tag-interactive:hover {
           color: var(--color-text);
           border-color: var(--color-border-strong);
-          background: color-mix(in srgb, var(--color-bg) 88%, transparent);
+          background: color-mix(in srgb, var(--color-bg) 72%, var(--color-text) 28%);
         }
         .tag-overflow {
           font-size: 12px;
           padding: 3px 7px;
-          border: 1px dashed color-mix(in srgb, var(--color-border) 50%, transparent);
+          border: 1px dashed color-mix(in srgb, var(--color-border-strong) 70%, transparent);
           border-radius: 999px;
-          color: var(--color-text-muted);
-          background: color-mix(in srgb, var(--color-bg) 72%, transparent);
-          backdrop-filter: blur(4px);
-          -webkit-backdrop-filter: blur(4px);
+          color: color-mix(in srgb, var(--color-text) 80%, var(--color-bg) 20%);
+          background: color-mix(in srgb, var(--color-bg) 82%, var(--color-text) 18%);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
           cursor: pointer;
           font-family: inherit;
+          box-shadow: 0 1px 2px rgba(0, 0, 0, 0.18);
         }
         .tag-overflow:hover {
           color: var(--color-text);
           border-color: var(--color-border-strong);
-          background: var(--color-bg);
+          background: color-mix(in srgb, var(--color-bg) 70%, var(--color-text) 30%);
         }
         .tag-overlay-backdrop {
           position: fixed;
