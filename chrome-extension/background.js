@@ -123,6 +123,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     loadQueue().then((q) => sendResponse({ count: q.length }));
     return true;
   }
+  if (message.type === "SAVE_PAYLOAD") {
+    savePayloadFromPopup(message.payload).then(() => sendResponse({ ok: true }));
+    return true;
+  }
   return false;
 });
 
@@ -168,6 +172,54 @@ async function fetchServerMetadata(appUrl, url) {
 }
 
 /* ── Save Flow ── */
+
+async function savePayloadFromPopup(payload) {
+  await badgeSaving("Saving bookmark…");
+
+  try {
+    const appUrl = await getStoredAppUrl();
+
+    // Check for duplicate first
+    try {
+      const check = await apiFetch(
+        appUrl,
+        `/api/bookmarks/check?url=${encodeURIComponent(payload.url)}`,
+        { method: "GET" }
+      );
+      if (check?.exists) {
+        await chrome.action.setBadgeBackgroundColor({ color: "#4a4a4a" });
+        await chrome.action.setBadgeText({ text: "" });
+        await chrome.action.setTitle({
+          title: check.bookmark
+            ? `Already saved as "${check.bookmark.title || payload.url}"`
+            : "Already saved",
+        });
+        setTimeout(syncBadge, 3000);
+        return;
+      }
+    } catch {
+      // Check failed — continue to save anyway
+    }
+
+    await apiFetch(appUrl, "/api/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    await badgeFlashOk();
+  } catch (error) {
+    console.error("Save bookmark from popup failed:", error);
+    if (
+      error instanceof TypeError ||
+      error?.message?.includes("fetch") ||
+      error?.message?.includes("Network")
+    ) {
+      await enqueueFailed(payload);
+    }
+    await badgeFlashErr();
+  }
+}
 
 async function savePageFromTab(tab) {
   const url = tab?.url;

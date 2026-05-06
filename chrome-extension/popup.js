@@ -552,31 +552,13 @@ async function saveBookmark() {
     tags: parseTags(els.bookmarkTags.value),
     notes: null,
     collection_id: els.collectionSelect.value || null,
+    source: "extension",
   };
 
-  // Fire the save request and close immediately — don't make the user wait.
-  apiFetch("/api/bookmarks", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ ...payload, source: "extension" }),
-  }).catch(async (error) => {
-    // If the request fails after the popup closes, queue for background retry.
-    const message = error instanceof Error ? error.message : String(error);
-    if (
-      error instanceof TypeError ||
-      message.includes("fetch") ||
-      message.includes("Network") ||
-      message.includes("Failed to fetch")
-    ) {
-      try {
-        await chrome.runtime.sendMessage({ type: "ENQUEUE", payload });
-        updateUnsyncedBadge();
-      } catch {
-        // Can't queue — silent fail, the user already moved on.
-      }
-    }
-  });
-
+  // Delegate to the background service worker so the save survives
+  // the popup closing immediately. The SW handles the API call and
+  // shows badge feedback.
+  chrome.runtime.sendMessage({ type: "SAVE_PAYLOAD", payload });
   window.close();
 }
 
