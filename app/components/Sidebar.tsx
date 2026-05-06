@@ -288,7 +288,9 @@ export default function Sidebar({
           <span>Savers</span>
         </div>
         <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
-          ×
+          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6,3 11,8 6,13" />
+          </svg>
         </button>
       </div>
 

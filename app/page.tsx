@@ -191,11 +191,17 @@ export default function Home() {
     return groups;
   }, [isGroupedView, sortedBookmarks, collectionNameMap, buildCollectionPath]);
 
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
+  const scrollSpyCollectionIds = useMemo(
+    () => groupedBookmarks?.map((g) => g.collectionId) || [],
+    [groupedBookmarks]
+  );
   const scrollCollection = useScrollCollectionSpy({
     enabled: isGroupedView,
-    scrollContainerRef: contentRef,
-    collectionIds: groupedBookmarks?.map((g) => g.collectionId) || [],
+    // On mobile, .main is the scroll container — .content has overflow:visible
+    scrollContainerRef: isMobileViewport ? undefined : contentRef,
+    collectionIds: scrollSpyCollectionIds,
   });
 
   const tagCounts = useMemo(() => {
@@ -224,7 +230,6 @@ export default function Home() {
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [contentWidth, setContentWidth] = useState(0);
-  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const CARD_SIZES = ["s", "m", "l", "xl"] as const;
   type CardSize = (typeof CARD_SIZES)[number];
   // Desktop: choose column count, let cards stretch with 1fr.
@@ -1951,6 +1956,7 @@ export default function Home() {
               ))}
               {isGroupedView && scrollCollection && (
                 <span className="crumb" key="scroll-spy" data-scroll-spy>
+                  <span className="crumb-label scroll-spy-root-label">All bookmarks</span>
                   <span className="sep">›</span>
                   {scrollCollection.split(" > ").map((part, i, arr) => {
                     const isLast = i === arr.length - 1;
