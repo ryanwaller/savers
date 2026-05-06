@@ -538,37 +538,30 @@ async function saveBookmark() {
   }
 
   els.saveBookmark.disabled = true;
-  setStatus("Saving bookmark…");
 
-  try {
-    if (!state.metadata) {
-      await hydrateMetadata(true);
-    }
+  if (!state.metadata) {
+    await hydrateMetadata(true);
+  }
 
-    const payload = {
-      url: state.tabUrl,
-      title: els.bookmarkTitle.value.trim() || state.tabTitle,
-      description: els.bookmarkDescription.value.trim() || null,
-      og_image: state.metadata?.og_image || null,
-      favicon: state.metadata?.favicon || null,
-      tags: parseTags(els.bookmarkTags.value),
-      notes: null,
-      collection_id: els.collectionSelect.value || null,
-    };
+  const payload = {
+    url: state.tabUrl,
+    title: els.bookmarkTitle.value.trim() || state.tabTitle,
+    description: els.bookmarkDescription.value.trim() || null,
+    og_image: state.metadata?.og_image || null,
+    favicon: state.metadata?.favicon || null,
+    tags: parseTags(els.bookmarkTags.value),
+    notes: null,
+    collection_id: els.collectionSelect.value || null,
+  };
 
-    await apiFetch("/api/bookmarks", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...payload, source: "extension" }),
-    });
-
-    setStatus("Saved to Savers.", "success");
-    window.setTimeout(() => window.close(), 700);
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to save bookmark.";
-    setStatus(message, "error");
-
-    // If it looks like a network error, queue for background retry
+  // Fire the save request and close immediately — don't make the user wait.
+  apiFetch("/api/bookmarks", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ ...payload, source: "extension" }),
+  }).catch(async (error) => {
+    // If the request fails after the popup closes, queue for background retry.
+    const message = error instanceof Error ? error.message : String(error);
     if (
       error instanceof TypeError ||
       message.includes("fetch") ||
@@ -576,28 +569,15 @@ async function saveBookmark() {
       message.includes("Failed to fetch")
     ) {
       try {
-        const payload = {
-          url: state.tabUrl,
-          title: els.bookmarkTitle.value.trim() || state.tabTitle,
-          description: els.bookmarkDescription.value.trim() || null,
-          og_image: state.metadata?.og_image || null,
-          favicon: state.metadata?.favicon || null,
-          tags: parseTags(els.bookmarkTags.value),
-          notes: null,
-          collection_id: els.collectionSelect.value || null,
-          source: "extension",
-        };
-        // Send to background for offline queueing
         await chrome.runtime.sendMessage({ type: "ENQUEUE", payload });
-        setStatus("Queued — will save when back online.", "success");
         updateUnsyncedBadge();
       } catch {
-        // Can't queue — already showing error message
+        // Can't queue — silent fail, the user already moved on.
       }
     }
-  } finally {
-    els.saveBookmark.disabled = false;
-  }
+  });
+
+  window.close();
 }
 
 /* ── API Helpers ── */
