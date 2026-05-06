@@ -99,6 +99,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           margin-bottom: 0;
           padding-left: 20px;
           padding-right: 20px;
+          padding-top: 2px;
         }
         @media (max-width: 768px) {
           .sub-row-wrapper {
@@ -106,6 +107,7 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
             margin-bottom: 0;
             padding-left: 12px;
             padding-right: 12px;
+            padding-top: 2px;
           }
         }
 
@@ -114,6 +116,8 @@ export default function SubcollectionRow({ subs, activeId, onSelect }: Props) {
           gap: 12px;
           overflow-x: auto;
           overflow-y: hidden;
+          padding-top: 2px;
+          padding-bottom: 2px;
           scroll-snap-type: x mandatory;
           scrollbar-width: none;
           -ms-overflow-style: none;

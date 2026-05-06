@@ -223,6 +223,8 @@ export default function Home() {
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [contentWidth, setContentWidth] = useState(0);
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
   const CARD_SIZES = ["s", "m", "l", "xl"] as const;
   type CardSize = (typeof CARD_SIZES)[number];
   // Desktop: choose column count, let cards stretch with 1fr.
@@ -249,9 +251,45 @@ export default function Home() {
   const cardMinWidth = CARD_SIZE_PX[cardSize];
   const desktopCols = CARD_SIZE_DESKTOP_COLS[cardSize];
   const mobileCols = CARD_SIZE_MOBILE_COLS[cardSize];
+  const effectiveDesktopCols = useMemo(() => {
+    if (isMobileViewport || !contentWidth) return desktopCols;
+
+    const GRID_GAP_PX = 20;
+    const GRID_SIDE_PADDING_PX = 40;
+    const usableWidth = Math.max(contentWidth - GRID_SIDE_PADDING_PX, 0);
+    const maxFittingCols = Math.max(
+      1,
+      Math.floor((usableWidth + GRID_GAP_PX) / (cardMinWidth + GRID_GAP_PX))
+    );
+
+    return Math.max(1, Math.min(desktopCols, maxFittingCols));
+  }, [cardMinWidth, contentWidth, desktopCols, isMobileViewport]);
+
   useEffect(() => {
-    console.log("Grid updated:", { cardSize, cardMinWidth, desktopCols, mobileCols });
-  }, [cardSize, cardMinWidth, desktopCols, mobileCols]);
+    if (typeof window === "undefined") return;
+
+    const syncViewport = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport, { passive: true });
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!contentRef.current || typeof ResizeObserver === "undefined") return;
+
+    const node = contentRef.current;
+    const updateWidth = () => {
+      setContentWidth(node.clientWidth);
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
   const [isEditMode, setIsEditMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const lastClickedIdRef = useRef<string | null>(null);
@@ -1110,15 +1148,8 @@ export default function Home() {
       })),
     ];
   }, [selection, tree, smartCollections]);
-  const canGoBack = breadcrumbItems.length > 1;
-
   const defaultCollectionForAdd =
     selection.kind === "collection" ? selection.id : null;
-
-  function navigateBack() {
-    if (!canGoBack) return;
-    setSelection(breadcrumbItems[breadcrumbItems.length - 2].selection);
-  }
 
   function handleCardTagClick(tag: string) {
     setActiveTag(tag);
@@ -1894,23 +1925,14 @@ export default function Home() {
               >
                 {sidebarOpen ? (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="4" />
-                    <line x1="15" y1="3" x2="15" y2="21" />
-                    <polyline points="9,8 5,12 9,16" />
+                    <polyline points="15,6 9,12 15,18" />
                   </svg>
                 ) : (
                   <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="3" y="3" width="18" height="18" rx="4" />
-                    <line x1="9" y1="3" x2="9" y2="21" />
-                    <polyline points="13,8 17,12 13,16" />
+                    <polyline points="9,6 15,12 9,18" />
                   </svg>
                 )}
               </button>
-              {canGoBack && (
-                <button className="crumb-back" onClick={navigateBack} aria-label="Go back">
-                  ←
-                </button>
-              )}
               {breadcrumbItems.map((item, i) => (
                 <span key={i} className="crumb">
                   <button
@@ -2099,7 +2121,7 @@ export default function Home() {
                   onClearCustomPreview={handleClearCustomPreview}
                   onTagClick={handleCardTagClick}
                   cardMinWidth={cardMinWidth}
-                  desktopCols={desktopCols}
+                  desktopCols={effectiveDesktopCols}
                   mobileCols={mobileCols}
                   loading={loadingBookmarks}
                   isEditMode={isEditMode}
@@ -2139,7 +2161,7 @@ export default function Home() {
               onClearCustomPreview={handleClearCustomPreview}
               onTagClick={handleCardTagClick}
               cardMinWidth={cardMinWidth}
-              desktopCols={desktopCols}
+              desktopCols={effectiveDesktopCols}
               mobileCols={mobileCols}
               loading={loadingBookmarks}
               isEditMode={isEditMode}
@@ -2794,27 +2816,6 @@ export default function Home() {
           min-width: 0;
           overflow: hidden;
           flex: 1 1 auto;
-        }
-        .crumb-back {
-          width: 32px;
-          height: 32px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          color: var(--color-text-muted);
-          flex-shrink: 0;
-          font-size: 12px;
-          line-height: 17px;
-          transition: color 140ms ease, border-color 140ms ease, background 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
-        }
-        .crumb-back:hover {
-          color: var(--color-text);
-          border-color: var(--color-border-strong);
-        }
-        .crumb-back:active {
-          transform: scale(0.92);
         }
         .crumb {
           display: inline-flex;
