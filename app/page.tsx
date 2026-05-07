@@ -1000,7 +1000,21 @@ export default function Home() {
         updateAllBookmarksState((prev) =>
           prev.map((b) => {
             const updated = freshById.get(b.id);
-            return updated ?? b;
+            if (!updated) return b;
+            // Only merge fields the screenshot worker can change —
+            // never overwrite user-actionable fields like link_status
+            // or broken_status, which may be optimistically updated.
+            return {
+              ...b,
+              screenshot_status: updated.screenshot_status,
+              screenshot_error: updated.screenshot_error,
+              preview_path: updated.preview_path,
+              preview_version: updated.preview_version,
+              preview_updated_at: updated.preview_updated_at,
+              asset_type: updated.asset_type,
+              og_image: updated.og_image,
+              favicon: updated.favicon,
+            };
           })
         );
         // Re-check if we still have pending bookmarks

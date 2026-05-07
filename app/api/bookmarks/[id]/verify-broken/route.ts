@@ -41,22 +41,7 @@ export async function POST(
       };
       confirmUpdates.broken_verified_by = user.id;
 
-      let confirmResult = await supabaseAdmin
-        .from("bookmarks")
-        .update(confirmUpdates)
-        .eq("id", bookmarkId)
-        .eq("user_id", user.id);
-
-      if (confirmResult.error && confirmResult.error.message?.includes("broken_verified_by")) {
-        delete confirmUpdates.broken_verified_by;
-        confirmResult = await supabaseAdmin
-          .from("bookmarks")
-          .update(confirmUpdates)
-          .eq("id", bookmarkId)
-          .eq("user_id", user.id);
-      }
-
-      const { error } = confirmResult;
+      const { error } = await tryUpdate(supabaseAdmin, bookmarkId, user.id, confirmUpdates);
 
       if (error) {
         console.error(`verify-broken confirm failed: ${error.message}`);
@@ -78,22 +63,7 @@ export async function POST(
     };
     updates.broken_verified_by = user.id;
 
-    let result = await supabaseAdmin
-      .from("bookmarks")
-      .update(updates)
-      .eq("id", bookmarkId)
-      .eq("user_id", user.id);
-
-    if (result.error && result.error.message?.includes("broken_verified_by")) {
-      delete updates.broken_verified_by;
-      result = await supabaseAdmin
-        .from("bookmarks")
-        .update(updates)
-        .eq("id", bookmarkId)
-        .eq("user_id", user.id);
-    }
-
-    const { error } = result;
+    const { error } = await tryUpdate(supabaseAdmin, bookmarkId, user.id, updates);
 
     if (error) {
       console.error(`verify-broken dispute failed: ${error.message}`);
@@ -114,4 +84,41 @@ export async function POST(
     console.error(`verify-broken POST failed: ${message}`);
     return NextResponse.json({ error: message }, { status: 500 });
   }
+}
+
+async function tryUpdate(
+  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
+  bookmarkId: string,
+  userId: string,
+  updates: Record<string, unknown>,
+) {
+  let result = await supabaseAdmin
+    .from("bookmarks")
+    .update(updates)
+    .eq("id", bookmarkId)
+    .eq("user_id", userId);
+
+  if (result.error) {
+    const msg = result.error.message ?? "";
+    const det = result.error.details ?? "";
+    const code = result.error.code ?? "";
+    const hit =
+      msg.includes("broken_verified_by") ||
+      det.includes("broken_verified_by") ||
+      msg.includes("savers.users") ||
+      det.includes("savers.users") ||
+      code === "23503" ||
+      code === "42703";
+
+    if (hit) {
+      delete updates.broken_verified_by;
+      result = await supabaseAdmin
+        .from("bookmarks")
+        .update(updates)
+        .eq("id", bookmarkId)
+        .eq("user_id", userId);
+    }
+  }
+
+  return result;
 }
