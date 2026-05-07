@@ -1400,7 +1400,9 @@ export default function Home() {
   }
 
   function handleBookmarkPatched(b: Bookmark) {
-    setDetail(b);
+    // Only update detail if it's already showing this bookmark —
+    // don't open the sidebar for optimistic updates from card actions.
+    setDetail((prev) => (prev?.id === b.id ? b : prev));
     updateAllBookmarksState((prev) => prev.map((x) => (x.id === b.id ? b : x)));
     setBookmarks((prev) => {
       if (selection.kind === "unsorted" && b.collection_id !== null) {
