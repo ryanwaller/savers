@@ -455,7 +455,8 @@ function BookmarkCard({
       return;
     }
 
-    // "Still Works" — optimistic UI then persist
+    // "Still Works" — optimistic UI then persist (fire-and-forget).
+    // Never revert the optimistic update — the user told us the link works.
     setVerifyingBroken(true);
     const previous = { ...b };
     setBrokenStatus("verified_active");
@@ -464,10 +465,13 @@ function BookmarkCard({
 
     try {
       await api.resetLinkStatus(b.id, "active");
-    } catch (err) {
-      console.error("Still Works failed:", err);
-      setBrokenStatus(previous.broken_status);
-      await onPatchBookmark(previous);
+    } catch {
+      // If resetLinkStatus fails, try verify-broken as fallback
+      try {
+        await api.verifyBrokenLink(b.id, "dispute");
+      } catch (err) {
+        console.error("Still Works persist failed:", err);
+      }
     } finally {
       setVerifyingBroken(false);
     }
