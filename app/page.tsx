@@ -1954,11 +1954,14 @@ export default function Home() {
                   {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
               ))}
-              {isGroupedView && scrollCollection && (
+              {isGroupedView && (() => {
+                  const displayCollection = scrollCollection ?? groupedBookmarks?.[0]?.path ?? null;
+                  if (!displayCollection) return null;
+                  return (
                 <span className="crumb" key="scroll-spy" data-scroll-spy>
                   <span className="crumb-label scroll-spy-root-label">All bookmarks</span>
                   <span className="sep">›</span>
-                  {scrollCollection.split(" > ").map((part, i, arr) => {
+                  {displayCollection.split(" > ").map((part, i, arr) => {
                     const isLast = i === arr.length - 1;
                     return (
                       <span key={i} className="crumb-path-segment">
@@ -1972,7 +1975,8 @@ export default function Home() {
                     );
                   })}
                 </span>
-              )}
+              );
+            })()}
               {activeTag && (
                 <>
                   <span className="sep">›</span>

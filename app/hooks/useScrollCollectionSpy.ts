@@ -15,24 +15,19 @@ export function useScrollCollectionSpy({
   const [activeCollection, setActiveCollection] = useState<string | null>(null);
   const observerRef = useRef<IntersectionObserver | null>(null);
   const sectionsRef = useRef<Map<string, Element>>(new Map());
+  const lastActiveRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!enabled || collectionIds.length === 0) {
       setActiveCollection(null);
+      lastActiveRef.current = null;
       return;
     }
 
-    // On mobile (<768px) .main is the scroll container; on desktop it's .content
     const scrollContainer =
       scrollContainerRef?.current ||
       document.querySelector(".main") ||
       document.querySelector(".content");
-
-    if (!scrollContainer) {
-      console.warn("⚠️ Scroll spy: scroll container not found, using viewport");
-    }
-
-    console.log("🔍 Initializing scroll spy for collections:", collectionIds);
 
     if (observerRef.current) {
       observerRef.current.disconnect();
@@ -40,13 +35,12 @@ export function useScrollCollectionSpy({
 
     observerRef.current = new IntersectionObserver(
       (entries) => {
-        console.log("📍 IntersectionObserver fired:", entries.length, "entries");
-
         const visible = entries.filter((e) => e.isIntersecting);
 
         if (visible.length === 0) {
-          console.log("📍 No visible sections");
-          setActiveCollection(null);
+          // Keep the last-known collection instead of reverting to null.
+          // The rootMargin means we only detect sections near the top,
+          // so between sections we hold the previous one.
           return;
         }
 
@@ -55,8 +49,10 @@ export function useScrollCollectionSpy({
         });
 
         const topmost = sorted[0].target.getAttribute("data-collection-path");
-        console.log("📍 Active collection:", topmost);
-        setActiveCollection(topmost);
+        if (topmost && topmost !== lastActiveRef.current) {
+          lastActiveRef.current = topmost;
+          setActiveCollection(topmost);
+        }
       },
       {
         root: scrollContainer || null,
@@ -65,19 +61,13 @@ export function useScrollCollectionSpy({
       },
     );
 
-    let observedCount = 0;
     collectionIds.forEach((id) => {
       const section = document.querySelector(`[data-collection="${id}"]`);
       if (section) {
         sectionsRef.current.set(id, section);
         observerRef.current!.observe(section);
-        observedCount++;
-      } else {
-        console.warn(`⚠️ Section not found for collection: ${id}`);
       }
     });
-
-    console.log(`✅ Observing ${observedCount} of ${collectionIds.length} sections`);
 
     return () => {
       observerRef.current?.disconnect();

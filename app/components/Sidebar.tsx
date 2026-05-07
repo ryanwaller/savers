@@ -287,9 +287,9 @@ export default function Sidebar({
           <img className="sidebar-brand-mark" src="/savers-mark.svg" alt="" draggable={false} />
           <span>Savers</span>
         </div>
-        <button className="mobile-close" onClick={onCloseMobile} aria-label="Close menu">
-          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="6,3 11,8 6,13" />
+        <button className="circle-btn mobile-close" onClick={onCloseMobile} aria-label="Close menu">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="15,6 9,12 15,18" />
           </svg>
         </button>
       </div>
@@ -610,20 +610,7 @@ export default function Sidebar({
         }
         .mobile-close {
           display: none;
-          width: 32px;
-          height: 32px;
-          align-items: center;
-          justify-content: center;
-          border: 1px solid var(--color-border);
-          border-radius: 999px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font-size: 12px;
-          line-height: 17px;
-          padding-bottom: 2px;
-          flex-shrink: 0;
         }
-        .mobile-close:hover { border-color: var(--color-border-strong); }
         @media (max-width: 768px) {
           .sidebar-head {
             padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px;
