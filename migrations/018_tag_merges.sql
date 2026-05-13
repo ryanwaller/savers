@@ -17,7 +17,7 @@ ALTER TABLE savers.tag_merges ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "Users can read own merges"
   ON savers.tag_merges FOR SELECT
-  USING (user_id = (SELECT savers.current_user_id()));
+  USING (user_id = (SELECT auth.uid()));
 
 -- RPC: get tag counts for a user (unnest tags arrays, group, count).
 CREATE OR REPLACE FUNCTION savers.get_tag_counts(p_user_id uuid)
