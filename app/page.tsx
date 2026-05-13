@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, SmartCollection, DuplicateGroup } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -30,6 +30,7 @@ import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
+import DuplicateReviewModal from "./components/DuplicateReviewModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
@@ -487,8 +488,9 @@ export default function Home() {
   } | null>(null);
   const [dropStatus, setDropStatus] = useState<string | null>(null);
   const [duplicateImportUrls, setDuplicateImportUrls] = useState<string[]>([]);
-  const [showDeleteDuplicates, setShowDeleteDuplicates] = useState(false);
-  const [deletingDuplicates, setDeletingDuplicates] = useState(false);
+  const [showDuplicateReview, setShowDuplicateReview] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [loadingDuplicateGroups, setLoadingDuplicateGroups] = useState(false);
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
@@ -1504,30 +1506,6 @@ export default function Home() {
     }
   }
 
-  async function handleDeleteDuplicates() {
-    try {
-      setDeletingDuplicates(true);
-      const result = await api.deleteDuplicateBookmarks();
-      const deletedIds = new Set(result.deleted_ids);
-
-      if (deletedIds.size > 0) {
-        updateAllBookmarksState((prev) => prev.filter((bookmark) => !deletedIds.has(bookmark.id)));
-        setBookmarks((prev) => prev.filter((bookmark) => !deletedIds.has(bookmark.id)));
-        setDetail((prev) => (prev && deletedIds.has(prev.id) ? null : prev));
-        setDropStatus(
-          `Deleted ${result.deleted_count} duplicate bookmark${result.deleted_count === 1 ? "" : "s"}.`
-        );
-        window.setTimeout(() => setDropStatus(null), 2200);
-      }
-
-      setShowDeleteDuplicates(false);
-    } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete duplicates");
-    } finally {
-      setDeletingDuplicates(false);
-    }
-  }
-
   async function handlePinBookmark(id: string, pinned: boolean) {
     // Optimistic toggle so the UI feels instant.
     updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? { ...x, pinned } : x)));
@@ -2058,8 +2036,23 @@ export default function Home() {
                   />
                 </div>
                 {duplicateSummary.duplicateCount > 0 && (
-                  <button className="btn" onClick={() => setShowDeleteDuplicates(true)}>
-                    Delete duplicates ({duplicateSummary.duplicateCount})
+                  <button
+                    className="btn"
+                    onClick={async () => {
+                      setLoadingDuplicateGroups(true);
+                      setShowDuplicateReview(true);
+                      try {
+                        const data = await api.getDuplicateGroups();
+                        setDuplicateGroups(data.groups);
+                      } catch (e) {
+                        alert(e instanceof Error ? e.message : "Failed to load duplicates");
+                        setShowDuplicateReview(false);
+                      } finally {
+                        setLoadingDuplicateGroups(false);
+                      }
+                    }}
+                  >
+                    Find Duplicates ({duplicateSummary.duplicateCount})
                   </button>
                 )}
                 <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
@@ -2528,14 +2521,13 @@ export default function Home() {
         }}
       />
 
-      <ConfirmDialog
-        open={showDeleteDuplicates}
-        title="Delete duplicate bookmarks?"
-        description={`This will remove ${duplicateSummary.duplicateCount} older duplicate bookmark${duplicateSummary.duplicateCount === 1 ? "" : "s"} across ${duplicateSummary.duplicateGroupCount} URL group${duplicateSummary.duplicateGroupCount === 1 ? "" : "s"}, and keep the newest saved copy of each.`}
-        confirmLabel="Delete duplicates"
-        busy={deletingDuplicates}
-        onConfirm={handleDeleteDuplicates}
-        onCancel={() => setShowDeleteDuplicates(false)}
+      <DuplicateReviewModal
+        open={showDuplicateReview}
+        onClose={() => setShowDuplicateReview(false)}
+        groups={duplicateGroups}
+        onDeleted={() => {
+          loadAllBookmarks();
+        }}
       />
 
       <ConfirmDialog

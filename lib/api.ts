@@ -1,5 +1,6 @@
 import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup } from "./types";
 import type { BookmarkSummaries } from "./bookmark-summaries";
+import { normalizeUrl } from "./normalizeUrl";
 
 export type CustomPreviewSource =
   | File
@@ -99,6 +100,38 @@ export const api = {
     duplicate_group_count: number;
   }> {
     return j(await fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
+  },
+  async getDuplicateGroups(): Promise<{
+    groups: import("./types").DuplicateGroup[];
+    totalDuplicates: number;
+    groupCount: number;
+  }> {
+    return j(await fetch("/api/bookmarks/duplicates", { cache: "no-store" }));
+  },
+  async deleteSelectedDuplicates(ids: string[]): Promise<{
+    ok: true;
+    deletedCount: number;
+    deleteId: string;
+  }> {
+    return j(
+      await fetch("/api/bookmarks/duplicates/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids }),
+      }),
+    );
+  },
+  async undoDeleteDuplicates(deleteId: string): Promise<{
+    success: boolean;
+    restoredCount: number;
+  }> {
+    return j(
+      await fetch("/api/bookmarks/duplicates/delete/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteId }),
+      }),
+    );
   },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {
@@ -462,12 +495,7 @@ export function domainOf(url: string): string {
   }
 }
 
-export function normalizeUrl(input: string): string {
-  const value = input.trim();
-  if (!value) return value;
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) return value;
-  return `https://${value}`;
-}
+export { normalizeUrl, canonicalBookmarkUrl } from "./normalizeUrl";
 
 export function isPublicUrl(url: string): boolean {
   try {
@@ -512,16 +540,6 @@ export function isPublicUrl(url: string): boolean {
   }
 }
 
-const TRACKING_QUERY_PARAMS = new Set([
-  "fbclid",
-  "gclid",
-  "igshid",
-  "mc_cid",
-  "mc_eid",
-  "ref_src",
-  "si",
-]);
-
 const CLEAN_URL_STRIP_PARAMS = new Set([
   "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",
   "_ga", "_gl", "fbclid", "gclid",
@@ -544,31 +562,6 @@ export function cleanUrl(input: string): string {
     return url.toString();
   } catch {
     return input;
-  }
-}
-
-export function canonicalBookmarkUrl(input: string): string {
-  try {
-    const url = new URL(normalizeUrl(input));
-    const host = url.hostname.replace(/^www\./, "").toLowerCase();
-    const pathname =
-      url.pathname.length > 1 ? url.pathname.replace(/\/+$/, "") || "/" : url.pathname || "/";
-    const params = new URLSearchParams(url.search);
-    const filtered = new URLSearchParams();
-
-    for (const [key, value] of params.entries()) {
-      if (key.startsWith("utm_") || TRACKING_QUERY_PARAMS.has(key)) continue;
-      filtered.append(key, value);
-    }
-
-    const sortedEntries = Array.from(filtered.entries()).sort(([a], [b]) => a.localeCompare(b));
-    const query = sortedEntries.length
-      ? `?${new URLSearchParams(sortedEntries).toString()}`
-      : "";
-
-    return `${host}${pathname}${query}`;
-  } catch {
-    return normalizeUrl(input).trim().toLowerCase();
   }
 }
 

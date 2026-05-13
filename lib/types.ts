@@ -116,3 +116,23 @@ export interface AISuggestion {
   proposed_parent_collection_path?: string | null
   confidence: 'high' | 'medium' | 'low'
 }
+
+// --- Duplicate Review ---
+
+export interface DuplicateGroupInstance {
+  id: string
+  title: string | null
+  url: string
+  collection_id: string | null
+  collection_name: string
+  created_at: string
+  favicon: string | null
+}
+
+export interface DuplicateGroup {
+  canonicalUrl: string
+  displayHost: string
+  displayPath: string
+  isCrossCollection: boolean
+  instances: DuplicateGroupInstance[]
+}
