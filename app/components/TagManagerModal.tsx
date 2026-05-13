@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 interface TagWithCount {
   tag: string;
@@ -30,6 +30,14 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
   const [newTargetName, setNewTargetName] = useState("");
   const [showNewTarget, setShowNewTarget] = useState(false);
   const [similarGroups, setSimilarGroups] = useState<SimilarGroup[]>([]);
+  const [dismissed, setDismissed] = useState<Set<string>>(() => {
+    try {
+      const raw = localStorage.getItem("savers.dismissed-similar");
+      return new Set(raw ? JSON.parse(raw) : []);
+    } catch {
+      return new Set();
+    }
+  });
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{
     message: string;
@@ -166,29 +174,60 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
 
         <div className="tmm-body">
           {/* Similar groups */}
-          {similarGroups.length > 0 && (
-            <section className="tmm-section">
-              <div className="label">Similar tags</div>
-              {similarGroups.map((group, gi) => (
-                <div key={gi} className="tmm-similar-row">
-                  <div className="tmm-similar-tags">
-                    {group.tags.map((t, i) => (
-                      <span key={t} className="tmm-similar-tag">
-                        {t}
-                        <span className="tmm-similar-count">{group.counts[i]}</span>
-                      </span>
-                    ))}
-                  </div>
-                  <button
-                    className="pill-btn"
-                    onClick={() => selectAllInGroup(group)}
-                  >
-                    Merge
-                  </button>
-                </div>
-              ))}
-            </section>
-          )}
+          {(() => {
+            const visible = similarGroups.filter((g) => {
+              const key = [...g.tags].sort().join(",");
+              return !dismissed.has(key);
+            });
+            if (visible.length === 0) return null;
+            return (
+              <section className="tmm-section">
+                <div className="label">Similar tags</div>
+                {visible.map((group, gi) => {
+                  const dismissKey = [...group.tags].sort().join(",");
+                  return (
+                    <div key={gi} className="tmm-similar-row">
+                      <div className="tmm-similar-tags">
+                        {group.tags.map((t, i) => (
+                          <span key={t} className="tmm-similar-tag">
+                            {t}
+                            <span className="tmm-similar-count">{group.counts[i]}</span>
+                          </span>
+                        ))}
+                      </div>
+                      <div className="tmm-similar-actions">
+                        <button
+                          className="pill-btn"
+                          onClick={() => selectAllInGroup(group)}
+                        >
+                          Merge
+                        </button>
+                        <button
+                          className="tmm-dismiss-btn"
+                          title="Not the same — don't suggest again"
+                          onClick={() => {
+                            setDismissed((prev) => {
+                              const next = new Set(prev);
+                              next.add(dismissKey);
+                              try {
+                                localStorage.setItem(
+                                  "savers.dismissed-similar",
+                                  JSON.stringify([...next]),
+                                );
+                              } catch {}
+                              return next;
+                            });
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </section>
+            );
+          })()}
 
           {/* Search */}
           <input
@@ -358,7 +397,7 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
         .tmm-body {
           flex: 1;
           overflow-y: auto;
-          padding: 16px;
+          padding: 16px 16px 8px;
           display: flex;
           flex-direction: column;
           gap: 12px;
@@ -401,9 +440,28 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
           color: var(--color-text-muted);
           font-feature-settings: "tnum" 1;
         }
+        .tmm-similar-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .tmm-dismiss-btn {
+          appearance: none;
+          background: transparent;
+          border: 0;
+          color: var(--color-text-muted);
+          font-size: 14px;
+          cursor: pointer;
+          padding: 0 2px;
+          line-height: 1;
+        }
+        .tmm-dismiss-btn:hover {
+          color: var(--color-text);
+        }
         .tmm-search {
           font-size: 12px;
-          height: 28px;
+          height: 32px;
           padding: 0 8px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
