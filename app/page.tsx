@@ -3130,8 +3130,7 @@ export default function Home() {
           .sep {
             display: none;
           }
-          .crumb-path-segment .sep,
-          .crumb[data-scroll-spy] > .sep {
+          .crumb-path-segment .sep {
             display: inline;
           }
           .tag-filter {
