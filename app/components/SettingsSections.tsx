@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, DuplicateGroup } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
-import DuplicateReviewModal from "./DuplicateReviewModal";
 
 function resolveSaveUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -63,9 +62,16 @@ export default function SettingsSections({
   const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
   const [refreshingPreviews, setRefreshingPreviews] = useState(false);
   const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
-  const [showDuplicateReview, setShowDuplicateReview] = useState(false);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [loadingDuplicateGroups, setLoadingDuplicateGroups] = useState(false);
+  const [keptByGroup, setKeptByGroup] = useState<Map<string, Set<string>>>(new Map());
+  const [dupStrategy, setDupStrategy] = useState<"newest" | "oldest" | "manual">("newest");
+  const [dupBusy, setDupBusy] = useState(false);
+  const [dupToast, setDupToast] = useState<{
+    message: string;
+    deleteId: string | null;
+  } | null>(null);
+  const [dupToastTimer, setDupToastTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
   const generatedPreviewCount = bookmarks.filter((bookmark) => !bookmark.custom_preview_path).length;
   const customPreviewCount = bookmarks.filter((bookmark) => bookmark.custom_preview_path).length;
@@ -212,6 +218,135 @@ export default function SettingsSections({
     }
   }
 
+  const deleteCount = useMemo(() => {
+    let count = 0;
+    for (const group of duplicateGroups) {
+      const kept = keptByGroup.get(group.canonicalUrl);
+      const keptSize = kept?.size ?? 0;
+      count += group.instances.length - keptSize;
+    }
+    return count;
+  }, [duplicateGroups, keptByGroup]);
+
+  const canDelete = !dupBusy && deleteCount > 0;
+
+  async function handleOpenDuplicates(open: boolean) {
+    if (!open || duplicateGroups.length > 0) return;
+    setLoadingDuplicateGroups(true);
+    try {
+      const data = await api.getDuplicateGroups();
+      setDuplicateGroups(data.groups);
+      applyStrategyToGroups("newest", data.groups);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to load duplicates");
+    } finally {
+      setLoadingDuplicateGroups(false);
+    }
+  }
+
+  function applyStrategyToGroups(s: "newest" | "oldest" | "manual", groups: DuplicateGroup[]) {
+    const next = new Map<string, Set<string>>();
+    for (const group of groups) {
+      const instances = [...group.instances];
+      if (s === "newest") {
+        instances.sort(
+          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
+        );
+      } else if (s === "oldest") {
+        instances.sort(
+          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
+        );
+      }
+      if (s !== "manual") {
+        next.set(group.canonicalUrl, new Set([instances[0].id]));
+      }
+    }
+    setKeptByGroup(next);
+  }
+
+  function handleStrategyChange(s: "newest" | "oldest" | "manual") {
+    setDupStrategy(s);
+    applyStrategyToGroups(s, duplicateGroups);
+  }
+
+  function toggleInstance(canonicalUrl: string, id: string) {
+    setKeptByGroup((prev) => {
+      const next = new Map(prev);
+      const current = next.get(canonicalUrl);
+      if (!current || current.size === 0) {
+        next.set(canonicalUrl, new Set([id]));
+      } else if (current.has(id)) {
+        if (current.size === 1) return prev;
+        const nextSet = new Set(current);
+        nextSet.delete(id);
+        next.set(canonicalUrl, nextSet);
+      } else {
+        const nextSet = new Set(current);
+        nextSet.add(id);
+        next.set(canonicalUrl, nextSet);
+      }
+      return next;
+    });
+  }
+
+  async function handleDeleteDuplicates() {
+    const idsToDelete: string[] = [];
+    for (const group of duplicateGroups) {
+      const kept = keptByGroup.get(group.canonicalUrl);
+      for (const inst of group.instances) {
+        if (!kept?.has(inst.id)) {
+          idsToDelete.push(inst.id);
+        }
+      }
+    }
+
+    if (idsToDelete.length === 0) return;
+
+    setDupBusy(true);
+    try {
+      const res = await fetch("/api/bookmarks/duplicates/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: idsToDelete }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Delete failed");
+
+      const msg = `Deleted ${data.deletedCount} bookmark${data.deletedCount !== 1 ? "s" : ""}.`;
+
+      const timer = setTimeout(() => setDupToast(null), 5000);
+      setDupToastTimer(timer);
+      setDupToast({ message: msg, deleteId: data.deleteId ?? null });
+      onBookmarksChanged?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Delete failed");
+    } finally {
+      setDupBusy(false);
+    }
+  }
+
+  async function handleUndoDelete() {
+    if (!dupToast?.deleteId) return;
+    setDupBusy(true);
+    try {
+      const res = await fetch("/api/bookmarks/duplicates/delete/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ deleteId: dupToast.deleteId }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error ?? "Undo failed");
+
+      if (dupToastTimer) clearTimeout(dupToastTimer);
+      setDupToast(null);
+      onBookmarksChanged?.();
+    } catch (err) {
+      alert(err instanceof Error ? err.message : "Undo failed");
+    } finally {
+      setDupBusy(false);
+    }
+  }
+
   return (
     <div className="settings-sections">
       <section className="settings-block">
@@ -332,40 +467,162 @@ export default function SettingsSections({
 
       {duplicateCount > 0 && (
         <section className="settings-block">
-          <div className="settings-heading">
-            <div>
-              <h2>Duplicates</h2>
+          <details
+            className="advanced-shell"
+            onToggle={async (e) => {
+              if ((e.target as HTMLDetailsElement).open) {
+                // Reset state when opening
+                setDuplicateGroups([]);
+                setKeptByGroup(new Map());
+                setDupStrategy("newest");
+                setDupToast(null);
+                if (dupToastTimer) clearTimeout(dupToastTimer);
+                await handleOpenDuplicates(true);
+              }
+            }}
+          >
+            <summary>
+              <span className="summary-copy">
+                <span>Duplicates</span>
+                <span className="small muted">
+                  {duplicateCount} duplicate bookmark{duplicateCount !== 1 ? "s" : ""} found across your library.
+                </span>
+              </span>
+              <span className="dropdown-circle" aria-hidden="true">
+                <svg viewBox="0 0 16 16" fill="none">
+                  <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </span>
+            </summary>
+
+            <div className="advanced-card">
+              {loadingDuplicateGroups ? (
+                <div className="small muted" style={{ padding: "24px 0", textAlign: "center" }}>
+                  Loading duplicates…
+                </div>
+              ) : duplicateGroups.length === 0 ? (
+                <div className="small muted" style={{ padding: "24px 0", textAlign: "center" }}>
+                  No duplicate bookmarks found.
+                </div>
+              ) : (
+                <>
+                  {/* Toolbar */}
+                  <div className="dup-toolbar">
+                    <span className="muted">
+                      {duplicateGroups.length} group{duplicateGroups.length !== 1 ? "s" : ""},{" "}
+                      {duplicateGroups.reduce((s, g) => s + g.instances.length - 1, 0)} duplicate
+                      {duplicateGroups.reduce((s, g) => s + g.instances.length - 1, 0) !== 1 ? "s" : ""}
+                    </span>
+                    <select
+                      className="dup-strategy-select"
+                      value={dupStrategy}
+                      onChange={(e) => handleStrategyChange(e.target.value as typeof dupStrategy)}
+                    >
+                      <option value="newest">Keep Newest</option>
+                      <option value="oldest">Keep Oldest</option>
+                      <option value="manual">Manual Only</option>
+                    </select>
+                  </div>
+
+                  {/* Groups */}
+                  <div className="dup-body">
+                    {duplicateGroups.map((group) => {
+                      const kept = keptByGroup.get(group.canonicalUrl);
+                      const keptSize = kept?.size ?? 0;
+                      const hasNoneSelected = keptSize === 0;
+                      return (
+                        <div key={group.canonicalUrl} className="dup-group">
+                          <div className="dup-group-header">
+                            <div className="dup-group-url">
+                              <span className="dup-group-host">{group.displayHost}</span>
+                              {group.displayPath && (
+                                <span className="dup-group-path muted">{group.displayPath}</span>
+                              )}
+                            </div>
+                            <div className="dup-group-badges">
+                              {group.isCrossCollection ? (
+                                <span className="dup-badge dup-badge-cross">
+                                  Different collections
+                                </span>
+                              ) : (
+                                <span className="dup-badge dup-badge-same">
+                                  Same collection
+                                </span>
+                              )}
+                              {hasNoneSelected && (
+                                <span className="dup-badge dup-badge-warn">
+                                  Select at least one to keep
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {group.instances.map((inst) => {
+                            const isKept = kept?.has(inst.id) ?? false;
+                            const isLastKept = keptSize === 1 && isKept;
+                            return (
+                              <label
+                                key={inst.id}
+                                className={`dup-instance ${isKept ? "kept" : "deleted"}`}
+                              >
+                                <input
+                                  type="checkbox"
+                                  className="dup-check"
+                                  checked={isKept}
+                                  disabled={isLastKept}
+                                  onChange={() => toggleInstance(group.canonicalUrl, inst.id)}
+                                />
+                                {inst.favicon && (
+                                  <img
+                                    className="dup-fav"
+                                    src={inst.favicon}
+                                    alt=""
+                                    width={12}
+                                    height={12}
+                                  />
+                                )}
+                                <span className="dup-instance-title">
+                                  {inst.title || inst.url}
+                                </span>
+                                <span className="dup-instance-collection muted">
+                                  {inst.collection_name}
+                                </span>
+                                <span className="dup-instance-date muted">
+                                  {formatDate(inst.created_at)}
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                      );
+                    })}
+                  </div>
+
+                  {/* Footer */}
+                  <div className="dup-foot">
+                    <button
+                      className="btn btn-primary"
+                      disabled={!canDelete}
+                      onClick={() => void handleDeleteDuplicates()}
+                    >
+                      {dupBusy ? "Deleting…" : `Delete ${deleteCount} Duplicate${deleteCount !== 1 ? "s" : ""}`}
+                    </button>
+                  </div>
+
+                  {/* Toast */}
+                  {dupToast && (
+                    <div className="dup-toast" role="status">
+                      <span>{dupToast.message}</span>
+                      {dupToast.deleteId && (
+                        <button className="dup-undo-btn" onClick={() => void handleUndoDelete()} disabled={dupBusy}>
+                          Undo
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </>
+              )}
             </div>
-          </div>
-          <div className="settings-grid two-up">
-            <div className="settings-card">
-              <div className="feature-title">Review duplicates</div>
-              <div className="feature-sub">
-                {duplicateCount} duplicate bookmark{duplicateCount !== 1 ? "s" : ""} found across your library. Review and choose which copies to keep.
-              </div>
-              <div className="feature-actions">
-                <button
-                  className="btn btn-primary"
-                  onClick={async () => {
-                    setLoadingDuplicateGroups(true);
-                    setShowDuplicateReview(true);
-                    try {
-                      const data = await api.getDuplicateGroups();
-                      setDuplicateGroups(data.groups);
-                    } catch (e) {
-                      alert(e instanceof Error ? e.message : "Failed to load duplicates");
-                      setShowDuplicateReview(false);
-                    } finally {
-                      setLoadingDuplicateGroups(false);
-                    }
-                  }}
-                  disabled={loadingDuplicateGroups}
-                >
-                  {loadingDuplicateGroups ? "Loading…" : `Find Duplicates (${duplicateCount})`}
-                </button>
-              </div>
-            </div>
-          </div>
+          </details>
         </section>
       )}
 
@@ -852,17 +1109,191 @@ export default function SettingsSections({
             width: 100%;
           }
         }
+
+        /* Duplicate review (inline in settings) */
+        .dup-toolbar {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          padding: 12px 0;
+          border-bottom: 1px solid var(--color-border);
+          font-size: 13px;
+        }
+        .dup-strategy-select {
+          height: 28px;
+          padding: 0 6px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg);
+          font: inherit;
+          font-size: 13px;
+        }
+        .dup-body {
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          padding: 12px 0;
+        }
+        .dup-group {
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          overflow: hidden;
+        }
+        .dup-group-header {
+          padding: 8px 10px;
+          background: var(--color-bg-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          flex-wrap: wrap;
+        }
+        .dup-group-url {
+          display: flex;
+          flex-direction: column;
+          gap: 1px;
+          min-width: 0;
+          flex: 1;
+        }
+        .dup-group-host {
+          font-size: 13px;
+          font-weight: 500;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .dup-group-path {
+          font-size: 13px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .dup-group-badges {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          flex-shrink: 0;
+        }
+        .dup-badge {
+          font-size: 13px;
+          padding: 1px 6px;
+          border-radius: var(--radius-sm);
+          white-space: nowrap;
+        }
+        .dup-badge-cross {
+          background: var(--color-bg);
+          color: var(--color-text-muted);
+        }
+        .dup-badge-same {
+          background: rgba(209, 48, 48, 0.08);
+          color: var(--color-danger, #c62828);
+        }
+        .dup-badge-warn {
+          background: rgba(209, 48, 48, 0.08);
+          color: var(--color-danger, #c62828);
+        }
+        .dup-instance {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          padding: 6px 10px;
+          border-bottom: 1px solid var(--color-border);
+          cursor: pointer;
+          font-size: 13px;
+          transition: background 120ms ease;
+        }
+        .dup-instance:last-child {
+          border-bottom: 0;
+        }
+        .dup-instance:hover {
+          background: var(--color-bg-hover);
+        }
+        .dup-instance.kept {
+          background: var(--color-bg);
+        }
+        .dup-instance.deleted {
+          opacity: 0.5;
+        }
+        .dup-instance.deleted .dup-instance-title {
+          text-decoration: line-through;
+        }
+        .dup-check {
+          accent-color: var(--color-text);
+          flex-shrink: 0;
+        }
+        .dup-fav {
+          width: 12px;
+          height: 12px;
+          border-radius: 2px;
+          flex-shrink: 0;
+        }
+        .dup-instance-title {
+          flex: 1;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .dup-instance-collection {
+          font-size: 13px;
+          font-feature-settings: "tnum" 1;
+          flex-shrink: 0;
+        }
+        .dup-instance-date {
+          font-size: 13px;
+          font-feature-settings: "tnum" 1;
+          flex-shrink: 0;
+          min-width: 60px;
+          text-align: right;
+        }
+        .dup-foot {
+          display: flex;
+          align-items: center;
+          justify-content: flex-end;
+          gap: 8px;
+          padding: 10px 0 0;
+          border-top: 1px solid var(--color-border);
+        }
+        .dup-toast {
+          margin-top: 10px;
+          background: var(--color-text);
+          color: var(--color-bg);
+          padding: 10px 16px;
+          border-radius: 999px;
+          font-size: 13px;
+          display: inline-flex;
+          align-items: center;
+          gap: 14px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        }
+        .dup-undo-btn {
+          appearance: none;
+          background: transparent;
+          border: 0;
+          color: var(--color-bg);
+          font: inherit;
+          font-size: 13px;
+          text-decoration: underline;
+          cursor: pointer;
+          padding: 0;
+        }
+
+        @media (max-width: 640px) {
+          .dup-toolbar {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .dup-instance {
+            flex-wrap: wrap;
+            gap: 4px 8px;
+          }
+          .dup-instance-date {
+            min-width: 0;
+            text-align: left;
+          }
+        }
       `}</style>
 
-      <DuplicateReviewModal
-        open={showDuplicateReview}
-        onClose={() => setShowDuplicateReview(false)}
-        groups={duplicateGroups}
-        onDeleted={() => {
-          setShowDuplicateReview(false);
-          onBookmarksChanged?.();
-        }}
-      />
     </div>
   );
 }

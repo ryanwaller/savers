@@ -581,7 +581,7 @@ export default function Sidebar({
         .sidebar {
           width: var(--sidebar-width);
           min-width: var(--sidebar-width);
-          height: 100vh;
+          height: 100%;
           border-right: 1px solid var(--color-border);
           background: var(--color-bg-secondary);
           display: flex;
@@ -753,6 +753,7 @@ export default function Sidebar({
         }
         .sidebar-foot {
           padding: 8px 8px env(safe-area-inset-bottom, 0px);
+          background: inherit;
         }
         .sidebar-foot-row {
           display: block;
