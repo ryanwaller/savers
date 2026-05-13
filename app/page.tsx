@@ -1918,6 +1918,12 @@ export default function Home() {
         onCreateSmartCollection={handleCreateSmartCollection}
         onEditSmartCollection={handleUpdateSmartCollection}
         onDeleteSmartCollection={handleDeleteSmartCollection}
+        onTagsChanged={async () => {
+          try {
+            const data = await api.bootstrap();
+            setAllBookmarks(data.bookmarks);
+          } catch { /* best-effort refresh */ }
+        }}
       />
 
       <div

@@ -3,6 +3,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import TagManagerModal from "./TagManagerModal";
 import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
 import type { Bookmark, Collection, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
@@ -50,6 +51,7 @@ type Props = {
   userEmail?: string | null;
   userAvatarUrl?: string | null;
   onTagClick: (tag: string | null) => void;
+  onTagsChanged?: () => void;
   selection: Selection;
   onSelect: (s: Selection) => void;
   onCreateCollection: (name: string, parentId: string | null) => Promise<Collection>;
@@ -106,6 +108,7 @@ export default function Sidebar({
   onCreateSmartCollection,
   onEditSmartCollection,
   onDeleteSmartCollection,
+  onTagsChanged,
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(() => {
@@ -146,6 +149,7 @@ export default function Sidebar({
     try { window.localStorage.setItem("savers.sidebar.tagsExpanded", String(tagsExpanded)); } catch { /* ignore */ }
   }, [tagsExpanded]);
   const [tagSortOrder, setTagSortOrder] = useState<'alphabetical' | 'count'>('alphabetical');
+  const [showTagManager, setShowTagManager] = useState(false);
   const [rootNestHover, setRootNestHover] = useState(false);
   const rootNestTimerRef = useRef<number | null>(null);
 
@@ -519,6 +523,12 @@ export default function Sidebar({
                       </button>
                     );
                   })}
+                  <button
+                    className="pill-btn pill-btn-dashed tag-manage-btn"
+                    onClick={() => setShowTagManager(true)}
+                  >
+                    Manage Tags…
+                  </button>
                 </div>
               )}
             </>
@@ -981,6 +991,15 @@ export default function Sidebar({
           padding: 2px 0;
         }
       `}</style>
+      <TagManagerModal
+        open={showTagManager}
+        onClose={() => setShowTagManager(false)}
+        allTags={allTags.map((t) => ({ tag: t, count: tagCounts[t] ?? 0 }))}
+        onMerged={() => {
+          setShowTagManager(false);
+          onTagsChanged?.();
+        }}
+      />
     </aside>
   );
 }

@@ -399,6 +399,41 @@ export const api = {
       }),
     );
   },
+
+  // --- Tag merging ---
+  async mergeTags(
+    sourceTags: string[],
+    targetTag: string,
+  ): Promise<{ success: boolean; affectedBookmarks: number; mergeId: string | null }> {
+    return j(
+      await fetch("/api/tags/merge", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceTags, targetTag }),
+      }),
+    );
+  },
+  async undoTagMerge(
+    mergeId: string,
+  ): Promise<{ success: boolean; revertedBookmarks: number }> {
+    return j(
+      await fetch("/api/tags/merge/undo", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mergeId }),
+      }),
+    );
+  },
+  async findSimilarTags(): Promise<{
+    groups: {
+      tags: string[];
+      counts: number[];
+      totalBookmarks: number;
+      reason: "case_insensitive" | "normalized" | "levenshtein";
+    }[];
+  }> {
+    return j(await fetch("/api/tags/similar", { cache: "no-store" }));
+  },
 };
 
 // Stable domain -> placeholder tint (neutral warm/cool grays, no vivid color)
