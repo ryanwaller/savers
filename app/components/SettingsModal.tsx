@@ -61,7 +61,8 @@ export default function SettingsModal({
         }
         .panel {
           width: min(960px, 100%);
-          max-height: 88vh;
+          height: min(860px, calc(100dvh - 48px));
+          max-height: calc(100dvh - 48px);
           background: var(--color-bg);
           border: 1px solid var(--color-border);
           border-radius: 12px;
@@ -88,12 +89,20 @@ export default function SettingsModal({
         }
         .body {
           padding: 22px;
+          flex: 1 1 auto;
+          min-height: 0;
           overflow-y: auto;
+          overscroll-behavior: contain;
+          -webkit-overflow-scrolling: touch;
         }
 
         @media (max-width: 640px) {
           .backdrop {
             padding: 12px;
+          }
+          .panel {
+            height: calc(100dvh - 24px);
+            max-height: calc(100dvh - 24px);
           }
           .body {
             padding: 16px;

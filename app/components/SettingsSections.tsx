@@ -438,12 +438,12 @@ export default function SettingsSections({
         .settings-sections {
           display: flex;
           flex-direction: column;
-          gap: 28px;
+          gap: 24px;
         }
         .settings-block {
           display: flex;
           flex-direction: column;
-          gap: 14px;
+          gap: 12px;
         }
         .settings-heading {
           display: flex;
@@ -453,12 +453,12 @@ export default function SettingsSections({
         }
         .settings-heading h2 {
           margin: 0;
-          font-size: 15px;
+          font-size: 14px;
           line-height: 1.2;
         }
         .settings-copy {
           margin: 6px 0 0;
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.45;
           color: var(--color-text-muted);
           max-width: 720px;
@@ -473,11 +473,11 @@ export default function SettingsSections({
         .settings-card {
           border: 1px solid var(--color-border);
           border-radius: 18px;
-          padding: 18px;
+          padding: 16px;
           background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
           display: flex;
           flex-direction: column;
-          gap: 12px;
+          gap: 10px;
         }
         .account-card {
           flex-direction: row;
@@ -506,12 +506,12 @@ export default function SettingsSections({
           min-width: 0;
         }
         .account-label {
-          font-size: 12px;
+          font-size: 11px;
           color: var(--color-text-muted);
         }
         .account-email {
           margin-top: 2px;
-          font-size: 16px;
+          font-size: 14px;
           font-weight: 600;
           word-break: break-word;
         }
@@ -525,11 +525,11 @@ export default function SettingsSections({
           gap: 12px;
         }
         .feature-title {
-          font-size: 15px;
+          font-size: 14px;
           font-weight: 600;
         }
         .feature-sub {
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.45;
           color: var(--color-text-muted);
         }
@@ -542,7 +542,7 @@ export default function SettingsSections({
           padding: 6px 10px;
           border-radius: 999px;
           border: 1px solid var(--color-border);
-          font-size: 11px;
+          font-size: 10px;
           line-height: 1;
           white-space: nowrap;
         }
@@ -562,7 +562,7 @@ export default function SettingsSections({
         .details summary {
           cursor: pointer;
           color: var(--color-text);
-          font-size: 13px;
+          font-size: 12px;
         }
         .bookmarklet-steps {
           margin: 10px 0 0 18px;
@@ -570,7 +570,7 @@ export default function SettingsSections({
           flex-direction: column;
           gap: 6px;
           color: var(--color-text-muted);
-          font-size: 13px;
+          font-size: 12px;
           line-height: 1.45;
         }
         .stat-grid {
@@ -582,19 +582,19 @@ export default function SettingsSections({
           border: 1px solid var(--color-border);
           border-radius: 14px;
           background: var(--color-bg);
-          padding: 12px;
+          padding: 10px;
           display: flex;
           flex-direction: column;
           gap: 4px;
         }
         .stat-value {
-          font-size: 22px;
+          font-size: 20px;
           line-height: 1;
           font-weight: 600;
           letter-spacing: -0.02em;
         }
         .stat-label {
-          font-size: 11px;
+          font-size: 10px;
           color: var(--color-text-muted);
         }
         .advanced-shell {
@@ -610,8 +610,8 @@ export default function SettingsSections({
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 18px;
-          font-size: 15px;
+          padding: 16px;
+          font-size: 14px;
           font-weight: 600;
         }
         .advanced-shell summary::-webkit-details-marker {
@@ -624,7 +624,7 @@ export default function SettingsSections({
           background: transparent;
         }
         .small {
-          font-size: 12px;
+          font-size: 11px;
         }
         .muted {
           color: var(--color-text-muted);
@@ -646,7 +646,7 @@ export default function SettingsSections({
           border: 1px solid var(--color-border);
           border-radius: 14px;
           background: var(--color-bg);
-          padding: 14px;
+          padding: 12px;
           display: flex;
           flex-direction: column;
           gap: 8px;
@@ -658,7 +658,7 @@ export default function SettingsSections({
           display: block;
           padding: 10px 12px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 12px;
+          font-size: 11px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: 12px;
@@ -681,7 +681,7 @@ export default function SettingsSections({
           display: flex;
           align-items: center;
           gap: 10px;
-          padding: 12px 14px;
+          padding: 10px 12px;
           border: 1px solid var(--color-border);
           border-radius: 14px;
           background: var(--color-bg);

@@ -2,7 +2,6 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
@@ -27,6 +26,7 @@ import DropZone from "./components/DropZone";
 import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
+import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
@@ -49,7 +49,6 @@ type Selection =
   | { kind: "smart_collection"; id: string };
 
 export default function Home() {
-  const router = useRouter();
   const MIN_SIDEBAR_WIDTH = 180;
   const MAX_SIDEBAR_WIDTH = 420;
 
@@ -311,6 +310,7 @@ export default function Home() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
@@ -1564,6 +1564,46 @@ export default function Home() {
     }
   }
 
+  function handleGeneratedPreviewsQueued(ids: string[]) {
+    if (ids.length === 0) return;
+    const queuedIds = new Set(ids);
+    updateAllBookmarksState((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setBookmarks((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setDetail((prev) =>
+      prev && queuedIds.has(prev.id)
+        ? {
+            ...prev,
+            screenshot_status: "pending",
+            screenshot_error: null,
+          }
+        : prev,
+    );
+    setDropStatus(
+      `Refreshing ${ids.length} generated preview${ids.length === 1 ? "" : "s"} in the background.`,
+    );
+    window.setTimeout(() => setDropStatus(null), 3200);
+  }
+
   async function handleUploadCustomPreview(id: string, source: CustomPreviewSource) {
     const { bookmark } = await api.uploadCustomPreview(id, source);
     updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
@@ -1871,7 +1911,7 @@ export default function Home() {
         onShareCollection={(c) => setSharingCollection(c)}
         onOpenTriage={() => setTriageOpen(true)}
         onSignOut={handleSignOut}
-        onOpenSettings={() => router.push("/settings")}
+        onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setSidebarOpen(false)}
         smartCollections={smartCollections}
         smartCollectionCounts={smartCollectionCounts}
@@ -1997,7 +2037,7 @@ export default function Home() {
                   })()}
                   <button
                     className="session-signout"
-                    onClick={() => router.push("/settings")}
+                    onClick={() => setShowSettings(true)}
                   >
                     Settings
                   </button>
@@ -2387,6 +2427,20 @@ export default function Home() {
           onDismiss={() => setToast(null)}
         />
       )}
+
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        bookmarks={allBookmarks}
+        flatCollections={flat}
+        userEmail={user.email}
+        userAvatarUrl={
+          ((user.user_metadata as Record<string, unknown> | undefined)?.avatar_url ||
+            (user.user_metadata as Record<string, unknown> | undefined)?.picture) as string | undefined
+        }
+        onSignOut={handleSignOut}
+        onGeneratedPreviewsQueued={handleGeneratedPreviewsQueued}
+      />
 
       <TriageOverlay
         open={triageOpen}
