@@ -12,6 +12,7 @@ type Props = {
   userAvatarUrl?: string | null;
   onSignOut?: () => void | Promise<void>;
   onGeneratedPreviewsQueued?: (ids: string[]) => void;
+  onBookmarksChanged?: () => void;
 };
 
 export default function SettingsModal({
@@ -23,6 +24,7 @@ export default function SettingsModal({
   userAvatarUrl,
   onSignOut,
   onGeneratedPreviewsQueued,
+  onBookmarksChanged,
 }: Props) {
   if (!open) return null;
 
@@ -44,6 +46,7 @@ export default function SettingsModal({
             userAvatarUrl={userAvatarUrl}
             onSignOut={onSignOut}
             onGeneratedPreviewsQueued={onGeneratedPreviewsQueued}
+            onBookmarksChanged={onBookmarksChanged}
           />
         </div>
       </div>

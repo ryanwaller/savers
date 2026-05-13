@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Bookmark, Collection } from "@/lib/types";
-import { api } from "@/lib/api";
+import type { Bookmark, Collection, DuplicateGroup } from "@/lib/types";
+import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
+import DuplicateReviewModal from "./DuplicateReviewModal";
 
 function resolveSaveUrl() {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -38,6 +39,7 @@ type Props = {
   userAvatarUrl?: string | null;
   onSignOut?: () => void | Promise<void>;
   onGeneratedPreviewsQueued?: (ids: string[]) => void;
+  onBookmarksChanged?: () => void;
 };
 
 export default function SettingsSections({
@@ -47,6 +49,7 @@ export default function SettingsSections({
   userAvatarUrl,
   onSignOut,
   onGeneratedPreviewsQueued,
+  onBookmarksChanged,
 }: Props) {
   const [tokens, setTokens] = useState<TokenRow[]>([]);
   const [loading, setLoading] = useState(false);
@@ -60,10 +63,24 @@ export default function SettingsSections({
   const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
   const [refreshingPreviews, setRefreshingPreviews] = useState(false);
   const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
+  const [showDuplicateReview, setShowDuplicateReview] = useState(false);
+  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
+  const [loadingDuplicateGroups, setLoadingDuplicateGroups] = useState(false);
 
   const generatedPreviewCount = bookmarks.filter((bookmark) => !bookmark.custom_preview_path).length;
   const customPreviewCount = bookmarks.filter((bookmark) => bookmark.custom_preview_path).length;
   const brokenLinkCount = bookmarks.filter((bookmark) => bookmark.link_status === "broken").length;
+
+  const duplicateCount = (() => {
+    const seen = new Set<string>();
+    let count = 0;
+    for (const b of bookmarks) {
+      const key = canonicalBookmarkUrl(b.url);
+      if (seen.has(key)) count++;
+      else seen.add(key);
+    }
+    return count;
+  })();
 
   const bookmarkletTokenExists = useMemo(
     () => tokens.some((token) => token.name.toLowerCase() === "bookmarklet"),
@@ -312,6 +329,45 @@ export default function SettingsSections({
           </div>
         </div>
       </section>
+
+      {duplicateCount > 0 && (
+        <section className="settings-block">
+          <div className="settings-heading">
+            <div>
+              <h2>Duplicates</h2>
+            </div>
+          </div>
+          <div className="settings-grid two-up">
+            <div className="settings-card">
+              <div className="feature-title">Review duplicates</div>
+              <div className="feature-sub">
+                {duplicateCount} duplicate bookmark{duplicateCount !== 1 ? "s" : ""} found across your library. Review and choose which copies to keep.
+              </div>
+              <div className="feature-actions">
+                <button
+                  className="btn btn-primary"
+                  onClick={async () => {
+                    setLoadingDuplicateGroups(true);
+                    setShowDuplicateReview(true);
+                    try {
+                      const data = await api.getDuplicateGroups();
+                      setDuplicateGroups(data.groups);
+                    } catch (e) {
+                      alert(e instanceof Error ? e.message : "Failed to load duplicates");
+                      setShowDuplicateReview(false);
+                    } finally {
+                      setLoadingDuplicateGroups(false);
+                    }
+                  }}
+                  disabled={loadingDuplicateGroups}
+                >
+                  {loadingDuplicateGroups ? "Loading…" : `Find Duplicates (${duplicateCount})`}
+                </button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="settings-block">
         <div className="settings-heading">
@@ -797,6 +853,16 @@ export default function SettingsSections({
           }
         }
       `}</style>
+
+      <DuplicateReviewModal
+        open={showDuplicateReview}
+        onClose={() => setShowDuplicateReview(false)}
+        groups={duplicateGroups}
+        onDeleted={() => {
+          setShowDuplicateReview(false);
+          onBookmarksChanged?.();
+        }}
+      />
     </div>
   );
 }

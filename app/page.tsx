@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion, SmartCollection, DuplicateGroup } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
@@ -30,7 +30,6 @@ import SettingsModal from "./components/SettingsModal";
 import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
-import DuplicateReviewModal from "./components/DuplicateReviewModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
@@ -488,9 +487,6 @@ export default function Home() {
   } | null>(null);
   const [dropStatus, setDropStatus] = useState<string | null>(null);
   const [duplicateImportUrls, setDuplicateImportUrls] = useState<string[]>([]);
-  const [showDuplicateReview, setShowDuplicateReview] = useState(false);
-  const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
-  const [loadingDuplicateGroups, setLoadingDuplicateGroups] = useState(false);
 
   const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
   const lastForegroundRefreshRef = useRef(0);
@@ -1098,27 +1094,6 @@ export default function Home() {
     }
     return depths;
   }, [flat]);
-
-  const duplicateSummary = useMemo(() => {
-    const seenCanonicalUrls = new Set<string>();
-    const duplicateGroups = new Set<string>();
-    let duplicateCount = 0;
-
-    for (const bookmark of allBookmarks) {
-      const canonicalUrl = canonicalBookmarkUrl(bookmark.url);
-      if (seenCanonicalUrls.has(canonicalUrl)) {
-        duplicateCount += 1;
-        duplicateGroups.add(canonicalUrl);
-        continue;
-      }
-      seenCanonicalUrls.add(canonicalUrl);
-    }
-
-    return {
-      duplicateCount,
-      duplicateGroupCount: duplicateGroups.size,
-    };
-  }, [allBookmarks]);
 
   const subCollections = useMemo<Collection[]>(() => {
     if (selection.kind !== "collection") return [];
@@ -2035,26 +2010,6 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                {duplicateSummary.duplicateCount > 0 && (
-                  <button
-                    className="btn"
-                    onClick={async () => {
-                      setLoadingDuplicateGroups(true);
-                      setShowDuplicateReview(true);
-                      try {
-                        const data = await api.getDuplicateGroups();
-                        setDuplicateGroups(data.groups);
-                      } catch (e) {
-                        alert(e instanceof Error ? e.message : "Failed to load duplicates");
-                        setShowDuplicateReview(false);
-                      } finally {
-                        setLoadingDuplicateGroups(false);
-                      }
-                    }}
-                  >
-                    Find Duplicates ({duplicateSummary.duplicateCount})
-                  </button>
-                )}
                 <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
                   + Add bookmark
                 </button>
@@ -2437,6 +2392,9 @@ export default function Home() {
             (user.user_metadata as Record<string, unknown> | undefined)?.picture) as string | undefined
         }
         onSignOut={handleSignOut}
+        onBookmarksChanged={() => {
+          loadAllBookmarks();
+        }}
         onGeneratedPreviewsQueued={handleGeneratedPreviewsQueued}
       />
 
@@ -2518,15 +2476,6 @@ export default function Home() {
         onClose={() => setDuplicateImportUrls([])}
         onAddAnyway={async (urls) => {
           await handleDroppedUrls(urls, { allowDuplicates: true });
-        }}
-      />
-
-      <DuplicateReviewModal
-        open={showDuplicateReview}
-        onClose={() => setShowDuplicateReview(false)}
-        groups={duplicateGroups}
-        onDeleted={() => {
-          loadAllBookmarks();
         }}
       />
 
