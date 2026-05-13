@@ -1,41 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { api } from "@/lib/api";
 import type { Bookmark, Collection } from "@/lib/types";
-import ExportBookmarksButton from "./ExportBookmarksButton";
-
-function resolveSaveUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) {
-    return `${configured.replace(/\/$/, "")}/save`;
-  }
-  if (typeof window !== "undefined") {
-    return `${window.location.origin.replace(/\/$/, "")}/save`;
-  }
-  return "https://savers-production.up.railway.app/save";
-}
-
-function buildBookmarkUrl(token?: string | null): string {
-  const saveUrl = resolveSaveUrl();
-  return token
-    ? `${saveUrl}?token=${encodeURIComponent(token)}`
-    : saveUrl;
-}
-
-type TokenRow = {
-  id: string;
-  name: string;
-  prefix: string;
-  last_used_at: string | null;
-  created_at: string;
-};
+import SettingsSections from "./SettingsSections";
 
 type Props = {
   open: boolean;
   onClose: () => void;
   bookmarks: Bookmark[];
   flatCollections: Collection[];
+  userEmail?: string | null;
+  userAvatarUrl?: string | null;
+  onSignOut?: () => void | Promise<void>;
   onGeneratedPreviewsQueued?: (ids: string[]) => void;
 };
 
@@ -44,141 +19,11 @@ export default function SettingsModal({
   onClose,
   bookmarks,
   flatCollections,
+  userEmail,
+  userAvatarUrl,
+  onSignOut,
   onGeneratedPreviewsQueued,
 }: Props) {
-  const [tokens, setTokens] = useState<TokenRow[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [newTokenName, setNewTokenName] = useState("");
-  const [creating, setCreating] = useState(false);
-  const [revealedToken, setRevealedToken] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
-  const [revoking, setRevoking] = useState<string | null>(null);
-  const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
-  const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
-  const [refreshingPreviews, setRefreshingPreviews] = useState(false);
-  const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
-
-  const generatedPreviewCount = bookmarks.filter((bookmark) => !bookmark.custom_preview_path).length;
-
-  useEffect(() => {
-    if (!open) {
-      setRevealedToken(null);
-      setCopied(false);
-      setError(null);
-      setNewTokenName("");
-      setPreviewRefreshMessage(null);
-      return;
-    }
-    void load();
-  }, [open]);
-
-  async function load() {
-    setLoading(true);
-    setError(null);
-    try {
-      const data = await api.listTokens();
-      setTokens(data.tokens);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not load tokens");
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  async function createToken() {
-    if (creating) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const result = await api.createToken(newTokenName.trim());
-      setRevealedToken(result.token);
-      setBookmarkletToken(result.token);
-      setNewTokenName("");
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create token");
-    } finally {
-      setCreating(false);
-    }
-  }
-
-  async function revokeToken(id: string) {
-    if (revoking) return;
-    setRevoking(id);
-    setError(null);
-    try {
-      await api.deleteToken(id);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not revoke token");
-    } finally {
-      setRevoking(null);
-    }
-  }
-
-  async function copyRevealed() {
-    if (!revealedToken) return;
-    try {
-      await navigator.clipboard.writeText(revealedToken);
-      setCopied(true);
-      window.setTimeout(() => setCopied(false), 1800);
-    } catch {
-      // ignore — user can select-and-copy manually
-    }
-  }
-
-  async function copyBookmarklet() {
-    try {
-      await navigator.clipboard.writeText(buildBookmarkUrl(bookmarkletToken));
-      setBookmarkletCopied(true);
-      window.setTimeout(() => setBookmarkletCopied(false), 1800);
-    } catch {
-      // ignore
-    }
-  }
-
-  async function refreshGeneratedPreviews() {
-    if (refreshingPreviews) return;
-    setRefreshingPreviews(true);
-    setPreviewRefreshMessage(null);
-    try {
-      const result = await api.refreshGeneratedPreviews();
-      if (result.queued_ids.length > 0) {
-        onGeneratedPreviewsQueued?.(result.queued_ids);
-      }
-
-      const parts: string[] = [];
-      if (result.queued_count > 0) {
-        parts.push(
-          `Queued ${result.queued_count} generated preview${result.queued_count === 1 ? "" : "s"} for refresh.`,
-        );
-      } else {
-        parts.push("No generated previews needed refreshing.");
-      }
-      if (result.skipped_custom_count > 0) {
-        parts.push(
-          `Skipped ${result.skipped_custom_count} manual upload${result.skipped_custom_count === 1 ? "" : "s"}.`,
-        );
-      }
-      if (result.skipped_in_flight_count > 0) {
-        parts.push(
-          `Skipped ${result.skipped_in_flight_count} preview${result.skipped_in_flight_count === 1 ? "" : "s"} already updating.`,
-        );
-      }
-      if (result.failed_count > 0) {
-        parts.push(
-          `${result.failed_count} enqueue${result.failed_count === 1 ? "" : "s"} failed.`,
-        );
-      }
-      setPreviewRefreshMessage(parts.join(" "));
-    } catch (e) {
-      setPreviewRefreshMessage(e instanceof Error ? e.message : "Could not refresh previews");
-    } finally {
-      setRefreshingPreviews(false);
-    }
-  }
-
   if (!open) return null;
 
   return (
@@ -192,169 +37,14 @@ export default function SettingsModal({
         </div>
 
         <div className="body">
-          <section className="section">
-            <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
-          </section>
-
-          <section className="section">
-            <div className="section-title">Previews</div>
-            <p className="small muted">
-              Re-run cover generation for saved previews while preserving bookmarks with manual uploaded images.
-            </p>
-            <button
-              className="btn"
-              onClick={() => void refreshGeneratedPreviews()}
-              disabled={refreshingPreviews || generatedPreviewCount === 0}
-            >
-              {refreshingPreviews
-                ? "Queueing refresh…"
-                : `Refresh generated previews${generatedPreviewCount > 0 ? ` (${generatedPreviewCount})` : ""}`}
-            </button>
-            {previewRefreshMessage && (
-              <div className="small muted">{previewRefreshMessage}</div>
-            )}
-          </section>
-
-          <section className="section">
-            <div className="section-title">Bookmark</div>
-            <p className="small muted">
-              Save any page to Savers with one click. A Savers tab opens
-              briefly to save the page you came from, then closes. Add a token
-              for cross-browser reliability.
-            </p>
-
-            <button
-              className="btn btn-primary"
-              onClick={async () => {
-                if (creating) return;
-                setCreating(true);
-                setError(null);
-                try {
-                  const result = await api.createToken("Bookmarklet");
-                  setRevealedToken(result.token);
-                  setBookmarkletToken(result.token);
-                  await load();
-                } catch (e) {
-                  setError(e instanceof Error ? e.message : "Could not create token");
-                } finally {
-                  setCreating(false);
-                }
-              }}
-              disabled={creating}
-            >
-              {creating ? "Creating…" : "Create token for bookmark"}
-            </button>
-
-            {bookmarkletToken ? (
-              <div className="small muted">
-                Token created. The save URL includes it automatically.
-              </div>
-            ) : (
-              <div className="small muted">
-                Click the button above to create a token. Without one, the
-                bookmark works but relies on you being logged in on this browser.
-              </div>
-            )}
-
-            <ol className="bookmarklet-steps">
-              <li>Click <strong>Create token for bookmark</strong> above (optional but recommended).</li>
-              <li>Click <strong>Copy save URL</strong> below.</li>
-              <li><strong>Bookmark this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
-              <li>Right-click the new bookmark → <strong>Edit</strong>, paste the URL, name it "Save to Savers".</li>
-            </ol>
-            <button
-              className="btn btn-primary"
-              onClick={() => void copyBookmarklet()}
-              disabled={!bookmarkletToken}
-            >
-              {bookmarkletCopied ? "Copied!" : "Copy save URL"}
-            </button>
-          </section>
-
-          <section className="section" id="api-tokens-section">
-            <div className="section-title">API tokens</div>
-            <p className="small muted">
-              Long-lived tokens for clients that can&apos;t use the web session
-              (the iOS Share Extension, scripts, etc.). Treat them like
-              passwords.
-            </p>
-
-            {revealedToken && (
-              <div className="reveal">
-                <div className="reveal-title">Your new token</div>
-                <p className="small muted">
-                  Copy this now — for your security we won&apos;t show it
-                  again. Paste it into the iOS app when prompted.
-                </p>
-                <code className="reveal-token">{revealedToken}</code>
-                <div className="reveal-actions">
-                  <button className="btn btn-primary" onClick={copyRevealed}>
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                  <button
-                    className="btn"
-                    onClick={() => setRevealedToken(null)}
-                  >
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
-
-            <div className="create-row">
-              <input
-                placeholder="Token name (e.g. iPhone Share)"
-                value={newTokenName}
-                onChange={(e) => setNewTokenName(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault();
-                    void createToken();
-                  }
-                }}
-                disabled={creating}
-              />
-              <button
-                className="btn btn-primary"
-                onClick={() => void createToken()}
-                disabled={creating}
-              >
-                {creating ? "Creating…" : "Create token"}
-              </button>
-            </div>
-
-            {error && <div className="error small">{error}</div>}
-
-            {loading ? (
-              <div className="small muted">Loading…</div>
-            ) : tokens.length === 0 ? (
-              <div className="small muted">No tokens yet.</div>
-            ) : (
-              <ul className="tokens">
-                {tokens.map((t) => (
-                  <li key={t.id} className="token-row">
-                    <div className="token-meta">
-                      <div className="token-name">{t.name}</div>
-                      <div className="token-sub small muted">
-                        <span className="token-prefix">{t.prefix}…</span>
-                        <span> · created {formatDate(t.created_at)}</span>
-                        {t.last_used_at && (
-                          <span> · last used {formatDate(t.last_used_at)}</span>
-                        )}
-                      </div>
-                    </div>
-                    <button
-                      className="btn btn-ghost danger"
-                      onClick={() => void revokeToken(t.id)}
-                      disabled={revoking === t.id}
-                    >
-                      {revoking === t.id ? "Revoking…" : "Revoke"}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <SettingsSections
+            bookmarks={bookmarks}
+            flatCollections={flatCollections}
+            userEmail={userEmail}
+            userAvatarUrl={userAvatarUrl}
+            onSignOut={onSignOut}
+            onGeneratedPreviewsQueued={onGeneratedPreviewsQueued}
+          />
         </div>
       </div>
 
@@ -370,12 +60,11 @@ export default function SettingsModal({
           padding: 24px;
         }
         .panel {
-          width: 560px;
-          max-width: 100%;
-          max-height: 86vh;
+          width: min(960px, 100%);
+          max-height: 88vh;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
-          border-radius: 8px;
+          border-radius: 12px;
           display: flex;
           flex-direction: column;
           overflow: hidden;
@@ -384,7 +73,7 @@ export default function SettingsModal({
           display: flex;
           align-items: center;
           justify-content: space-between;
-          padding: 12px 16px;
+          padding: 16px 18px;
           border-bottom: 1px solid var(--color-border);
         }
         .title {
@@ -398,164 +87,19 @@ export default function SettingsModal({
           color: var(--color-text);
         }
         .body {
-          padding: 16px;
+          padding: 22px;
           overflow-y: auto;
-          display: flex;
-          flex-direction: column;
-          gap: 16px;
         }
-        .section {
-          display: flex;
-          flex-direction: column;
-          gap: 10px;
-        }
-        .section-title {
-          font-weight: 600;
-        }
-        .small {
-          font-size: 12px;
-        }
-        .muted {
-          color: var(--color-text-muted);
-        }
-        .create-row {
-          display: flex;
-          gap: 8px;
-        }
-        .create-row input {
-          flex: 1 1 auto;
-          padding: 8px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font: inherit;
-        }
-        .reveal {
-          border: 1px solid var(--color-border);
-          border-radius: 8px;
-          background: var(--color-bg-secondary);
-          padding: 12px;
-          display: flex;
-          flex-direction: column;
-          gap: 8px;
-        }
-        .reveal-title {
-          font-weight: 600;
-        }
-        .reveal-token {
-          display: block;
-          padding: 8px 10px;
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 12px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          word-break: break-all;
-          user-select: all;
-        }
-        .reveal-actions {
-          display: flex;
-          gap: 6px;
-        }
-        .tokens {
-          list-style: none;
-          padding: 0;
-          margin: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 6px;
-        }
-        .token-row {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-          padding: 8px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 6px;
-          background: var(--color-bg-secondary);
-        }
-        .token-meta {
-          flex: 1 1 auto;
-          min-width: 0;
-        }
-        .token-name {
-          font-weight: 500;
-          word-break: break-word;
-        }
-        .token-sub {
-          margin-top: 2px;
-          word-break: break-word;
-        }
-        .token-prefix {
-          font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-        }
-        .error {
-          color: #ff7a7a;
-        }
-        .btn {
-          appearance: none;
-          font: inherit;
-          padding: 6px 10px;
-          border-radius: 6px;
-          border: 1px solid var(--color-border);
-          background: var(--color-bg);
-          color: var(--color-text);
-          cursor: pointer;
-        }
-        .btn:hover {
-          border-color: var(--color-border-strong);
-        }
-        .btn-primary {
-          background: var(--color-text);
-          color: var(--color-bg);
-          border-color: var(--color-text);
-        }
-        .btn-primary:hover {
-          opacity: 0.9;
-        }
-        .btn-primary:disabled {
-          opacity: 0.5;
-          cursor: not-allowed;
-        }
-        .btn-ghost {
-          background: transparent;
-        }
-        .btn-ghost.danger {
-          color: #ff7a7a;
-        }
-        .bookmarklet-steps {
-          margin: 0;
-          padding-left: 18px;
-          font-size: 12px;
-          color: var(--color-text-muted);
-          line-height: 17px;
-        }
-        @media (max-width: 768px) {
+
+        @media (max-width: 640px) {
           .backdrop {
-            padding: 0;
-            align-items: stretch;
+            padding: 12px;
           }
-          .panel {
-            max-height: 100dvh;
-            border-radius: 0;
-            width: 100%;
-            border: 0;
+          .body {
+            padding: 16px;
           }
         }
       `}</style>
     </div>
   );
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  } catch {
-    return iso;
-  }
 }
