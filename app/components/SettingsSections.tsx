@@ -201,15 +201,7 @@ export default function SettingsSections({
         <div className="settings-heading">
           <div>
             <h2>Account</h2>
-            <p className="settings-copy">
-              Your Savers account, session, and the basics people expect to find in settings.
-            </p>
           </div>
-          {onSignOut && (
-            <button className="btn" onClick={() => void onSignOut()}>
-              Sign out
-            </button>
-          )}
         </div>
         <div className="settings-card account-card">
           <div className="account-avatar">
@@ -223,6 +215,11 @@ export default function SettingsSections({
             <div className="account-label">Signed in</div>
             <div className="account-email">{userEmail ?? "Loading account…"}</div>
           </div>
+          {onSignOut && (
+            <button className="btn account-signout" onClick={() => void onSignOut()}>
+              Sign out
+            </button>
+          )}
         </div>
       </section>
 
@@ -230,9 +227,6 @@ export default function SettingsSections({
         <div className="settings-heading">
           <div>
             <h2>Save to Savers</h2>
-            <p className="settings-copy">
-              Capture pages from anywhere. Bookmarklet setup lives here, while raw token management stays below in advanced.
-            </p>
           </div>
         </div>
         <div className="settings-grid two-up">
@@ -270,19 +264,25 @@ export default function SettingsSections({
                 : "Without a token, the save URL relies on you being signed in on this browser."}
             </p>
             <details className="details">
-              <summary>Advanced setup steps</summary>
+              <summary>
+                <span>Advanced setup steps</span>
+                <span className="dropdown-circle" aria-hidden="true">
+                  <svg viewBox="0 0 16 16" fill="none">
+                    <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                </span>
+              </summary>
               <ol className="bookmarklet-steps">
-                <li>Click <strong>{bookmarkletTokenExists ? "Create fresh setup link" : "Set up bookmarklet"}</strong>.</li>
-                <li>Click <strong>Copy save URL</strong>.</li>
-                <li><strong>Bookmark this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
-                <li>Right-click the new bookmark, choose <strong>Edit</strong>, paste the URL, and name it “Save to Savers”.</li>
+                <li>Click {bookmarkletTokenExists ? "Create fresh setup link" : "Set up bookmarklet"}.</li>
+                <li>Click Copy save URL.</li>
+                <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
+                <li>Right-click the new bookmark, choose Edit, paste the URL, and name it “Save to Savers”.</li>
               </ol>
             </details>
           </div>
 
           <div className="settings-card feature-card">
             <div className="feature-title">Library snapshot</div>
-            <div className="feature-sub">A quick sense of what your account is holding right now.</div>
             <div className="stat-grid">
               <div className="stat">
                 <span className="stat-value">{bookmarks.length}</span>
@@ -317,9 +317,6 @@ export default function SettingsSections({
         <div className="settings-heading">
           <div>
             <h2>Library & data</h2>
-            <p className="settings-copy">
-              Export your library and run maintenance actions that help keep Savers clean.
-            </p>
           </div>
         </div>
         <div className="settings-grid two-up">
@@ -353,8 +350,15 @@ export default function SettingsSections({
       <section className="settings-block">
         <details className="advanced-shell">
           <summary>
-            <span>Privacy, security & advanced</span>
-            <span className="small muted">API tokens, install credentials, and manual setup details</span>
+            <span className="summary-copy">
+              <span>Privacy, security & advanced</span>
+              <span className="small muted">API tokens, install credentials, and manual setup details</span>
+            </span>
+            <span className="dropdown-circle" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none">
+                <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
           </summary>
 
           <div className="settings-card advanced-card">
@@ -453,12 +457,13 @@ export default function SettingsSections({
         }
         .settings-heading h2 {
           margin: 0;
-          font-size: 14px;
+          font-size: 13px;
           line-height: 1.2;
+          font-weight: 400;
         }
         .settings-copy {
           margin: 6px 0 0;
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.45;
           color: var(--color-text-muted);
           max-width: 720px;
@@ -495,7 +500,7 @@ export default function SettingsSections({
           justify-content: center;
           overflow: hidden;
           color: var(--color-text);
-          font-weight: 600;
+          font-weight: 400;
         }
         .account-avatar img {
           width: 100%;
@@ -503,17 +508,22 @@ export default function SettingsSections({
           object-fit: cover;
         }
         .account-meta {
+          flex: 1 1 auto;
           min-width: 0;
         }
         .account-label {
-          font-size: 11px;
+          font-size: 13px;
           color: var(--color-text-muted);
         }
         .account-email {
           margin-top: 2px;
-          font-size: 14px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 400;
           word-break: break-word;
+        }
+        .account-signout {
+          margin-left: auto;
+          white-space: nowrap;
         }
         .feature-card {
           min-height: 100%;
@@ -525,11 +535,11 @@ export default function SettingsSections({
           gap: 12px;
         }
         .feature-title {
-          font-size: 14px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 400;
         }
         .feature-sub {
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.45;
           color: var(--color-text-muted);
         }
@@ -542,9 +552,10 @@ export default function SettingsSections({
           padding: 6px 10px;
           border-radius: 999px;
           border: 1px solid var(--color-border);
-          font-size: 10px;
+          font-size: 13px;
           line-height: 1;
           white-space: nowrap;
+          font-weight: 400;
         }
         .status-ready {
           background: color-mix(in srgb, #2ecc71 12%, var(--color-bg));
@@ -562,7 +573,15 @@ export default function SettingsSections({
         .details summary {
           cursor: pointer;
           color: var(--color-text);
-          font-size: 12px;
+          font-size: 13px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          list-style: none;
+        }
+        .details summary::-webkit-details-marker {
+          display: none;
         }
         .bookmarklet-steps {
           margin: 10px 0 0 18px;
@@ -570,7 +589,7 @@ export default function SettingsSections({
           flex-direction: column;
           gap: 6px;
           color: var(--color-text-muted);
-          font-size: 12px;
+          font-size: 13px;
           line-height: 1.45;
         }
         .stat-grid {
@@ -588,13 +607,13 @@ export default function SettingsSections({
           gap: 4px;
         }
         .stat-value {
-          font-size: 20px;
+          font-size: 13px;
           line-height: 1;
-          font-weight: 600;
-          letter-spacing: -0.02em;
+          font-weight: 400;
+          letter-spacing: 0;
         }
         .stat-label {
-          font-size: 10px;
+          font-size: 13px;
           color: var(--color-text-muted);
         }
         .advanced-shell {
@@ -611,11 +630,40 @@ export default function SettingsSections({
           justify-content: space-between;
           gap: 12px;
           padding: 16px;
-          font-size: 14px;
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 400;
         }
         .advanced-shell summary::-webkit-details-marker {
           display: none;
+        }
+        .summary-copy {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .dropdown-circle {
+          flex: 0 0 auto;
+          width: 28px;
+          height: 28px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          transition: transform 180ms ease, color 180ms ease, background 180ms ease;
+        }
+        .dropdown-circle svg {
+          width: 14px;
+          height: 14px;
+        }
+        .details[open] .dropdown-circle,
+        .advanced-shell[open] .dropdown-circle {
+          transform: rotate(180deg);
+          color: var(--color-text);
+          background: color-mix(in srgb, var(--color-bg-secondary) 82%, transparent);
         }
         .advanced-card {
           border: 0;
@@ -624,7 +672,7 @@ export default function SettingsSections({
           background: transparent;
         }
         .small {
-          font-size: 11px;
+          font-size: 13px;
         }
         .muted {
           color: var(--color-text-muted);
@@ -652,13 +700,14 @@ export default function SettingsSections({
           gap: 8px;
         }
         .reveal-title {
-          font-weight: 600;
+          font-size: 13px;
+          font-weight: 400;
         }
         .reveal-token {
           display: block;
           padding: 10px 12px;
           font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-          font-size: 11px;
+          font-size: 13px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
           border-radius: 12px;
@@ -691,7 +740,8 @@ export default function SettingsSections({
           min-width: 0;
         }
         .token-name {
-          font-weight: 500;
+          font-size: 13px;
+          font-weight: 400;
           word-break: break-word;
         }
         .token-sub {
@@ -719,10 +769,15 @@ export default function SettingsSections({
             flex-direction: column;
           }
           .feature-top,
-          .advanced-shell summary,
           .account-card {
             flex-direction: column;
             align-items: flex-start;
+          }
+          .advanced-shell summary {
+            align-items: flex-start;
+          }
+          .summary-copy {
+            width: 100%;
           }
           .feature-actions,
           .create-row,
@@ -735,6 +790,10 @@ export default function SettingsSections({
           .token-row {
             flex-direction: column;
             align-items: flex-start;
+          }
+          .account-signout {
+            margin-left: 0;
+            width: 100%;
           }
         }
       `}</style>
