@@ -178,11 +178,30 @@ async function processJob(job: Job<LinkCheckJobData>) {
   const { bookmarkId, url, userId } = job.data;
   const supabase = getSupabaseAdmin();
 
-  // Random jitter between 500ms-2000ms to avoid hammering domains
-  const jitter = 500 + Math.random() * 1500;
-  await new Promise((r) => setTimeout(r, jitter));
+  // Fetch current broken_status in parallel with the URL check so we
+  // don't overwrite a user's manual verification ("Still Works" /
+  // "Confirm Broken"). If the user has already acted, skip the update.
+  const [existing, result] = await Promise.all([
+    supabase
+      .from("bookmarks")
+      .select("broken_status")
+      .eq("id", bookmarkId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+    (async () => {
+      // Random jitter between 500ms-2000ms to avoid hammering domains
+      const jitter = 500 + Math.random() * 1500;
+      await new Promise((r) => setTimeout(r, jitter));
+      return checkUrl(url);
+    })(),
+  ]);
 
-  const result = await checkUrl(url);
+  if (
+    existing.data?.broken_status === "verified_active" ||
+    existing.data?.broken_status === "confirmed_broken"
+  ) {
+    return { status: "skipped", reason: "user-verified" };
+  }
 
   const updateFields: Record<string, unknown> = {
     link_status: result.status,
