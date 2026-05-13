@@ -458,7 +458,6 @@ function BookmarkCard({
     // "Still Works" — optimistic UI then persist (fire-and-forget).
     // Never revert the optimistic update — the user told us the link works.
     setVerifyingBroken(true);
-    const previous = { ...b };
     setBrokenStatus("verified_active");
     setBrokenActionOpen(false);
     await onPatchBookmark({ ...b, link_status: "active", broken_status: "verified_active" });

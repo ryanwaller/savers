@@ -33,47 +33,47 @@ export async function POST(
     const supabaseAdmin = getSupabaseAdmin();
     const now = new Date().toISOString();
 
-    if (action === "confirm") {
-      const confirmUpdates: Record<string, unknown> = {
-        broken_status: "confirmed_broken",
-        broken_verified_at: now,
-        link_status: "broken",
-      };
-      confirmUpdates.broken_verified_by = user.id;
+    const baseUpdates: Record<string, unknown> =
+      action === "confirm"
+        ? { link_status: "broken", last_link_check: now }
+        : { link_status: "active", last_link_check: now };
 
-      const { error } = await tryUpdate(supabaseAdmin, bookmarkId, user.id, confirmUpdates);
+    // Try full update with migration-017 columns first.
+    const fullUpdates: Record<string, unknown> = {
+      ...baseUpdates,
+      broken_status: action === "confirm" ? "confirmed_broken" : "verified_active",
+      broken_verified_at: now,
+      broken_verified_by: user.id,
+    };
 
-      if (error) {
-        console.error(`verify-broken confirm failed: ${error.message}`);
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
+    let result = await supabaseAdmin
+      .from("bookmarks")
+      .update(fullUpdates)
+      .eq("id", bookmarkId)
+      .eq("user_id", user.id);
 
-      return NextResponse.json({
-        success: true,
-        broken_status: "confirmed_broken",
-        link_status: "broken",
-      });
+    // If any migration-017 column is missing or the FK is broken,
+    // fall back to only the essential columns (migration 016).
+    if (result.error) {
+      console.warn(`verify-broken full update failed (will retry minimal): ${result.error.message}`);
+      result = await supabaseAdmin
+        .from("bookmarks")
+        .update(baseUpdates)
+        .eq("id", bookmarkId)
+        .eq("user_id", user.id);
     }
 
-    // dispute
-    const updates: Record<string, unknown> = {
-      broken_status: "verified_active",
-      broken_verified_at: now,
-      link_status: "active",
-    };
-    updates.broken_verified_by = user.id;
-
-    const { error } = await tryUpdate(supabaseAdmin, bookmarkId, user.id, updates);
+    const { error } = result;
 
     if (error) {
-      console.error(`verify-broken dispute failed: ${error.message}`);
+      console.error(`verify-broken ${action} failed: ${error.message}`);
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      broken_status: "verified_active",
-      link_status: "active",
+      broken_status: action === "confirm" ? "confirmed_broken" : "verified_active",
+      link_status: action === "confirm" ? "broken" : "active",
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
@@ -84,41 +84,4 @@ export async function POST(
     console.error(`verify-broken POST failed: ${message}`);
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
-
-async function tryUpdate(
-  supabaseAdmin: ReturnType<typeof getSupabaseAdmin>,
-  bookmarkId: string,
-  userId: string,
-  updates: Record<string, unknown>,
-) {
-  let result = await supabaseAdmin
-    .from("bookmarks")
-    .update(updates)
-    .eq("id", bookmarkId)
-    .eq("user_id", userId);
-
-  if (result.error) {
-    const msg = result.error.message ?? "";
-    const det = result.error.details ?? "";
-    const code = result.error.code ?? "";
-    const hit =
-      msg.includes("broken_verified_by") ||
-      det.includes("broken_verified_by") ||
-      msg.includes("savers.users") ||
-      det.includes("savers.users") ||
-      code === "23503" ||
-      code === "42703";
-
-    if (hit) {
-      delete updates.broken_verified_by;
-      result = await supabaseAdmin
-        .from("bookmarks")
-        .update(updates)
-        .eq("id", bookmarkId)
-        .eq("user_id", userId);
-    }
-  }
-
-  return result;
 }

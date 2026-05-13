@@ -30,47 +30,39 @@ export async function PATCH(
 
     const supabaseAdmin = getSupabaseAdmin();
 
-    const updates: Record<string, unknown> = {
+    const baseUpdates: Record<string, unknown> = {
       link_status,
+      last_link_check: new Date().toISOString(),
+    };
+
+    // Try the full update with migration-017 columns first.
+    const fullUpdates: Record<string, unknown> = {
+      ...baseUpdates,
       broken_status: link_status === "active" ? "verified_active" : null,
       broken_verified_at:
         link_status === "active" ? new Date().toISOString() : null,
-      last_link_check: new Date().toISOString(),
+      broken_verified_by: link_status === "active" ? user.id : null,
     };
-    updates.broken_verified_by = link_status === "active" ? user.id : null;
 
     let result = await supabaseAdmin
       .from("bookmarks")
-      .update(updates)
+      .update(fullUpdates)
       .eq("id", bookmarkId)
       .eq("user_id", user.id)
       .select()
       .single();
 
-    // Retry without broken_verified_by if the FK on savers.users(id) fails,
-    // or if the column doesn't exist (migration 017 may have partially failed).
+    // If any migration-017 column is missing or the FK on savers.users(id)
+    // is broken, fall back to only the essential columns (migration 016).
     if (result.error) {
-      const msg = result.error.message ?? "";
-      const det = result.error.details ?? "";
-      const code = result.error.code ?? "";
-      const hit =
-        msg.includes("broken_verified_by") ||
-        det.includes("broken_verified_by") ||
-        msg.includes("savers.users") ||
-        det.includes("savers.users") ||
-        code === "23503" ||
-        code === "42703";
-
-      if (hit) {
-        delete updates.broken_verified_by;
-        result = await supabaseAdmin
-          .from("bookmarks")
-          .update(updates)
-          .eq("id", bookmarkId)
-          .eq("user_id", user.id)
-          .select()
-          .single();
-      }
+      console.warn(`link-status full update failed (will retry minimal): ${result.error.message}`);
+      result = await supabaseAdmin
+        .from("bookmarks")
+        .update(baseUpdates)
+        .eq("id", bookmarkId)
+        .eq("user_id", user.id)
+        .select()
+        .single();
     }
 
     const { data: bookmark, error } = result;
