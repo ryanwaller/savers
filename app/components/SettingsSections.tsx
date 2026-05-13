@@ -1116,7 +1116,7 @@ export default function SettingsSections({
           align-items: center;
           justify-content: space-between;
           gap: 12px;
-          padding: 12px 0;
+          padding: 12px 12px;
           border-bottom: 1px solid var(--color-border);
           font-size: 13px;
         }
@@ -1133,7 +1133,7 @@ export default function SettingsSections({
           display: flex;
           flex-direction: column;
           gap: 12px;
-          padding: 12px 0;
+          padding: 12px 12px;
         }
         .dup-group {
           border: 1px solid var(--color-border);
@@ -1251,7 +1251,7 @@ export default function SettingsSections({
           align-items: center;
           justify-content: flex-end;
           gap: 8px;
-          padding: 10px 0 0;
+          padding: 12px 12px 18px;
           border-top: 1px solid var(--color-border);
         }
         .dup-toast {
