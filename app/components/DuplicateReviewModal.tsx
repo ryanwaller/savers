@@ -184,7 +184,7 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
         {/* Toolbar */}
         <div className="dr-toolbar">
           <span className="muted">
-            {groups.length} group{groups.length !== 1 ? "s" : ""} ·{" "}
+            {groups.length} group{groups.length !== 1 ? "s" : ""},{" "}
             {groups.reduce((s, g) => s + g.instances.length - 1, 0)} duplicate
             {groups.reduce((s, g) => s + g.instances.length - 1, 0) !== 1 ? "s" : ""}
           </span>
