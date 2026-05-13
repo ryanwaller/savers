@@ -461,8 +461,7 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
         }
         .tmm-search {
           font-size: 12px;
-          height: 32px;
-          padding: 0 8px;
+          padding: 6px 8px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
           background: var(--color-bg);
