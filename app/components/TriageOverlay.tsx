@@ -583,7 +583,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         .triage-backdrop {
           position: fixed;
           inset: 0;
-          background: var(--color-bg-page);
+          background: rgba(0, 0, 0, 0.55);
+          backdrop-filter: blur(4px);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -669,7 +670,6 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-thumb {
           display: block;
-          aspect-ratio: 16 / 9;
           max-height: 360px;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
@@ -678,8 +678,9 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         }
         .triage-thumb img {
           width: 100%;
-          height: 100%;
-          object-fit: cover;
+          height: auto;
+          max-height: 360px;
+          object-fit: contain;
         }
         .triage-thumb-fallback {
           display: flex;
@@ -817,6 +818,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           align-items: center;
           justify-content: space-between;
           gap: 8px;
+          margin: 0 -28px;
           padding: 14px 16px;
         }
         .triage-actions-right {
