@@ -485,6 +485,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
                   return collection;
                 }}
                 placeholder="Pick a collection…"
+                openDirection="up"
               />
             </div>
           </div>
@@ -652,7 +653,6 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           border-radius: 12px;
           display: flex;
           flex-direction: column;
-          overflow: hidden;
           box-shadow: 0 24px 64px rgba(0, 0, 0, 0.32);
           animation: triage-rise 180ms ease both;
         }
