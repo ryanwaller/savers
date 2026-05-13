@@ -1975,7 +1975,6 @@ export default function Home() {
                   if (!displayCollection) return null;
                   return (
                 <span className="crumb" key="scroll-spy" data-scroll-spy>
-                  <span className="crumb-label scroll-spy-root-label">All bookmarks</span>
                   <span className="sep">›</span>
                   {displayCollection.split(" > ").map((part, i, arr) => {
                     const isLast = i === arr.length - 1;
