@@ -57,7 +57,6 @@
         font-family: var(--save-font-family) !important;
         font-size: var(--save-font-size) !important;
         line-height: var(--save-line-height) !important;
-        font-weight: var(--save-font-weight) !important;
         letter-spacing: var(--save-letter-spacing) !important;
         text-transform: none !important;
         box-sizing: border-box;
@@ -122,7 +121,7 @@
         outline: none !important;
         font: inherit;
         letter-spacing: inherit;
-        font-weight: 400 !important;
+        font-weight: 500 !important;
         opacity: 1 !important;
       }
       .savers-bm-input::placeholder {
@@ -148,7 +147,7 @@
         outline: none !important;
         font: inherit;
         letter-spacing: inherit;
-        font-weight: 400 !important;
+        font-weight: 500 !important;
         opacity: 1 !important;
       }
       .savers-bm-picker-trigger {
@@ -225,7 +224,7 @@
         padding: 6px 12px;
         min-height: 30px;
         font: inherit;
-        font-weight: 400;
+        font-weight: 500;
         letter-spacing: inherit;
         cursor: pointer;
         opacity: 1 !important;
@@ -265,6 +264,7 @@
         background: transparent;
         color: var(--bm-text);
         font: inherit;
+        font-weight: 500;
         cursor: pointer;
       }
       .savers-bm-tag-proposal-add {
@@ -273,6 +273,7 @@
       .savers-bm-tag-proposal-skip {
         padding: 0 9px;
         color: var(--bm-muted);
+        font-weight: 400;
         border-left: 1px dashed var(--bm-border-strong);
       }
       .savers-bm-tag-status {
@@ -292,9 +293,11 @@
       }
       .savers-bm-ai-label {
         color: var(--bm-brat);
+        font-weight: 500;
       }
       .savers-bm-ai-copy {
         color: var(--bm-text);
+        font-weight: 500;
         word-break: break-word;
       }
       .savers-bm-actions {
@@ -312,7 +315,7 @@
         background: #222222 !important;
         color: var(--bm-text) !important;
         font: inherit;
-        font-weight: 400;
+        font-weight: 500;
         letter-spacing: inherit;
         cursor: pointer;
         text-align: center;
@@ -329,6 +332,7 @@
       .savers-bm-status {
         min-height: 17px;
         color: var(--bm-muted);
+        font-weight: 400;
       }
       .savers-bm-status-error { color: #ff8f8f; }
       .savers-bm-status-success { color: #9ce7b1; }
