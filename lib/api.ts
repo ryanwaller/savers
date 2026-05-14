@@ -208,6 +208,12 @@ export const api = {
       }),
     );
   },
+  async checkFeedMatch(url: string): Promise<{
+    match: boolean;
+    feeds: { id: string; name: string }[];
+  }> {
+    return j(await fetch(`/api/bookmarks/check-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
+  },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {
       const formData = new FormData();

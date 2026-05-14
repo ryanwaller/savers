@@ -966,6 +966,9 @@ function BookmarkCard({
                 <img className="fav" src={b.favicon} alt="" />
               )}
               <span className="host small muted">{host}</span>
+              {b.source === "feed" && (
+                <span className="feed-badge">Feed</span>
+              )}
             </div>
             {b.description && (desktopCols ?? 0) < 6 && <div className="desc small muted">{b.description}</div>}
           </div>
@@ -1667,6 +1670,24 @@ function BookmarkCard({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+        }
+        .feed-badge {
+          display: inline-flex;
+          align-items: center;
+          flex-shrink: 0;
+          font-size: 10px;
+          line-height: 1;
+          padding: 2px 6px;
+          border-radius: 3px;
+          background: rgba(34, 197, 94, 0.12);
+          color: #16a34a;
+          font-weight: 500;
+        }
+        @media (prefers-color-scheme: dark) {
+          .feed-badge {
+            background: rgba(34, 197, 94, 0.15);
+            color: #4ade80;
+          }
         }
         .desc {
           display: -webkit-box;

@@ -43,6 +43,8 @@ export default function AddBookmarkModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastFetchedRef = useRef("");
+  const [feedMatch, setFeedMatch] = useState<{ feeds: { id: string; name: string }[] } | null>(null);
+  const [checkingFeed, setCheckingFeed] = useState(false);
 
   // Suggestion state
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
@@ -481,11 +483,23 @@ export default function AddBookmarkModal({
                   setAiSuggestion(null);
                   setAiDismissed(false);
                   setAiStatus(null);
+                  setFeedMatch(null);
                 }
                 setUrl(next);
               }}
               onBlur={() => {
                 void fetchMetadata();
+                const u = normalizeUrl(url);
+                if (u && u !== lastFetchedRef.current) {
+                  setCheckingFeed(true);
+                  api.checkFeedMatch(u).then((res) => {
+                    setFeedMatch(res.match ? res : null);
+                    setCheckingFeed(false);
+                  }).catch(() => {
+                    setFeedMatch(null);
+                    setCheckingFeed(false);
+                  });
+                }
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -497,6 +511,16 @@ export default function AddBookmarkModal({
             <div className="hint small muted">
               {fetching ? "Fetching page details…" : "Press Enter or Tab to fetch page details."}
             </div>
+            {checkingFeed && (
+              <div className="hint small muted">Checking feeds…</div>
+            )}
+            {feedMatch && !checkingFeed && (
+              <div className="feed-match-hint">
+                Already tracked by {feedMatch.feeds.length === 1
+                  ? `the ${feedMatch.feeds[0].name} feed`
+                  : `${feedMatch.feeds.length} feeds`}
+              </div>
+            )}
           </label>
 
           {duplicateBookmarks.length > 0 && (
@@ -967,6 +991,23 @@ export default function AddBookmarkModal({
         }
         .label { font-size: 12px; color: var(--color-text-muted); }
         .hint { margin-top: 2px; }
+        .feed-match-hint {
+          margin-top: 4px;
+          padding: 4px 8px;
+          border-radius: var(--radius);
+          background: rgba(34, 197, 94, 0.1);
+          color: #16a34a;
+          font-size: 11px;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+        }
+        @media (prefers-color-scheme: dark) {
+          .feed-match-hint {
+            background: rgba(34, 197, 94, 0.12);
+            color: #4ade80;
+          }
+        }
         .preview {
           display: flex;
           gap: 10px;
