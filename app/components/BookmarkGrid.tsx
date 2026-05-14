@@ -1219,11 +1219,12 @@ function BookmarkCard({
           margin: 4px 8px;
           background: var(--color-border);
         }
-        .card-feed .thumb-wrap {
-          border-left: 3px solid #22c55e;
-          border-bottom: 1px solid #22c55e;
-          border-right: 3px solid #22c55e;
-          border-top: 3px solid #22c55e;
+        .card-feed {
+          border-color: #22c55e;
+          border-width: 2px;
+        }
+        .card-feed:hover {
+          border-color: #22c55e;
         }
         .thumb-wrap {
           position: relative;

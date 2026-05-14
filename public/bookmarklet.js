@@ -35,9 +35,10 @@
   root.innerHTML = `
     <style>
       #savers-bm-root {
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
         font-size: 12px;
         line-height: 17px;
+        font-weight: 400;
         --bm-bg: #121212;
         --bm-panel: #1a1a1a;
         --bm-panel-2: #151515;
@@ -92,6 +93,7 @@
       }
       .savers-bm-label {
         color: var(--bm-muted);
+        font-weight: 400;
       }
       .savers-bm-input {
         width: 100%;
@@ -134,6 +136,7 @@
         padding: 8px 12px;
         min-height: 32px;
         font: inherit;
+        font-weight: 400;
         cursor: pointer;
       }
       .savers-bm-pill-primary {
@@ -219,6 +222,7 @@
         background: #222222;
         color: var(--bm-text);
         font: inherit;
+        font-weight: 400;
         cursor: pointer;
         text-align: center;
       }

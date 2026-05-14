@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { enqueueScreenshot } from "@/lib/screenshot-queue";
 
 // Simple RSS/Atom parser — extracts entries from XML without dependencies
 function parseFeedEntries(xml: string): {
@@ -174,19 +175,43 @@ export async function POST(req: NextRequest) {
           if (existing) continue;
 
           // Create bookmark
-          const { error: insertError } = await supabase.from("bookmarks").insert({
-            user_id: sub.user_id,
-            url: entry.url,
-            title: entry.title || entry.url,
-            description: entry.description?.slice(0, 1000) ?? null,
-            collection_id: sub.collection_id,
-            source: "feed",
-          });
+          const { data: newBookmark, error: insertError } = await supabase
+            .from("bookmarks")
+            .insert({
+              user_id: sub.user_id,
+              url: entry.url,
+              title: entry.title || entry.url,
+              description: entry.description?.slice(0, 1000) ?? null,
+              collection_id: sub.collection_id,
+              source: "feed",
+              screenshot_status: "pending",
+            })
+            .select("id, url")
+            .single();
 
           if (insertError) {
             // If insert fails (e.g., duplicate URL), still mark as seen
             if (!insertError.message?.includes("duplicate")) {
               continue;
+            }
+            // Record seen GUID for duplicate URL so we don't retry
+            await supabase.from("feed_items").insert({
+              subscription_id: sub.id,
+              guid: entry.guid,
+            });
+            continue;
+          }
+
+          // Enqueue screenshot capture (fire-and-forget)
+          if (newBookmark) {
+            try {
+              await enqueueScreenshot({
+                bookmarkId: newBookmark.id,
+                url: newBookmark.url,
+                userId: sub.user_id,
+              });
+            } catch {
+              // Screenshot queue unavailable — bookmark is saved, preview will be "unavailable"
             }
           }
 
