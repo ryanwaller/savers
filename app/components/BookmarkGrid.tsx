@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
+import ShareMenuItem from "./ShareMenuItem";
 import {
   api,
   type CustomPreviewSource,
@@ -973,6 +974,12 @@ function BookmarkCard({
             <button className="menu-item" onClick={handleEdit}>
               Edit
             </button>
+            <ShareMenuItem
+              bookmarkId={b.id}
+              title={b.title}
+              description={b.description}
+              url={b.url}
+            />
             <button className="menu-item" onClick={handleReloadPreview} disabled={reloading}>
               {reloading ? "Reloading…" : "Reload preview"}
             </button>

@@ -133,6 +133,15 @@ export const api = {
       }),
     );
   },
+  async generateShareToken(bookmarkId: string): Promise<{
+    token: string;
+  }> {
+    return j(
+      await fetch(`/api/bookmarks/${bookmarkId}/share`, {
+        method: "POST",
+      }),
+    );
+  },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {
       const formData = new FormData();

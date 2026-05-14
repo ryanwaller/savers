@@ -59,6 +59,8 @@ export interface Bookmark {
   broken_verified_at?: string | null
   /** Which user verified this broken link. */
   broken_verified_by?: string | null
+  /** Public share token (UUID). When set, the bookmark can be viewed at /s/[token] without auth. */
+  share_token?: string | null
 }
 
 export interface TagAlias {
