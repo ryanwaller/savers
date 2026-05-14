@@ -21,6 +21,30 @@ async function j<T>(res: Response): Promise<T> {
 }
 
 export const api = {
+  async systemHealth(): Promise<{
+    services: {
+      redis: { configured: boolean; reachable: boolean };
+      ai: { configured: boolean };
+      screenshotQueue: {
+        configured: boolean;
+        reachable: boolean;
+        counts: { waiting: number; active: number; delayed: number; failed: number } | null;
+      };
+      autoTagQueue: {
+        configured: boolean;
+        reachable: boolean;
+        counts: { waiting: number; active: number; delayed: number; failed: number } | null;
+      };
+      linkCheckQueue: {
+        configured: boolean;
+        reachable: boolean;
+        counts: { waiting: number; active: number; delayed: number; failed: number } | null;
+      };
+    };
+  }> {
+    return j(await fetch("/api/system-health", { cache: "no-store" }));
+  },
+
   async bootstrap(): Promise<{
     collections: Collection[];
     flat: Collection[];
@@ -139,6 +163,37 @@ export const api = {
     return j(
       await fetch(`/api/bookmarks/${bookmarkId}/share`, {
         method: "POST",
+      }),
+    );
+  },
+  async listFeeds(): Promise<{
+    subscriptions: import("./types").FeedSubscription[];
+  }> {
+    return j(await fetch("/api/feeds", { cache: "no-store" }));
+  },
+  async createFeed(feedUrl: string, name: string, collectionId?: string | null): Promise<{
+    subscription: import("./types").FeedSubscription;
+  }> {
+    return j(
+      await fetch("/api/feeds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ feed_url: feedUrl, name, collection_id: collectionId ?? null }),
+      }),
+    );
+  },
+  async deleteFeed(id: string): Promise<{ ok: boolean }> {
+    return j(await fetch(`/api/feeds/${id}`, { method: "DELETE" }));
+  },
+  async checkFeeds(subscriptionId?: string): Promise<{
+    results: { subscription_id: string; name: string; newItems: number; error?: string }[];
+    totalNew: number;
+  }> {
+    return j(
+      await fetch("/api/feeds/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(subscriptionId ? { subscription_id: subscriptionId } : {}),
       }),
     );
   },

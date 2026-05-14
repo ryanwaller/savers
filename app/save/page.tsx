@@ -1,26 +1,35 @@
 "use client";
 
 import { useEffect } from "react";
+import { resolveSaveSource } from "@/lib/save-url";
 
 export default function SavePage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const token = params.get("token");
-    // Primary: explicit URL param (from javascript: wrapper). Fallback: referrer (same-tab click).
-    const sourceUrl = params.get("u") || document.referrer;
+    const sourceUrl = resolveSaveSource(params, document.referrer);
 
     if (!sourceUrl) {
       window.location.replace("/");
       return;
     }
+    const resolvedSourceUrl = sourceUrl;
 
     // Try to save the bookmark directly, then deep-link to its card.
     async function saveAndRedirect() {
       try {
+        const headers: Record<string, string> = {
+          "Content-Type": "application/json",
+        };
+        if (token) {
+          headers.Authorization = `Bearer ${token}`;
+        }
+
         const res = await fetch("/api/bookmarks", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: sourceUrl }),
+          headers,
+          credentials: token ? "omit" : "include",
+          body: JSON.stringify({ url: resolvedSourceUrl }),
         });
 
         if (res.ok) {
@@ -36,7 +45,7 @@ export default function SavePage() {
 
       // Fallback: redirect to the Add Bookmark modal with URL pre-filled.
       const target = new URL("/", window.location.origin);
-      target.searchParams.set("add", sourceUrl);
+      target.searchParams.set("add", resolvedSourceUrl);
       if (token) target.searchParams.set("token", token);
       window.location.replace(target.toString());
     }

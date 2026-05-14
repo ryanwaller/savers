@@ -1,27 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Bookmark, Collection, DuplicateGroup } from "@/lib/types";
+import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
-
-function resolveSaveUrl() {
-  const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
-  if (configured) {
-    return `${configured.replace(/\/$/, "")}/save`;
-  }
-  if (typeof window !== "undefined") {
-    return `${window.location.origin.replace(/\/$/, "")}/save`;
-  }
-  return "https://savers-production.up.railway.app/save";
-}
-
-function buildBookmarkUrl(token?: string | null): string {
-  const saveUrl = resolveSaveUrl();
-  return token
-    ? `${saveUrl}?token=${encodeURIComponent(token)}`
-    : saveUrl;
-}
+import { buildSaveUrl } from "@/lib/save-url";
 
 type TokenRow = {
   id: string;
@@ -29,6 +12,27 @@ type TokenRow = {
   prefix: string;
   last_used_at: string | null;
   created_at: string;
+};
+
+type QueueStatus = {
+  configured: boolean;
+  reachable: boolean;
+  counts: {
+    waiting: number;
+    active: number;
+    delayed: number;
+    failed: number;
+  } | null;
+};
+
+type SystemHealth = {
+  services: {
+    redis: { configured: boolean; reachable: boolean };
+    ai: { configured: boolean };
+    screenshotQueue: QueueStatus;
+    autoTagQueue: QueueStatus;
+    linkCheckQueue: QueueStatus;
+  };
 };
 
 type Props = {
@@ -72,6 +76,15 @@ export default function SettingsSections({
     deleteId: string | null;
   } | null>(null);
   const [dupToastTimer, setDupToastTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
+  const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
+  const [loadingFeeds, setLoadingFeeds] = useState(false);
+  const [newFeedName, setNewFeedName] = useState("");
+  const [newFeedUrl, setNewFeedUrl] = useState("");
+  const [addingFeed, setAddingFeed] = useState(false);
+  const [removingFeed, setRemovingFeed] = useState<string | null>(null);
+  const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
+  const [loadingSystemHealth, setLoadingSystemHealth] = useState(false);
+  const [systemHealthError, setSystemHealthError] = useState<string | null>(null);
 
   const generatedPreviewCount = bookmarks.filter((bookmark) => !bookmark.custom_preview_path).length;
   const customPreviewCount = bookmarks.filter((bookmark) => bookmark.custom_preview_path).length;
@@ -95,6 +108,7 @@ export default function SettingsSections({
 
   useEffect(() => {
     void load();
+    void loadSystemHealth();
   }, []);
 
   async function load() {
@@ -107,6 +121,19 @@ export default function SettingsSections({
       setError(e instanceof Error ? e.message : "Could not load tokens");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function loadSystemHealth() {
+    setLoadingSystemHealth(true);
+    setSystemHealthError(null);
+    try {
+      const data = await api.systemHealth();
+      setSystemHealth(data);
+    } catch (e) {
+      setSystemHealthError(e instanceof Error ? e.message : "Could not load system status");
+    } finally {
+      setLoadingSystemHealth(false);
     }
   }
 
@@ -169,7 +196,7 @@ export default function SettingsSections({
 
   async function copyBookmarklet() {
     try {
-      await navigator.clipboard.writeText(buildBookmarkUrl(bookmarkletToken));
+      await navigator.clipboard.writeText(buildSaveUrl({ token: bookmarkletToken }));
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
@@ -289,6 +316,46 @@ export default function SettingsSections({
     });
   }
 
+  async function loadFeeds() {
+    setLoadingFeeds(true);
+    try {
+      const data = await api.listFeeds();
+      setFeeds(data.subscriptions);
+    } catch {
+      // ignore
+    } finally {
+      setLoadingFeeds(false);
+    }
+  }
+
+  async function handleAddFeed() {
+    if (addingFeed || !newFeedName.trim() || !newFeedUrl.trim()) return;
+    setAddingFeed(true);
+    try {
+      await api.createFeed(newFeedUrl.trim(), newFeedName.trim());
+      setNewFeedName("");
+      setNewFeedUrl("");
+      await loadFeeds();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to add feed");
+    } finally {
+      setAddingFeed(false);
+    }
+  }
+
+  async function handleRemoveFeed(id: string) {
+    if (removingFeed) return;
+    setRemovingFeed(id);
+    try {
+      await api.deleteFeed(id);
+      await loadFeeds();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to remove feed");
+    } finally {
+      setRemovingFeed(null);
+    }
+  }
+
   async function handleDeleteDuplicates() {
     const idsToDelete: string[] = [];
     for (const group of duplicateGroups) {
@@ -385,13 +452,13 @@ export default function SettingsSections({
           <div className="settings-card feature-card">
             <div className="feature-top">
               <div>
-                <div className="feature-title">Bookmarklet</div>
+                <div className="feature-title">Quick save link</div>
                 <div className="feature-sub">
-                  A reliable fallback for saving pages from any browser.
+                  Works from any browser bookmark bar. Best fallback when the extension is not available.
                 </div>
               </div>
               <span className={`status-chip ${bookmarkletTokenExists ? "status-ready" : "status-muted"}`}>
-                {bookmarkletTokenExists ? "Set up before" : "Needs setup"}
+                {bookmarkletTokenExists ? "Ready" : "Needs setup"}
               </span>
             </div>
             <div className="feature-actions">
@@ -400,24 +467,24 @@ export default function SettingsSections({
                 onClick={() => void createBookmarkletSetupLink()}
                 disabled={creating}
               >
-                {creating ? "Creating…" : bookmarkletTokenExists ? "Create fresh setup link" : "Set up bookmarklet"}
+                {creating ? "Creating…" : bookmarkletTokenExists ? "Create fresh save link" : "Set up quick save"}
               </button>
               <button
                 className="btn"
                 onClick={() => void copyBookmarklet()}
                 disabled={!bookmarkletToken}
               >
-                {bookmarkletCopied ? "Copied!" : "Copy save URL"}
+                {bookmarkletCopied ? "Copied!" : "Copy quick save link"}
               </button>
             </div>
             <p className="small muted">
               {bookmarkletToken
-                ? "Your new save URL includes a token and is ready to paste into a browser bookmark."
-                : "Without a token, the save URL relies on you being signed in on this browser."}
+                ? "This save link includes your token, so it can work even when this browser is not signed in."
+                : "Without a token, the save link relies on you being signed in on this browser."}
             </p>
             <details className="details">
               <summary>
-                <span>Advanced setup steps</span>
+                <span>Manual setup steps</span>
                 <span className="dropdown-circle" aria-hidden="true">
                   <svg viewBox="0 0 16 16" fill="none">
                     <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -425,8 +492,8 @@ export default function SettingsSections({
                 </span>
               </summary>
               <ol className="bookmarklet-steps">
-                <li>Click {bookmarkletTokenExists ? "Create fresh setup link" : "Set up bookmarklet"}.</li>
-                <li>Click Copy save URL.</li>
+                <li>Click {bookmarkletTokenExists ? "Create fresh save link" : "Set up quick save"}.</li>
+                <li>Click Copy quick save link.</li>
                 <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
                 <li>Right-click the new bookmark, choose Edit, paste the URL, and name it “Save to Savers”.</li>
               </ol>
@@ -657,6 +724,72 @@ export default function SettingsSections({
             </button>
             {previewRefreshMessage && <div className="small muted">{previewRefreshMessage}</div>}
           </div>
+
+          <div className="settings-card">
+            <div className="feature-top">
+              <div>
+                <div className="feature-title">System status</div>
+                <div className="feature-sub">
+                  A quick read on the background services that power previews, AI, and link checks.
+                </div>
+              </div>
+              <button className="btn" onClick={() => void loadSystemHealth()} disabled={loadingSystemHealth}>
+                {loadingSystemHealth ? "Refreshing…" : "Refresh"}
+              </button>
+            </div>
+
+            {systemHealthError ? (
+              <div className="small error">{systemHealthError}</div>
+            ) : !systemHealth ? (
+              <div className="small muted">Loading system status…</div>
+            ) : (
+              <div className="health-list">
+                <div className="health-row">
+                  <div className="health-label">Redis</div>
+                  <div className={`health-badge ${systemHealth.services.redis.reachable ? "status-ready" : "status-danger"}`}>
+                    {systemHealth.services.redis.reachable
+                      ? "Connected"
+                      : systemHealth.services.redis.configured
+                        ? "Unreachable"
+                        : "Not configured"}
+                  </div>
+                </div>
+                <div className="health-row">
+                  <div className="health-label">AI suggestions</div>
+                  <div className={`health-badge ${systemHealth.services.ai.configured ? "status-ready" : "status-muted"}`}>
+                    {systemHealth.services.ai.configured ? "Configured" : "Unavailable"}
+                  </div>
+                </div>
+                {[
+                  { label: "Screenshot jobs", queue: systemHealth.services.screenshotQueue },
+                  { label: "Auto-tag jobs", queue: systemHealth.services.autoTagQueue },
+                  { label: "Link checks", queue: systemHealth.services.linkCheckQueue },
+                ].map(({ label, queue }) => (
+                  <div className="health-row" key={label}>
+                    <div className="health-meta">
+                      <div className="health-label">{label}</div>
+                      {queue.counts && (
+                        <div className="small muted">
+                          {queue.counts.waiting} waiting · {queue.counts.active} active · {queue.counts.delayed} delayed · {queue.counts.failed} failed
+                        </div>
+                      )}
+                    </div>
+                    <div
+                      className={`health-badge ${
+                        queue.reachable ? "status-ready" : queue.configured ? "status-danger" : "status-muted"
+                      }`}
+                    >
+                      {queue.reachable
+                        ? "Ready"
+                        : queue.configured
+                          ? "Needs attention"
+                          : "Not configured"}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </section>
 
@@ -879,6 +1012,11 @@ export default function SettingsSections({
           color: var(--color-text-muted);
           background: var(--color-bg);
         }
+        .status-danger {
+          background: color-mix(in srgb, #ff5a5a 10%, var(--color-bg));
+          color: color-mix(in srgb, #ff5a5a 72%, var(--color-text));
+          border-color: color-mix(in srgb, #ff5a5a 28%, var(--color-border));
+        }
         .details {
           border-top: 1px solid var(--color-border);
           padding-top: 12px;
@@ -989,6 +1127,41 @@ export default function SettingsSections({
         }
         .muted {
           color: var(--color-text-muted);
+        }
+        .health-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .health-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          border: 1px solid var(--color-border);
+          border-radius: 14px;
+          background: var(--color-bg);
+          padding: 10px 12px;
+        }
+        .health-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+          min-width: 0;
+        }
+        .health-label {
+          font-size: 13px;
+          color: var(--color-text);
+        }
+        .health-badge {
+          flex: 0 0 auto;
+          padding: 6px 10px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          font-size: 13px;
+          line-height: 1;
+          white-space: nowrap;
+          font-weight: 400;
         }
         .create-row {
           display: flex;
@@ -1103,6 +1276,14 @@ export default function SettingsSections({
           .token-row {
             flex-direction: column;
             align-items: flex-start;
+          }
+          .health-row {
+            flex-direction: column;
+            align-items: flex-start;
+          }
+          .health-badge {
+            width: 100%;
+            text-align: center;
           }
           .account-signout {
             margin-left: 0;

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { previewImageUrl } from "@/lib/api";
+import { buildSaveUrl } from "@/lib/save-url";
 
 function resolveSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
@@ -97,7 +98,7 @@ export default async function SharedBookmarkPage({ params }: Props) {
   const title = bookmark.title || bookmark.url;
   const imageUrl = resolveImageUrl(bookmark);
   const siteUrl = resolveSiteUrl();
-  const saveUrl = `${siteUrl}/save?url=${encodeURIComponent(bookmark.url)}`;
+  const saveUrl = buildSaveUrl({ baseUrl: siteUrl, sourceUrl: bookmark.url });
 
   return (
     <div className="s-page">

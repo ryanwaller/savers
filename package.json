@@ -9,6 +9,7 @@
     "dev:turbo": "next dev",
     "build": "next build",
     "start": "next start",
+    "test:unit": "node --import tsx --test tests/*.test.ts",
     "worker": "tsx workers/screenshot-worker.ts",
     "auto-worker": "tsx workers/auto-tag-worker.ts",
     "link-worker": "tsx workers/link-check-worker.ts",
