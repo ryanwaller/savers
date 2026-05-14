@@ -645,7 +645,7 @@ export default function SettingsSections({
               </button>
             </div>
 
-            <div style={{ marginTop: 8 }}>
+            <div style={{ marginTop: 8, marginBottom: 12 }}>
               <CollectionPicker
                 flat={flatCollections}
                 value={newFeedCollection}
