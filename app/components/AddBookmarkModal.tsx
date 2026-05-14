@@ -544,10 +544,10 @@ export default function AddBookmarkModal({
             )}
             {feedDetected && !feedMatch && (
               <div className="feed-match-hint">
-                This is an RSS feed.{` `}
+                <span>This is an RSS feed.</span>
                 <button
                   type="button"
-                  className="feed-add-btn"
+                  className="btn btn-primary feed-add-btn"
                   disabled={addingFeed}
                   onClick={async () => {
                     setAddingFeed(true);
@@ -1040,14 +1040,15 @@ export default function AddBookmarkModal({
         .hint { margin-top: 2px; }
         .feed-match-hint {
           margin-top: 4px;
-          padding: 4px 8px;
+          padding: 8px 10px;
           border-radius: var(--radius);
           background: rgba(34, 197, 94, 0.1);
           color: #16a34a;
-          font-size: 11px;
+          font-size: 12px;
           display: flex;
           align-items: center;
-          gap: 4px;
+          justify-content: space-between;
+          gap: 8px;
         }
         @media (prefers-color-scheme: dark) {
           .feed-match-hint {
@@ -1056,27 +1057,8 @@ export default function AddBookmarkModal({
           }
         }
         .feed-add-btn {
-          display: inline-flex;
-          align-items: center;
-          padding: 2px 8px;
-          border-radius: 3px;
-          border: none;
-          background: #16a34a;
-          color: #fff;
-          font-size: 11px;
-          font-weight: 500;
-          cursor: pointer;
-          margin-left: 2px;
           flex-shrink: 0;
-        }
-        .feed-add-btn:hover { background: #15803d; }
-        .feed-add-btn:disabled { opacity: 0.6; cursor: default; }
-        @media (prefers-color-scheme: dark) {
-          .feed-add-btn {
-            background: #22c55e;
-            color: #052e16;
-          }
-          .feed-add-btn:hover { background: #4ade80; }
+          height: 28px;
         }
         .preview {
           display: flex;
