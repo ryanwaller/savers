@@ -165,26 +165,40 @@ export async function POST(req: NextRequest) {
           if (!entry.url || !entry.guid) continue;
 
           // Check if we've already seen this GUID
-          const { data: existing } = await supabase
+          const { data: existingGuid } = await supabase
             .from("feed_items")
             .select("id")
             .eq("subscription_id", sub.id)
             .eq("guid", entry.guid)
             .maybeSingle();
 
-          if (existing) {
-            // GUID already seen, but ensure the bookmark's feed_subscription_id is set
-            // (covers delete+re-add scenarios where ON DELETE SET NULL cleared it)
-            await supabase
-              .from("bookmarks")
-              .update({ feed_subscription_id: sub.id })
-              .eq("user_id", sub.user_id)
-              .eq("url", entry.url)
-              .is("feed_subscription_id", null);
+          if (existingGuid) continue;
+
+          // Check if a bookmark with this URL already exists for this user
+          const { data: existingBookmark } = await supabase
+            .from("bookmarks")
+            .select("id, feed_subscription_id")
+            .eq("user_id", sub.user_id)
+            .eq("url", entry.url)
+            .maybeSingle();
+
+          if (existingBookmark) {
+            // Backfill feed_subscription_id if it was cleared (e.g. delete+re-add feed)
+            if (!existingBookmark.feed_subscription_id) {
+              await supabase
+                .from("bookmarks")
+                .update({ feed_subscription_id: sub.id })
+                .eq("id", existingBookmark.id);
+            }
+            // Record seen GUID so we don't reprocess
+            await supabase.from("feed_items").insert({
+              subscription_id: sub.id,
+              guid: entry.guid,
+            });
             continue;
           }
 
-          // Create bookmark
+          // No existing bookmark — create one
           const { data: newBookmark, error: insertError } = await supabase
             .from("bookmarks")
             .insert({
@@ -200,24 +214,7 @@ export async function POST(req: NextRequest) {
             .select("id, url")
             .single();
 
-          if (insertError) {
-            if (!insertError.message?.includes("duplicate")) {
-              continue;
-            }
-            // Duplicate URL: update the existing bookmark's feed_subscription_id
-            // so it appears under this feed filter, even after delete+re-add of the feed.
-            await supabase
-              .from("bookmarks")
-              .update({ feed_subscription_id: sub.id })
-              .eq("user_id", sub.user_id)
-              .eq("url", entry.url);
-            // Record seen GUID so we don't retry
-            await supabase.from("feed_items").insert({
-              subscription_id: sub.id,
-              guid: entry.guid,
-            });
-            continue;
-          }
+          if (insertError) continue;
 
           // Enqueue screenshot capture (fire-and-forget)
           if (newBookmark) {
