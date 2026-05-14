@@ -34,21 +34,22 @@
   root.id = "savers-bm-root";
   root.innerHTML = `
     <style>
+      @import url("${apiBase}/save-surface-theme.css");
       #savers-bm-root {
-        font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-        font-size: 12px;
-        line-height: 17px;
-        font-weight: 400;
-        --bm-bg: #121212;
-        --bm-panel: #1a1a1a;
-        --bm-panel-2: #151515;
-        --bm-border: #2d2d2d;
-        --bm-border-strong: #3a3a3a;
-        --bm-text: #ecece9;
-        --bm-muted: #8d8d8b;
-        --bm-accent: #f4f4f1;
-        --bm-accent-text: #111111;
-        --bm-brat: #97d700;
+        font-family: var(--save-font-family);
+        font-size: var(--save-font-size);
+        line-height: var(--save-line-height);
+        font-weight: var(--save-font-weight);
+        --bm-bg: var(--save-dark-bg);
+        --bm-panel: var(--save-dark-panel);
+        --bm-panel-2: var(--save-dark-panel-2);
+        --bm-border: var(--save-dark-border);
+        --bm-border-strong: var(--save-dark-border-strong);
+        --bm-text: var(--save-dark-text);
+        --bm-muted: var(--save-dark-muted);
+        --bm-accent: var(--save-light-accent);
+        --bm-accent-text: var(--save-light-accent-text);
+        --bm-brat: var(--save-brat);
       }
       .savers-bm-backdrop {
         position: fixed;
@@ -64,13 +65,13 @@
       .savers-bm-panel {
         background: var(--bm-panel);
         border: 1px solid var(--bm-border);
-        border-radius: 22px;
+        border-radius: var(--save-panel-radius);
         padding: 20px;
         max-width: 500px;
         width: min(500px, calc(100vw - 48px));
         min-height: 560px;
         max-height: calc(100vh - 48px);
-        box-shadow: 0 24px 70px rgba(0,0,0,0.42);
+        box-shadow: var(--save-shadow);
         animation: saversBmIn 180ms ease;
         display: flex;
         flex-direction: column;
@@ -100,7 +101,7 @@
         box-sizing: border-box;
         padding: 12px 13px;
         border: 1px solid var(--bm-border);
-        border-radius: 12px;
+        border-radius: var(--save-field-radius);
         background: var(--bm-bg);
         color: var(--bm-text);
         font: inherit;
@@ -118,7 +119,7 @@
         box-sizing: border-box;
         padding: 12px 13px;
         border: 1px solid var(--bm-border);
-        border-radius: 12px;
+        border-radius: var(--save-field-radius);
         background: var(--bm-bg);
         color: var(--bm-text);
         font: inherit;
@@ -130,7 +131,7 @@
       .savers-bm-pill {
         appearance: none;
         border: 1px solid var(--bm-border);
-        border-radius: 999px;
+        border-radius: var(--save-pill-radius);
         background: #222222;
         color: var(--bm-text);
         padding: 8px 12px;
@@ -192,7 +193,7 @@
         flex-direction: column;
         gap: 12px;
         border: 1px solid rgba(151, 215, 0, 0.2);
-        border-radius: 14px;
+        border-radius: var(--save-button-radius);
         background: linear-gradient(180deg, rgba(151, 215, 0, 0.08), rgba(151, 215, 0, 0.02));
         padding: 12px;
       }
@@ -506,11 +507,7 @@
       renderTagProposals();
     } catch (error) {
       tagProposals = [];
-      const message = error instanceof Error ? error.message : "";
-      tagSuggestStatus =
-        /\b401\b|unauthor/i.test(message)
-          ? "Suggestions need a Savers sign-in or token."
-          : "Suggestions unavailable.";
+      tagSuggestStatus = "Suggestions need a Savers token or sign-in.";
       renderTagProposals();
     } finally {
       suggestTagsBtn.disabled = false;
@@ -557,12 +554,7 @@
       setStatus("");
     } catch (error) {
       clearSuggestion();
-      const message = error instanceof Error ? error.message : "";
-      if (/\b401\b|unauthor/i.test(message)) {
-        setStatus("Collection suggestions need a Savers sign-in or token.");
-      } else {
-        setStatus("Collection suggestions unavailable.");
-      }
+      setStatus("Collection suggestions need a Savers token or sign-in.");
     } finally {
       suggestCollectionBtn.disabled = false;
     }

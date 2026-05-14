@@ -1,0 +1,25 @@
+/* Generated from shared/save-surface-theme.css */
+:root {
+  --save-font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+  --save-font-size: 12px;
+  --save-line-height: 17px;
+  --save-font-weight: 400;
+
+  --save-dark-bg: #121212;
+  --save-dark-panel: #1a1a1a;
+  --save-dark-panel-2: #151515;
+  --save-dark-border: #2d2d2d;
+  --save-dark-border-strong: #3a3a3a;
+  --save-dark-text: #ecece9;
+  --save-dark-muted: #8d8d8b;
+
+  --save-light-accent: #f4f4f1;
+  --save-light-accent-text: #111111;
+  --save-brat: #97d700;
+
+  --save-panel-radius: 22px;
+  --save-field-radius: 12px;
+  --save-button-radius: 14px;
+  --save-pill-radius: 999px;
+  --save-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}

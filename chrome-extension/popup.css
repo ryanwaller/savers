@@ -1,20 +1,22 @@
+@import url("./save-surface-theme.css");
+
 :root {
   color-scheme: dark;
-  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
-  font-size: 12px;
-  line-height: 17px;
-  font-weight: 400;
-  --bg: #121212;
-  --panel: #1a1a1a;
-  --panel-2: #151515;
-  --border: #2d2d2d;
-  --border-strong: #3a3a3a;
-  --text: #ecece9;
-  --muted: #8d8d8b;
-  --bg-input: #121212;
-  --accent: #f4f4f1;
-  --accent-text: #111111;
-  --shadow: 0 24px 70px rgba(0, 0, 0, 0.4);
+  font-family: var(--save-font-family);
+  font-size: var(--save-font-size);
+  line-height: var(--save-line-height);
+  font-weight: var(--save-font-weight);
+  --bg: var(--save-dark-bg);
+  --panel: var(--save-dark-panel);
+  --panel-2: var(--save-dark-panel-2);
+  --border: var(--save-dark-border);
+  --border-strong: var(--save-dark-border-strong);
+  --text: var(--save-dark-text);
+  --muted: var(--save-dark-muted);
+  --bg-input: var(--save-dark-bg);
+  --accent: var(--save-light-accent);
+  --accent-text: var(--save-light-accent-text);
+  --shadow: var(--save-shadow);
 }
 
 * {
@@ -37,7 +39,7 @@ body {
   flex-direction: column;
   gap: 16px;
   border: 1px solid var(--border);
-  border-radius: 22px;
+  border-radius: var(--save-panel-radius);
   background: var(--panel);
   padding: 20px;
   box-shadow: var(--shadow);
@@ -71,7 +73,7 @@ textarea,
 select {
   width: 100%;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--save-field-radius);
   background: var(--bg-input);
   color: var(--text);
   padding: 12px 13px;
@@ -117,7 +119,7 @@ select {
 .btn {
   appearance: none;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--save-button-radius);
   background: #222222;
   color: var(--text);
   padding: 13px 14px;
@@ -157,7 +159,7 @@ select {
 .pill-btn {
   appearance: none;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--save-pill-radius);
   background: #222222;
   color: var(--text);
   padding: 8px 12px;
