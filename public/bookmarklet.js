@@ -55,6 +55,9 @@
       #savers-bm-root,
       #savers-bm-root * {
         font-family: var(--save-font-family) !important;
+        font-size: var(--save-font-size) !important;
+        line-height: var(--save-line-height) !important;
+        font-weight: var(--save-font-weight) !important;
         letter-spacing: var(--save-letter-spacing) !important;
         text-transform: none !important;
         box-sizing: border-box;
@@ -155,6 +158,7 @@
         gap: 12px;
         text-align: left;
         cursor: pointer;
+        min-height: 44px;
       }
       .savers-bm-picker-chevron {
         color: var(--bm-muted);
@@ -185,7 +189,10 @@
         border-radius: 4px;
         background: transparent;
         color: var(--bm-text);
-        padding: 8px 10px;
+        min-height: 44px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
         font: inherit;
         letter-spacing: inherit;
         text-align: left;
@@ -199,7 +206,10 @@
         color: var(--bm-accent-text);
       }
       .savers-bm-picker-empty {
-        padding: 8px 10px;
+        min-height: 44px;
+        padding: 10px 12px;
+        display: flex;
+        align-items: center;
         color: var(--bm-muted);
       }
       .savers-bm-textarea {
@@ -285,8 +295,6 @@
       }
       .savers-bm-ai-copy {
         color: var(--bm-text);
-        font-size: 13px;
-        line-height: 18px;
         word-break: break-word;
       }
       .savers-bm-actions {
