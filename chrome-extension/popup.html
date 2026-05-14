@@ -9,19 +9,9 @@
   <body>
     <main class="app">
       <section class="panel">
-        <div class="top-actions">
-          <button id="open-app" class="btn btn-secondary" type="button">Open app</button>
-          <button id="save-bookmark" class="btn btn-primary" type="button">
-            Save bookmark
-          </button>
-        </div>
-
-        <div class="field">
-          <span class="label">Current page</span>
-          <div id="page-card" class="page-card">
-            <div id="page-title" class="page-title">Loading active tab…</div>
-            <div id="page-url" class="page-url"></div>
-          </div>
+        <div class="head">
+          <div id="page-title" class="page-title">Loading active tab…</div>
+          <div id="page-url" class="page-url"></div>
         </div>
 
         <label class="field">
@@ -30,27 +20,27 @@
         </label>
 
         <div class="field">
-          <span class="label">Tags <span class="muted-small">(comma separated)</span></span>
+          <span class="label">Tags</span>
           <input id="bookmark-tags" type="text" placeholder="design, inspiration" />
           <div class="inline-actions tag-actions">
-            <button id="suggest-tags" class="btn btn-secondary" type="button">Suggest</button>
+            <button id="suggest-tags" class="pill-btn pill-btn-primary" type="button">Suggest</button>
           </div>
           <div id="tag-proposals" class="tag-proposals hidden"></div>
         </div>
 
-        <label class="field">
+        <div class="field">
           <span class="label">Collection</span>
           <select id="collection-select"></select>
-        </label>
+        </div>
 
         <div id="ai-suggestion" class="ai-suggestion hidden">
-          <div class="label ai-suggestion-label">Suggested</div>
+          <div class="label ai-suggestion-label">Suggested collection</div>
           <div id="ai-suggestion-copy" class="ai-suggestion-copy"></div>
           <div class="inline-actions ai-actions">
-            <button id="apply-ai-suggestion" class="btn btn-secondary" type="button">
+            <button id="apply-ai-suggestion" class="pill-btn pill-btn-primary" type="button">
               Use suggestion
             </button>
-            <button id="dismiss-ai-suggestion" class="btn btn-ghost" type="button">
+            <button id="dismiss-ai-suggestion" class="pill-btn" type="button">
               Dismiss
             </button>
           </div>
@@ -59,13 +49,13 @@
         <p id="ai-status" class="status ai-status" role="status"></p>
 
         <div class="inline-actions">
-          <button id="suggest-collection" class="btn btn-secondary hidden" type="button">
+          <button id="suggest-collection" class="pill-btn pill-btn-primary hidden" type="button">
             Suggest
           </button>
-          <button id="show-create" class="btn btn-secondary" type="button">
+          <button id="show-create" class="pill-btn" type="button">
             + New collection
           </button>
-          <button id="refresh-meta" class="btn btn-secondary" type="button">
+          <button id="refresh-meta" class="pill-btn" type="button">
             Refresh metadata
           </button>
         </div>
@@ -76,10 +66,10 @@
             <input id="new-collection-name" type="text" placeholder="Collection name" />
           </label>
           <div class="inline-actions">
-            <button id="create-collection" class="btn btn-secondary" type="button">
+            <button id="create-collection" class="pill-btn pill-btn-primary" type="button">
               Create
             </button>
-            <button id="cancel-create" class="btn btn-ghost" type="button">
+            <button id="cancel-create" class="pill-btn" type="button">
               Cancel
             </button>
           </div>
@@ -97,10 +87,10 @@
             Already saved as <span id="duplicate-title"></span>.
           </div>
           <div class="inline-actions duplicate-actions">
-            <button id="open-duplicate" class="btn btn-secondary" type="button">
+            <button id="open-duplicate" class="pill-btn" type="button">
               Open in app
             </button>
-            <button id="save-anyway" class="btn btn-ghost" type="button">
+            <button id="save-anyway" class="pill-btn" type="button">
               Save anyway
             </button>
           </div>
@@ -108,6 +98,13 @@
 
         <div id="unsynced-badge" class="unsynced-badge hidden">
           <span id="unsynced-count" class="unsynced-count">0</span> unsaved pages — will retry
+        </div>
+
+        <div class="foot">
+          <button id="open-app" class="btn btn-secondary" type="button">Open app</button>
+          <button id="save-bookmark" class="btn btn-primary" type="button">
+            Save bookmark
+          </button>
         </div>
       </section>
     </main>
