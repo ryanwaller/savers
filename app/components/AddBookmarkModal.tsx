@@ -491,9 +491,10 @@ export default function AddBookmarkModal({
                 }
                 setUrl(next);
               }}
-              onBlur={() => {
+              onBlur={(e) => {
                 void fetchMetadata();
-                const u = normalizeUrl(url);
+                const inputValue = e.target.value;
+                const u = normalizeUrl(inputValue);
                 if (u && u !== lastFetchedRef.current) {
                   setCheckingFeed(true);
                   setDetectingFeed(true);
