@@ -1249,7 +1249,6 @@ export default function SettingsSections({
           border: 1px solid var(--color-border);
           border-radius: 18px;
           background: color-mix(in srgb, var(--color-bg-secondary) 88%, transparent);
-          overflow: hidden;
         }
         .advanced-shell summary {
           list-style: none;
