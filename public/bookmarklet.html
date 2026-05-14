@@ -3,181 +3,489 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Savers Bookmarklet</title>
-  <meta name="description" content="Drag this link to your bookmarks bar to save pages to Savers." />
+  <title>Savers Quick Save</title>
+  <meta name="description" content="Set up the Savers quick-save bookmark and capture pages from any browser." />
   <link rel="icon" type="image/png" sizes="32x32" href="/favicon-32.png" />
   <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16.png" />
   <link rel="shortcut icon" href="/favicon-32.png" />
   <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
   <meta name="theme-color" content="#D9261C" />
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --color-text: #111;
+      --color-text-muted: #8a8a8a;
+      --color-border: #e5e5e5;
+      --color-border-strong: #d4d4d4;
+      --color-bg: #fff;
+      --color-bg-page: #f0f0ee;
+      --color-bg-secondary: #f8f8f7;
+      --color-bg-hover: #f2f2f0;
+      --color-bg-active: #ededeb;
+      --color-accent: #d9261c;
+      --radius: 6px;
+      --radius-lg: 18px;
+      --shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-text: #e8e8e6;
+        --color-text-muted: #8a8a8a;
+        --color-border: #2a2a2a;
+        --color-border-strong: #3a3a3a;
+        --color-bg: #0f0f0f;
+        --color-bg-page: #0f0f0f;
+        --color-bg-secondary: #161616;
+        --color-bg-hover: #1e1e1e;
+        --color-bg-active: #262626;
+        --shadow: 0 24px 80px rgba(0, 0, 0, 0.32);
+      }
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    html, body {
+      min-height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
+      font-size: 12px;
+      line-height: 17px;
+      background: var(--color-bg-page);
+      color: var(--color-text);
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+      text-rendering: optimizeLegibility;
+    }
+
     body {
+      padding: 36px 18px;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    .shell {
+      width: min(760px, 100%);
+      margin: 0 auto;
       display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .hero,
+    .card {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-lg);
+      background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .hero {
+      padding: 22px 22px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: var(--color-text-muted);
+    }
+
+    .brand svg {
+      width: 22px;
+      height: 22px;
+      flex: 0 0 auto;
+    }
+
+    .brand-name {
+      color: var(--color-text);
+    }
+
+    .hero-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      max-width: 560px;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      color: var(--color-text-muted);
+    }
+
+    h1 {
+      font-size: clamp(26px, 4vw, 38px);
+      line-height: 0.98;
+      letter-spacing: -0.04em;
+      font-weight: 500;
+    }
+
+    .sub {
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--color-text-muted);
+      max-width: 44ch;
+    }
+
+    .hero-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      min-height: 24px;
+      padding: 3px 8px;
+      border: 1px solid var(--color-border);
+      border-radius: 999px;
+      background: var(--color-bg-secondary);
+      color: var(--color-text-muted);
+      font-size: 12px;
+      line-height: 17px;
+      white-space: nowrap;
+    }
+
+    .card {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .top-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 14px;
+    }
+
+    .section-title {
+      font-size: 13px;
+      line-height: 1.2;
+      font-weight: 400;
+    }
+
+    .section-sub {
+      margin-top: 4px;
+      font-size: 13px;
+      line-height: 1.45;
+      color: var(--color-text-muted);
+      max-width: 44ch;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
       align-items: center;
       justify-content: center;
-      min-height: 100vh;
-      padding: 24px;
-      background: #111;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    }
-    .card {
-      background: #1a1a1a;
-      border: 1px solid #2a2a2a;
-      border-radius: 16px;
-      padding: 40px 32px;
-      max-width: 420px;
-      width: 100%;
-      text-align: center;
-      color: #ececec;
-    }
-    .logo { margin-bottom: 16px; }
-    .heading {
-      font-size: 22px;
-      font-weight: 700;
-      margin: 0 0 8px;
-      color: #ececec;
-    }
-    .sub {
-      font-size: 14px;
-      color: #9b9b9b;
-      margin: 0 0 24px;
-      line-height: 1.5;
-    }
-    .btn {
-      display: inline-block;
-      padding: 12px 32px;
-      background: #D9261C;
-      color: #fff;
-      font-size: 16px;
-      font-weight: 600;
-      border-radius: 10px;
-      text-decoration: none;
-      cursor: pointer;
-      border: none;
+      min-height: 30px;
+      padding: 0 12px;
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius);
+      background: var(--color-bg);
+      color: var(--color-text);
       font-family: inherit;
-      box-shadow: 0 4px 16px rgba(217, 38, 28, 0.3);
-      margin-bottom: 20px;
+      font-size: 12px;
+      line-height: 17px;
+      cursor: pointer;
+      transition: background 120ms ease, border-color 120ms ease, transform 140ms ease;
     }
+
+    .btn:hover {
+      background: var(--color-bg-hover);
+      border-color: var(--color-border-strong);
+    }
+
     .btn:active {
-      background: #b81e16;
+      background: var(--color-bg-active);
+      transform: scale(0.98);
     }
-    .hint {
-      font-size: 13px;
-      color: #6b6b6b;
-      margin: 0 0 20px;
+
+    .btn-primary {
+      background: var(--color-text);
+      color: var(--color-bg);
+      border-color: var(--color-text);
     }
-    kbd {
-      background: #2a2a2a;
-      border: 1px solid #3a3a3a;
-      border-radius: 4px;
-      padding: 1px 6px;
+
+    .btn-primary:hover {
+      background: color-mix(in srgb, var(--color-text) 92%, transparent);
+      border-color: color-mix(in srgb, var(--color-text) 92%, transparent);
+    }
+
+    .btn-link {
+      background: transparent;
+    }
+
+    .toast {
+      min-height: 18px;
       font-size: 12px;
+      color: color-mix(in srgb, var(--color-accent) 75%, var(--color-text));
+    }
+
+    .steps {
+      display: grid;
+      gap: 10px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 26px 1fr;
+      gap: 10px;
+      align-items: flex-start;
+      padding: 10px 0;
+      border-top: 1px solid var(--color-border);
+    }
+
+    .step:first-child {
+      border-top: 0;
+      padding-top: 0;
+    }
+
+    .step-index {
+      width: 26px;
+      height: 26px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg-secondary);
+      color: var(--color-text-muted);
+      font-size: 12px;
+      line-height: 1;
+    }
+
+    .step-copy {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--color-text);
+    }
+
+    .step-copy small {
+      color: var(--color-text-muted);
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    kbd {
+      display: inline-block;
+      padding: 1px 5px;
+      border: 1px solid var(--color-border);
+      border-radius: 4px;
+      background: var(--color-bg-secondary);
+      color: var(--color-text-muted);
+      font-size: 12px;
+      line-height: 1.4;
       font-family: inherit;
     }
-    ol.steps {
-      text-align: left;
-      font-size: 13px;
-      color: #9b9b9b;
-      margin: 0 0 20px;
-      padding-left: 24px;
-      line-height: 1.6;
-    }
-    ol.steps li {
-      margin-bottom: 6px;
-    }
-    ol.steps strong {
-      color: #ececec;
-    }
-    .copied-toast {
-      font-size: 12px;
-      color: #9ce7b1;
-      margin-bottom: 12px;
-      min-height: 18px;
-      transition: opacity 200ms;
-    }
+
     details {
-      text-align: left;
-      font-size: 13px;
-      color: #9b9b9b;
+      border-top: 1px solid var(--color-border);
+      padding-top: 12px;
     }
+
     summary {
+      list-style: none;
       cursor: pointer;
-      color: #6b6b6b;
-      margin-bottom: 8px;
-    }
-    .detail-text {
-      margin: 0;
-      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
       font-size: 13px;
+      line-height: 1.4;
+      color: var(--color-text);
+    }
+
+    summary::-webkit-details-marker {
+      display: none;
+    }
+
+    .dropdown-circle {
+      width: 28px;
+      height: 28px;
+      border-radius: 999px;
+      border: 1px solid var(--color-border);
+      background: var(--color-bg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--color-text-muted);
+      transition: transform 180ms ease;
+      flex: 0 0 auto;
+    }
+
+    .dropdown-circle svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    details[open] .dropdown-circle {
+      transform: rotate(180deg);
+    }
+
+    .detail-text {
+      margin-top: 10px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--color-text-muted);
+      max-width: 56ch;
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 18px 12px;
+      }
+
+      .hero,
+      .card {
+        padding: 16px;
+      }
+
+      .top-row {
+        flex-direction: column;
+      }
+
+      .button-row {
+        flex-direction: column;
+      }
+
+      .btn {
+        width: 100%;
+      }
     }
   </style>
 </head>
 <body>
-  <div class="card">
-    <div class="logo">
-      <svg width="48" height="48" viewBox="0 0 128 128" fill="none">
-        <rect width="128" height="128" rx="24" fill="none" />
-        <rect x="14" y="34" width="24" height="24" rx="2" fill="#D9261C" />
-        <rect x="52" y="16" width="24" height="64" rx="2" fill="#D9261C" />
-        <rect x="90" y="34" width="24" height="24" rx="2" fill="#D9261C" />
-        <rect x="20" y="92" width="88" height="20" rx="2" fill="#D9261C" />
-      </svg>
-    </div>
+  <main class="shell">
+    <section class="hero">
+      <div class="brand">
+        <svg viewBox="0 0 128 128" fill="none" aria-hidden="true">
+          <rect x="14" y="34" width="24" height="24" rx="2" fill="#D9261C" />
+          <rect x="52" y="16" width="24" height="64" rx="2" fill="#D9261C" />
+          <rect x="90" y="34" width="24" height="24" rx="2" fill="#D9261C" />
+          <rect x="20" y="92" width="88" height="20" rx="2" fill="#D9261C" />
+        </svg>
+        <span class="brand-name">Savers</span>
+      </div>
 
-    <h1 class="heading">Savers Bookmark</h1>
-    <p class="sub">
-      One click to save any page — keeps the Savers icon in your bookmarks bar.
-    </p>
+      <div class="hero-copy">
+        <div class="eyebrow">Quick save setup</div>
+        <h1>Save any page without leaving your bookmarks bar.</h1>
+        <p class="sub">
+          Set up a simple quick-save bookmark once, then use it from any browser to send the current page straight into Savers.
+        </p>
+      </div>
 
-    <div class="copied-toast" id="copied-msg"></div>
+      <div class="hero-meta">
+        <span class="chip">Works in any browser</span>
+        <span class="chip">Keeps the Savers icon</span>
+        <span class="chip">Best fallback when the extension is unavailable</span>
+      </div>
+    </section>
 
-    <button class="btn" id="copy-btn" type="button">Copy save URL</button>
+    <section class="card">
+      <div class="top-row">
+        <div>
+          <div class="section-title">Set up your quick-save bookmark</div>
+          <p class="section-sub">
+            Copy the Savers save link, bookmark this page, then paste the link into that bookmark.
+          </p>
+        </div>
+      <div class="button-row">
+        <button class="btn btn-primary" id="copy-btn" type="button">Copy save URL</button>
+        <a class="btn btn-link" href="/">Open Savers</a>
+      </div>
+      </div>
 
-    <ol class="steps">
-      <li>Click <strong>Copy save URL</strong> above.</li>
-      <li><strong>Bookmark this page</strong> (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>).</li>
-      <li>Right-click the new bookmark &rarr; <strong>Edit</strong>.</li>
-      <li>Paste the copied URL and name it <strong>Save to Savers</strong>.</li>
-    </ol>
+      <div class="toast" id="copied-msg" aria-live="polite"></div>
 
-    <p class="hint" style="margin-bottom:16px;">
-      <strong>Left-click</strong> the bookmark to save the current page.
-      This briefly opens this page, saves, and returns. (Don&rsquo;t Ctrl+click
-      or middle-click — that opens a new tab and the browser won&rsquo;t tell us
-      which page to save.)
-    </p>
+      <div class="steps">
+        <div class="step">
+          <span class="step-index">1</span>
+          <div class="step-copy">
+            <span>Click <strong>Copy save URL</strong>.</span>
+            <small>This copies the link your bookmark will use.</small>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-index">2</span>
+          <div class="step-copy">
+            <span>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>).</span>
+            <small>That captures the Savers icon in your bookmarks bar.</small>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-index">3</span>
+          <div class="step-copy">
+            <span>Right-click the new bookmark and choose <strong>Edit</strong>.</span>
+            <small>Open the bookmark details so you can replace its URL.</small>
+          </div>
+        </div>
+        <div class="step">
+          <span class="step-index">4</span>
+          <div class="step-copy">
+            <span>Paste the copied link and name it <strong>Save to Savers</strong>.</span>
+            <small>After that, a normal left-click saves the page you were on and returns you right back.</small>
+          </div>
+        </div>
+      </div>
 
-    <details>
-      <summary>How does this work?</summary>
-      <p class="detail-text">
-        Left-clicking navigates your current tab here. We read which page you
-        came from, save it, and send you right back — usually under a second.
-        Because the bookmark URL is a normal link (not javascript:), Chrome
-        keeps the Savers icon. For a richer inline experience with tags,
-        collection picker, and custom title, use
-        <strong>Settings &rarr; Save to Savers</strong>.
-      </p>
-    </details>
-    </details>
-  </div>
+      <details>
+        <summary>
+          <span>How it works</span>
+          <span class="dropdown-circle" aria-hidden="true">
+            <svg viewBox="0 0 16 16" fill="none">
+              <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"></path>
+            </svg>
+          </span>
+        </summary>
+        <p class="detail-text">
+          Left-clicking the bookmark briefly opens Savers, captures the page you came from, saves it, and sends you right back. Because the bookmark points to a normal link instead of <code>javascript:</code>, Chrome keeps the Savers icon intact. For a richer inline save flow with suggestions and collection controls, use <strong>Settings → Save to Savers</strong>.
+        </p>
+      </details>
+    </section>
+  </main>
+
   <script>
     (function () {
       var btn = document.getElementById("copy-btn");
       var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
+      var params = new URLSearchParams(window.location.search);
+      var token = params.get("token");
       var saveUrl = origin + "/save";
+      if (token) {
+        saveUrl += "?token=" + encodeURIComponent(token);
+      }
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(saveUrl).then(function () {
-            msg.textContent = "Copied! Now bookmark this page, then edit and paste the URL.";
+            msg.textContent = token
+              ? "Copied your tokenized save link. Now bookmark this page, edit that bookmark, and paste the URL."
+              : "Copied. Now bookmark this page, edit that bookmark, and paste the URL.";
             setTimeout(function () { msg.textContent = ""; }, 3500);
           }).catch(function () {
-            msg.textContent = "Could not copy — try Settings → Bookmarklet instead.";
+            msg.textContent = "Could not copy. Open Savers and use Settings → Save to Savers instead.";
           });
         } else {
-          msg.textContent = "Open Savers → Settings → Bookmarklet to get the save URL.";
+          msg.textContent = "Clipboard access is unavailable here. Open Savers and use Settings → Save to Savers.";
         }
       });
     })();

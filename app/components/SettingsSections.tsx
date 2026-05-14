@@ -213,6 +213,13 @@ export default function SettingsSections({
     }
   }
 
+  function openBookmarkletSetupPage() {
+    const href = bookmarkletToken
+      ? `/bookmarklet?token=${encodeURIComponent(bookmarkletToken)}`
+      : "/bookmarklet";
+    window.open(href, "_blank", "noopener,noreferrer");
+  }
+
   async function refreshGeneratedPreviews() {
     if (refreshingPreviews) return;
     setRefreshingPreviews(true);
@@ -500,6 +507,12 @@ export default function SettingsSections({
                 disabled={!bookmarkletToken}
               >
                 {bookmarkletCopied ? "Copied!" : "Copy quick save link"}
+              </button>
+              <button
+                className="btn"
+                onClick={openBookmarkletSetupPage}
+              >
+                Open setup page
               </button>
             </div>
             <p className="small muted">
