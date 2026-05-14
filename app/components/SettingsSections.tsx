@@ -80,6 +80,7 @@ export default function SettingsSections({
   const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
+  const [newFeedCollection, setNewFeedCollection] = useState<string>("");
   const [addingFeed, setAddingFeed] = useState(false);
   const [removingFeed, setRemovingFeed] = useState<string | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
@@ -340,9 +341,10 @@ export default function SettingsSections({
     if (addingFeed || !newFeedName.trim() || !newFeedUrl.trim()) return;
     setAddingFeed(true);
     try {
-      await api.createFeed(newFeedUrl.trim(), newFeedName.trim());
+      await api.createFeed(newFeedUrl.trim(), newFeedName.trim(), newFeedCollection || null);
       setNewFeedName("");
       setNewFeedUrl("");
+      setNewFeedCollection("");
       await loadFeeds();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to add feed");
@@ -629,6 +631,30 @@ export default function SettingsSections({
               </button>
             </div>
 
+            <div className="create-row" style={{ marginTop: 8 }}>
+              <select
+                value={newFeedCollection}
+                onChange={(e) => setNewFeedCollection(e.target.value)}
+                disabled={addingFeed}
+                style={{
+                  flex: "1 1 auto",
+                  padding: "12px 14px",
+                  border: "1px solid var(--color-border)",
+                  borderRadius: "12px",
+                  background: "var(--color-bg)",
+                  color: "var(--color-text)",
+                  font: "inherit",
+                }}
+              >
+                <option value="">No collection (root)</option>
+                {flatCollections.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
             {loadingFeeds ? (
               <div className="small muted">Loading feeds…</div>
             ) : feeds.length === 0 ? (
@@ -640,6 +666,9 @@ export default function SettingsSections({
                     <div className="token-meta">
                       <div className="token-name">{f.name}</div>
                       <div className="token-sub small muted">
+                        {f.collection_id && (
+                          <span>{flatCollections.find((c) => c.id === f.collection_id)?.name ?? "Unknown"} · </span>
+                        )}
                         <span>{f.feed_url}</span>
                         {f.last_checked_at && (
                           <span> · last checked {formatDate(f.last_checked_at)}</span>
@@ -1270,6 +1299,7 @@ export default function SettingsSections({
           border-top: 1px solid var(--color-border);
           border-radius: 0;
           background: transparent;
+          padding: 16px;
         }
         .advanced-grid {
           padding-top: 12px;
