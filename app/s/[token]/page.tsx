@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { previewImageUrl } from "@/lib/api";
 import { buildSaveUrl } from "@/lib/save-url";
 
 function resolveSiteUrl(): string {
@@ -49,11 +48,19 @@ function resolveImageUrl(bookmark: SharedBookmark): string | null {
       .join("/");
     return `${supabaseUrl.replace(/\/$/, "")}/storage/v1/object/public/bookmark-previews/${encoded}`;
   }
-  // Fallback to the preview generation API
-  return previewImageUrl(bookmark.url, {
-    ogImage: bookmark.og_image,
-    favicon: bookmark.favicon,
-  });
+
+  const params = new URLSearchParams({ url: bookmark.url });
+  if (bookmark.og_image) params.set("og", bookmark.og_image);
+  if (bookmark.favicon) params.set("favicon", bookmark.favicon);
+  return `/api/preview?${params.toString()}`;
+}
+
+function safeResolveImageUrl(bookmark: SharedBookmark): string | null {
+  try {
+    return resolveImageUrl(bookmark);
+  } catch {
+    return null;
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -65,7 +72,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const title = bookmark.title || bookmark.url;
   const description = bookmark.description || bookmark.url;
-  const image = resolveImageUrl(bookmark);
+  const image = safeResolveImageUrl(bookmark);
   const siteUrl = resolveSiteUrl();
 
   return {
@@ -96,9 +103,14 @@ export default async function SharedBookmarkPage({ params }: Props) {
   }
 
   const title = bookmark.title || bookmark.url;
-  const imageUrl = resolveImageUrl(bookmark);
+  const imageUrl = safeResolveImageUrl(bookmark);
   const siteUrl = resolveSiteUrl();
-  const saveUrl = buildSaveUrl({ baseUrl: siteUrl, sourceUrl: bookmark.url });
+  let saveUrl: string;
+  try {
+    saveUrl = buildSaveUrl({ baseUrl: siteUrl, sourceUrl: bookmark.url });
+  } catch {
+    saveUrl = `${siteUrl}/save`;
+  }
 
   return (
     <div className="s-page">

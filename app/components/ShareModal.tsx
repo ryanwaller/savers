@@ -55,7 +55,10 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
 
   if (!open || typeof document === "undefined") return null;
 
-  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+  const canNativeShare =
+    typeof navigator !== "undefined" &&
+    typeof navigator.share === "function" &&
+    (typeof window === "undefined" ? false : window.matchMedia("(pointer: coarse)").matches);
 
   return createPortal(
     <div className="share-backdrop" onClick={onClose}>
