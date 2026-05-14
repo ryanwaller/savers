@@ -172,7 +172,17 @@ export async function POST(req: NextRequest) {
             .eq("guid", entry.guid)
             .maybeSingle();
 
-          if (existing) continue;
+          if (existing) {
+            // GUID already seen, but ensure the bookmark's feed_subscription_id is set
+            // (covers delete+re-add scenarios where ON DELETE SET NULL cleared it)
+            await supabase
+              .from("bookmarks")
+              .update({ feed_subscription_id: sub.id })
+              .eq("user_id", sub.user_id)
+              .eq("url", entry.url)
+              .is("feed_subscription_id", null);
+            continue;
+          }
 
           // Create bookmark
           const { data: newBookmark, error: insertError } = await supabase

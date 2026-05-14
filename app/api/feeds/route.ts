@@ -106,6 +106,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
+    // Trigger an initial check to import bookmarks right away (fire-and-forget)
+    if (data) {
+      fetch(new URL("/api/feeds/check", req.url).href, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription_id: data.id }),
+      }).catch(() => { /* non-critical */ });
+    }
+
     return NextResponse.json({ subscription: data });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

@@ -1061,6 +1061,9 @@ export default function Sidebar({
         .smart-list {
           padding: 2px 0;
         }
+        .feed-list {
+          padding: 2px 0;
+        }
       `}</style>
       <TagManagerModal
         open={showTagManager}
