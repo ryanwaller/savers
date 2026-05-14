@@ -187,7 +187,7 @@ export async function POST(req: NextRequest) {
             if (!existingBookmark.feed_subscription_id) {
               await supabase
                 .from("bookmarks")
-                .update({ feed_subscription_id: sub.id })
+                .update({ feed_subscription_id: sub.id, source: "feed" })
                 .eq("id", existingBookmark.id);
             }
             // Record seen GUID so we don't reprocess
