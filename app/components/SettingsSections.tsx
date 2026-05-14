@@ -651,6 +651,7 @@ export default function SettingsSections({
                 value={newFeedCollection}
                 onChange={setNewFeedCollection}
                 placeholder="No collection (unsorted)"
+                openDirection="up"
               />
             </div>
 
