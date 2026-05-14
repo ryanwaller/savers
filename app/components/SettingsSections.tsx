@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
-import CollectionPicker from "./CollectionPicker";
+
 import { buildBookmarkletCode } from "@/lib/save-url";
 
 type TokenRow = {
@@ -81,7 +81,7 @@ export default function SettingsSections({
   const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
-  const [newFeedCollection, setNewFeedCollection] = useState<string | null>(null);
+
   const [addingFeed, setAddingFeed] = useState(false);
   const [removingFeed, setRemovingFeed] = useState<string | null>(null);
   const [checkingFeeds, setCheckingFeeds] = useState(false);
@@ -350,10 +350,10 @@ export default function SettingsSections({
     if (addingFeed || !newFeedName.trim() || !newFeedUrl.trim()) return;
     setAddingFeed(true);
     try {
-      await api.createFeed(newFeedUrl.trim(), newFeedName.trim(), newFeedCollection);
+      await api.createFeed(newFeedUrl.trim(), newFeedName.trim());
       setNewFeedName("");
       setNewFeedUrl("");
-      setNewFeedCollection(null);
+
       await loadFeeds();
       // Immediately check the new feed, then refresh bookmarks so counts appear
       try { await api.checkFeeds(); } catch { /* ok */ }
@@ -665,17 +665,6 @@ export default function SettingsSections({
                 {addingFeed ? "Adding…" : "Add feed"}
               </button>
             </div>
-
-            <div style={{ marginTop: 8, marginBottom: 12 }}>
-              <CollectionPicker
-                flat={flatCollections}
-                value={newFeedCollection}
-                onChange={setNewFeedCollection}
-                placeholder="No collection (unsorted)"
-                openDirection="up"
-              />
-            </div>
-
             {loadingFeeds ? (
               <div className="small muted">Loading feeds…</div>
             ) : feeds.length === 0 ? (

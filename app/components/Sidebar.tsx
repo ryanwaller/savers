@@ -2505,8 +2505,17 @@ function CollectionNode({
           font-size: 12px;
         }
         .menu button:hover { background: var(--color-bg-hover); }
-        .menu button.danger { color: var(--color-text); }
-        .menu button.danger:hover { background: var(--color-bg-hover); }
+        .menu button.danger {
+          color: #d13030;
+        }
+        .menu button.danger:hover {
+          background: #fce4ec;
+        }
+        @media (prefers-color-scheme: dark) {
+          .menu button.danger:hover {
+            background: rgba(209, 48, 48, 0.18);
+          }
+        }
         .edit { flex: 1; font-size: 12px; padding: 2px 6px; }
         .child-input { padding: 4px 6px 4px 0; }
         .inline-form {
