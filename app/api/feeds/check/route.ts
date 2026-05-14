@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { enqueueScreenshot } from "@/lib/screenshot-queue";
 
+const MAX_NEW_BOOKMARKS_PER_CHECK = 10;
+
 // Simple RSS/Atom parser — extracts entries from XML without dependencies
 function parseFeedEntries(xml: string): {
   title: string | null;
@@ -160,8 +162,17 @@ export async function POST(req: NextRequest) {
 
         const entries = parseFeedEntries(xml);
 
+        // Sort newest first by pubDate (fallback: keep original order)
+        entries.sort((a, b) => {
+          const da = a.pubDate ? Date.parse(a.pubDate) : 0;
+          const db = b.pubDate ? Date.parse(b.pubDate) : 0;
+          return db - da;
+        });
+
         let newCount = 0;
         for (const entry of entries) {
+          // Cap new bookmark creation per check to avoid flooding
+          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
           if (!entry.url || !entry.guid) continue;
 
           // Check if we've already seen this GUID

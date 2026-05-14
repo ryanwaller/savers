@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // @ts-expect-error — instrumentationHook is valid in Next 16 but not yet in the TS types
+  instrumentationHook: true,
   turbopack: {
     root: path.join(__dirname),
   },
