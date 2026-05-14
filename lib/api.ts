@@ -186,7 +186,7 @@ export const api = {
     return j(await fetch(`/api/feeds/${id}`, { method: "DELETE" }));
   },
   async checkFeeds(subscriptionId?: string): Promise<{
-    results: { subscription_id: string; name: string; newItems: number; error?: string }[];
+    results: { subscription_id: string; name: string; newItems: number; totalEntries: number; error?: string }[];
     totalNew: number;
   }> {
     return j(

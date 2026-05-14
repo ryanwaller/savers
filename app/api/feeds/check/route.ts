@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       subscription_id: string;
       name: string;
       newItems: number;
+      totalEntries: number;
       error?: string;
     }[] = [];
 
@@ -101,6 +102,7 @@ export async function POST(req: NextRequest) {
             subscription_id: sub.id,
             name: sub.name,
             newItems: 0,
+            totalEntries: 0,
             error: `HTTP ${res.status}`,
           });
           continue;
@@ -159,12 +161,14 @@ export async function POST(req: NextRequest) {
           subscription_id: sub.id,
           name: sub.name,
           newItems: newCount,
+          totalEntries: entries.length,
         });
       } catch (err) {
         results.push({
           subscription_id: sub.id,
           name: sub.name,
           newItems: 0,
+          totalEntries: 0,
           error: err instanceof Error ? err.message : "Unknown error",
         });
       }

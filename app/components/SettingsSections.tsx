@@ -383,7 +383,7 @@ export default function SettingsSections({
     try {
       const result = await api.checkFeeds();
       const lines = result.results.map(
-        (r) => `${r.name}: ${r.error ? `❌ ${r.error}` : `${r.newItems} new`}`
+        (r) => `${r.name}: ${r.error ? `❌ ${r.error}` : `${r.newItems} new / ${r.totalEntries} entries`}`
       );
       alert(`${result.totalNew} new total\n\n${lines.join("\n")}`);
       onBookmarksChanged?.();
