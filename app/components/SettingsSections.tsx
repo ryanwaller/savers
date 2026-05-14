@@ -355,8 +355,9 @@ export default function SettingsSections({
       setNewFeedUrl("");
       setNewFeedCollection(null);
       await loadFeeds();
-      // Immediately check the new feed
+      // Immediately check the new feed, then refresh bookmarks so counts appear
       try { await api.checkFeeds(); } catch { /* ok */ }
+      onBookmarksChanged?.();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to add feed");
     } finally {
