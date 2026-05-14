@@ -105,6 +105,10 @@ export default function SettingsSections({
     () => tokens.some((token) => token.name.toLowerCase() === "bookmarklet"),
     [tokens],
   );
+  const hasIPhoneShareToken = useMemo(
+    () => tokens.some((token) => token.name.toLowerCase().includes("iphone share")),
+    [tokens],
+  );
 
   useEffect(() => {
     void load();
@@ -137,15 +141,15 @@ export default function SettingsSections({
     }
   }
 
-  async function createToken() {
+  async function createNamedToken(name: string) {
     if (creating) return;
     setCreating(true);
     setError(null);
     try {
-      const result = await api.createToken(newTokenName.trim());
+      const result = await api.createToken(name.trim());
       setRevealedToken(result.token);
-      setNewTokenName("");
       await load();
+      return result.token;
     } catch (e) {
       setError(e instanceof Error ? e.message : "Could not create token");
     } finally {
@@ -153,20 +157,24 @@ export default function SettingsSections({
     }
   }
 
-  async function createBookmarkletSetupLink() {
-    if (creating) return;
-    setCreating(true);
-    setError(null);
-    try {
-      const result = await api.createToken("Bookmarklet");
-      setRevealedToken(result.token);
-      setBookmarkletToken(result.token);
-      await load();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Could not create token");
-    } finally {
-      setCreating(false);
+  async function createToken() {
+    const name = newTokenName.trim();
+    if (!name) return;
+    const token = await createNamedToken(name);
+    if (token) {
+      setNewTokenName("");
     }
+  }
+
+  async function createBookmarkletSetupLink() {
+    const token = await createNamedToken("Bookmarklet");
+    if (token) {
+      setBookmarkletToken(token);
+    }
+  }
+
+  async function createIPhoneShareToken() {
+    await createNamedToken("iPhone Share");
   }
 
   async function revokeToken(id: string) {
@@ -448,7 +456,22 @@ export default function SettingsSections({
             <h2>Save to Savers</h2>
           </div>
         </div>
-        <div className="settings-grid two-up">
+        <div className="settings-grid three-up">
+          <div className="settings-card feature-card">
+            <div className="feature-top">
+              <div>
+                <div className="feature-title">Browser extension</div>
+                <div className="feature-sub">
+                  Best in Chrome. Save the current page, suggest tags, and jump back into Savers from the toolbar.
+                </div>
+              </div>
+              <span className="status-chip status-ready">Fastest</span>
+            </div>
+            <p className="small muted">
+              If the Savers icon is already in your browser toolbar, you have the quickest save flow available.
+            </p>
+          </div>
+
           <div className="settings-card feature-card">
             <div className="feature-top">
               <div>
@@ -501,35 +524,47 @@ export default function SettingsSections({
           </div>
 
           <div className="settings-card feature-card">
-            <div className="feature-title">Library snapshot</div>
-            <div className="stat-grid">
-              <div className="stat">
-                <span className="stat-value">{bookmarks.length}</span>
-                <span className="stat-label">Bookmarks</span>
+            <div className="feature-top">
+              <div>
+                <div className="feature-title">iPhone / iPad share</div>
+                <div className="feature-sub">
+                  Use a token in the iOS share extension so saves still work when Safari is not signed in here.
+                </div>
               </div>
-              <div className="stat">
-                <span className="stat-value">{flatCollections.length}</span>
-                <span className="stat-label">Collections</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value">{generatedPreviewCount}</span>
-                <span className="stat-label">Generated previews</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value">{customPreviewCount}</span>
-                <span className="stat-label">Manual uploads</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value">{brokenLinkCount}</span>
-                <span className="stat-label">Broken links</span>
-              </div>
-              <div className="stat">
-                <span className="stat-value">{tokens.length}</span>
-                <span className="stat-label">Active tokens</span>
-              </div>
+              <span className={`status-chip ${hasIPhoneShareToken ? "status-ready" : "status-muted"}`}>
+                {hasIPhoneShareToken ? "Ready" : "Needs setup"}
+              </span>
             </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => void createIPhoneShareToken()}
+              disabled={creating}
+            >
+              {creating ? "Creating…" : hasIPhoneShareToken ? "Create fresh share token" : "Create share token"}
+            </button>
+            <p className="small muted">
+              After you create it, copy the token below and paste it into the iPhone share extension setup.
+            </p>
           </div>
         </div>
+
+        {revealedToken && (
+          <div className="settings-card reveal-card">
+            <div className="feature-title">New token ready</div>
+            <p className="small muted">
+              Copy this now. For security, Savers won&apos;t show the full token again.
+            </p>
+            <code className="reveal-token">{revealedToken}</code>
+            <div className="reveal-actions">
+              <button className="btn btn-primary" onClick={() => void copyRevealed()}>
+                {copied ? "Copied" : "Copy token"}
+              </button>
+              <button className="btn" onClick={() => setRevealedToken(null)}>
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
       </section>
 
       <section className="settings-block">
@@ -794,6 +829,36 @@ export default function SettingsSections({
           </div>
         </div>
         <div className="settings-grid two-up">
+          <div className="settings-card feature-card">
+            <div className="feature-title">Library snapshot</div>
+            <div className="stat-grid">
+              <div className="stat">
+                <span className="stat-value">{bookmarks.length}</span>
+                <span className="stat-label">Bookmarks</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{flatCollections.length}</span>
+                <span className="stat-label">Collections</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{generatedPreviewCount}</span>
+                <span className="stat-label">Generated previews</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{customPreviewCount}</span>
+                <span className="stat-label">Manual uploads</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{brokenLinkCount}</span>
+                <span className="stat-label">Broken links</span>
+              </div>
+              <div className="stat">
+                <span className="stat-value">{duplicateCount}</span>
+                <span className="stat-label">Duplicates</span>
+              </div>
+            </div>
+          </div>
+
           <div className="settings-card">
             <div className="feature-title">Export bookmarks</div>
             <div className="feature-sub">
@@ -818,8 +883,25 @@ export default function SettingsSections({
             </button>
             {previewRefreshMessage && <div className="small muted">{previewRefreshMessage}</div>}
           </div>
+        </div>
+      </section>
 
-          <div className="settings-card">
+      <section className="settings-block">
+        <details className="advanced-shell">
+          <summary>
+            <span className="summary-copy">
+              <span>Privacy, security & advanced</span>
+              <span className="small muted">Tokens, background services, and manual setup details</span>
+            </span>
+            <span className="dropdown-circle" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none">
+                <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </summary>
+
+          <div className="settings-grid two-up advanced-grid">
+          <div className="settings-card advanced-card">
             <div className="feature-top">
               <div>
                 <div className="feature-title">System status</div>
@@ -884,46 +966,12 @@ export default function SettingsSections({
               </div>
             )}
           </div>
-        </div>
-      </section>
-
-      <section className="settings-block">
-        <details className="advanced-shell">
-          <summary>
-            <span className="summary-copy">
-              <span>Privacy, security & advanced</span>
-              <span className="small muted">API tokens, install credentials, and manual setup details</span>
-            </span>
-            <span className="dropdown-circle" aria-hidden="true">
-              <svg viewBox="0 0 16 16" fill="none">
-                <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-              </svg>
-            </span>
-          </summary>
 
           <div className="settings-card advanced-card">
             <div className="feature-title">API tokens</div>
             <div className="feature-sub">
               Long-lived tokens for clients that can&apos;t rely on your browser session, like the iPhone share flow or scripts.
             </div>
-
-            {revealedToken && (
-              <div className="reveal">
-                <div className="reveal-title">Your new token</div>
-                <p className="small muted">
-                  Copy this now. For security, Savers won&apos;t show the full token again.
-                </p>
-                <code className="reveal-token">{revealedToken}</code>
-                <div className="reveal-actions">
-                  <button className="btn btn-primary" onClick={() => void copyRevealed()}>
-                    {copied ? "Copied" : "Copy"}
-                  </button>
-                  <button className="btn" onClick={() => setRevealedToken(null)}>
-                    Dismiss
-                  </button>
-                </div>
-              </div>
-            )}
 
             <div className="create-row">
               <input
@@ -975,6 +1023,7 @@ export default function SettingsSections({
               </ul>
             )}
           </div>
+          </div>
         </details>
       </section>
 
@@ -1014,6 +1063,9 @@ export default function SettingsSections({
         }
         .two-up {
           grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+        .three-up {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
         }
         .settings-card {
           border: 1px solid var(--color-border);
@@ -1067,6 +1119,9 @@ export default function SettingsSections({
         }
         .feature-card {
           min-height: 100%;
+        }
+        .reveal-card {
+          margin-top: 2px;
         }
         .feature-top {
           display: flex;
@@ -1216,6 +1271,9 @@ export default function SettingsSections({
           border-radius: 0;
           background: transparent;
         }
+        .advanced-grid {
+          padding-top: 12px;
+        }
         .small {
           font-size: 13px;
         }
@@ -1337,6 +1395,9 @@ export default function SettingsSections({
 
         @media (max-width: 820px) {
           .two-up {
+            grid-template-columns: 1fr;
+          }
+          .three-up {
             grid-template-columns: 1fr;
           }
           .stat-grid {
