@@ -110,33 +110,10 @@
     .hero-copy {
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 6px;
       max-width: 560px;
-    }
-
-    .eyebrow {
       font-size: 12px;
-      color: var(--color-text-muted);
-    }
-
-    h1 {
-      font-size: clamp(26px, 4vw, 38px);
-      line-height: 0.98;
-      letter-spacing: -0.04em;
-      font-weight: 500;
-    }
-
-    .sub {
-      font-size: 13px;
-      line-height: 1.5;
-      color: var(--color-text-muted);
-      max-width: 44ch;
-    }
-
-    .hero-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
+      line-height: 17px;
     }
 
     .chip {
@@ -168,15 +145,15 @@
     }
 
     .section-title {
-      font-size: 13px;
-      line-height: 1.2;
+      font-size: 12px;
+      line-height: 17px;
       font-weight: 400;
     }
 
     .section-sub {
       margin-top: 4px;
-      font-size: 13px;
-      line-height: 1.45;
+      font-size: 12px;
+      line-height: 17px;
       color: var(--color-text-muted);
       max-width: 44ch;
     }
@@ -272,15 +249,15 @@
       display: flex;
       flex-direction: column;
       gap: 3px;
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 12px;
+      line-height: 17px;
       color: var(--color-text);
     }
 
     .step-copy small {
       color: var(--color-text-muted);
       font-size: 12px;
-      line-height: 1.45;
+      line-height: 17px;
     }
 
     kbd {
@@ -307,8 +284,8 @@
       align-items: center;
       justify-content: space-between;
       gap: 12px;
-      font-size: 13px;
-      line-height: 1.4;
+      font-size: 12px;
+      line-height: 17px;
       color: var(--color-text);
     }
 
@@ -341,8 +318,8 @@
 
     .detail-text {
       margin-top: 10px;
-      font-size: 13px;
-      line-height: 1.5;
+      font-size: 12px;
+      line-height: 17px;
       color: var(--color-text-muted);
       max-width: 56ch;
     }
@@ -385,17 +362,8 @@
       </div>
 
       <div class="hero-copy">
-        <div class="eyebrow">Quick save setup</div>
-        <h1>Save any page without leaving your bookmarks bar.</h1>
-        <p class="sub">
-          Set up a simple quick-save bookmark once, then use it from any browser to send the current page straight into Savers.
-        </p>
-      </div>
-
-      <div class="hero-meta">
-        <span class="chip">Works in any browser</span>
-        <span class="chip">Keeps the Savers icon</span>
-        <span class="chip">Best fallback when the extension is unavailable</span>
+        <div>Quick save setup</div>
+        <div class="sub">Copy the code, bookmark this page, then paste the code into that bookmark.</div>
       </div>
     </section>
 
@@ -404,11 +372,11 @@
         <div>
           <div class="section-title">Set up your quick-save bookmark</div>
           <p class="section-sub">
-            Copy the Savers save link, bookmark this page, then paste the link into that bookmark.
+            Copy the bookmarklet code, bookmark this page, then paste the code into that bookmark.
           </p>
         </div>
       <div class="button-row">
-        <button class="btn btn-primary" id="copy-btn" type="button">Copy save URL</button>
+        <button class="btn btn-primary" id="copy-btn" type="button">Copy bookmarklet code</button>
         <a class="btn btn-link" href="/">Open Savers</a>
       </div>
       </div>
@@ -419,8 +387,8 @@
         <div class="step">
           <span class="step-index">1</span>
           <div class="step-copy">
-            <span>Click <strong>Copy save URL</strong>.</span>
-            <small>This copies the link your bookmark will use.</small>
+            <span>Click Copy bookmarklet code.</span>
+            <small>This copies the code your bookmark will use.</small>
           </div>
         </div>
         <div class="step">
@@ -440,8 +408,8 @@
         <div class="step">
           <span class="step-index">4</span>
           <div class="step-copy">
-            <span>Paste the copied link and name it <strong>Save to Savers</strong>.</span>
-            <small>After that, a normal left-click saves the page you were on and returns you right back.</small>
+            <span>Paste the copied code and name it Save to Savers.</span>
+            <small>After that, a normal left-click opens Savers and saves the page you were on.</small>
           </div>
         </div>
       </div>
@@ -456,7 +424,7 @@
           </span>
         </summary>
         <p class="detail-text">
-          Left-clicking the bookmark briefly opens Savers, captures the page you came from, saves it, and sends you right back. Because the bookmark points to a normal link instead of <code>javascript:</code>, Chrome keeps the Savers icon intact. For a richer inline save flow with suggestions and collection controls, use <strong>Settings → Save to Savers</strong>.
+          This runs a small Savers script from your bookmarks bar, so it can read the page you are on and save it correctly. If you want a richer flow with suggestions and collection controls, use Settings → Save to Savers.
         </p>
       </details>
     </section>
@@ -469,17 +437,21 @@
       var origin = window.location.origin.replace(/\/$/, "");
       var params = new URLSearchParams(window.location.search);
       var token = params.get("token");
-      var saveUrl = origin + "/save";
+      var scriptUrl = origin + "/bookmarklet.js";
       if (token) {
-        saveUrl += "?token=" + encodeURIComponent(token);
+        scriptUrl += "?token=" + encodeURIComponent(token);
       }
+      var bookmarkletCode =
+        "javascript:(function(){var d=document,s=d.createElement('script');s.src=" +
+        JSON.stringify(scriptUrl) +
+        ";d.head.appendChild(s);}())";
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {
-          navigator.clipboard.writeText(saveUrl).then(function () {
+          navigator.clipboard.writeText(bookmarkletCode).then(function () {
             msg.textContent = token
-              ? "Copied your tokenized save link. Now bookmark this page, edit that bookmark, and paste the URL."
-              : "Copied. Now bookmark this page, edit that bookmark, and paste the URL.";
+              ? "Copied your bookmarklet code. Now bookmark this page, edit that bookmark, and paste the code."
+              : "Copied. Now bookmark this page, edit that bookmark, and paste the code.";
             setTimeout(function () { msg.textContent = ""; }, 3500);
           }).catch(function () {
             msg.textContent = "Could not copy. Open Savers and use Settings → Save to Savers instead.";

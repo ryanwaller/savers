@@ -5,7 +5,7 @@ import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/l
 import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
 import CollectionPicker from "./CollectionPicker";
-import { buildSaveUrl } from "@/lib/save-url";
+import { buildBookmarkletCode } from "@/lib/save-url";
 
 type TokenRow = {
   id: string;
@@ -206,7 +206,7 @@ export default function SettingsSections({
 
   async function copyBookmarklet() {
     try {
-      await navigator.clipboard.writeText(buildSaveUrl({ token: bookmarkletToken }));
+      await navigator.clipboard.writeText(buildBookmarkletCode({ token: bookmarkletToken }));
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
@@ -507,7 +507,7 @@ export default function SettingsSections({
                 onClick={() => void copyBookmarklet()}
                 disabled={!bookmarkletToken}
               >
-                {bookmarkletCopied ? "Copied!" : "Copy quick save link"}
+                {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
               </button>
               <button
                 className="btn"
@@ -518,8 +518,8 @@ export default function SettingsSections({
             </div>
             <p className="small muted">
               {bookmarkletToken
-                ? "This save link includes your token, so it can work even when this browser is not signed in."
-                : "Without a token, the save link relies on you being signed in on this browser."}
+                ? "This bookmarklet includes your token, so it can save even when this browser is not signed in."
+                : "Without a token, quick save relies on you being signed in on this browser."}
             </p>
             <details className="details">
               <summary>
@@ -532,9 +532,9 @@ export default function SettingsSections({
               </summary>
               <ol className="bookmarklet-steps">
                 <li>Click {bookmarkletTokenExists ? "Create fresh save link" : "Set up quick save"}.</li>
-                <li>Click Copy quick save link.</li>
+                <li>Click Copy bookmarklet code.</li>
                 <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
-                <li>Right-click the new bookmark, choose Edit, paste the URL, and name it “Save to Savers”.</li>
+                <li>Right-click the new bookmark, choose Edit, paste the copied code, and name it “Save to Savers”.</li>
               </ol>
             </details>
           </div>

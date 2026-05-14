@@ -1,6 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildSaveUrl, resolveSaveSource } from "../lib/save-url";
+import {
+  buildBookmarkletCode,
+  buildBookmarkletScriptUrl,
+  buildSaveUrl,
+  resolveSaveSource,
+} from "../lib/save-url";
 
 test("buildSaveUrl includes token and source url using canonical u param", () => {
   const url = buildSaveUrl({
@@ -33,5 +38,25 @@ test("resolveSaveSource falls back to legacy url and then referrer", () => {
   assert.equal(
     resolveSaveSource(new URLSearchParams(), "https://referrer.example"),
     "https://referrer.example",
+  );
+});
+
+test("buildBookmarkletScriptUrl includes token when present", () => {
+  assert.equal(
+    buildBookmarkletScriptUrl({
+      baseUrl: "https://example.com",
+      token: "svr_test",
+    }),
+    "https://example.com/bookmarklet.js?token=svr_test",
+  );
+});
+
+test("buildBookmarkletCode injects the bookmarklet script url", () => {
+  assert.equal(
+    buildBookmarkletCode({
+      baseUrl: "https://example.com",
+      token: "svr_test",
+    }),
+    'javascript:(function(){var d=document,s=d.createElement(\'script\');s.src="https://example.com/bookmarklet.js?token=svr_test";d.head.appendChild(s);}())',
   );
 });

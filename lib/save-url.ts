@@ -21,6 +21,28 @@ export function buildSaveUrl({
   return url.toString();
 }
 
+type BuildBookmarkletCodeOptions = {
+  baseUrl?: string;
+  token?: string | null;
+};
+
+export function buildBookmarkletScriptUrl({
+  baseUrl = getPublicSiteUrl(),
+  token,
+}: BuildBookmarkletCodeOptions = {}): string {
+  const url = new URL("/bookmarklet.js", baseUrl);
+  if (token?.trim()) {
+    url.searchParams.set("token", token.trim());
+  }
+  return url.toString();
+}
+
+export function buildBookmarkletCode(options: BuildBookmarkletCodeOptions = {}): string {
+  const scriptUrl = buildBookmarkletScriptUrl(options);
+  const quotedScriptUrl = JSON.stringify(scriptUrl);
+  return `javascript:(function(){var d=document,s=d.createElement('script');s.src=${quotedScriptUrl};d.head.appendChild(s);}())`;
+}
+
 export function resolveSaveSource(
   params: URLSearchParams,
   referrer?: string | null,
