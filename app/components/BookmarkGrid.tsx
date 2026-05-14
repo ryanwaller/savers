@@ -774,6 +774,16 @@ function BookmarkCard({
                 >
                   Edit
                 </button>
+                <button
+                  type="button"
+                  className="pill-btn thumb-pill thumb-pill-danger"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setConfirmDeleteOpen(true);
+                  }}
+                >
+                  Delete
+                </button>
               </span>
             </span>
           </div>
