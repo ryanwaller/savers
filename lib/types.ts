@@ -61,6 +61,18 @@ export interface Bookmark {
   broken_verified_by?: string | null
   /** Public share token (UUID). When set, the bookmark can be viewed at /s/[token] without auth. */
   share_token?: string | null
+  /** Source of the bookmark: 'feed' for RSS/Atom imports, null for manual saves. */
+  source?: string | null
+}
+
+export interface FeedSubscription {
+  id: string
+  user_id: string
+  feed_url: string
+  name: string
+  collection_id: string | null
+  last_checked_at: string | null
+  created_at: string
 }
 
 export interface TagAlias {

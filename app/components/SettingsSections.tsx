@@ -532,6 +532,100 @@ export default function SettingsSections({
         </div>
       </section>
 
+      <section className="settings-block">
+        <details
+          className="advanced-shell"
+          onToggle={async (e) => {
+            if ((e.target as HTMLDetailsElement).open) {
+              await loadFeeds();
+            }
+          }}
+        >
+          <summary>
+            <span className="summary-copy">
+              <span>RSS Feeds</span>
+              <span className="small muted">
+                Monitor RSS/Atom feeds and auto-save new entries as bookmarks.
+              </span>
+            </span>
+            <span className="dropdown-circle" aria-hidden="true">
+              <svg viewBox="0 0 16 16" fill="none">
+                <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+              </svg>
+            </span>
+          </summary>
+
+          <div className="advanced-card">
+            <div className="feature-title">Add a feed</div>
+            <div className="feature-sub">
+              Paste an RSS or Atom feed URL. New entries will appear in your bookmarks with a green border.
+            </div>
+            <div className="create-row">
+              <input
+                placeholder="Feed name"
+                value={newFeedName}
+                onChange={(e) => setNewFeedName(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddFeed();
+                  }
+                }}
+                disabled={addingFeed}
+              />
+              <input
+                placeholder="Feed URL"
+                value={newFeedUrl}
+                onChange={(e) => setNewFeedUrl(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    void handleAddFeed();
+                  }
+                }}
+                disabled={addingFeed}
+              />
+              <button
+                className="btn btn-primary"
+                onClick={() => void handleAddFeed()}
+                disabled={addingFeed || !newFeedName.trim() || !newFeedUrl.trim()}
+              >
+                {addingFeed ? "Adding…" : "Add feed"}
+              </button>
+            </div>
+
+            {loadingFeeds ? (
+              <div className="small muted">Loading feeds…</div>
+            ) : feeds.length === 0 ? (
+              <div className="small muted">No feeds yet.</div>
+            ) : (
+              <ul className="tokens">
+                {feeds.map((f) => (
+                  <li key={f.id} className="token-row">
+                    <div className="token-meta">
+                      <div className="token-name">{f.name}</div>
+                      <div className="token-sub small muted">
+                        <span>{f.feed_url}</span>
+                        {f.last_checked_at && (
+                          <span> · last checked {formatDate(f.last_checked_at)}</span>
+                        )}
+                      </div>
+                    </div>
+                    <button
+                      className="btn btn-ghost danger"
+                      onClick={() => void handleRemoveFeed(f.id)}
+                      disabled={removingFeed === f.id}
+                    >
+                      {removingFeed === f.id ? "Removing…" : "Remove"}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </details>
+      </section>
+
       {duplicateCount > 0 && (
         <section className="settings-block">
           <details

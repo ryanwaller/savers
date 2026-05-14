@@ -681,7 +681,7 @@ function BookmarkCard({
           )}
         </button>
       )}
-      <div className={`card${isCompact ? " card-compact" : ""}`} title={b.title ?? b.url} data-bookmark-id={b.id}>
+      <div className={`card${isCompact ? " card-compact" : ""}${b.source === "feed" ? " card-feed" : ""}`} title={b.title ?? b.url} data-bookmark-id={b.id}>
         <div className="thumb-wrap">
           <div
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
@@ -1218,6 +1218,12 @@ function BookmarkCard({
           height: 1px;
           margin: 4px 8px;
           background: var(--color-border);
+        }
+        .card-feed .thumb-wrap {
+          border-left: 3px solid #22c55e;
+          border-bottom: 1px solid #22c55e;
+          border-right: 3px solid #22c55e;
+          border-top: 3px solid #22c55e;
         }
         .thumb-wrap {
           position: relative;
