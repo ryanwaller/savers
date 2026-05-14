@@ -1,8 +1,6 @@
 const DEFAULT_APP_URL = "https://savers-production.up.railway.app";
 
 const els = {
-  pageTitle: document.getElementById("page-title"),
-  pageUrl: document.getElementById("page-url"),
   bookmarkTitle: document.getElementById("bookmark-title"),
   bookmarkTags: document.getElementById("bookmark-tags"),
   suggestTags: document.getElementById("suggest-tags"),
@@ -72,7 +70,7 @@ async function init() {
     hydrateMetadata(),
     checkDuplicate(),
   ]);
-  await suggestCollection();
+  await Promise.allSettled([suggestCollection(), suggestTags()]);
   updateUnsyncedBadge();
 }
 
@@ -119,7 +117,7 @@ function bindEvents() {
   els.refreshMeta.addEventListener("click", () => {
     void (async () => {
       await hydrateMetadata(true);
-      await suggestCollection(true);
+      await Promise.allSettled([suggestCollection(true), suggestTags()]);
       await checkDuplicate(true);
     })();
   });
@@ -284,13 +282,11 @@ async function suggestTags() {
     tagProposals = (Array.isArray(data.tags) ? data.tags : []).filter(
       (t) => !existing.has(String(t).toLowerCase())
     );
-    tagSuggestStatus = tagProposals.length ? null : "No new tags to suggest.";
+    tagSuggestStatus = tagProposals.length ? "Tap a tag to add it." : "No new tags to suggest.";
     renderTagProposals();
   } catch (error) {
     tagProposals = [];
-    tagSuggestStatus = `Couldn't suggest tags: ${
-      error instanceof Error ? error.message : "unknown error"
-    }`;
+    tagSuggestStatus = "Suggestions need a Savers token or sign-in.";
     renderTagProposals();
   } finally {
     els.suggestTags.disabled = false;
@@ -301,7 +297,6 @@ async function suggestTags() {
 /* ── Collections ── */
 
 async function loadCollections() {
-  setStatus("Loading collections…");
   const data = await apiFetch("/api/collections", { method: "GET" });
   state.flatCollections = Array.isArray(data.flat) ? data.flat : [];
 
@@ -324,7 +319,6 @@ async function loadCollections() {
     els.collectionSelect.appendChild(option);
   }
 
-  setStatus("Collections ready.");
 }
 
 /* ── Metadata ── */
@@ -332,8 +326,6 @@ async function loadCollections() {
 async function hydrateMetadata(force = false) {
   if (!state.tabUrl) return;
   if (state.metadata && !force) return;
-
-  setStatus("Fetching metadata…");
 
   try {
     const metadata = await apiFetch(`/api/metadata?url=${encodeURIComponent(state.tabUrl)}`, {
@@ -346,7 +338,6 @@ async function hydrateMetadata(force = false) {
     if (metadata.description) {
       els.bookmarkDescription.value = metadata.description;
     }
-    setStatus("Metadata ready.");
   } catch (error) {
     setStatus(
       error instanceof Error ? `Metadata unavailable: ${error.message}` : "Metadata unavailable.",
@@ -400,10 +391,7 @@ async function suggestCollection(force = false) {
     setAiStatus("");
   } catch (error) {
     clearSuggestion();
-    setAiStatus(
-      error instanceof Error ? `Suggestion failed: ${error.message}` : "Suggestion failed.",
-      "error"
-    );
+    setAiStatus("Collection suggestions need a Savers token or sign-in.", "error");
   } finally {
     els.suggestCollection.disabled = false;
   }

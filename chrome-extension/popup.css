@@ -6,6 +6,7 @@
   font-size: var(--save-font-size);
   line-height: var(--save-line-height);
   font-weight: var(--save-font-weight);
+  letter-spacing: var(--save-letter-spacing);
   --bg: var(--save-dark-bg);
   --panel: var(--save-dark-panel);
   --panel-2: var(--save-dark-panel-2);
@@ -25,13 +26,13 @@
 
 body {
   margin: 0;
-  min-width: 440px;
+  min-width: 500px;
   background: var(--bg);
   color: var(--text);
 }
 
 .app {
-  padding: 14px;
+  padding: 18px;
 }
 
 .panel {
@@ -42,6 +43,7 @@ body {
   border-radius: var(--save-panel-radius);
   background: var(--panel);
   padding: 20px;
+  min-height: 620px;
   box-shadow: var(--shadow);
   animation: fadeIn 180ms ease;
 }
@@ -79,6 +81,7 @@ select {
   padding: 12px 13px;
   font: inherit;
   line-height: 17px;
+  letter-spacing: inherit;
 }
 
 textarea {
@@ -126,6 +129,7 @@ select {
   min-height: 46px;
   font: inherit;
   font-weight: 400;
+  letter-spacing: inherit;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 140ms ease;
 }
@@ -166,6 +170,7 @@ select {
   min-height: 32px;
   font: inherit;
   font-weight: 400;
+  letter-spacing: inherit;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 140ms ease;
 }
@@ -180,6 +185,10 @@ select {
   min-height: 17px;
   margin: 0;
   color: var(--muted);
+}
+
+.status:empty {
+  display: none;
 }
 
 .status.ai-status:empty {
@@ -257,7 +266,7 @@ select {
   flex-direction: column;
   gap: 12px;
   border: 1px solid rgba(151, 215, 0, 0.2);
-  border-radius: 14px;
+  border-radius: var(--save-button-radius);
   background: linear-gradient(180deg, rgba(151, 215, 0, 0.08), rgba(151, 215, 0, 0.02));
   padding: 12px;
 }

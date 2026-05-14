@@ -4,6 +4,7 @@
   --save-font-size: 12px;
   --save-line-height: 17px;
   --save-font-weight: 400;
+  --save-letter-spacing: 0;
 
   --save-dark-bg: #121212;
   --save-dark-panel: #1a1a1a;
@@ -17,9 +18,9 @@
   --save-light-accent-text: #111111;
   --save-brat: #97d700;
 
-  --save-panel-radius: 22px;
-  --save-field-radius: 12px;
-  --save-button-radius: 14px;
-  --save-pill-radius: 999px;
+  --save-panel-radius: 10px;
+  --save-field-radius: 4px;
+  --save-button-radius: 6px;
+  --save-pill-radius: 18px;
   --save-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
 }

@@ -40,6 +40,7 @@
         font-size: var(--save-font-size);
         line-height: var(--save-line-height);
         font-weight: var(--save-font-weight);
+        letter-spacing: var(--save-letter-spacing);
         --bm-bg: var(--save-dark-bg);
         --bm-panel: var(--save-dark-panel);
         --bm-panel-2: var(--save-dark-panel-2);
@@ -105,6 +106,7 @@
         background: var(--bm-bg);
         color: var(--bm-text);
         font: inherit;
+        letter-spacing: inherit;
       }
       .savers-bm-input::placeholder {
         color: var(--bm-muted);
@@ -123,6 +125,7 @@
         background: var(--bm-bg);
         color: var(--bm-text);
         font: inherit;
+        letter-spacing: inherit;
       }
       .savers-bm-textarea {
         min-height: 96px;
@@ -138,6 +141,7 @@
         min-height: 32px;
         font: inherit;
         font-weight: 400;
+        letter-spacing: inherit;
         cursor: pointer;
       }
       .savers-bm-pill-primary {
@@ -219,11 +223,12 @@
       .savers-bm-btn {
         padding: 13px 14px;
         border: 1px solid var(--bm-border);
-        border-radius: 14px;
+        border-radius: var(--save-button-radius);
         background: #222222;
         color: var(--bm-text);
         font: inherit;
         font-weight: 400;
+        letter-spacing: inherit;
         cursor: pointer;
         text-align: center;
       }

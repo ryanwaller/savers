@@ -25,15 +25,7 @@
 
         <div class="field">
           <span class="label">Collection</span>
-          <select id="collection-select" class="hidden"></select>
-          <button id="collection-trigger" class="picker-trigger" type="button" aria-expanded="false">
-            <span id="collection-trigger-label">Unsorted</span>
-            <span class="picker-chevron" aria-hidden="true">⌄</span>
-          </button>
-          <div id="collection-picker" class="picker hidden">
-            <input id="collection-search" type="text" placeholder="Find a collection" />
-            <div id="collection-options" class="picker-options"></div>
-          </div>
+          <select id="collection-select"></select>
           <div class="inline-actions">
             <button id="suggest-collection" class="pill-btn pill-btn-primary hidden" type="button">
               Suggest collection
@@ -55,6 +47,11 @@
         </div>
 
         <p id="ai-status" class="status ai-status" role="status"></p>
+
+        <label class="field">
+          <span class="label">Description</span>
+          <textarea id="bookmark-description" rows="3"></textarea>
+        </label>
 
         <div class="inline-actions">
           <button id="show-create" class="pill-btn" type="button">
@@ -80,11 +77,6 @@
           </div>
         </div>
 
-        <label class="field">
-          <span class="label">Description</span>
-          <textarea id="bookmark-description" rows="3"></textarea>
-        </label>
-
         <p id="status" class="status" role="status"></p>
 
         <div id="duplicate-warning" class="duplicate-warning hidden">
@@ -107,9 +99,7 @@
 
         <div class="foot">
           <button id="open-app" class="btn btn-secondary" type="button">Open app</button>
-          <button id="save-bookmark" class="btn btn-primary" type="button">
-            Save bookmark
-          </button>
+          <button id="save-bookmark" class="btn btn-primary" type="button">Save</button>
         </div>
       </section>
     </main>
