@@ -1,7 +1,6 @@
 const DEFAULT_APP_URL = "https://savers-production.up.railway.app";
 
 const els = {
-  appUrl: document.getElementById("app-url"),
   pageTitle: document.getElementById("page-title"),
   pageUrl: document.getElementById("page-url"),
   bookmarkTitle: document.getElementById("bookmark-title"),
@@ -54,7 +53,6 @@ init().catch((error) => {
 async function init() {
   const stored = await chrome.storage.sync.get(["saversAppUrl"]);
   state.appUrl = normalizeAppUrl(stored.saversAppUrl || DEFAULT_APP_URL);
-  els.appUrl.value = state.appUrl;
 
   bindEvents();
 
@@ -81,18 +79,6 @@ async function init() {
 }
 
 function bindEvents() {
-  els.appUrl.addEventListener("change", async () => {
-    state.appUrl = normalizeAppUrl(els.appUrl.value);
-    els.appUrl.value = state.appUrl;
-    await chrome.storage.sync.set({ saversAppUrl: state.appUrl });
-    clearSuggestion();
-    state.duplicate = null;
-    els.duplicateWarning.classList.add("hidden");
-    await Promise.all([loadCollections(), checkDuplicate()]);
-    await suggestCollection(true);
-    updateUnsyncedBadge();
-  });
-
   els.collectionSelect.addEventListener("change", () => {
     state.collectionTouched = true;
   });
