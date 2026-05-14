@@ -19,6 +19,7 @@ type Props = {
   onCreateCollection: (name: string, parentId: string | null) => Promise<Collection>;
   onClose: () => void;
   onCreated: (b: Bookmark) => void;
+  onFeedCreated?: () => void;
 };
 
 export default function AddBookmarkModal({
@@ -30,6 +31,7 @@ export default function AddBookmarkModal({
   onCreateCollection,
   onClose,
   onCreated,
+  onFeedCreated,
 }: Props) {
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
@@ -553,9 +555,12 @@ export default function AddBookmarkModal({
                     setAddingFeed(true);
                     try {
                       const feedName = feedDetected.title || new URL(feedDetected.feedUrl).hostname;
-                      await api.createFeed(feedDetected.feedUrl, feedName);
+                      const { subscription } = await api.createFeed(feedDetected.feedUrl, feedName);
+                      // Immediately check the feed to populate bookmarks
+                      api.checkFeeds(subscription.id).catch(() => {});
                       setFeedDetected(null);
                       setUrl("");
+                      onFeedCreated?.();
                       onClose();
                     } catch (e) {
                       setError(e instanceof Error ? e.message : "Failed to add feed");

@@ -2401,6 +2401,7 @@ export default function Home() {
           onCreateCollection={handleCreateCollection}
           onClose={() => { setShowAdd(false); setDefaultAddUrl(null); }}
           onCreated={handleBookmarkCreated}
+          onFeedCreated={loadFeeds}
         />
       )}
 
