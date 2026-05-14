@@ -45,6 +45,9 @@ export default function AddBookmarkModal({
   const lastFetchedRef = useRef("");
   const [feedMatch, setFeedMatch] = useState<{ feeds: { id: string; name: string }[] } | null>(null);
   const [checkingFeed, setCheckingFeed] = useState(false);
+  const [feedDetected, setFeedDetected] = useState<{ feedUrl: string; title: string | null } | null>(null);
+  const [detectingFeed, setDetectingFeed] = useState(false);
+  const [addingFeed, setAddingFeed] = useState(false);
 
   // Suggestion state
   const [aiSuggestion, setAiSuggestion] = useState<AISuggestion | null>(null);
@@ -484,6 +487,7 @@ export default function AddBookmarkModal({
                   setAiDismissed(false);
                   setAiStatus(null);
                   setFeedMatch(null);
+                  setFeedDetected(null);
                 }
                 setUrl(next);
               }}
@@ -492,12 +496,24 @@ export default function AddBookmarkModal({
                 const u = normalizeUrl(url);
                 if (u && u !== lastFetchedRef.current) {
                   setCheckingFeed(true);
+                  setDetectingFeed(true);
                   api.checkFeedMatch(u).then((res) => {
                     setFeedMatch(res.match ? res : null);
                     setCheckingFeed(false);
                   }).catch(() => {
                     setFeedMatch(null);
                     setCheckingFeed(false);
+                  });
+                  api.detectFeed(u).then((res) => {
+                    if (res.isFeed) {
+                      setFeedDetected({ feedUrl: res.feedUrl ?? u, title: res.title ?? null });
+                    } else {
+                      setFeedDetected(null);
+                    }
+                    setDetectingFeed(false);
+                  }).catch(() => {
+                    setFeedDetected(null);
+                    setDetectingFeed(false);
                   });
                 }
               }}
@@ -511,7 +527,7 @@ export default function AddBookmarkModal({
             <div className="hint small muted">
               {fetching ? "Fetching page details…" : "Press Enter or Tab to fetch page details."}
             </div>
-            {checkingFeed && (
+            {(checkingFeed || detectingFeed) && (
               <div className="hint small muted">Checking feeds…</div>
             )}
             {feedMatch && !checkingFeed && (
@@ -519,6 +535,32 @@ export default function AddBookmarkModal({
                 Already tracked by {feedMatch.feeds.length === 1
                   ? `the ${feedMatch.feeds[0].name} feed`
                   : `${feedMatch.feeds.length} feeds`}
+              </div>
+            )}
+            {feedDetected && !feedMatch && !checkingFeed && !detectingFeed && (
+              <div className="feed-match-hint">
+                This is an RSS feed.{` `}
+                <button
+                  type="button"
+                  className="feed-add-btn"
+                  disabled={addingFeed}
+                  onClick={async () => {
+                    setAddingFeed(true);
+                    try {
+                      const feedName = feedDetected.title || new URL(feedDetected.feedUrl).hostname;
+                      await api.createFeed(feedDetected.feedUrl, feedName);
+                      setFeedDetected(null);
+                      setUrl("");
+                      onClose();
+                    } catch (e) {
+                      setError(e instanceof Error ? e.message : "Failed to add feed");
+                    } finally {
+                      setAddingFeed(false);
+                    }
+                  }}
+                >
+                  {addingFeed ? "Adding…" : "Add feed"}
+                </button>
               </div>
             )}
           </label>
@@ -1007,6 +1049,29 @@ export default function AddBookmarkModal({
             background: rgba(34, 197, 94, 0.12);
             color: #4ade80;
           }
+        }
+        .feed-add-btn {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 8px;
+          border-radius: 3px;
+          border: none;
+          background: #16a34a;
+          color: #fff;
+          font-size: 11px;
+          font-weight: 500;
+          cursor: pointer;
+          margin-left: 2px;
+          flex-shrink: 0;
+        }
+        .feed-add-btn:hover { background: #15803d; }
+        .feed-add-btn:disabled { opacity: 0.6; cursor: default; }
+        @media (prefers-color-scheme: dark) {
+          .feed-add-btn {
+            background: #22c55e;
+            color: #052e16;
+          }
+          .feed-add-btn:hover { background: #4ade80; }
         }
         .preview {
           display: flex;

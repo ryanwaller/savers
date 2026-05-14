@@ -214,6 +214,14 @@ export const api = {
   }> {
     return j(await fetch(`/api/bookmarks/check-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
+  async detectFeed(url: string): Promise<{
+    isFeed: boolean;
+    feedUrl?: string;
+    title?: string | null;
+    error?: string;
+  }> {
+    return j(await fetch(`/api/bookmarks/detect-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
+  },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {
       const formData = new FormData();
