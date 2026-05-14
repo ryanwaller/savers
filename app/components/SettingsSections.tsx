@@ -84,6 +84,7 @@ export default function SettingsSections({
   const [newFeedCollection, setNewFeedCollection] = useState<string | null>(null);
   const [addingFeed, setAddingFeed] = useState(false);
   const [removingFeed, setRemovingFeed] = useState<string | null>(null);
+  const [checkingFeeds, setCheckingFeeds] = useState(false);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
   const [loadingSystemHealth, setLoadingSystemHealth] = useState(false);
   const [systemHealthError, setSystemHealthError] = useState<string | null>(null);
@@ -354,6 +355,8 @@ export default function SettingsSections({
       setNewFeedUrl("");
       setNewFeedCollection(null);
       await loadFeeds();
+      // Immediately check the new feed
+      try { await api.checkFeeds(); } catch { /* ok */ }
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to add feed");
     } finally {
@@ -371,6 +374,20 @@ export default function SettingsSections({
       alert(e instanceof Error ? e.message : "Failed to remove feed");
     } finally {
       setRemovingFeed(null);
+    }
+  }
+
+  async function handleCheckFeeds() {
+    if (checkingFeeds || feeds.length === 0) return;
+    setCheckingFeeds(true);
+    try {
+      const result = await api.checkFeeds();
+      alert(`Checked ${feeds.length} feed${feeds.length !== 1 ? "s" : ""}: ${result.totalNew} new bookmark${result.totalNew !== 1 ? "s" : ""} saved.`);
+      onBookmarksChanged?.();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Check failed");
+    } finally {
+      setCheckingFeeds(false);
     }
   }
 
@@ -685,6 +702,18 @@ export default function SettingsSections({
                   </li>
                 ))}
               </ul>
+            )}
+
+            {feeds.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <button
+                  className="btn btn-primary"
+                  onClick={() => void handleCheckFeeds()}
+                  disabled={checkingFeeds}
+                >
+                  {checkingFeeds ? "Checking…" : "Check feeds now"}
+                </button>
+              </div>
             )}
           </div>
         </details>
