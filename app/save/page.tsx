@@ -15,7 +15,6 @@ export default function SavePage() {
     }
     const resolvedSourceUrl = sourceUrl;
 
-    // Try to save the bookmark directly, then deep-link to its card.
     async function saveAndRedirect() {
       try {
         const headers: Record<string, string> = {
@@ -23,6 +22,27 @@ export default function SavePage() {
         };
         if (token) {
           headers.Authorization = `Bearer ${token}`;
+        }
+
+        // Check if this URL is an RSS feed before saving
+        try {
+          const detectRes = await fetch(
+            `/api/bookmarks/detect-feed?url=${encodeURIComponent(resolvedSourceUrl)}`,
+            { headers: token ? { Authorization: `Bearer ${token}` } : {}, credentials: token ? "omit" : "include" },
+          );
+          if (detectRes.ok) {
+            const { isFeed } = await detectRes.json();
+            if (isFeed) {
+              // Redirect to Add Bookmark modal so the user sees the "Add feed" hint
+              const target = new URL("/", window.location.origin);
+              target.searchParams.set("add", resolvedSourceUrl);
+              if (token) target.searchParams.set("token", token);
+              window.location.replace(target.toString());
+              return;
+            }
+          }
+        } catch {
+          // Detection failed, proceed with normal save
         }
 
         const res = await fetch("/api/bookmarks", {

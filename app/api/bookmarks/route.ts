@@ -160,7 +160,22 @@ export async function POST(req: NextRequest) {
       logUnexpectedError('Enqueue auto-tag error:', queueError)
     }
 
-    return NextResponse.json({ bookmark })
+    // Quick check: is this URL an RSS/Atom feed?
+    let isFeed = false;
+    try {
+      const head = await fetch(url, {
+        method: "HEAD",
+        headers: { "User-Agent": "Savers/1.0" },
+        signal: AbortSignal.timeout(5000),
+        redirect: "follow",
+      });
+      const ct = head.headers.get("content-type") ?? "";
+      isFeed = /application\/(?:rss|atom)\+xml/.test(ct) || ct.includes("text/xml") || ct.includes("application/xml");
+    } catch {
+      // ignore — best-effort
+    }
+
+    return NextResponse.json({ bookmark, isFeed })
   } catch (err) {
     logUnexpectedError('Save bookmark error:', err)
     if (err instanceof UnauthorizedError) {
