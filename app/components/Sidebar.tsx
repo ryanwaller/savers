@@ -377,7 +377,7 @@ export default function Sidebar({
 
         {/* Feeds */}
         {(feedSubscriptions && feedSubscriptions.length > 0) && (
-          <>
+          <div className="sidebar-section">
             <div className="sidebar-divider" />
             <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
               <button
@@ -419,7 +419,7 @@ export default function Sidebar({
                 })}
               </div>
             )}
-          </>
+          </div>
         )}
 
         <div className="sidebar-divider" />
@@ -1493,6 +1493,7 @@ function FeedItem({
 
   return (
     <div className={`row ${isActive ? "active" : ""}`}>
+      <div className="chev" style={{ visibility: "hidden" }}>▸</div>
       <button
         ref={iconBtnRef}
         type="button"
@@ -1657,6 +1658,18 @@ function FeedItem({
         }
         .row.active:hover {
           transform: none;
+        }
+        .chev {
+          width: 22px;
+          height: 22px;
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          flex-shrink: 0;
         }
         .row:hover .leading-icon { color: var(--color-text); }
         .leading-icon {
