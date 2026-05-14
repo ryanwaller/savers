@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
 import ExportBookmarksButton from "./ExportBookmarksButton";
+import CollectionPicker from "./CollectionPicker";
 import { buildSaveUrl } from "@/lib/save-url";
 
 type TokenRow = {
@@ -80,7 +81,7 @@ export default function SettingsSections({
   const [loadingFeeds, setLoadingFeeds] = useState(false);
   const [newFeedName, setNewFeedName] = useState("");
   const [newFeedUrl, setNewFeedUrl] = useState("");
-  const [newFeedCollection, setNewFeedCollection] = useState<string>("");
+  const [newFeedCollection, setNewFeedCollection] = useState<string | null>(null);
   const [addingFeed, setAddingFeed] = useState(false);
   const [removingFeed, setRemovingFeed] = useState<string | null>(null);
   const [systemHealth, setSystemHealth] = useState<SystemHealth | null>(null);
@@ -348,10 +349,10 @@ export default function SettingsSections({
     if (addingFeed || !newFeedName.trim() || !newFeedUrl.trim()) return;
     setAddingFeed(true);
     try {
-      await api.createFeed(newFeedUrl.trim(), newFeedName.trim(), newFeedCollection || null);
+      await api.createFeed(newFeedUrl.trim(), newFeedName.trim(), newFeedCollection);
       setNewFeedName("");
       setNewFeedUrl("");
-      setNewFeedCollection("");
+      setNewFeedCollection(null);
       await loadFeeds();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to add feed");
@@ -644,28 +645,13 @@ export default function SettingsSections({
               </button>
             </div>
 
-            <div className="create-row" style={{ marginTop: 8 }}>
-              <select
+            <div style={{ marginTop: 8 }}>
+              <CollectionPicker
+                flat={flatCollections}
                 value={newFeedCollection}
-                onChange={(e) => setNewFeedCollection(e.target.value)}
-                disabled={addingFeed}
-                style={{
-                  flex: "1 1 auto",
-                  padding: "12px 14px",
-                  border: "1px solid var(--color-border)",
-                  borderRadius: "12px",
-                  background: "var(--color-bg)",
-                  color: "var(--color-text)",
-                  font: "inherit",
-                }}
-              >
-                <option value="">No collection (root)</option>
-                {flatCollections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
+                onChange={setNewFeedCollection}
+                placeholder="No collection (unsorted)"
+              />
             </div>
 
             {loadingFeeds ? (
