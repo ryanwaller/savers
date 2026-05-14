@@ -185,6 +185,17 @@ export const api = {
   async deleteFeed(id: string): Promise<{ ok: boolean }> {
     return j(await fetch(`/api/feeds/${id}`, { method: "DELETE" }));
   },
+  async updateFeed(id: string, updates: { name?: string; icon?: string | null }): Promise<{
+    subscription: import("./types").FeedSubscription;
+  }> {
+    return j(
+      await fetch(`/api/feeds/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(updates),
+      }),
+    );
+  },
   async checkFeeds(subscriptionId?: string): Promise<{
     results: { subscription_id: string; name: string; newItems: number; totalEntries: number; error?: string }[];
     totalNew: number;

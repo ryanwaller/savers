@@ -72,6 +72,7 @@ export interface FeedSubscription {
   user_id: string
   feed_url: string
   name: string
+  icon: string | null
   collection_id: string | null
   last_checked_at: string | null
   created_at: string

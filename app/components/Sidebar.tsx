@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TagManagerModal from "./TagManagerModal";
-import { Funnel, LinkBreak, PushPin, Rss, SignOut } from "@phosphor-icons/react";
+import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
 import type { Bookmark, Collection, FeedSubscription, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
@@ -80,6 +80,8 @@ type Props = {
     updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json">>
   ) => Promise<SmartCollection>;
   onDeleteSmartCollection?: (id: string) => Promise<void>;
+  onChangeFeedIcon?: (id: string, icon: string | null) => Promise<void>;
+  onDeleteFeed?: (id: string) => Promise<void>;
 };
 
 export default function Sidebar({
@@ -113,6 +115,8 @@ export default function Sidebar({
   onCreateSmartCollection,
   onEditSmartCollection,
   onDeleteSmartCollection,
+  onChangeFeedIcon,
+  onDeleteFeed,
   onTagsChanged,
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -394,29 +398,21 @@ export default function Sidebar({
               </button>
             </div>
             {feedsExpanded && (
-              <div className="smart-list">
+              <div className="feed-list">
                 {feedSubscriptions.map((fs) => {
                   const isActive = selection.kind === "feed" && selection.id === fs.id;
                   const count = feedCounts?.[fs.id] ?? 0;
                   return (
-                    <div
+                    <FeedItem
                       key={fs.id}
-                      className={`smart-item ${isActive ? "active" : ""}`}
-                    >
-                      <button
-                        className="smart-item-btn"
-                        onClick={() => {
-                          onSelect({ kind: "feed", id: fs.id });
-                          onCloseMobile?.();
-                        }}
-                      >
-                        <span className="smart-item-icon">
-                          <Rss size={14} weight="fill" />
-                        </span>
-                        <span className="smart-item-name">{fs.name}</span>
-                        {count > 0 && <span className="tail-count">{count}</span>}
-                      </button>
-                    </div>
+                      feed={fs}
+                      count={count}
+                      isActive={isActive}
+                      onSelect={onSelect}
+                      onChangeIcon={onChangeFeedIcon}
+                      onDelete={onDeleteFeed}
+                      onCloseMobile={onCloseMobile}
+                    />
                   );
                 })}
               </div>
@@ -1369,6 +1365,352 @@ function SmartCollectionItem({
         .smart-item:hover .tail-count,
         .tail.open .tail-count { opacity: 0; }
         .smart-item:hover .more,
+        .tail.open .more { opacity: 1; }
+        .more:hover,
+        .more:active,
+        .tail.open .more {
+          opacity: 1;
+          color: rgba(255, 255, 255, 0.86);
+          background: rgba(0, 0, 0, 0.52);
+        }
+        .menu {
+          z-index: 102;
+          min-width: 100px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 4px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+        }
+        .menu button {
+          display: block;
+          width: 100%;
+          text-align: left;
+          padding: 6px 10px;
+          border-radius: var(--radius-sm);
+          font-size: 12px;
+          background: transparent;
+          border: 0;
+          color: var(--color-text);
+          cursor: pointer;
+        }
+        .menu button:hover {
+          background: var(--color-bg-hover);
+        }
+        .menu button.danger {
+          color: #d13030;
+        }
+        .menu button.danger:hover {
+          background: #fce4ec;
+        }
+        @media (prefers-color-scheme: dark) {
+          .menu button.danger:hover {
+            background: rgba(209, 48, 48, 0.18);
+          }
+        }
+      `}</style>
+    </div>
+  );
+}
+
+function FeedItem({
+  feed,
+  count,
+  isActive,
+  onSelect,
+  onChangeIcon,
+  onDelete,
+  onCloseMobile,
+}: {
+  feed: FeedSubscription;
+  count: number;
+  isActive: boolean;
+  onSelect: (s: Selection) => void;
+  onChangeIcon?: (id: string, icon: string | null) => Promise<void>;
+  onDelete?: (id: string) => Promise<void>;
+  onCloseMobile?: () => void;
+}) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
+  const [pickingIcon, setPickingIcon] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const moreRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+  const iconBtnRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return;
+      setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [menuOpen]);
+
+  useEffect(() => {
+    if (!pickingIcon) return;
+    const reflow = () => {
+      const rect = iconBtnRef.current?.getBoundingClientRect();
+      if (rect) setPickerPos(placePicker(rect));
+    };
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
+    return () => {
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
+    };
+  }, [pickingIcon]);
+
+  const hasMenu = !!(onChangeIcon || onDelete);
+
+  function openIconPicker() {
+    const rect = iconBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPickerPos(placePicker(rect));
+    setPickingIcon(true);
+  }
+
+  return (
+    <div className={`row ${isActive ? "active" : ""}`}>
+      {/* Spacer to align with collection chevron width */}
+      <div className="chev" style={{ visibility: "hidden" }}>▸</div>
+      <button
+        ref={iconBtnRef}
+        type="button"
+        className="leading-icon"
+        aria-label={`Change icon for ${feed.name}`}
+        title="Change icon"
+        onClick={(e) => {
+          e.stopPropagation();
+          if (pickingIcon) {
+            setPickingIcon(false);
+          } else {
+            openIconPicker();
+          }
+        }}
+      >
+        <CollectionIcon name={feed.icon} size={14} />
+      </button>
+      <button
+        className="name"
+        onClick={() => {
+          onSelect({ kind: "feed", id: feed.id });
+          onCloseMobile?.();
+        }}
+      >
+        {feed.name}
+      </button>
+      <div className={`tail ${menuOpen ? "open" : ""}`}>
+        <span className="tail-count">{count || ""}</span>
+        {hasMenu && (
+          <button
+            className="more"
+            ref={moreRef}
+            onClick={(e) => {
+              e.stopPropagation();
+              const rect = moreRef.current?.getBoundingClientRect();
+              if (rect) {
+                setMenuPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+              }
+              setMenuOpen((v) => !v);
+            }}
+            aria-label="Menu"
+          >
+            …
+          </button>
+        )}
+        {menuOpen && menuPos &&
+          createPortal(
+            <div
+              className="menu"
+              ref={menuRef}
+              style={{
+                position: "fixed",
+                top: menuPos.top,
+                right: menuPos.right,
+              }}
+              onMouseLeave={() => setMenuOpen(false)}
+            >
+              {onChangeIcon && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    openIconPicker();
+                  }}
+                >
+                  Change icon
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  className="danger"
+                  onClick={() => {
+                    setMenuOpen(false);
+                    onDelete(feed.id);
+                  }}
+                >
+                  Delete
+                </button>
+              )}
+            </div>,
+            document.body
+          )}
+      </div>
+
+      {pickingIcon && pickerPos &&
+        createPortal(
+          <div
+            style={{
+              position: "fixed",
+              top: pickerPos.top,
+              left: pickerPos.left,
+              zIndex: 1000,
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
+            <IconPicker
+              value={feed.icon}
+              onPick={async (name) => {
+                setPickingIcon(false);
+                if (onChangeIcon) await onChangeIcon(feed.id, name);
+              }}
+              onClose={() => setPickingIcon(false)}
+            />
+          </div>,
+          document.body
+        )}
+
+      <style jsx>{`
+        .row {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 8px;
+          border-radius: var(--radius-sm);
+          position: relative;
+          transition: background 140ms ease, transform 180ms ease;
+        }
+        .row:hover {
+          background: var(--color-bg-hover);
+          transform: translateX(4px);
+        }
+        .row.active {
+          background: var(--color-bg-active);
+        }
+        .row.active:hover {
+          transform: none;
+        }
+        @media (prefers-reduced-motion: reduce) {
+          .row {
+            transition: background 140ms ease;
+          }
+          .row:hover { transform: none; }
+        }
+        .chev {
+          width: 22px;
+          height: 22px;
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          background: transparent;
+          flex-shrink: 0;
+        }
+        .leading-icon {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+          border-radius: 4px;
+          background: transparent;
+          padding: 0;
+          cursor: pointer;
+        }
+        .leading-icon:hover {
+          background: var(--color-bg-active);
+          color: var(--color-text);
+        }
+        .row.active .leading-icon,
+        .row:hover .leading-icon { color: var(--color-text); }
+        .name {
+          flex: 1;
+          text-align: left;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .tail {
+          position: relative;
+          width: 54px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .tail-count {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum" 1;
+          transition: opacity 120ms ease;
+          white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .tail-count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+        }
+        .more {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          opacity: 0;
+          border-radius: 999px;
+          transition: opacity 120ms ease;
+          white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .more {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+        }
+        .row:hover .tail-count,
+        .tail.open .tail-count { opacity: 0; }
+        .row:hover .more,
         .tail.open .more { opacity: 1; }
         .more:hover,
         .more:active,

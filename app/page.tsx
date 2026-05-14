@@ -1251,6 +1251,24 @@ export default function Home() {
     }
   }
 
+  async function handleChangeFeedIcon(id: string, icon: string | null) {
+    await api.updateFeed(id, { icon });
+    await loadFeeds();
+  }
+
+  async function handleDeleteFeed(id: string) {
+    try {
+      await api.deleteFeed(id);
+      if (selection.kind === "feed" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await loadFeeds();
+      await loadAllBookmarks();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to delete feed");
+    }
+  }
+
   async function handleReparentCollection(id: string, newParentId: string | null) {
     if (id === newParentId) return;
     try {
@@ -1895,6 +1913,8 @@ export default function Home() {
         onCreateSmartCollection={handleCreateSmartCollection}
         onEditSmartCollection={handleUpdateSmartCollection}
         onDeleteSmartCollection={handleDeleteSmartCollection}
+        onChangeFeedIcon={handleChangeFeedIcon}
+        onDeleteFeed={handleDeleteFeed}
         onTagsChanged={async () => {
           try {
             const data = await api.bootstrap();

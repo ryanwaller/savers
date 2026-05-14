@@ -191,11 +191,17 @@ export async function POST(req: NextRequest) {
             .single();
 
           if (insertError) {
-            // If insert fails (e.g., duplicate URL), still mark as seen
             if (!insertError.message?.includes("duplicate")) {
               continue;
             }
-            // Record seen GUID for duplicate URL so we don't retry
+            // Duplicate URL: update the existing bookmark's feed_subscription_id
+            // so it appears under this feed filter, even after delete+re-add of the feed.
+            await supabase
+              .from("bookmarks")
+              .update({ feed_subscription_id: sub.id })
+              .eq("user_id", sub.user_id)
+              .eq("url", entry.url);
+            // Record seen GUID so we don't retry
             await supabase.from("feed_items").insert({
               subscription_id: sub.id,
               guid: entry.guid,
