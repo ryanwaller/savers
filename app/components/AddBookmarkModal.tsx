@@ -43,6 +43,7 @@ export default function AddBookmarkModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const lastFetchedRef = useRef("");
+  const lastFeedCheckRef = useRef("");
   const [feedMatch, setFeedMatch] = useState<{ feeds: { id: string; name: string }[] } | null>(null);
   const [checkingFeed, setCheckingFeed] = useState(false);
   const [feedDetected, setFeedDetected] = useState<{ feedUrl: string; title: string | null } | null>(null);
@@ -488,6 +489,7 @@ export default function AddBookmarkModal({
                   setAiStatus(null);
                   setFeedMatch(null);
                   setFeedDetected(null);
+                  lastFeedCheckRef.current = "";
                 }
                 setUrl(next);
               }}
@@ -495,28 +497,30 @@ export default function AddBookmarkModal({
                 void fetchMetadata();
                 const inputValue = e.target.value;
                 const u = normalizeUrl(inputValue);
-                if (u && u !== lastFetchedRef.current) {
-                  setCheckingFeed(true);
-                  setDetectingFeed(true);
-                  api.checkFeedMatch(u).then((res) => {
-                    setFeedMatch(res.match ? res : null);
-                    setCheckingFeed(false);
-                  }).catch(() => {
-                    setFeedMatch(null);
-                    setCheckingFeed(false);
-                  });
-                  api.detectFeed(u).then((res) => {
-                    if (res.isFeed) {
-                      setFeedDetected({ feedUrl: res.feedUrl ?? u, title: res.title ?? null });
-                    } else {
-                      setFeedDetected(null);
-                    }
-                    setDetectingFeed(false);
-                  }).catch(() => {
+                if (!u || u === lastFeedCheckRef.current) return;
+                lastFeedCheckRef.current = u;
+                setCheckingFeed(true);
+                setDetectingFeed(true);
+                api.checkFeedMatch(u).then((res) => {
+                  setFeedMatch(res.match ? res : null);
+                  setCheckingFeed(false);
+                }).catch((err) => {
+                  console.error("checkFeedMatch failed:", err);
+                  setFeedMatch(null);
+                  setCheckingFeed(false);
+                });
+                api.detectFeed(u).then((res) => {
+                  if (res.isFeed) {
+                    setFeedDetected({ feedUrl: res.feedUrl ?? u, title: res.title ?? null });
+                  } else {
                     setFeedDetected(null);
-                    setDetectingFeed(false);
-                  });
-                }
+                  }
+                  setDetectingFeed(false);
+                }).catch((err) => {
+                  console.error("detectFeed failed:", err);
+                  setFeedDetected(null);
+                  setDetectingFeed(false);
+                });
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
@@ -538,7 +542,7 @@ export default function AddBookmarkModal({
                   : `${feedMatch.feeds.length} feeds`}
               </div>
             )}
-            {feedDetected && !feedMatch && !checkingFeed && !detectingFeed && (
+            {feedDetected && !feedMatch && (
               <div className="feed-match-hint">
                 This is an RSS feed.{` `}
                 <button
