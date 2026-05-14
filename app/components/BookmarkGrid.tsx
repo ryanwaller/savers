@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
-import ShareMenuItem from "./ShareMenuItem";
+import ShareModal from "./ShareModal";
 import {
   api,
   type CustomPreviewSource,
@@ -235,6 +235,10 @@ function BookmarkCard({
   const [brokenStatus, setBrokenStatus] = useState<string | null | undefined>(b.broken_status);
   const [brokenActionOpen, setBrokenActionOpen] = useState(false);
   const [verifyingBroken, setVerifyingBroken] = useState(false);
+  const [shareLoading, setShareLoading] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+  const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const dropDepthRef = useRef(0);
@@ -384,6 +388,32 @@ function BookmarkCard({
     event.stopPropagation();
     setMenuOpen(false);
     onEdit();
+  }
+
+  function resolveSiteUrl(): string {
+    const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+    if (configured) return configured.replace(/\/$/, "");
+    if (typeof window !== "undefined") return window.location.origin.replace(/\/$/, "");
+    return "https://savers-production.up.railway.app";
+  }
+
+  async function handleShare(event: { stopPropagation: () => void }) {
+    event.stopPropagation();
+    if (shareLoading) return;
+    setShareLoading(true);
+    setShareError(null);
+    try {
+      const { token } = await api.generateShareToken(b.id);
+      setShareUrl(`${resolveSiteUrl()}/s/${token}`);
+      setShareModalOpen(true);
+      setMenuOpen(false);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Couldn't create a share link.";
+      setShareError(message);
+      console.error("Share failed:", err);
+    } finally {
+      setShareLoading(false);
+    }
   }
 
   function handleVisit(event: { stopPropagation: () => void; preventDefault?: () => void }) {
@@ -984,12 +1014,10 @@ function BookmarkCard({
             <button className="menu-item" onClick={handleEdit}>
               Edit
             </button>
-            <ShareMenuItem
-              bookmarkId={b.id}
-              title={b.title}
-              description={b.description}
-              url={b.url}
-            />
+            <button className="menu-item menu-item-share" onClick={handleShare} disabled={shareLoading}>
+              {shareLoading ? "Sharing…" : "Share"}
+            </button>
+            {shareError ? <div className="menu-share-error">{shareError}</div> : null}
             <button className="menu-item" onClick={handleReloadPreview} disabled={reloading}>
               {reloading ? "Reloading…" : "Reload preview"}
             </button>
@@ -1013,6 +1041,13 @@ function BookmarkCard({
             )}
           </div>
         )}
+        <ShareModal
+          open={shareModalOpen}
+          shareUrl={shareUrl ?? ""}
+          title={b.title || b.url}
+          description={b.description}
+          onClose={() => setShareModalOpen(false)}
+        />
       </div>
 
       <style jsx>{`
@@ -1221,8 +1256,17 @@ function BookmarkCard({
           font-size: 12px;
           color: var(--color-text);
         }
+        .menu-item-share {
+          padding: 10px 14px;
+        }
         .menu-item:hover {
           background: var(--color-bg-hover);
+        }
+        .menu-share-error {
+          padding: 4px 14px 8px;
+          color: #ff8f8f;
+          font-size: 12px;
+          line-height: 16px;
         }
         .menu-separator {
           height: 1px;
