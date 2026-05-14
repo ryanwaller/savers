@@ -68,7 +68,6 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
         </div>
 
         <div className="share-body">
-          <div className="share-url-label">Share link</div>
           <div className="share-url-row">
             <input
               id="share-url-input"
@@ -80,8 +79,6 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
             <button className="btn btn-primary share-copy-btn" onClick={handleCopy}>
               {copied ? "Copied!" : "Copy"}
             </button>
-          </div>
-          <div className="share-actions">
             {canNativeShare ? (
               <button className="btn share-secondary-btn" onClick={handleNativeShare}>
                 Share…
@@ -135,16 +132,14 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
           flex-direction: column;
           gap: 12px;
         }
-        .share-url-label {
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
         .share-url-row {
           display: flex;
           gap: 8px;
+          align-items: center;
         }
         .share-url-input {
           flex: 1;
+          min-width: 0;
           padding: 6px 8px;
           border: 1px solid var(--color-border);
           border-radius: var(--radius-sm);
@@ -157,14 +152,10 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .share-actions {
-          display: flex;
-          flex-wrap: wrap;
-          gap: 8px;
-          justify-content: flex-end;
-        }
         .share-secondary-btn {
           min-width: 0;
+          white-space: nowrap;
+          flex-shrink: 0;
         }
         .share-error {
           font-size: 12px;
@@ -178,6 +169,9 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
           }
           .share-panel {
             border-radius: 12px 12px 0 0;
+          }
+          .share-url-row {
+            flex-wrap: wrap;
           }
         }
       `}</style>
