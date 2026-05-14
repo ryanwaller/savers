@@ -52,6 +52,15 @@
         --bm-accent-text: var(--save-light-accent-text);
         --bm-brat: var(--save-brat);
       }
+      #savers-bm-root,
+      #savers-bm-root * {
+        font-family: var(--save-font-family) !important;
+        letter-spacing: var(--save-letter-spacing) !important;
+        text-transform: none !important;
+        box-sizing: border-box;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
       .savers-bm-backdrop {
         position: fixed;
         inset: 0;
@@ -110,6 +119,8 @@
         outline: none !important;
         font: inherit;
         letter-spacing: inherit;
+        font-weight: 400 !important;
+        opacity: 1 !important;
       }
       .savers-bm-input::placeholder {
         color: var(--bm-muted);
@@ -134,6 +145,8 @@
         outline: none !important;
         font: inherit;
         letter-spacing: inherit;
+        font-weight: 400 !important;
+        opacity: 1 !important;
       }
       .savers-bm-picker-trigger {
         display: flex;
@@ -205,6 +218,7 @@
         font-weight: 400;
         letter-spacing: inherit;
         cursor: pointer;
+        opacity: 1 !important;
       }
       .savers-bm-pill-primary {
         background: var(--bm-accent) !important;
@@ -294,6 +308,7 @@
         letter-spacing: inherit;
         cursor: pointer;
         text-align: center;
+        opacity: 1 !important;
       }
       .savers-bm-btn:hover {
         border-color: var(--bm-border-strong) !important;
@@ -647,7 +662,9 @@
       renderTagProposals();
     } catch (error) {
       tagProposals = [];
-      tagSuggestStatus = "Suggestions need a Savers token or sign-in.";
+      tagSuggestStatus = token
+        ? "Suggestions unavailable right now."
+        : "Use a fresh save link from Settings for suggestions.";
       renderTagProposals();
     } finally {
       suggestTagsBtn.disabled = false;
@@ -694,7 +711,11 @@
       setStatus("");
     } catch (error) {
       clearSuggestion();
-      setStatus("Collection suggestions need a Savers token or sign-in.");
+      setStatus(
+        token
+          ? "Collection suggestions unavailable right now."
+          : "Use a fresh save link from Settings for suggestions.",
+      );
     } finally {
       suggestCollectionBtn.disabled = false;
     }

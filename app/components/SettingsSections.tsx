@@ -108,6 +108,7 @@ export default function SettingsSections({
     () => tokens.some((token) => token.name.toLowerCase() === "bookmarklet"),
     [tokens],
   );
+  const bookmarkletLinkReady = !!bookmarkletToken;
   const hasIPhoneShareToken = useMemo(
     () => tokens.some((token) => token.name.toLowerCase().includes("iphone share")),
     [tokens],
@@ -176,6 +177,16 @@ export default function SettingsSections({
     }
   }
 
+  async function ensureBookmarkletToken() {
+    if (bookmarkletToken) return bookmarkletToken;
+    const token = await createNamedToken("Bookmarklet");
+    if (token) {
+      setBookmarkletToken(token);
+      return token;
+    }
+    return null;
+  }
+
   async function createIPhoneShareToken() {
     await createNamedToken("iPhone Share");
   }
@@ -207,7 +218,9 @@ export default function SettingsSections({
 
   async function copyBookmarklet() {
     try {
-      await navigator.clipboard.writeText(buildBookmarkletCode({ token: bookmarkletToken }));
+      const token = await ensureBookmarkletToken();
+      if (!token) return;
+      await navigator.clipboard.writeText(buildBookmarkletCode({ token }));
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
@@ -215,9 +228,10 @@ export default function SettingsSections({
     }
   }
 
-  function openBookmarkletSetupPage() {
-    const href = bookmarkletToken
-      ? `/bookmarklet?token=${encodeURIComponent(bookmarkletToken)}`
+  async function openBookmarkletSetupPage() {
+    const token = await ensureBookmarkletToken();
+    const href = token
+      ? `/bookmarklet?token=${encodeURIComponent(token)}`
       : "/bookmarklet";
     window.open(href, "_blank", "noopener,noreferrer");
   }
@@ -511,8 +525,8 @@ export default function SettingsSections({
                   Works from any browser bookmark bar. Best fallback when the extension is not available.
                 </div>
               </div>
-              <span className={`status-chip ${bookmarkletTokenExists ? "status-ready" : "status-muted"}`}>
-                {bookmarkletTokenExists ? "Ready" : "Needs setup"}
+              <span className={`status-chip ${bookmarkletLinkReady ? "status-ready" : "status-muted"}`}>
+                {bookmarkletLinkReady ? "Ready" : bookmarkletTokenExists ? "Refresh link" : "Needs setup"}
               </span>
             </div>
             <div className="feature-actions">
@@ -521,7 +535,7 @@ export default function SettingsSections({
                 onClick={() => void createBookmarkletSetupLink()}
                 disabled={creating}
               >
-                {creating ? "Creating…" : bookmarkletTokenExists ? "Create fresh save link" : "Set up quick save"}
+                {creating ? "Creating…" : bookmarkletTokenExists ? "Refresh save link" : "Set up quick save"}
               </button>
               <button
                 className="btn"
@@ -540,7 +554,7 @@ export default function SettingsSections({
             <p className="small muted">
               {bookmarkletToken
                 ? "This bookmarklet includes your token, so it can save even when this browser is not signed in."
-                : "Without a token, quick save relies on you being signed in on this browser."}
+                : "Copying or opening setup will generate a fresh save link for you."}
             </p>
             <details className="details">
               <summary>
