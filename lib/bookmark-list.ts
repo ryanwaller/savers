@@ -20,4 +20,5 @@ export const BOOKMARK_LIST_SELECT = [
   "asset_type",
   "link_status",
   "last_link_check",
+  "feed_subscription_id",
 ].join(",");
