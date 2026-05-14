@@ -67,6 +67,25 @@ export async function POST(req: NextRequest) {
             break;
           }
         }
+
+        // Fallback: try common feed paths if no <link> tag found
+        if (feedUrl === String(body.feed_url ?? "").trim()) {
+          const commonPaths = ["/feed", "/atom", "/rss", "/feed.xml", "/atom.xml", "/rss.xml", "/index.xml"];
+          for (const path of commonPaths) {
+            try {
+              const candidate = new URL(path, feedUrl).href;
+              const probe = await fetch(candidate, {
+                headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+              });
+              if (probe.ok && probe.headers.get("content-type")?.includes("xml")) {
+                feedUrl = candidate;
+                break;
+              }
+            } catch {
+              // continue to next path
+            }
+          }
+        }
       }
     } catch {
       // If discovery fails, proceed with the original URL

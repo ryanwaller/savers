@@ -112,6 +112,8 @@ export async function POST(req: NextRequest) {
 
         // Auto-discover feed URL if the response is HTML instead of XML
         if (!xml.trimStart().startsWith("<")) {
+          let discovered: string | null = null;
+
           // Extract all <link> tags (handles multiline attributes)
           const linkTags = xml.match(/<link\b[^>]*\/?>/gi) || [];
           for (const tag of linkTags) {
@@ -120,16 +122,37 @@ export async function POST(req: NextRequest) {
             const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
             const hrefLooksFeed = hrefMatch?.[1] && /(?:feed|rss|atom)/i.test(hrefMatch[1]);
 
-            // Match by type attribute, or by rel=alternate + feed-looking href
             if ((hasAlternate && isFeedType) || (hasAlternate && hrefLooksFeed)) {
-              const resolvedFeedUrl = new URL(hrefMatch![1], sub.feed_url).href;
-              const feedRes = await fetch(resolvedFeedUrl, {
-                headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
-              });
-              if (feedRes.ok) {
-                xml = await feedRes.text();
-              }
+              discovered = new URL(hrefMatch![1], sub.feed_url).href;
               break;
+            }
+          }
+
+          // Fallback: try common feed paths if no <link> tag found
+          if (!discovered) {
+            const commonPaths = ["/feed", "/atom", "/rss", "/feed.xml", "/atom.xml", "/rss.xml", "/index.xml"];
+            for (const path of commonPaths) {
+              try {
+                const candidate = new URL(path, sub.feed_url).href;
+                const probe = await fetch(candidate, {
+                  headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+                });
+                if (probe.ok && probe.headers.get("content-type")?.includes("xml")) {
+                  discovered = candidate;
+                  break;
+                }
+              } catch {
+                // continue to next path
+              }
+            }
+          }
+
+          if (discovered) {
+            const feedRes = await fetch(discovered, {
+              headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+            });
+            if (feedRes.ok) {
+              xml = await feedRes.text();
             }
           }
         }
