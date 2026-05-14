@@ -108,7 +108,27 @@ export async function POST(req: NextRequest) {
           continue;
         }
 
-        const xml = await res.text();
+        let xml = await res.text();
+
+        // Auto-discover feed URL if the response is HTML instead of XML
+        if (!xml.trimStart().startsWith("<")) {
+          const feedLinkMatch = xml.match(
+            /<link[^>]*\brel=["']alternate["'][^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
+          ) || xml.match(
+            /<link[^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\brel=["']alternate["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
+          );
+
+          if (feedLinkMatch?.[1]) {
+            const resolvedFeedUrl = new URL(feedLinkMatch[1], sub.feed_url).href;
+            const feedRes = await fetch(resolvedFeedUrl, {
+              headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+            });
+            if (feedRes.ok) {
+              xml = await feedRes.text();
+            }
+          }
+        }
+
         const entries = parseFeedEntries(xml);
 
         let newCount = 0;

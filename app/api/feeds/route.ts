@@ -32,12 +32,42 @@ export async function POST(req: NextRequest) {
     const supabase = getSupabaseAdmin();
     const body = await req.json();
 
-    const feedUrl = String(body.feed_url ?? "").trim();
+    let feedUrl = String(body.feed_url ?? "").trim();
     const name = String(body.name ?? "").trim();
     const collectionId = body.collection_id ?? null;
 
     if (!feedUrl || !name) {
       return NextResponse.json({ error: "feed_url and name are required" }, { status: 400 });
+    }
+
+    // Auto-discover feed URL from homepage if user pasted a website URL
+    try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 8000);
+      const probe = await fetch(feedUrl, {
+        signal: controller.signal,
+        headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+      });
+      clearTimeout(timeout);
+
+      const text = await probe.text();
+      const looksLikeXml = text.trimStart().startsWith("<");
+
+      if (!looksLikeXml) {
+        // Search for <link rel="alternate" type="application/rss+xml"> or atom
+        const feedLinkMatch = text.match(
+          /<link[^>]*\brel=["']alternate["'][^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
+        ) || text.match(
+          /<link[^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\brel=["']alternate["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
+        );
+
+        if (feedLinkMatch?.[1]) {
+          const resolved = new URL(feedLinkMatch[1], feedUrl).href;
+          feedUrl = resolved;
+        }
+      }
+    } catch {
+      // If discovery fails, proceed with the original URL
     }
 
     const { data, error } = await supabase
