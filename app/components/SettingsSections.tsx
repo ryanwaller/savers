@@ -382,7 +382,10 @@ export default function SettingsSections({
     setCheckingFeeds(true);
     try {
       const result = await api.checkFeeds();
-      alert(`Checked ${feeds.length} feed${feeds.length !== 1 ? "s" : ""}: ${result.totalNew} new bookmark${result.totalNew !== 1 ? "s" : ""} saved.`);
+      const lines = result.results.map(
+        (r) => `${r.name}: ${r.error ? `❌ ${r.error}` : `${r.newItems} new`}`
+      );
+      alert(`${result.totalNew} new total\n\n${lines.join("\n")}`);
       onBookmarksChanged?.();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Check failed");
