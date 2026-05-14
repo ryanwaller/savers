@@ -25,7 +25,15 @@
 
         <div class="field">
           <span class="label">Collection</span>
-          <select id="collection-select"></select>
+          <select id="collection-select" class="hidden"></select>
+          <button id="collection-trigger" class="picker-trigger" type="button" aria-expanded="false">
+            <span id="collection-trigger-label">Unsorted</span>
+            <span class="picker-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div id="collection-picker" class="picker hidden">
+            <input id="collection-search" type="text" placeholder="Find a collection" />
+            <div id="collection-options" class="picker-options"></div>
+          </div>
           <div class="inline-actions">
             <button id="suggest-collection" class="pill-btn pill-btn-primary hidden" type="button">
               Suggest collection

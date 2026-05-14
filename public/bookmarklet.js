@@ -70,7 +70,6 @@
         padding: 20px;
         max-width: 500px;
         width: min(500px, calc(100vw - 48px));
-        min-height: 560px;
         max-height: calc(100vh - 48px);
         box-shadow: var(--save-shadow);
         animation: saversBmIn 180ms ease;
@@ -100,11 +99,15 @@
       .savers-bm-input {
         width: 100%;
         box-sizing: border-box;
-        padding: 12px 13px;
-        border: 1px solid var(--bm-border);
-        border-radius: var(--save-field-radius);
-        background: var(--bm-bg);
-        color: var(--bm-text);
+        padding: 10px 12px;
+        border: 1px solid var(--bm-border) !important;
+        border-radius: var(--save-field-radius) !important;
+        background: var(--bm-bg) !important;
+        color: var(--bm-text) !important;
+        -webkit-text-fill-color: var(--bm-text) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        outline: none !important;
         font: inherit;
         letter-spacing: inherit;
       }
@@ -113,19 +116,78 @@
         opacity: 1;
       }
       .savers-bm-input:focus {
-        outline: none;
-        border-color: var(--bm-border-strong);
+        outline: none !important;
+        border-color: var(--bm-border-strong) !important;
       }
-      .savers-bm-select {
+      .savers-bm-picker-trigger,
+      .savers-bm-picker-search {
         width: 100%;
         box-sizing: border-box;
-        padding: 12px 13px;
-        border: 1px solid var(--bm-border);
-        border-radius: var(--save-field-radius);
-        background: var(--bm-bg);
-        color: var(--bm-text);
+        padding: 10px 12px;
+        border: 1px solid var(--bm-border) !important;
+        border-radius: var(--save-field-radius) !important;
+        background: var(--bm-bg) !important;
+        color: var(--bm-text) !important;
+        -webkit-text-fill-color: var(--bm-text) !important;
+        box-shadow: none !important;
+        text-shadow: none !important;
+        outline: none !important;
         font: inherit;
         letter-spacing: inherit;
+      }
+      .savers-bm-picker-trigger {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        text-align: left;
+        cursor: pointer;
+      }
+      .savers-bm-picker-chevron {
+        color: var(--bm-muted);
+        flex-shrink: 0;
+      }
+      .savers-bm-picker {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid var(--bm-border) !important;
+        border-radius: var(--save-button-radius) !important;
+        background: var(--bm-panel-2) !important;
+      }
+      .savers-bm-picker[hidden] {
+        display: none !important;
+      }
+      .savers-bm-picker-options {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+        max-height: 224px;
+        overflow-y: auto;
+      }
+      .savers-bm-picker-option {
+        appearance: none;
+        border: 0;
+        border-radius: 4px;
+        background: transparent;
+        color: var(--bm-text);
+        padding: 8px 10px;
+        font: inherit;
+        letter-spacing: inherit;
+        text-align: left;
+        cursor: pointer;
+      }
+      .savers-bm-picker-option:hover {
+        background: rgba(255,255,255,0.06);
+      }
+      .savers-bm-picker-option.is-active {
+        background: var(--bm-accent);
+        color: var(--bm-accent-text);
+      }
+      .savers-bm-picker-empty {
+        padding: 8px 10px;
+        color: var(--bm-muted);
       }
       .savers-bm-textarea {
         min-height: 96px;
@@ -133,21 +195,21 @@
       }
       .savers-bm-pill {
         appearance: none;
-        border: 1px solid var(--bm-border);
+        border: 1px solid var(--bm-border) !important;
         border-radius: var(--save-pill-radius);
-        background: #222222;
-        color: var(--bm-text);
-        padding: 8px 12px;
-        min-height: 32px;
+        background: #222222 !important;
+        color: var(--bm-text) !important;
+        padding: 6px 12px;
+        min-height: 30px;
         font: inherit;
         font-weight: 400;
         letter-spacing: inherit;
         cursor: pointer;
       }
       .savers-bm-pill-primary {
-        background: var(--bm-accent);
-        color: var(--bm-accent-text);
-        border-color: var(--bm-accent);
+        background: var(--bm-accent) !important;
+        color: var(--bm-accent-text) !important;
+        border-color: var(--bm-accent) !important;
       }
       .savers-bm-pill:disabled,
       .savers-bm-btn:disabled {
@@ -221,11 +283,12 @@
         padding-top: 4px;
       }
       .savers-bm-btn {
-        padding: 13px 14px;
-        border: 1px solid var(--bm-border);
+        padding: 10px 14px;
+        min-height: 40px;
+        border: 1px solid var(--bm-border) !important;
         border-radius: var(--save-button-radius);
-        background: #222222;
-        color: var(--bm-text);
+        background: #222222 !important;
+        color: var(--bm-text) !important;
         font: inherit;
         font-weight: 400;
         letter-spacing: inherit;
@@ -233,12 +296,12 @@
         text-align: center;
       }
       .savers-bm-btn:hover {
-        border-color: var(--bm-border-strong);
+        border-color: var(--bm-border-strong) !important;
       }
       .savers-bm-btn-primary {
-        background: var(--bm-accent);
-        color: var(--bm-accent-text);
-        border-color: var(--bm-accent);
+        background: var(--bm-accent) !important;
+        color: var(--bm-accent-text) !important;
+        border-color: var(--bm-accent) !important;
       }
       .savers-bm-status {
         min-height: 17px;
@@ -278,7 +341,15 @@
         </div>
         <div class="savers-bm-field">
           <label class="savers-bm-label">Collection</label>
-          <select class="savers-bm-select savers-bm-collection"></select>
+          <select class="savers-bm-select savers-bm-collection" hidden></select>
+          <button class="savers-bm-picker-trigger savers-bm-collection-trigger" type="button" aria-expanded="false">
+            <span class="savers-bm-collection-label">Unsorted</span>
+            <span class="savers-bm-picker-chevron" aria-hidden="true">⌄</span>
+          </button>
+          <div class="savers-bm-picker savers-bm-collection-picker" hidden>
+            <input class="savers-bm-picker-search savers-bm-collection-search" type="text" placeholder="Find a collection" />
+            <div class="savers-bm-picker-options savers-bm-collection-options"></div>
+          </div>
           <div class="savers-bm-inline">
             <button class="savers-bm-pill savers-bm-pill-primary savers-bm-suggest-collection" type="button">Suggest collection</button>
           </div>
@@ -312,6 +383,7 @@
   let aiSuggestion = null;
   let collectionTouched = false;
   let flatCollections = [];
+  let collectionOptionRows = [];
 
   const pageTitle = document.title || "";
   const pageUrl = location.href;
@@ -323,6 +395,11 @@
   const titleInput = root.querySelector(".savers-bm-title-input");
   const tagsInput = root.querySelector(".savers-bm-tags");
   const collSelect = root.querySelector(".savers-bm-collection");
+  const collTrigger = root.querySelector(".savers-bm-collection-trigger");
+  const collLabel = root.querySelector(".savers-bm-collection-label");
+  const collPicker = root.querySelector(".savers-bm-collection-picker");
+  const collSearch = root.querySelector(".savers-bm-collection-search");
+  const collOptions = root.querySelector(".savers-bm-collection-options");
   const descriptionInput = root.querySelector(".savers-bm-description");
   const suggestTagsBtn = root.querySelector(".savers-bm-suggest-tags");
   const tagProposalsEl = root.querySelector(".savers-bm-tag-proposals");
@@ -338,6 +415,53 @@
 
   titleInput.value = pageTitle;
   descriptionInput.value = pageDesc;
+
+  function updateCollectionLabel() {
+    const selected = collSelect.options[collSelect.selectedIndex];
+    collLabel.textContent = selected ? selected.textContent : "Unsorted";
+  }
+
+  function closeCollectionPicker() {
+    collPicker.hidden = true;
+    collTrigger.setAttribute("aria-expanded", "false");
+  }
+
+  function openCollectionPicker() {
+    collPicker.hidden = false;
+    collTrigger.setAttribute("aria-expanded", "true");
+    collSearch.value = "";
+    renderCollectionOptions("");
+    collSearch.focus();
+  }
+
+  function renderCollectionOptions(query) {
+    const q = String(query || "").trim().toLowerCase();
+    collOptions.innerHTML = "";
+    const filtered = collectionOptionRows.filter((row) => !q || row.searchText.includes(q));
+
+    if (!filtered.length) {
+      const empty = document.createElement("div");
+      empty.className = "savers-bm-picker-empty";
+      empty.textContent = "No collections found";
+      collOptions.appendChild(empty);
+      return;
+    }
+
+    for (const row of filtered) {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "savers-bm-picker-option";
+      if (row.value === collSelect.value) btn.classList.add("is-active");
+      btn.textContent = row.label;
+      btn.addEventListener("click", () => {
+        collSelect.value = row.value;
+        collectionTouched = true;
+        updateCollectionLabel();
+        closeCollectionPicker();
+      });
+      collOptions.appendChild(btn);
+    }
+  }
 
   function setStatus(msg, kind) {
     statusEl.textContent = msg || "";
@@ -380,6 +504,8 @@
       flatCollections = flat;
       if (!flat.length) {
         collSelect.innerHTML = '<option value="">Unsorted</option>';
+        collectionOptionRows = [{ value: "", label: "Unsorted", searchText: "unsorted" }];
+        updateCollectionLabel();
         return;
       }
 
@@ -413,6 +539,7 @@
       });
 
       collSelect.innerHTML = '<option value="">Unsorted</option>';
+      collectionOptionRows = [{ value: "", label: "Unsorted", searchText: "unsorted" }];
       for (let i = 0; i < sorted.length; i++) {
         const c = sorted[i];
         const opt = document.createElement("option");
@@ -423,9 +550,17 @@
           : "";
         opt.textContent = indent + c.name;
         collSelect.appendChild(opt);
+        collectionOptionRows.push({
+          value: c.id,
+          label: indent + c.name,
+          searchText: (resolvePath(c.id) + " " + c.name).toLowerCase(),
+        });
       }
+      updateCollectionLabel();
     } catch {
       collSelect.innerHTML = '<option value="">Unsorted</option>';
+      collectionOptionRows = [{ value: "", label: "Unsorted", searchText: "unsorted" }];
+      updateCollectionLabel();
     }
   }
 
@@ -615,6 +750,7 @@
       if (aiSuggestion.collection_id) {
         collSelect.value = aiSuggestion.collection_id;
         collectionTouched = true;
+        updateCollectionLabel();
         setStatus("Using suggested collection.", "success");
         return;
       }
@@ -632,6 +768,7 @@
         await loadCollections();
         collSelect.value = collection.id;
         collectionTouched = true;
+        updateCollectionLabel();
         setStatus('Created "' + collection.name + '".', "success");
       }
     } catch (error) {
@@ -685,6 +822,14 @@
   suggestCollectionBtn.addEventListener("click", () => {
     void suggestCollection(true);
   });
+  collTrigger.addEventListener("click", (e) => {
+    e.preventDefault();
+    if (collPicker.hidden) openCollectionPicker();
+    else closeCollectionPicker();
+  });
+  collSearch.addEventListener("input", () => {
+    renderCollectionOptions(collSearch.value);
+  });
   applySuggestionBtn.addEventListener("click", () => {
     void applySuggestion();
   });
@@ -693,10 +838,19 @@
     setStatus("Suggestion dismissed.");
   });
   backdrop.addEventListener("click", (e) => {
-    if (e.target === backdrop) root.remove();
+    if (e.target === backdrop) {
+      root.remove();
+      return;
+    }
+    if (!collPicker.hidden && !collPicker.contains(e.target) && e.target !== collTrigger && !collTrigger.contains(e.target)) {
+      closeCollectionPicker();
+    }
   });
   document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") root.remove();
+    if (e.key === "Escape") {
+      if (!collPicker.hidden) closeCollectionPicker();
+      else root.remove();
+    }
   });
   tagsInput.addEventListener("keydown", (e) => {
     if (e.key === "Enter") {
@@ -706,6 +860,7 @@
   });
   collSelect.addEventListener("change", () => {
     collectionTouched = true;
+    updateCollectionLabel();
   });
 
   loadCollections()

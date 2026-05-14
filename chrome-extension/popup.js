@@ -7,6 +7,11 @@ const els = {
   tagProposals: document.getElementById("tag-proposals"),
   bookmarkDescription: document.getElementById("bookmark-description"),
   collectionSelect: document.getElementById("collection-select"),
+  collectionTrigger: document.getElementById("collection-trigger"),
+  collectionTriggerLabel: document.getElementById("collection-trigger-label"),
+  collectionPicker: document.getElementById("collection-picker"),
+  collectionSearch: document.getElementById("collection-search"),
+  collectionOptions: document.getElementById("collection-options"),
   aiSuggestion: document.getElementById("ai-suggestion"),
   aiSuggestionCopy: document.getElementById("ai-suggestion-copy"),
   suggestCollection: document.getElementById("suggest-collection"),
@@ -32,6 +37,7 @@ const els = {
 
 let tagProposals = [];
 let tagSuggestStatus = null;
+let collectionOptionRows = [];
 
 const state = {
   appUrl: DEFAULT_APP_URL,
@@ -74,9 +80,66 @@ async function init() {
   updateUnsyncedBadge();
 }
 
+function updateCollectionTriggerLabel() {
+  const selected = els.collectionSelect.options[els.collectionSelect.selectedIndex];
+  els.collectionTriggerLabel.textContent = selected ? selected.textContent : "Unsorted";
+}
+
+function closeCollectionPicker() {
+  els.collectionPicker.classList.add("hidden");
+  els.collectionTrigger.setAttribute("aria-expanded", "false");
+}
+
+function openCollectionPicker() {
+  els.collectionPicker.classList.remove("hidden");
+  els.collectionTrigger.setAttribute("aria-expanded", "true");
+  els.collectionSearch.value = "";
+  renderCollectionOptions("");
+  els.collectionSearch.focus();
+}
+
+function renderCollectionOptions(query) {
+  const q = String(query || "").trim().toLowerCase();
+  els.collectionOptions.innerHTML = "";
+  const filtered = collectionOptionRows.filter((row) => !q || row.searchText.includes(q));
+
+  if (!filtered.length) {
+    const empty = document.createElement("div");
+    empty.className = "picker-empty";
+    empty.textContent = "No collections found";
+    els.collectionOptions.appendChild(empty);
+    return;
+  }
+
+  for (const row of filtered) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "picker-option";
+    if (row.value === els.collectionSelect.value) btn.classList.add("is-active");
+    btn.textContent = row.label;
+    btn.addEventListener("click", () => {
+      els.collectionSelect.value = row.value;
+      state.collectionTouched = true;
+      updateCollectionTriggerLabel();
+      closeCollectionPicker();
+    });
+    els.collectionOptions.appendChild(btn);
+  }
+}
+
 function bindEvents() {
   els.collectionSelect.addEventListener("change", () => {
     state.collectionTouched = true;
+    updateCollectionTriggerLabel();
+  });
+
+  els.collectionTrigger.addEventListener("click", () => {
+    if (els.collectionPicker.classList.contains("hidden")) openCollectionPicker();
+    else closeCollectionPicker();
+  });
+
+  els.collectionSearch.addEventListener("input", () => {
+    renderCollectionOptions(els.collectionSearch.value);
   });
 
   els.suggestCollection.addEventListener("click", () => {
@@ -143,6 +206,17 @@ function bindEvents() {
   els.openDuplicate?.addEventListener("click", () => {
     if (state.duplicate?.id) {
       chrome.tabs.create({ url: `${state.appUrl}?bookmark=${state.duplicate.id}` });
+    }
+  });
+
+  document.addEventListener("click", (event) => {
+    if (
+      !els.collectionPicker.classList.contains("hidden") &&
+      !els.collectionPicker.contains(event.target) &&
+      event.target !== els.collectionTrigger &&
+      !els.collectionTrigger.contains(event.target)
+    ) {
+      closeCollectionPicker();
     }
   });
 }
@@ -311,14 +385,20 @@ async function loadCollections() {
   unsorted.value = "";
   unsorted.textContent = "Unsorted";
   els.collectionSelect.appendChild(unsorted);
+  collectionOptionRows = [{ value: "", label: "Unsorted", searchText: "unsorted" }];
 
   for (const collection of sorted) {
     const option = document.createElement("option");
     option.value = collection.id;
     option.textContent = paths.get(collection.id) || collection.name;
     els.collectionSelect.appendChild(option);
+    collectionOptionRows.push({
+      value: collection.id,
+      label: paths.get(collection.id) || collection.name,
+      searchText: `${paths.get(collection.id) || collection.name} ${collection.name}`.toLowerCase(),
+    });
   }
-
+  updateCollectionTriggerLabel();
 }
 
 /* ── Metadata ── */
@@ -387,6 +467,7 @@ async function suggestCollection(force = false) {
       state.aiSuggestion.confidence !== "low"
     ) {
       els.collectionSelect.value = state.aiSuggestion.collection_id;
+      updateCollectionTriggerLabel();
     }
     setAiStatus("");
   } catch (error) {
@@ -445,6 +526,7 @@ async function applySuggestion() {
     if (suggestion.collection_id) {
       els.collectionSelect.value = suggestion.collection_id;
       state.collectionTouched = true;
+      updateCollectionTriggerLabel();
       setAiStatus(`Using ${suggestion.collection_path || "suggested collection"}.`, "success");
       return;
     }
@@ -463,6 +545,7 @@ async function applySuggestion() {
       await loadCollections();
       els.collectionSelect.value = collection.id;
       state.collectionTouched = true;
+      updateCollectionTriggerLabel();
       setAiStatus(`Created "${collection.name}".`, "success");
     }
   } catch (error) {
@@ -493,6 +576,7 @@ async function handleCreateCollection() {
     const collection = data.collection;
     await loadCollections();
     els.collectionSelect.value = collection.id;
+    updateCollectionTriggerLabel();
     els.newCollectionName.value = "";
     els.createWrap.classList.add("hidden");
     setStatus(`Created "${collection.name}".`, "success");
