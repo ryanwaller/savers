@@ -1014,7 +1014,7 @@ function BookmarkCard({
             <button className="menu-item" onClick={handleEdit}>
               Edit
             </button>
-            <button className="menu-item menu-item-share" onClick={handleShare} disabled={shareLoading}>
+            <button className="menu-item" onClick={handleShare} disabled={shareLoading}>
               {shareLoading ? "Sharing…" : "Share"}
             </button>
             {shareError ? <div className="menu-share-error">{shareError}</div> : null}
@@ -1255,9 +1255,6 @@ function BookmarkCard({
           padding: 8px 10px;
           font-size: 12px;
           color: var(--color-text);
-        }
-        .menu-item-share {
-          padding: 10px 14px;
         }
         .menu-item:hover {
           background: var(--color-bg-hover);

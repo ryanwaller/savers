@@ -55,10 +55,6 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
 
   if (!open || typeof document === "undefined") return null;
 
-  const emailSubject = encodeURIComponent(title);
-  const emailBody = encodeURIComponent(
-    `${description ? `${description}\n\n` : ""}Check out this bookmark:\n\n${shareUrl}`,
-  );
   const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
 
   return createPortal(
@@ -91,22 +87,6 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
                 Share…
               </button>
             ) : null}
-            <a
-              className="btn share-secondary-btn"
-              href={shareUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Open link
-            </a>
-            <a
-              className="btn share-secondary-btn"
-              href={`mailto:?subject=${emailSubject}&body=${emailBody}`}
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Email link
-            </a>
           </div>
           {shareError ? <div className="share-error">{shareError}</div> : null}
         </div>
@@ -181,6 +161,7 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
           display: flex;
           flex-wrap: wrap;
           gap: 8px;
+          justify-content: flex-end;
         }
         .share-secondary-btn {
           min-width: 0;
