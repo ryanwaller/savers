@@ -56,8 +56,8 @@
         backdrop-filter: blur(10px);
         z-index: 2147483647;
         display: flex;
-        align-items: flex-start;
-        justify-content: flex-end;
+        align-items: center;
+        justify-content: center;
         padding: 24px;
       }
       .savers-bm-panel {
@@ -79,28 +79,6 @@
       @keyframes saversBmIn {
         from { transform: translateY(-12px); opacity: 0; }
         to   { transform: translateY(0); opacity: 1; }
-      }
-      .savers-bm-head {
-        display: flex;
-        flex-direction: column;
-        gap: 7px;
-        padding-bottom: 2px;
-      }
-      .savers-bm-eyebrow {
-        color: var(--bm-muted);
-      }
-      .savers-bm-title {
-        font-size: 18px;
-        line-height: 1.1;
-        letter-spacing: -0.02em;
-        color: var(--bm-text);
-        word-break: break-word;
-      }
-      .savers-bm-url {
-        font-size: 12px;
-        line-height: 17px;
-        color: var(--bm-muted);
-        word-break: break-all;
       }
       .savers-bm-field {
         display: flex;
@@ -276,11 +254,6 @@
     </style>
     <div class="savers-bm-backdrop">
       <div class="savers-bm-panel">
-        <div class="savers-bm-head">
-          <div class="savers-bm-eyebrow">Save to Savers</div>
-          <div class="savers-bm-title"></div>
-          <div class="savers-bm-url"></div>
-        </div>
         <div class="savers-bm-field">
           <label class="savers-bm-label">Title</label>
           <input class="savers-bm-input savers-bm-title-input" type="text" />
@@ -337,8 +310,6 @@
       ?.content?.trim() || "";
 
   /* Elements */
-  const titleEl = root.querySelector(".savers-bm-title");
-  const urlEl = root.querySelector(".savers-bm-url");
   const titleInput = root.querySelector(".savers-bm-title-input");
   const tagsInput = root.querySelector(".savers-bm-tags");
   const collSelect = root.querySelector(".savers-bm-collection");
@@ -355,8 +326,6 @@
   const cancelBtn = root.querySelector(".savers-bm-cancel");
   const backdrop = root.querySelector(".savers-bm-backdrop");
 
-  titleEl.textContent = pageTitle;
-  urlEl.textContent = pageUrl;
   titleInput.value = pageTitle;
   descriptionInput.value = pageDesc;
 

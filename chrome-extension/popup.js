@@ -64,8 +64,6 @@ async function init() {
   state.tabUrl = tab.url;
   state.tabTitle = tab.title || tab.url;
 
-  els.pageTitle.textContent = state.tabTitle;
-  els.pageUrl.textContent = state.tabUrl;
   els.bookmarkTitle.value = state.tabTitle;
 
   // Kick off all async init work in parallel
