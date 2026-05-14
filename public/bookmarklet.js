@@ -36,140 +36,251 @@
     <style>
       #savers-bm-root {
         font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        font-size: 14px;
-        --bm-bg: #111;
+        font-size: 12px;
+        line-height: 17px;
+        --bm-bg: #121212;
         --bm-panel: #1a1a1a;
-        --bm-border: #2a2a2a;
-        --bm-text: #ececec;
-        --bm-muted: #9b9b9b;
-        --bm-accent: #fff;
-        --bm-green: #1f6f43;
-        --bm-red: #8b1e1e;
+        --bm-panel-2: #151515;
+        --bm-border: #2d2d2d;
+        --bm-border-strong: #3a3a3a;
+        --bm-text: #ecece9;
+        --bm-muted: #8d8d8b;
+        --bm-accent: #f4f4f1;
+        --bm-accent-text: #111111;
+        --bm-brat: #97d700;
       }
       .savers-bm-backdrop {
         position: fixed;
         inset: 0;
-        background: rgba(0,0,0,0.6);
-        backdrop-filter: blur(4px);
+        background: rgba(0,0,0,0.52);
+        backdrop-filter: blur(10px);
         z-index: 2147483647;
         display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 20px;
+        align-items: flex-start;
+        justify-content: flex-end;
+        padding: 24px;
       }
       .savers-bm-panel {
         background: var(--bm-panel);
         border: 1px solid var(--bm-border);
-        border-radius: 14px;
+        border-radius: 22px;
         padding: 20px;
-        max-width: 400px;
-        width: 100%;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        max-width: 500px;
+        width: min(500px, calc(100vw - 48px));
+        min-height: 560px;
+        max-height: calc(100vh - 48px);
+        box-shadow: 0 24px 70px rgba(0,0,0,0.42);
         animation: saversBmIn 180ms ease;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        overflow-y: auto;
       }
       @keyframes saversBmIn {
         from { transform: translateY(-12px); opacity: 0; }
         to   { transform: translateY(0); opacity: 1; }
       }
+      .savers-bm-head {
+        display: flex;
+        flex-direction: column;
+        gap: 7px;
+        padding-bottom: 2px;
+      }
+      .savers-bm-eyebrow {
+        color: var(--bm-muted);
+      }
       .savers-bm-title {
-        font-size: 16px;
-        font-weight: 700;
+        font-size: 18px;
+        line-height: 1.1;
+        letter-spacing: -0.02em;
         color: var(--bm-text);
-        margin: 0 0 4px;
         word-break: break-word;
       }
       .savers-bm-url {
         font-size: 12px;
+        line-height: 17px;
         color: var(--bm-muted);
-        margin: 0 0 14px;
         word-break: break-all;
-        line-height: 1.3;
       }
       .savers-bm-field {
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        margin-bottom: 12px;
+        gap: 7px;
+      }
+      .savers-bm-inline {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
       }
       .savers-bm-label {
-        font-size: 14px;
-        font-weight: 500;
-        color: #b0b0b0;
-        text-transform: none;
-        letter-spacing: normal;
+        color: var(--bm-muted);
       }
       .savers-bm-input {
         width: 100%;
         box-sizing: border-box;
-        padding: 8px 10px;
+        padding: 12px 13px;
         border: 1px solid var(--bm-border);
-        border-radius: 8px;
+        border-radius: 12px;
         background: var(--bm-bg);
-        color: #e8e8e8;
+        color: var(--bm-text);
         font: inherit;
-        font-size: 14px;
       }
       .savers-bm-input::placeholder {
-        color: #888;
+        color: var(--bm-muted);
         opacity: 1;
       }
       .savers-bm-input:focus {
         outline: none;
-        border-color: #555;
+        border-color: var(--bm-border-strong);
       }
       .savers-bm-select {
         width: 100%;
         box-sizing: border-box;
-        padding: 8px 10px;
+        padding: 12px 13px;
         border: 1px solid var(--bm-border);
-        border-radius: 8px;
+        border-radius: 12px;
         background: var(--bm-bg);
-        color: #e8e8e8;
+        color: var(--bm-text);
         font: inherit;
-        font-size: 14px;
       }
-      .savers-bm-actions {
-        display: flex;
-        gap: 8px;
-        margin-top: 16px;
+      .savers-bm-textarea {
+        min-height: 96px;
+        resize: vertical;
       }
-      .savers-bm-btn {
-        flex: 1;
-        padding: 10px;
+      .savers-bm-pill {
+        appearance: none;
         border: 1px solid var(--bm-border);
-        border-radius: 8px;
+        border-radius: 999px;
+        background: #222222;
+        color: var(--bm-text);
+        padding: 8px 12px;
+        min-height: 32px;
+        font: inherit;
+        cursor: pointer;
+      }
+      .savers-bm-pill-primary {
+        background: var(--bm-accent);
+        color: var(--bm-accent-text);
+        border-color: var(--bm-accent);
+      }
+      .savers-bm-pill:disabled,
+      .savers-bm-btn:disabled {
+        opacity: 0.55;
+        cursor: default;
+      }
+      .savers-bm-tag-proposals {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+        align-items: center;
+        min-height: 32px;
+      }
+      .savers-bm-tag-proposals:empty {
+        display: none;
+      }
+      .savers-bm-tag-proposal {
+        display: inline-flex;
+        align-items: stretch;
+        border: 1px dashed var(--bm-border-strong);
+        border-radius: 999px;
+        background: var(--bm-panel-2);
+        overflow: hidden;
+      }
+      .savers-bm-tag-proposal-add,
+      .savers-bm-tag-proposal-skip {
+        appearance: none;
+        border: 0;
         background: transparent;
         color: var(--bm-text);
         font: inherit;
-        font-size: 14px;
+        cursor: pointer;
+      }
+      .savers-bm-tag-proposal-add {
+        padding: 6px 10px;
+      }
+      .savers-bm-tag-proposal-skip {
+        padding: 0 9px;
+        color: var(--bm-muted);
+        border-left: 1px dashed var(--bm-border-strong);
+      }
+      .savers-bm-tag-status {
+        color: var(--bm-muted);
+      }
+      .savers-bm-ai {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        border: 1px solid rgba(151, 215, 0, 0.2);
+        border-radius: 14px;
+        background: linear-gradient(180deg, rgba(151, 215, 0, 0.08), rgba(151, 215, 0, 0.02));
+        padding: 12px;
+      }
+      .savers-bm-ai[hidden] {
+        display: none;
+      }
+      .savers-bm-ai-label {
+        color: var(--bm-brat);
+      }
+      .savers-bm-ai-copy {
+        color: var(--bm-text);
+        font-size: 13px;
+        line-height: 18px;
+        word-break: break-word;
+      }
+      .savers-bm-actions {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 12px;
+        margin-top: auto;
+        padding-top: 4px;
+      }
+      .savers-bm-btn {
+        padding: 13px 14px;
+        border: 1px solid var(--bm-border);
+        border-radius: 14px;
+        background: #222222;
+        color: var(--bm-text);
+        font: inherit;
         cursor: pointer;
         text-align: center;
       }
       .savers-bm-btn:hover {
-        border-color: #555;
+        border-color: var(--bm-border-strong);
       }
       .savers-bm-btn-primary {
-        background: var(--bm-text);
-        color: var(--bm-bg);
-        border-color: var(--bm-text);
-        font-weight: 600;
-      }
-      .savers-bm-btn-primary:disabled {
-        opacity: 0.5;
-        cursor: default;
+        background: var(--bm-accent);
+        color: var(--bm-accent-text);
+        border-color: var(--bm-accent);
       }
       .savers-bm-status {
-        margin-top: 10px;
-        font-size: 12px;
-        min-height: 16px;
+        min-height: 17px;
+        color: var(--bm-muted);
       }
       .savers-bm-status-error { color: #ff8f8f; }
       .savers-bm-status-success { color: #9ce7b1; }
+      .savers-bm-status-brat { color: var(--bm-brat); }
+      @media (max-width: 560px) {
+        .savers-bm-backdrop {
+          padding: 14px;
+        }
+        .savers-bm-panel {
+          width: min(100vw - 28px, 500px);
+          min-height: 0;
+          max-height: calc(100vh - 28px);
+          padding: 18px;
+        }
+        .savers-bm-actions {
+          grid-template-columns: 1fr;
+        }
+      }
     </style>
     <div class="savers-bm-backdrop">
       <div class="savers-bm-panel">
-        <div class="savers-bm-title"></div>
-        <div class="savers-bm-url"></div>
+        <div class="savers-bm-head">
+          <div class="savers-bm-eyebrow">Save to Savers</div>
+          <div class="savers-bm-title"></div>
+          <div class="savers-bm-url"></div>
+        </div>
         <div class="savers-bm-field">
           <label class="savers-bm-label">Title</label>
           <input class="savers-bm-input savers-bm-title-input" type="text" />
@@ -177,10 +288,29 @@
         <div class="savers-bm-field">
           <label class="savers-bm-label">Tags</label>
           <input class="savers-bm-input savers-bm-tags" type="text" placeholder="design, inspiration" />
+          <div class="savers-bm-inline">
+            <button class="savers-bm-pill savers-bm-pill-primary savers-bm-suggest-tags" type="button">Suggest tags</button>
+          </div>
+          <div class="savers-bm-tag-proposals"></div>
         </div>
         <div class="savers-bm-field">
           <label class="savers-bm-label">Collection</label>
           <select class="savers-bm-select savers-bm-collection"></select>
+          <div class="savers-bm-inline">
+            <button class="savers-bm-pill savers-bm-pill-primary savers-bm-suggest-collection" type="button">Suggest collection</button>
+          </div>
+        </div>
+        <div class="savers-bm-ai" hidden>
+          <div class="savers-bm-ai-label">Suggested collection</div>
+          <div class="savers-bm-ai-copy"></div>
+          <div class="savers-bm-inline">
+            <button class="savers-bm-pill savers-bm-pill-primary savers-bm-apply-suggestion" type="button">Use suggestion</button>
+            <button class="savers-bm-pill savers-bm-dismiss-suggestion" type="button">Dismiss</button>
+          </div>
+        </div>
+        <div class="savers-bm-field">
+          <label class="savers-bm-label">Description</label>
+          <textarea class="savers-bm-input savers-bm-textarea savers-bm-description" rows="3"></textarea>
         </div>
         <div class="savers-bm-actions">
           <button class="savers-bm-btn savers-bm-cancel" type="button">Cancel</button>
@@ -194,6 +324,11 @@
 
   /* State */
   let saving = false;
+  let tagProposals = [];
+  let tagSuggestStatus = null;
+  let aiSuggestion = null;
+  let collectionTouched = false;
+  let flatCollections = [];
 
   const pageTitle = document.title || "";
   const pageUrl = location.href;
@@ -207,6 +342,14 @@
   const titleInput = root.querySelector(".savers-bm-title-input");
   const tagsInput = root.querySelector(".savers-bm-tags");
   const collSelect = root.querySelector(".savers-bm-collection");
+  const descriptionInput = root.querySelector(".savers-bm-description");
+  const suggestTagsBtn = root.querySelector(".savers-bm-suggest-tags");
+  const tagProposalsEl = root.querySelector(".savers-bm-tag-proposals");
+  const suggestCollectionBtn = root.querySelector(".savers-bm-suggest-collection");
+  const aiCard = root.querySelector(".savers-bm-ai");
+  const aiCopyEl = root.querySelector(".savers-bm-ai-copy");
+  const applySuggestionBtn = root.querySelector(".savers-bm-apply-suggestion");
+  const dismissSuggestionBtn = root.querySelector(".savers-bm-dismiss-suggestion");
   const statusEl = root.querySelector(".savers-bm-status");
   const saveBtn = root.querySelector(".savers-bm-save");
   const cancelBtn = root.querySelector(".savers-bm-cancel");
@@ -215,6 +358,7 @@
   titleEl.textContent = pageTitle;
   urlEl.textContent = pageUrl;
   titleInput.value = pageTitle;
+  descriptionInput.value = pageDesc;
 
   function setStatus(msg, kind) {
     statusEl.textContent = msg || "";
@@ -254,6 +398,7 @@
     try {
       const data = await apiFetch("/api/collections", { method: "GET" });
       const flat = data?.flat || [];
+      flatCollections = flat;
       if (!flat.length) {
         collSelect.innerHTML = '<option value="">Unsorted</option>';
         return;
@@ -305,6 +450,218 @@
     }
   }
 
+  function parseTags(raw) {
+    return String(raw || "")
+      .split(",")
+      .map((tag) => tag.trim().toLowerCase())
+      .filter(Boolean);
+  }
+
+  function appendTag(tag) {
+    const existing = parseTags(tagsInput.value);
+    if (existing.some((t) => t === tag.toLowerCase())) return;
+    const trimmed = (tagsInput.value || "").replace(/,\s*$/, "");
+    tagsInput.value = trimmed ? trimmed + ", " + tag : tag;
+  }
+
+  function renderTagProposals() {
+    tagProposalsEl.innerHTML = "";
+    if (!tagProposals.length && !tagSuggestStatus) {
+      return;
+    }
+
+    for (const tag of tagProposals) {
+      const wrap = document.createElement("span");
+      wrap.className = "savers-bm-tag-proposal";
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "savers-bm-tag-proposal-add";
+      addBtn.textContent = "+ " + tag;
+      addBtn.addEventListener("click", () => {
+        appendTag(tag);
+        tagProposals = tagProposals.filter((t) => t !== tag);
+        renderTagProposals();
+      });
+      wrap.appendChild(addBtn);
+
+      const skipBtn = document.createElement("button");
+      skipBtn.type = "button";
+      skipBtn.className = "savers-bm-tag-proposal-skip";
+      skipBtn.textContent = "×";
+      skipBtn.addEventListener("click", () => {
+        tagProposals = tagProposals.filter((t) => t !== tag);
+        renderTagProposals();
+      });
+      wrap.appendChild(skipBtn);
+
+      tagProposalsEl.appendChild(wrap);
+    }
+
+    if (tagSuggestStatus) {
+      const status = document.createElement("span");
+      status.className = "savers-bm-tag-status";
+      status.textContent = tagSuggestStatus;
+      tagProposalsEl.appendChild(status);
+    }
+  }
+
+  async function suggestTags() {
+    suggestTagsBtn.disabled = true;
+    const previousLabel = suggestTagsBtn.textContent;
+    suggestTagsBtn.textContent = "Suggesting…";
+    tagSuggestStatus = "Reading the page…";
+    renderTagProposals();
+
+    try {
+      const data = await apiFetch("/api/suggest-tags", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: pageUrl,
+          title: titleInput.value.trim() || pageTitle || null,
+          description: descriptionInput.value.trim() || null,
+          existing_tags: parseTags(tagsInput.value),
+        }),
+      });
+
+      const existing = new Set(parseTags(tagsInput.value));
+      tagProposals = (Array.isArray(data.tags) ? data.tags : []).filter(
+        (t) => !existing.has(String(t).toLowerCase())
+      );
+      tagSuggestStatus = tagProposals.length ? "Tap a tag to add it." : "No new tags to suggest.";
+      renderTagProposals();
+    } catch (error) {
+      tagProposals = [];
+      tagSuggestStatus = "Couldn't suggest tags.";
+      renderTagProposals();
+    } finally {
+      suggestTagsBtn.disabled = false;
+      suggestTagsBtn.textContent = previousLabel;
+    }
+  }
+
+  function clearSuggestion() {
+    aiSuggestion = null;
+    aiCopyEl.textContent = "";
+    aiCard.hidden = true;
+    applySuggestionBtn.textContent = "Use suggestion";
+  }
+
+  async function suggestCollection(force = false) {
+    if (aiSuggestion && !force) return;
+
+    suggestCollectionBtn.disabled = true;
+    setStatus("Suggesting a collection…", "brat");
+
+    try {
+      const data = await apiFetch("/api/categorize", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: pageUrl,
+          title: titleInput.value.trim() || pageTitle,
+          description: descriptionInput.value.trim() || null,
+          collections: dataCollectionsForCategorize(),
+        }),
+      });
+
+      aiSuggestion = data?.suggestion || null;
+      if (!aiSuggestion) {
+        clearSuggestion();
+        setStatus("No clear suggestion.");
+        return;
+      }
+
+      renderSuggestion();
+      if (!collectionTouched && aiSuggestion.collection_id && aiSuggestion.confidence !== "low") {
+        collSelect.value = aiSuggestion.collection_id;
+      }
+      setStatus("");
+    } catch (error) {
+      clearSuggestion();
+      setStatus("Suggestion failed.", "error");
+    } finally {
+      suggestCollectionBtn.disabled = false;
+    }
+  }
+
+  function dataCollectionsForCategorize() {
+    const byId = new Map(flatCollections.map((item) => [item.id, { ...item, children: [] }]));
+    const roots = [];
+    for (const collection of byId.values()) {
+      if (collection.parent_id && byId.has(collection.parent_id)) {
+        byId.get(collection.parent_id).children.push(collection);
+      } else {
+        roots.push(collection);
+      }
+    }
+    return roots;
+  }
+
+  function renderSuggestion() {
+    if (!aiSuggestion) {
+      clearSuggestion();
+      return;
+    }
+
+    let copy = "";
+    let actionLabel = "Use suggestion";
+
+    if (aiSuggestion.collection_id && aiSuggestion.collection_path) {
+      copy = capitalize(aiSuggestion.confidence) + " confidence: " + aiSuggestion.collection_path;
+    } else if (aiSuggestion.proposed_collection_name) {
+      const parent = aiSuggestion.proposed_parent_collection_path
+        ? " under " + aiSuggestion.proposed_parent_collection_path
+        : "";
+      copy = capitalize(aiSuggestion.confidence) + " confidence: create " + aiSuggestion.proposed_collection_name + parent;
+      actionLabel = "Create + use";
+    }
+
+    if (!copy) {
+      clearSuggestion();
+      return;
+    }
+
+    aiCopyEl.textContent = copy;
+    applySuggestionBtn.textContent = actionLabel;
+    aiCard.hidden = false;
+  }
+
+  async function applySuggestion() {
+    if (!aiSuggestion) return;
+
+    applySuggestionBtn.disabled = true;
+    try {
+      if (aiSuggestion.collection_id) {
+        collSelect.value = aiSuggestion.collection_id;
+        collectionTouched = true;
+        setStatus("Using suggested collection.", "success");
+        return;
+      }
+
+      if (aiSuggestion.proposed_collection_name) {
+        const data = await apiFetch("/api/collections", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: aiSuggestion.proposed_collection_name,
+            parent_id: aiSuggestion.proposed_parent_collection_id || null,
+          }),
+        });
+        const collection = data.collection;
+        await loadCollections();
+        collSelect.value = collection.id;
+        collectionTouched = true;
+        setStatus('Created "' + collection.name + '".', "success");
+      }
+    } catch (error) {
+      setStatus("Failed to apply suggestion.", "error");
+    } finally {
+      applySuggestionBtn.disabled = false;
+    }
+  }
+
   /* Save */
   async function doSave() {
     if (saving) return;
@@ -319,7 +676,7 @@
         body: JSON.stringify({
           url: pageUrl,
           title: titleInput.value.trim() || pageTitle,
-          description: pageDesc,
+          description: descriptionInput.value.trim() || pageDesc || null,
           og_image: null,
           favicon: null,
           tags: String(tagsInput.value || "")
@@ -343,6 +700,19 @@
   /* Events */
   saveBtn.addEventListener("click", doSave);
   cancelBtn.addEventListener("click", () => root.remove());
+  suggestTagsBtn.addEventListener("click", () => {
+    void suggestTags();
+  });
+  suggestCollectionBtn.addEventListener("click", () => {
+    void suggestCollection(true);
+  });
+  applySuggestionBtn.addEventListener("click", () => {
+    void applySuggestion();
+  });
+  dismissSuggestionBtn.addEventListener("click", () => {
+    clearSuggestion();
+    setStatus("Suggestion dismissed.");
+  });
   backdrop.addEventListener("click", (e) => {
     if (e.target === backdrop) root.remove();
   });
@@ -355,6 +725,17 @@
       doSave();
     }
   });
+  collSelect.addEventListener("change", () => {
+    collectionTouched = true;
+  });
 
-  loadCollections();
+  loadCollections()
+    .then(async () => {
+      await Promise.allSettled([suggestCollection(), suggestTags()]);
+    })
+    .catch(() => {});
+
+  function capitalize(value) {
+    return value ? value[0].toUpperCase() + value.slice(1) : "";
+  }
 })();
