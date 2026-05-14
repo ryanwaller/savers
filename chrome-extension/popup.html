@@ -18,18 +18,13 @@
           <span class="label">Tags</span>
           <input id="bookmark-tags" type="text" placeholder="design, inspiration" />
           <div class="inline-actions tag-actions">
-            <button id="suggest-tags" class="pill-btn pill-btn-primary" type="button">Suggest</button>
+            <button id="suggest-tags" class="pill-btn pill-btn-primary" type="button">Suggest tags</button>
           </div>
           <div id="tag-proposals" class="tag-proposals hidden"></div>
         </div>
 
         <div class="field">
-          <div class="field-row">
-            <span class="label">Collection</span>
-            <button id="suggest-collection" class="pill-btn pill-btn-primary hidden" type="button">
-              Suggest
-            </button>
-          </div>
+          <span class="label">Collection</span>
           <select id="collection-select" class="hidden"></select>
           <button id="collection-trigger" class="picker-trigger" type="button" aria-expanded="false">
             <span id="collection-trigger-label">Unsorted</span>
@@ -38,6 +33,11 @@
           <div id="collection-picker" class="picker hidden">
             <input id="collection-search" type="text" placeholder="Find a collection" />
             <div id="collection-options" class="picker-options"></div>
+          </div>
+          <div class="inline-actions">
+            <button id="suggest-collection" class="pill-btn pill-btn-primary hidden" type="button">
+              Suggest collection
+            </button>
           </div>
         </div>
 

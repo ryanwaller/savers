@@ -4,12 +4,13 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion, SmartCollection } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, FeedSubscription, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   computeCollectionBookmarkCounts,
+  computeFeedCounts,
   computeGlobalTagCounts,
   computeSmartCollectionCounts,
   computeTotals,
@@ -46,7 +47,8 @@ type Selection =
   | { kind: "pinned" }
   | { kind: "broken" }
   | { kind: "collection"; id: string }
-  | { kind: "smart_collection"; id: string };
+  | { kind: "smart_collection"; id: string }
+  | { kind: "feed"; id: string };
 
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
@@ -75,6 +77,8 @@ export default function Home() {
   const [flat, setFlat] = useState<Collection[]>([]);
   const [smartCollections, setSmartCollections] = useState<SmartCollection[]>([]);
   const smartCollectionsRef = useRef<SmartCollection[]>([]);
+  const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
+  const [feedCounts, setFeedCounts] = useState<Record<string, number>>({});
   const [totals, setTotals] = useState<BookmarkTotals>({
     all: 0,
     unsorted: 0,
@@ -379,13 +383,16 @@ export default function Home() {
       setSmartBuilderOpen(true);
     };
     const onNewCollection = () => setShowCreateCollection(true);
+    const onOpenSettings = () => setShowSettings(true);
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
     window.addEventListener("savers:new-collection", onNewCollection);
+    window.addEventListener("savers:open-settings", onOpenSettings);
     return () => {
       window.removeEventListener("savers:open-smart-builder", onOpen);
       window.removeEventListener("savers:edit-smart-collection", onEdit);
       window.removeEventListener("savers:new-collection", onNewCollection);
+      window.removeEventListener("savers:open-settings", onOpenSettings);
     };
   }, []);
 
@@ -616,6 +623,7 @@ export default function Home() {
       setGlobalTagCounts(computeGlobalTagCounts(next));
       setSmartCollectionCounts(computeSmartCollectionCounts(next, smartCollectionsRef.current));
       setCollectionBookmarkCounts(computeCollectionBookmarkCounts(next));
+      setFeedCounts(computeFeedCounts(next));
     },
     []
   );
@@ -804,6 +812,7 @@ export default function Home() {
         computeSmartCollectionCounts(bookmarks, smartCollectionsRef.current)
       );
       setCollectionBookmarkCounts(computeCollectionBookmarkCounts(bookmarks));
+      setFeedCounts(computeFeedCounts(bookmarks));
       setLoadError(null);
       return bookmarks;
     } catch (e) {
@@ -826,12 +835,22 @@ export default function Home() {
       setGlobalTagCounts(data.summaries.globalTagCounts);
       setSmartCollectionCounts(data.summaries.smartCollectionCounts);
       setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
+      setFeedCounts(data.summaries.feedCounts);
       setLoadError(null);
       return data.bookmarks;
     } catch (e) {
       setLoadError(e instanceof Error ? e.message : "Failed to load library data");
     }
     return null;
+  }, []);
+
+  const loadFeeds = useCallback(async () => {
+    try {
+      const data = await api.listFeeds();
+      setFeeds(data.subscriptions);
+    } catch {
+      // Feeds are non-critical
+    }
   }, []);
 
   useEffect(() => {
@@ -871,11 +890,12 @@ export default function Home() {
       if (showLoading) setLoadingBookmarks(true);
       try {
         await loadBootstrap();
+        void loadFeeds();
       } finally {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [loadBootstrap]
+    [loadBootstrap, loadFeeds]
   );
 
   // Initial load
@@ -887,6 +907,7 @@ export default function Home() {
       setLoadingBookmarks(true);
       try {
         await loadBootstrap();
+        void loadFeeds();
         if (!cancelled) {
           setInitialDataLoaded(true);
         }
@@ -915,6 +936,7 @@ export default function Home() {
           if (sc) return evaluateFilter(bookmark, sc.query_json);
           return false;
         }
+        if (selection.kind === "feed") return bookmark.feed_subscription_id === selection.id;
         return true;
       });
 
@@ -1868,6 +1890,8 @@ export default function Home() {
         onCloseMobile={() => setSidebarOpen(false)}
         smartCollections={smartCollections}
         smartCollectionCounts={smartCollectionCounts}
+        feedSubscriptions={feeds}
+        feedCounts={feedCounts}
         onCreateSmartCollection={handleCreateSmartCollection}
         onEditSmartCollection={handleUpdateSmartCollection}
         onDeleteSmartCollection={handleDeleteSmartCollection}

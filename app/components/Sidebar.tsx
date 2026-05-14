@@ -4,8 +4,8 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TagManagerModal from "./TagManagerModal";
-import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
-import type { Bookmark, Collection, SmartCollection } from "@/lib/types";
+import { Funnel, LinkBreak, PushPin, Rss, SignOut } from "@phosphor-icons/react";
+import type { Bookmark, Collection, FeedSubscription, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
@@ -38,7 +38,8 @@ type Selection =
   | { kind: "pinned" }
   | { kind: "broken" }
   | { kind: "collection"; id: string }
-  | { kind: "smart_collection"; id: string };
+  | { kind: "smart_collection"; id: string }
+  | { kind: "feed"; id: string };
 
 type Props = {
   tree: Collection[];
@@ -67,6 +68,8 @@ type Props = {
   onCloseMobile?: () => void;
   smartCollections?: SmartCollection[];
   smartCollectionCounts?: Record<string, number>;
+  feedSubscriptions?: FeedSubscription[];
+  feedCounts?: Record<string, number>;
   onCreateSmartCollection?: (payload: {
     name: string;
     icon?: string | null;
@@ -105,6 +108,8 @@ export default function Sidebar({
   onCloseMobile,
   smartCollections = [],
   smartCollectionCounts = {},
+  feedSubscriptions,
+  feedCounts = {},
   onCreateSmartCollection,
   onEditSmartCollection,
   onDeleteSmartCollection,
@@ -134,6 +139,18 @@ export default function Sidebar({
   useEffect(() => {
     try { window.localStorage.setItem("savers.sidebar.smartCollectionsExpanded", String(smartCollectionsExpanded)); } catch { /* ignore */ }
   }, [smartCollectionsExpanded]);
+
+  const [feedsExpanded, setFeedsExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.feedsExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.feedsExpanded", String(feedsExpanded)); } catch { /* ignore */ }
+  }, [feedsExpanded]);
 
   const [smartMenuOpen, setSmartMenuOpen] = useState<string | null>(null);
 
@@ -351,6 +368,61 @@ export default function Sidebar({
             />
           )}
         </div>
+
+        {/* Feeds */}
+        {(feedSubscriptions && feedSubscriptions.length > 0) && (
+          <>
+            <div className="sidebar-divider" />
+            <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
+              <button
+                className="sidebar-label collapsible flex-1"
+                onClick={() => setFeedsExpanded(!feedsExpanded)}
+              >
+                <span className="caret">{feedsExpanded ? "▾" : "▸"}</span>
+                Feeds
+              </button>
+              <button
+                className="sidebar-new-smart"
+                onClick={() => {
+                  const event = new CustomEvent("savers:open-settings");
+                  window.dispatchEvent(event);
+                  onCloseMobile?.();
+                }}
+                title="Manage feeds"
+              >
+                +
+              </button>
+            </div>
+            {feedsExpanded && (
+              <div className="smart-list">
+                {feedSubscriptions.map((fs) => {
+                  const isActive = selection.kind === "feed" && selection.id === fs.id;
+                  const count = feedCounts?.[fs.id] ?? 0;
+                  return (
+                    <div
+                      key={fs.id}
+                      className={`smart-item ${isActive ? "active" : ""}`}
+                    >
+                      <button
+                        className="smart-item-btn"
+                        onClick={() => {
+                          onSelect({ kind: "feed", id: fs.id });
+                          onCloseMobile?.();
+                        }}
+                      >
+                        <span className="smart-item-icon">
+                          <Rss size={14} weight="fill" />
+                        </span>
+                        <span className="smart-item-name">{fs.name}</span>
+                        {count > 0 && <span className="tail-count">{count}</span>}
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </>
+        )}
 
         <div className="sidebar-divider" />
 
@@ -699,7 +771,7 @@ export default function Sidebar({
           overflow-x: hidden;
         }
         .sidebar-label {
-          padding: 8px 8px 4px 0;
+          padding: 5px 8px 4px 0;
           font-size: 12px;
           color: var(--color-text-muted);
           letter-spacing: 0.01em;

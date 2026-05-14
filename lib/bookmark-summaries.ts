@@ -13,6 +13,7 @@ export type BookmarkSummaries = {
   globalTagCounts: Record<string, number>;
   smartCollectionCounts: Record<string, number>;
   collectionBookmarkCounts: Record<string, number>;
+  feedCounts: Record<string, number>;
 };
 
 export function computeTotals(bookmarks: Bookmark[]): BookmarkTotals {
@@ -76,6 +77,17 @@ export function computeSmartCollectionCounts(
   return counts;
 }
 
+export function computeFeedCounts(bookmarks: Bookmark[]): Record<string, number> {
+  const counts: Record<string, number> = {};
+
+  for (const bookmark of bookmarks) {
+    if (!bookmark.feed_subscription_id) continue;
+    counts[bookmark.feed_subscription_id] = (counts[bookmark.feed_subscription_id] ?? 0) + 1;
+  }
+
+  return counts;
+}
+
 export function buildBookmarkSummaries(
   bookmarks: Bookmark[],
   smartCollections: SmartCollection[]
@@ -85,5 +97,6 @@ export function buildBookmarkSummaries(
     globalTagCounts: computeGlobalTagCounts(bookmarks),
     smartCollectionCounts: computeSmartCollectionCounts(bookmarks, smartCollections),
     collectionBookmarkCounts: computeCollectionBookmarkCounts(bookmarks),
+    feedCounts: computeFeedCounts(bookmarks),
   };
 }

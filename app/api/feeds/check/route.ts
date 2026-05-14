@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
               description: entry.description?.slice(0, 1000) ?? null,
               collection_id: sub.collection_id,
               source: "feed",
+              feed_subscription_id: sub.id,
               screenshot_status: "pending",
             })
             .select("id, url")

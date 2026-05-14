@@ -63,6 +63,8 @@ export interface Bookmark {
   share_token?: string | null
   /** Source of the bookmark: 'feed' for RSS/Atom imports, null for manual saves. */
   source?: string | null
+  /** Feed subscription that created this bookmark. */
+  feed_subscription_id?: string | null
 }
 
 export interface FeedSubscription {
