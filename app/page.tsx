@@ -1256,6 +1256,11 @@ export default function Home() {
     await loadFeeds();
   }
 
+  async function handleRenameFeed(id: string, name: string) {
+    await api.updateFeed(id, { name });
+    await loadFeeds();
+  }
+
   async function handleDeleteFeed(id: string) {
     try {
       await api.deleteFeed(id);
@@ -1914,6 +1919,7 @@ export default function Home() {
         onEditSmartCollection={handleUpdateSmartCollection}
         onDeleteSmartCollection={handleDeleteSmartCollection}
         onChangeFeedIcon={handleChangeFeedIcon}
+        onRenameFeed={handleRenameFeed}
         onDeleteFeed={handleDeleteFeed}
         onTagsChanged={async () => {
           try {

@@ -81,6 +81,7 @@ type Props = {
   ) => Promise<SmartCollection>;
   onDeleteSmartCollection?: (id: string) => Promise<void>;
   onChangeFeedIcon?: (id: string, icon: string | null) => Promise<void>;
+  onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
 };
 
@@ -116,6 +117,7 @@ export default function Sidebar({
   onEditSmartCollection,
   onDeleteSmartCollection,
   onChangeFeedIcon,
+  onRenameFeed,
   onDeleteFeed,
   onTagsChanged,
 }: Props) {
@@ -410,8 +412,8 @@ export default function Sidebar({
                       isActive={isActive}
                       onSelect={onSelect}
                       onChangeIcon={onChangeFeedIcon}
+                      onRename={onRenameFeed}
                       onDelete={onDeleteFeed}
-                      onCloseMobile={onCloseMobile}
                     />
                   );
                 })}
@@ -1419,21 +1421,24 @@ function FeedItem({
   isActive,
   onSelect,
   onChangeIcon,
+  onRename,
   onDelete,
-  onCloseMobile,
 }: {
   feed: FeedSubscription;
   count: number;
   isActive: boolean;
   onSelect: (s: Selection) => void;
   onChangeIcon?: (id: string, icon: string | null) => Promise<void>;
+  onRename?: (id: string, name: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
-  onCloseMobile?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuPos, setMenuPos] = useState<{ top: number; right: number } | null>(null);
   const [pickingIcon, setPickingIcon] = useState(false);
   const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editName, setEditName] = useState(feed.name);
+  const skipRenameBlurRef = useRef(false);
   const moreRef = useRef<HTMLButtonElement>(null);
   const menuRef = useRef<HTMLDivElement>(null);
   const iconBtnRef = useRef<HTMLButtonElement>(null);
@@ -1462,7 +1467,11 @@ function FeedItem({
     };
   }, [pickingIcon]);
 
-  const hasMenu = !!(onChangeIcon || onDelete);
+  useEffect(() => {
+    setEditName(feed.name);
+  }, [feed.name]);
+
+  const hasMenu = !!(onChangeIcon || onRename || onDelete);
 
   function openIconPicker() {
     const rect = iconBtnRef.current?.getBoundingClientRect();
@@ -1471,10 +1480,19 @@ function FeedItem({
     setPickingIcon(true);
   }
 
+  async function submitRename() {
+    const n = editName.trim();
+    if (!n || n === feed.name) {
+      setEditing(false);
+      setEditName(feed.name);
+      return;
+    }
+    if (onRename) await onRename(feed.id, n);
+    setEditing(false);
+  }
+
   return (
     <div className={`row ${isActive ? "active" : ""}`}>
-      {/* Spacer to align with collection chevron width */}
-      <div className="chev" style={{ visibility: "hidden" }}>▸</div>
       <button
         ref={iconBtnRef}
         type="button"
@@ -1492,15 +1510,43 @@ function FeedItem({
       >
         <CollectionIcon name={feed.icon} size={14} />
       </button>
-      <button
-        className="name"
-        onClick={() => {
-          onSelect({ kind: "feed", id: feed.id });
-          onCloseMobile?.();
-        }}
-      >
-        {feed.name}
-      </button>
+      {editing ? (
+        <form
+          className="inline-form"
+          onSubmit={(e) => {
+            e.preventDefault();
+            skipRenameBlurRef.current = true;
+            void submitRename();
+          }}
+        >
+          <input
+            autoFocus
+            className="edit"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            onBlur={() => {
+              if (skipRenameBlurRef.current) {
+                skipRenameBlurRef.current = false;
+                return;
+              }
+              void submitRename();
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setEditing(false);
+                setEditName(feed.name);
+              }
+            }}
+          />
+        </form>
+      ) : (
+        <button
+          className="name"
+          onClick={() => onSelect({ kind: "feed", id: feed.id })}
+        >
+          {feed.name}
+        </button>
+      )}
       <div className={`tail ${menuOpen ? "open" : ""}`}>
         <span className="tail-count">{count || ""}</span>
         {hasMenu && (
@@ -1540,6 +1586,16 @@ function FeedItem({
                   }}
                 >
                   Change icon
+                </button>
+              )}
+              {onRename && (
+                <button
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setEditing(true);
+                  }}
+                >
+                  Rename
                 </button>
               )}
               {onDelete && (
@@ -1602,24 +1658,7 @@ function FeedItem({
         .row.active:hover {
           transform: none;
         }
-        @media (prefers-reduced-motion: reduce) {
-          .row {
-            transition: background 140ms ease;
-          }
-          .row:hover { transform: none; }
-        }
-        .chev {
-          width: 22px;
-          height: 22px;
-          font-size: 12px;
-          line-height: 17px;
-          color: var(--color-text-muted);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          background: transparent;
-          flex-shrink: 0;
-        }
+        .row:hover .leading-icon { color: var(--color-text); }
         .leading-icon {
           width: 18px;
           height: 18px;
@@ -1637,8 +1676,21 @@ function FeedItem({
           background: var(--color-bg-active);
           color: var(--color-text);
         }
-        .row.active .leading-icon,
-        .row:hover .leading-icon { color: var(--color-text); }
+        .row.active .leading-icon { color: var(--color-text); }
+        .inline-form {
+          flex: 1;
+          min-width: 0;
+        }
+        .edit {
+          width: 100%;
+          font-size: 12px;
+          padding: 2px 4px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          background: var(--color-bg);
+          color: var(--color-text);
+          outline: none;
+        }
         .name {
           flex: 1;
           text-align: left;
