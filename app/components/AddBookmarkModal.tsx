@@ -1059,6 +1059,24 @@ export default function AddBookmarkModal({
         .feed-add-btn {
           flex-shrink: 0;
           height: 28px;
+          background: #16a34a;
+          color: #fff;
+          border-color: #16a34a;
+        }
+        .feed-add-btn:hover {
+          background: #15803d;
+          border-color: #15803d;
+        }
+        @media (prefers-color-scheme: dark) {
+          .feed-add-btn {
+            background: #22c55e;
+            color: #052e16;
+            border-color: #22c55e;
+          }
+          .feed-add-btn:hover {
+            background: #4ade80;
+            border-color: #4ade80;
+          }
         }
         .preview {
           display: flex;
