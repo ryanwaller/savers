@@ -112,19 +112,24 @@ export async function POST(req: NextRequest) {
 
         // Auto-discover feed URL if the response is HTML instead of XML
         if (!xml.trimStart().startsWith("<")) {
-          const feedLinkMatch = xml.match(
-            /<link[^>]*\brel=["']alternate["'][^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
-          ) || xml.match(
-            /<link[^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\brel=["']alternate["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
-          );
+          // Extract all <link> tags (handles multiline attributes)
+          const linkTags = xml.match(/<link\b[^>]*\/?>/gi) || [];
+          for (const tag of linkTags) {
+            const hasAlternate = /\brel=["']alternate["']/i.test(tag);
+            const isFeedType = /\btype=["']application\/(?:rss|atom)\+xml["']/i.test(tag);
+            const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
+            const hrefLooksFeed = hrefMatch?.[1] && /(?:feed|rss|atom)/i.test(hrefMatch[1]);
 
-          if (feedLinkMatch?.[1]) {
-            const resolvedFeedUrl = new URL(feedLinkMatch[1], sub.feed_url).href;
-            const feedRes = await fetch(resolvedFeedUrl, {
-              headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
-            });
-            if (feedRes.ok) {
-              xml = await feedRes.text();
+            // Match by type attribute, or by rel=alternate + feed-looking href
+            if ((hasAlternate && isFeedType) || (hasAlternate && hrefLooksFeed)) {
+              const resolvedFeedUrl = new URL(hrefMatch![1], sub.feed_url).href;
+              const feedRes = await fetch(resolvedFeedUrl, {
+                headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
+              });
+              if (feedRes.ok) {
+                xml = await feedRes.text();
+              }
+              break;
             }
           }
         }

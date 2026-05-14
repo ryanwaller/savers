@@ -54,16 +54,18 @@ export async function POST(req: NextRequest) {
       const looksLikeXml = text.trimStart().startsWith("<");
 
       if (!looksLikeXml) {
-        // Search for <link rel="alternate" type="application/rss+xml"> or atom
-        const feedLinkMatch = text.match(
-          /<link[^>]*\brel=["']alternate["'][^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
-        ) || text.match(
-          /<link[^>]*\btype=["']application\/(?:rss|atom)\+xml["'][^>]*\brel=["']alternate["'][^>]*\bhref=["']([^"']+)["'][^>]*\/?>/i,
-        );
+        // Extract all <link> tags (handles multiline attributes)
+        const linkTags = text.match(/<link\b[^>]*\/?>/gi) || [];
+        for (const tag of linkTags) {
+          const hasAlternate = /\brel=["']alternate["']/i.test(tag);
+          const isFeedType = /\btype=["']application\/(?:rss|atom)\+xml["']/i.test(tag);
+          const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
+          const hrefLooksFeed = hrefMatch?.[1] && /(?:feed|rss|atom)/i.test(hrefMatch[1]);
 
-        if (feedLinkMatch?.[1]) {
-          const resolved = new URL(feedLinkMatch[1], feedUrl).href;
-          feedUrl = resolved;
+          if ((hasAlternate && isFeedType) || (hasAlternate && hrefLooksFeed)) {
+            feedUrl = new URL(hrefMatch![1], feedUrl).href;
+            break;
+          }
         }
       }
     } catch {
