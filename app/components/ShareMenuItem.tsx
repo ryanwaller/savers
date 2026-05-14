@@ -22,36 +22,21 @@ export default function ShareMenuItem({ bookmarkId, title, description, url }: P
   const [loading, setLoading] = useState(false);
   const [showModal, setShowModal] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   async function handleShare() {
     if (loading) return;
     setLoading(true);
+    setError(null);
     try {
       const { token } = await api.generateShareToken(bookmarkId);
       const shareUrlStr = `${resolveSiteUrl()}/s/${token}`;
       setShareUrl(shareUrlStr);
-
-      const shareTitle = title || url;
-      const shareText = description
-        ? description.length > 200
-          ? description.slice(0, 197) + "..."
-          : description
-        : url;
-
-      if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
-        await navigator.share({
-          title: shareTitle,
-          text: shareText,
-          url: shareUrlStr,
-        });
-      } else {
-        setShowModal(true);
-      }
+      setShowModal(true);
     } catch (err) {
-      // User cancelled native share, or share failed — ignore
-      if (err instanceof Error && err.name !== "AbortError") {
-        console.error("Share failed:", err);
-      }
+      const message = err instanceof Error ? err.message : "Couldn't create a share link.";
+      setError(message);
+      console.error("Share failed:", err);
     } finally {
       setLoading(false);
     }
@@ -62,12 +47,22 @@ export default function ShareMenuItem({ bookmarkId, title, description, url }: P
       <button className="menu-item" onClick={handleShare} disabled={loading}>
         {loading ? "Sharing…" : "Share"}
       </button>
+      {error && <div className="menu-share-error">{error}</div>}
       <ShareModal
         open={showModal}
         shareUrl={shareUrl ?? ""}
         title={title || url}
+        description={description}
         onClose={() => setShowModal(false)}
       />
+      <style jsx>{`
+        .menu-share-error {
+          padding: 6px 10px 2px;
+          color: #ff8f8f;
+          font-size: 12px;
+          line-height: 16px;
+        }
+      `}</style>
     </>
   );
 }

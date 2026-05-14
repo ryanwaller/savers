@@ -1,18 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   open: boolean;
   shareUrl: string;
   title: string;
+  description: string | null;
   onClose: () => void;
 };
 
-export default function ShareModal({ open, shareUrl, title, onClose }: Props) {
+export default function ShareModal({ open, shareUrl, title, description, onClose }: Props) {
   const [copied, setCopied] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
 
-  if (!open) return null;
+  useEffect(() => {
+    if (!open) {
+      setCopied(false);
+      setShareError(null);
+    }
+  }, [open]);
 
   async function handleCopy() {
     try {
@@ -31,10 +39,29 @@ export default function ShareModal({ open, shareUrl, title, onClose }: Props) {
     }
   }
 
-  const emailSubject = encodeURIComponent(title);
-  const emailBody = encodeURIComponent(`Check out this bookmark:\n\n${shareUrl}`);
+  async function handleNativeShare() {
+    if (typeof navigator === "undefined" || typeof navigator.share !== "function") return;
+    try {
+      await navigator.share({
+        title,
+        text: description || "Check out this bookmark from Savers.",
+        url: shareUrl,
+      });
+    } catch (err) {
+      if (err instanceof DOMException && err.name === "AbortError") return;
+      setShareError("Share sheet unavailable right now.");
+    }
+  }
 
-  return (
+  if (!open || typeof document === "undefined") return null;
+
+  const emailSubject = encodeURIComponent(title);
+  const emailBody = encodeURIComponent(
+    `${description ? `${description}\n\n` : ""}Check out this bookmark:\n\n${shareUrl}`,
+  );
+  const canNativeShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+
+  return createPortal(
     <div className="share-backdrop" onClick={onClose}>
       <div className="share-panel" onClick={(e) => e.stopPropagation()}>
         <div className="share-head">
@@ -58,14 +85,30 @@ export default function ShareModal({ open, shareUrl, title, onClose }: Props) {
               {copied ? "Copied!" : "Copy"}
             </button>
           </div>
-          <a
-            className="btn share-email-btn"
-            href={`mailto:?subject=${emailSubject}&body=${emailBody}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Email link
-          </a>
+          <div className="share-actions">
+            {canNativeShare ? (
+              <button className="btn share-secondary-btn" onClick={handleNativeShare}>
+                Share…
+              </button>
+            ) : null}
+            <a
+              className="btn share-secondary-btn"
+              href={shareUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Open link
+            </a>
+            <a
+              className="btn share-secondary-btn"
+              href={`mailto:?subject=${emailSubject}&body=${emailBody}`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Email link
+            </a>
+          </div>
+          {shareError ? <div className="share-error">{shareError}</div> : null}
         </div>
       </div>
 
@@ -134,8 +177,18 @@ export default function ShareModal({ open, shareUrl, title, onClose }: Props) {
           white-space: nowrap;
           flex-shrink: 0;
         }
-        .share-email-btn {
-          width: 100%;
+        .share-actions {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+        }
+        .share-secondary-btn {
+          min-width: 0;
+        }
+        .share-error {
+          font-size: 12px;
+          line-height: 16px;
+          color: #ff8f8f;
         }
         @media (max-width: 640px) {
           .share-backdrop {
@@ -147,6 +200,7 @@ export default function ShareModal({ open, shareUrl, title, onClose }: Props) {
           }
         }
       `}</style>
-    </div>
+    </div>,
+    document.body,
   );
 }
