@@ -506,7 +506,11 @@
       renderTagProposals();
     } catch (error) {
       tagProposals = [];
-      tagSuggestStatus = "Couldn't suggest tags.";
+      const message = error instanceof Error ? error.message : "";
+      tagSuggestStatus =
+        /\b401\b|unauthor/i.test(message)
+          ? "Suggestions need a Savers sign-in or token."
+          : "Suggestions unavailable.";
       renderTagProposals();
     } finally {
       suggestTagsBtn.disabled = false;
@@ -542,7 +546,7 @@
       aiSuggestion = data?.suggestion || null;
       if (!aiSuggestion) {
         clearSuggestion();
-        setStatus("No clear suggestion.");
+        setStatus("");
         return;
       }
 
@@ -553,7 +557,12 @@
       setStatus("");
     } catch (error) {
       clearSuggestion();
-      setStatus("Suggestion failed.", "error");
+      const message = error instanceof Error ? error.message : "";
+      if (/\b401\b|unauthor/i.test(message)) {
+        setStatus("Collection suggestions need a Savers sign-in or token.");
+      } else {
+        setStatus("Collection suggestions unavailable.");
+      }
     } finally {
       suggestCollectionBtn.disabled = false;
     }

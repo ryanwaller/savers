@@ -1,8 +1,9 @@
 :root {
   color-scheme: dark;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif;
   font-size: 12px;
   line-height: 17px;
+  font-weight: 400;
   --bg: #121212;
   --panel: #1a1a1a;
   --panel-2: #151515;
@@ -62,6 +63,7 @@ body {
 
 .label {
   color: var(--muted);
+  font-weight: 400;
 }
 
 input,
@@ -121,6 +123,7 @@ select {
   padding: 13px 14px;
   min-height: 46px;
   font: inherit;
+  font-weight: 400;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 140ms ease;
 }
@@ -160,6 +163,7 @@ select {
   padding: 8px 12px;
   min-height: 32px;
   font: inherit;
+  font-weight: 400;
   cursor: pointer;
   transition: background 120ms ease, border-color 120ms ease, transform 140ms ease;
 }
