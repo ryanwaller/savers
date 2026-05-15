@@ -1368,9 +1368,10 @@ function BookmarkCard({
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          min-width: 188px;
-          padding: 11px 20px;
-          border-radius: 999px;
+          min-height: 36px;
+          min-width: 156px;
+          padding: 0 16px;
+          border-radius: 0;
           background: color-mix(in srgb, var(--color-bg) 96%, transparent);
           border: 1px solid var(--color-border);
           color: var(--color-text);
@@ -1437,6 +1438,9 @@ function BookmarkCard({
           .card-shell:hover .thumb-actions,
           .card-shell:focus-within .thumb-actions {
             opacity: 1;
+          }
+          .card-shell:hover .cover-refresh-copy {
+            opacity: 0;
           }
         }
         @media (hover: none) {
