@@ -214,6 +214,9 @@ function BookmarkCard({
   const isCompact = (desktopCols ?? 0) >= 6;
   const w = cardMinWidth ?? 300;
   const stackBrokenPrimary = w <= 260 || isCompact || collapseActions;
+  const compactThumbActions = w <= 360 || isCompact;
+  const stackDeleteAction = w <= 320 || collapseActions;
+  const stackAllThumbActions = w <= 250;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -789,7 +792,15 @@ function BookmarkCard({
                     Broken
                   </button>
                 )}
-              <span className="thumb-actions-row">
+              <span
+                className={`thumb-actions-row${
+                  compactThumbActions ? " thumb-actions-row-compact" : ""
+                }${
+                  stackDeleteAction ? " thumb-actions-row-stack-delete" : ""
+                }${
+                  stackAllThumbActions ? " thumb-actions-row-stack-all" : ""
+                }`}
+              >
                 <button
                   type="button"
                   className="pill-btn thumb-pill thumb-pill-primary"
@@ -806,7 +817,7 @@ function BookmarkCard({
                 </button>
                 <button
                   type="button"
-                  className="pill-btn thumb-pill thumb-pill-danger"
+                  className="pill-btn thumb-pill thumb-pill-danger thumb-pill-delete"
                   onClick={(e) => {
                     e.stopPropagation();
                     setConfirmDeleteOpen(true);
@@ -1386,6 +1397,7 @@ function BookmarkCard({
           display: flex;
           align-items: center;
           justify-content: center;
+          padding: 12px 56px 12px 16px;
           gap: 10px;
           opacity: 0;
           pointer-events: none;
@@ -1397,6 +1409,7 @@ function BookmarkCard({
           align-items: center;
           justify-content: center;
           gap: 10px;
+          max-width: 100%;
         }
         .thumb-actions-broken-stacked {
           flex-direction: column;
@@ -1415,6 +1428,32 @@ function BookmarkCard({
           backdrop-filter: blur(12px);
           -webkit-backdrop-filter: blur(12px);
           box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+        }
+        .thumb-actions-row-compact {
+          gap: 8px;
+        }
+        .thumb-actions-row-compact .thumb-pill {
+          min-height: 34px;
+          min-width: 72px;
+          padding: 0 12px;
+        }
+        .thumb-actions-row-stack-delete {
+          display: grid;
+          grid-template-columns: repeat(2, minmax(0, max-content));
+          justify-content: center;
+          width: min(180px, 100%);
+        }
+        .thumb-actions-row-stack-delete .thumb-pill-delete {
+          grid-column: 1 / -1;
+          justify-self: center;
+        }
+        .thumb-actions-row-stack-all {
+          display: flex;
+          flex-direction: column;
+          width: min(180px, 100%);
+        }
+        .thumb-actions-row-stack-all .thumb-pill {
+          width: 100%;
         }
         .thumb-pill:hover {
           background: var(--color-bg);
@@ -1446,6 +1485,12 @@ function BookmarkCard({
         @media (hover: none) {
           .thumb-actions {
             display: none;
+          }
+        }
+        @media (max-width: 768px) {
+          .thumb-actions {
+            padding-right: 46px;
+            padding-left: 12px;
           }
         }
         .broken-overlay {
