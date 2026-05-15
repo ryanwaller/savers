@@ -185,11 +185,12 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Now create bookmarks for only the 10 newest entries that don't
-        // already have a bookmark for this URL
+        // Create bookmarks for only the 10 newest entries. Iterate oldest-first
+        // so that sequential INSERT timestamps match chronological order — newest
+        // entry gets the latest created_at and surfaces at the top of the grid.
+        const toProcess = validEntries.slice(0, MAX_NEW_BOOKMARKS_PER_CHECK).reverse();
         let newCount = 0;
-        for (const entry of validEntries) {
-          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
+        for (const entry of toProcess) {
 
           // Check if a bookmark with this URL already exists for this user
           const { data: existingBookmark } = await supabase
