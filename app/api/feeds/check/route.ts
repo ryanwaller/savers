@@ -169,43 +169,43 @@ export async function POST(req: NextRequest) {
           return db - da;
         });
 
-        let newCount = 0;
-        for (const entry of entries) {
-          // Cap new bookmark creation per check to avoid flooding
-          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
-          if (!entry.url || !entry.guid) continue;
-
-          // Check if we've already seen this GUID
+        // Record GUIDs for ALL entries upfront to prevent backfill on future checks
+        const validEntries = entries.filter((e) => e.url && e.guid);
+        for (const entry of validEntries) {
           const { data: existingGuid } = await supabase
             .from("feed_items")
             .select("id")
             .eq("subscription_id", sub.id)
-            .eq("guid", entry.guid)
+            .eq("guid", entry.guid!)
             .maybeSingle();
-
           if (existingGuid) continue;
+          await supabase.from("feed_items").insert({
+            subscription_id: sub.id,
+            guid: entry.guid!,
+          });
+        }
+
+        // Now create bookmarks for only the 10 newest entries that don't
+        // already have a bookmark for this URL
+        let newCount = 0;
+        for (const entry of validEntries) {
+          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
 
           // Check if a bookmark with this URL already exists for this user
           const { data: existingBookmark } = await supabase
             .from("bookmarks")
             .select("id, feed_subscription_id")
             .eq("user_id", sub.user_id)
-            .eq("url", entry.url)
+            .eq("url", entry.url!)
             .maybeSingle();
 
           if (existingBookmark) {
-            // Backfill feed_subscription_id if it was cleared (e.g. delete+re-add feed)
             if (!existingBookmark.feed_subscription_id) {
               await supabase
                 .from("bookmarks")
                 .update({ feed_subscription_id: sub.id, source: "feed" })
                 .eq("id", existingBookmark.id);
             }
-            // Record seen GUID so we don't reprocess
-            await supabase.from("feed_items").insert({
-              subscription_id: sub.id,
-              guid: entry.guid,
-            });
             continue;
           }
 
@@ -214,7 +214,7 @@ export async function POST(req: NextRequest) {
             .from("bookmarks")
             .insert({
               user_id: sub.user_id,
-              url: entry.url,
+              url: entry.url!,
               title: entry.title || entry.url,
               description: entry.description?.slice(0, 1000) ?? null,
               collection_id: sub.collection_id,
@@ -227,7 +227,6 @@ export async function POST(req: NextRequest) {
 
           if (insertError) continue;
 
-          // Enqueue screenshot capture (fire-and-forget)
           if (newBookmark) {
             try {
               await enqueueScreenshot({
@@ -236,15 +235,9 @@ export async function POST(req: NextRequest) {
                 userId: sub.user_id,
               });
             } catch {
-              // Screenshot queue unavailable — bookmark is saved, preview will be "unavailable"
+              // Screenshot queue unavailable
             }
           }
-
-          // Record seen GUID
-          await supabase.from("feed_items").insert({
-            subscription_id: sub.id,
-            guid: entry.guid,
-          });
 
           newCount++;
         }
