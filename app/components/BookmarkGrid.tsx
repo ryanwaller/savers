@@ -217,6 +217,8 @@ function BookmarkCard({
   const compactThumbActions = w <= 360 || isCompact;
   const stackDeleteAction = w <= 320 || collapseActions;
   const stackAllThumbActions = w <= 250;
+  const insetThumbActions = w <= 380 || collapseActions;
+  const largeThumbActions = w >= 520 && !isCompact;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -770,7 +772,9 @@ function BookmarkCard({
               </span>
             )}
             <span
-              className={`thumb-actions${brokenActionOpen ? " thumb-actions-hidden" : ""}${
+              className={`thumb-actions${insetThumbActions ? " thumb-actions-inset" : ""}${
+                brokenActionOpen ? " thumb-actions-hidden" : ""
+              }${
                 stackBrokenPrimary && b.link_status === "broken" && brokenStatus !== "verified_active"
                   ? " thumb-actions-broken-stacked"
                   : ""
@@ -792,40 +796,42 @@ function BookmarkCard({
                     Broken
                   </button>
                 )}
-              <span
+                <span
                 className={`thumb-actions-row${
                   compactThumbActions ? " thumb-actions-row-compact" : ""
                 }${
                   stackDeleteAction ? " thumb-actions-row-stack-delete" : ""
                 }${
                   stackAllThumbActions ? " thumb-actions-row-stack-all" : ""
+                }${
+                  largeThumbActions ? " thumb-actions-row-large" : ""
                 }`}
               >
-                <button
-                  type="button"
-                  className="pill-btn thumb-pill thumb-pill-primary"
-                  onClick={handleVisit}
-                >
-                  Visit
-                </button>
-                <button
-                  type="button"
-                  className="pill-btn thumb-pill thumb-pill-secondary"
-                  onClick={handleEdit}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="pill-btn thumb-pill thumb-pill-danger thumb-pill-delete"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setConfirmDeleteOpen(true);
-                  }}
-                >
-                  Delete
-                </button>
-              </span>
+                  <button
+                    type="button"
+                    className="pill-btn thumb-pill thumb-pill-primary"
+                    onClick={handleVisit}
+                  >
+                    Visit
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn thumb-pill thumb-pill-secondary"
+                    onClick={handleEdit}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn thumb-pill thumb-pill-danger thumb-pill-delete"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setConfirmDeleteOpen(true);
+                    }}
+                    >
+                      Delete
+                    </button>
+                </span>
             </span>
           </div>
 
@@ -1397,12 +1403,15 @@ function BookmarkCard({
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 12px 56px 12px 16px;
+          padding: 12px 16px;
           gap: 10px;
           opacity: 0;
           pointer-events: none;
           transition: opacity 180ms ease;
           background: color-mix(in srgb, var(--color-bg) 22%, transparent);
+        }
+        .thumb-actions-inset {
+          padding-right: 56px;
         }
         .thumb-actions-row {
           display: inline-flex;
@@ -1454,6 +1463,14 @@ function BookmarkCard({
         }
         .thumb-actions-row-stack-all .thumb-pill {
           width: 100%;
+        }
+        .thumb-actions-row-large {
+          gap: 12px;
+        }
+        .thumb-actions-row-large .thumb-pill {
+          min-height: 40px;
+          min-width: 96px;
+          padding: 0 18px;
         }
         .thumb-pill:hover {
           background: var(--color-bg);
