@@ -217,7 +217,6 @@ function BookmarkCard({
   const compactThumbActions = w <= 360 || isCompact;
   const stackDeleteAction = w <= 320 || collapseActions;
   const stackAllThumbActions = w <= 250;
-  const insetThumbActions = w <= 380 || collapseActions;
   const largeThumbActions = w >= 520 && !isCompact;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const [isDark, setIsDark] = useState(false);
@@ -772,9 +771,7 @@ function BookmarkCard({
               </span>
             )}
             <span
-              className={`thumb-actions${insetThumbActions ? " thumb-actions-inset" : ""}${
-                brokenActionOpen ? " thumb-actions-hidden" : ""
-              }${
+              className={`thumb-actions${brokenActionOpen ? " thumb-actions-hidden" : ""}${
                 stackBrokenPrimary && b.link_status === "broken" && brokenStatus !== "verified_active"
                   ? " thumb-actions-broken-stacked"
                   : ""
@@ -1410,9 +1407,6 @@ function BookmarkCard({
           transition: opacity 180ms ease;
           background: color-mix(in srgb, var(--color-bg) 22%, transparent);
         }
-        .thumb-actions-inset {
-          padding-right: 56px;
-        }
         .thumb-actions-row {
           display: inline-flex;
           align-items: center;
@@ -1502,12 +1496,6 @@ function BookmarkCard({
         @media (hover: none) {
           .thumb-actions {
             display: none;
-          }
-        }
-        @media (max-width: 768px) {
-          .thumb-actions {
-            padding-right: 46px;
-            padding-left: 12px;
           }
         }
         .broken-overlay {
