@@ -377,9 +377,9 @@ export default function Sidebar({
 
         {/* Feeds */}
         {(feedSubscriptions && feedSubscriptions.length > 0) && (
-          <div className="sidebar-section">
+          <div className="sidebar-section sidebar-section-group">
             <div className="sidebar-divider" />
-            <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
+            <div className="section-header-row">
               <button
                 className="sidebar-label collapsible flex-1"
                 onClick={() => setFeedsExpanded(!feedsExpanded)}
@@ -422,10 +422,9 @@ export default function Sidebar({
           </div>
         )}
 
-        <div className="sidebar-divider" />
-
-        <div className="sidebar-section">
-          <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
+        <div className="sidebar-section sidebar-section-group">
+          <div className="sidebar-divider" />
+          <div className="section-header-row">
             <button
               className={`sidebar-label collapsible flex-1 ${rootNestHover ? "root-nest-target" : ""}`}
               onClick={() => setCollectionsExpanded(!collectionsExpanded)}
@@ -499,111 +498,111 @@ export default function Sidebar({
               )}
             </>
           )}
-
-          {/* Smart Collections */}
-          {(smartCollections.length > 0 || onCreateSmartCollection) && (
-            <>
-              <div className="sidebar-divider" />
-              <div className="flex items-center justify-between" style={{ paddingRight: 8 }}>
-                <button
-                  className="sidebar-label collapsible flex-1"
-                  onClick={() => setSmartCollectionsExpanded(!smartCollectionsExpanded)}
-                >
-                  <span className="caret">{smartCollectionsExpanded ? "▾" : "▸"}</span>
-                  Smart Collections
-                </button>
-                {onCreateSmartCollection && (
-                  <button
-                    className="sidebar-new-smart"
-                    onClick={() => {
-                      // Open builder modal — we'll pass this through page.tsx
-                      const event = new CustomEvent("savers:open-smart-builder");
-                      window.dispatchEvent(event);
-                    }}
-                    title="New smart collection"
-                  >
-                    +
-                  </button>
-                )}
-              </div>
-              {smartCollectionsExpanded && smartCollections.length > 0 && (
-                <div className="smart-list">
-                  {smartCollections.map((sc) => {
-                    const isActive =
-                      selection.kind === "smart_collection" && selection.id === sc.id;
-                    const count = smartCollectionCounts[sc.id] ?? 0;
-                    return (
-                      <SmartCollectionItem
-                        key={sc.id}
-                        sc={sc}
-                        count={count}
-                        isActive={isActive}
-                        onSelect={onSelect}
-                        onEdit={onEditSmartCollection}
-                        onDelete={onDeleteSmartCollection}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-              {smartCollectionsExpanded && smartCollections.length === 0 && (
-                <div className="sidebar-empty">No smart collections yet.</div>
-              )}
-            </>
-          )}
-
-          {allTags.length > 0 && (
-            <>
-              <div className="sidebar-divider" style={{ margin: "12px 4px 8px" }} />
-              <div className="flex items-center justify-between px-1">
-                <button
-                  className="sidebar-label collapsible flex-1"
-                  onClick={() => setTagsExpanded(!tagsExpanded)}
-                >
-                  <span className="caret">{tagsExpanded ? "▾" : "▸"}</span>
-                  Tags
-                </button>
-                <button
-                  className="tag-sort-btn muted"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setTagSortOrder(prev => prev === 'alphabetical' ? 'count' : 'alphabetical');
-                  }}
-                  title={`Sort by ${tagSortOrder === 'alphabetical' ? 'count' : 'name'}`}
-                >
-                  {tagSortOrder === 'alphabetical' ? 'A→Z' : '#→'}
-                </button>
-              </div>
-              {tagsExpanded && (
-                <div className="tag-pills">
-                  {sortedTags.map((tag) => {
-                    const isActive = activeTag === tag;
-                    const count = tagCounts[tag] ?? 0;
-                    return (
-                      <button
-                        key={tag}
-                        type="button"
-                        className={`pill-btn tag-pill ${isActive ? "active" : ""}`}
-                        onClick={() =>
-                          onTagClick(tag === activeTag ? null : tag)
-                        }
-                      >
-                        <span className="tag-pill-name">{tag}</span>
-                        <span className="tag-pill-count">{count}</span>
-                      </button>
-                    );
-                  })}
-                  <button
-                    className="pill-btn pill-btn-dashed tag-manage-btn"
-                    onClick={() => setShowTagManager(true)}
-                  >
-                    Manage Tags…
-                  </button>
-                </div>
-              )}
-            </>
-          )}
         </div>
+
+        {/* Smart Collections */}
+        {(smartCollections.length > 0 || onCreateSmartCollection) && (
+          <div className="sidebar-section sidebar-section-group">
+            <div className="sidebar-divider" />
+            <div className="section-header-row">
+              <button
+                className="sidebar-label collapsible flex-1"
+                onClick={() => setSmartCollectionsExpanded(!smartCollectionsExpanded)}
+              >
+                <span className="caret">{smartCollectionsExpanded ? "▾" : "▸"}</span>
+                Smart Collections
+              </button>
+              {onCreateSmartCollection && (
+                <button
+                  className="sidebar-new-smart"
+                  onClick={() => {
+                    // Open builder modal — we'll pass this through page.tsx
+                    const event = new CustomEvent("savers:open-smart-builder");
+                    window.dispatchEvent(event);
+                  }}
+                  title="New smart collection"
+                >
+                  +
+                </button>
+              )}
+            </div>
+            {smartCollectionsExpanded && smartCollections.length > 0 && (
+              <div className="smart-list">
+                {smartCollections.map((sc) => {
+                  const isActive =
+                    selection.kind === "smart_collection" && selection.id === sc.id;
+                  const count = smartCollectionCounts[sc.id] ?? 0;
+                  return (
+                    <SmartCollectionItem
+                      key={sc.id}
+                      sc={sc}
+                      count={count}
+                      isActive={isActive}
+                      onSelect={onSelect}
+                      onEdit={onEditSmartCollection}
+                      onDelete={onDeleteSmartCollection}
+                    />
+                  );
+                })}
+              </div>
+            )}
+            {smartCollectionsExpanded && smartCollections.length === 0 && (
+              <div className="sidebar-empty">No smart collections yet.</div>
+            )}
+          </div>
+        )}
+
+        {allTags.length > 0 && (
+          <div className="sidebar-section sidebar-section-group">
+            <div className="sidebar-divider" />
+            <div className="section-header-row section-header-row-tags">
+              <button
+                className="sidebar-label collapsible flex-1"
+                onClick={() => setTagsExpanded(!tagsExpanded)}
+              >
+                <span className="caret">{tagsExpanded ? "▾" : "▸"}</span>
+                Tags
+              </button>
+              <button
+                className="tag-sort-btn muted"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTagSortOrder(prev => prev === 'alphabetical' ? 'count' : 'alphabetical');
+                }}
+                title={`Sort by ${tagSortOrder === 'alphabetical' ? 'count' : 'name'}`}
+              >
+                {tagSortOrder === 'alphabetical' ? 'A→Z' : '#→'}
+              </button>
+            </div>
+            {tagsExpanded && (
+              <div className="tag-pills">
+                {sortedTags.map((tag) => {
+                  const isActive = activeTag === tag;
+                  const count = tagCounts[tag] ?? 0;
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`pill-btn tag-pill ${isActive ? "active" : ""}`}
+                      onClick={() =>
+                        onTagClick(tag === activeTag ? null : tag)
+                      }
+                    >
+                      <span className="tag-pill-name">{tag}</span>
+                      <span className="tag-pill-count">{count}</span>
+                    </button>
+                  );
+                })}
+                <button
+                  className="pill-btn pill-btn-dashed tag-manage-btn"
+                  onClick={() => setShowTagManager(true)}
+                >
+                  Manage Tags…
+                </button>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="sidebar-foot">
@@ -714,10 +713,10 @@ export default function Sidebar({
         .items-center { align-items: center; }
         .justify-between { justify-content: space-between; }
         .flex-1 { flex: 1; }
-        .px-1 { padding-left: 4px; padding-right: 4px; }
         .tag-sort-btn {
           font-size: 12px;
-          padding: 2px 6px;
+          height: 24px;
+          padding: 0 6px;
           border-radius: var(--radius-sm);
           transition: color 120ms ease, background 120ms ease;
         }
@@ -768,8 +767,13 @@ export default function Sidebar({
           padding: 4px 6px;
           overflow-x: hidden;
         }
+        .sidebar-section-group {
+          padding-top: 0;
+          padding-bottom: 2px;
+        }
         .sidebar-label {
-          padding: 5px 8px 4px 0;
+          min-height: 30px;
+          padding: 0 8px 0 0;
           font-size: 12px;
           color: var(--color-text-muted);
           letter-spacing: 0.01em;
@@ -813,11 +817,22 @@ export default function Sidebar({
         }
         .sidebar-divider {
           height: 1px;
-          margin: 4px 10px;
+          margin: 6px 10px 8px;
           background: var(--color-border);
         }
+        .section-header-row {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 8px;
+          min-height: 30px;
+          padding-right: 8px;
+        }
+        .section-header-row-tags {
+          padding-left: 4px;
+        }
         .sidebar-empty {
-          padding: 6px 10px;
+          padding: 6px 10px 4px;
           font-size: 12px;
           color: var(--color-text-muted);
         }
@@ -1059,10 +1074,10 @@ export default function Sidebar({
           }
         }
         .smart-list {
-          padding: 2px 0;
+          padding: 2px 0 0;
         }
         .feed-list {
-          padding: 2px 0;
+          padding: 2px 0 0;
         }
       `}</style>
       <TagManagerModal
