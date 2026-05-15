@@ -1662,7 +1662,7 @@ function FeedItem({
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 3px 8px;
+          padding: 3px 8px 3px 4px;
           border-radius: var(--radius-sm);
           position: relative;
           transition: background 140ms ease, transform 180ms ease;
@@ -1678,7 +1678,7 @@ function FeedItem({
           transform: none;
         }
         .chev {
-          width: 22px;
+          width: 18px;
           height: 22px;
           font-size: 12px;
           line-height: 17px;
