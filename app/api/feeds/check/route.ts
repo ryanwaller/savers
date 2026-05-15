@@ -185,10 +185,10 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Create bookmarks for only the 10 newest entries. Iterate oldest-first
-        // so that sequential INSERT timestamps match chronological order — newest
-        // entry gets the latest created_at and surfaces at the top of the grid.
-        const toProcess = validEntries.slice(0, MAX_NEW_BOOKMARKS_PER_CHECK).reverse();
+        // Create bookmarks for only the 10 newest entries.
+        // Explicitly set created_at from pubDate so feed chronological order
+        // is preserved — DB now() would give all 10 the same transaction time.
+        const toProcess = validEntries.slice(0, MAX_NEW_BOOKMARKS_PER_CHECK);
         let newCount = 0;
         for (const entry of toProcess) {
 
@@ -210,7 +210,11 @@ export async function POST(req: NextRequest) {
             continue;
           }
 
-          // No existing bookmark — create one
+          // No existing bookmark — create one.
+          // Use pubDate as created_at so feed chronological order is preserved.
+          const bookmarkCreatedAt = entry.pubDate && Date.parse(entry.pubDate)
+            ? new Date(entry.pubDate).toISOString()
+            : new Date().toISOString();
           const { data: newBookmark, error: insertError } = await supabase
             .from("bookmarks")
             .insert({
@@ -222,6 +226,7 @@ export async function POST(req: NextRequest) {
               source: "feed",
               feed_subscription_id: sub.id,
               screenshot_status: "pending",
+              created_at: bookmarkCreatedAt,
             })
             .select("id, url")
             .single();
