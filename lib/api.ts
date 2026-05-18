@@ -1,4 +1,4 @@
-import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup } from "./types";
+import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup, FeedItem } from "./types";
 import type { BookmarkSummaries } from "./bookmark-summaries";
 import { normalizeUrl } from "./normalizeUrl";
 
@@ -168,6 +168,7 @@ export const api = {
   },
   async listFeeds(): Promise<{
     subscriptions: import("./types").FeedSubscription[];
+    counts: Record<string, number>;
   }> {
     return j(await fetch("/api/feeds", { cache: "no-store" }));
   },
@@ -221,6 +222,23 @@ export const api = {
     error?: string;
   }> {
     return j(await fetch(`/api/bookmarks/detect-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
+  },
+  async listFeedItems(feedId: string): Promise<{ items: FeedItem[] }> {
+    return j(await fetch(`/api/feeds/${encodeURIComponent(feedId)}/items`, { cache: "no-store" }));
+  },
+  async keepFeedItem(itemId: string): Promise<{ bookmark: Bookmark }> {
+    return j(
+      await fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/keep`, {
+        method: "POST",
+      })
+    );
+  },
+  async dismissFeedItem(itemId: string): Promise<{ ok: boolean }> {
+    return j(
+      await fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/dismiss`, {
+        method: "POST",
+      })
+    );
   },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {

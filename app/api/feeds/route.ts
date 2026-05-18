@@ -16,7 +16,29 @@ export async function GET() {
 
     if (error) throw error;
 
-    return NextResponse.json({ subscriptions: data });
+    const subscriptions = data ?? [];
+    const ids = subscriptions.map((subscription) => subscription.id);
+    let counts: Record<string, number> = {};
+
+    if (ids.length > 0) {
+      const { data: pendingRows, error: pendingError } = await supabase
+        .from("feed_items")
+        .select("subscription_id")
+        .in("subscription_id", ids)
+        .eq("imported", false)
+        .eq("dismissed", false);
+
+      if (pendingError) throw pendingError;
+
+      counts = {};
+      for (const row of pendingRows ?? []) {
+        const subscriptionId = row.subscription_id;
+        if (!subscriptionId || typeof subscriptionId !== "string") continue;
+        counts[subscriptionId] = (counts[subscriptionId] ?? 0) + 1;
+      }
+    }
+
+    return NextResponse.json({ subscriptions, counts });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

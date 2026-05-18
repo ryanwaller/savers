@@ -4,13 +4,12 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion, FeedSubscription, SmartCollection } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
   computeCollectionBookmarkCounts,
-  computeFeedCounts,
   computeGlobalTagCounts,
   computeSmartCollectionCounts,
   computeTotals,
@@ -20,6 +19,7 @@ import Sidebar from "./components/Sidebar";
 import CollectionIcon from "./components/CollectionIcon";
 import SubcollectionRow from "./components/SubcollectionRow";
 import BookmarkGrid from "./components/BookmarkGrid";
+import FeedInbox from "./components/FeedInbox";
 import AddBookmarkModal from "./components/AddBookmarkModal";
 import BookmarkDetail from "./components/BookmarkDetail";
 import AISuggestionToast from "./components/AISuggestionToast";
@@ -79,6 +79,10 @@ export default function Home() {
   const smartCollectionsRef = useRef<SmartCollection[]>([]);
   const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
   const [feedCounts, setFeedCounts] = useState<Record<string, number>>({});
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [loadingFeedItems, setLoadingFeedItems] = useState(false);
+  const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
+  const [busyFeedItemId, setBusyFeedItemId] = useState<string | null>(null);
   const [totals, setTotals] = useState<BookmarkTotals>({
     all: 0,
     unsorted: 0,
@@ -109,6 +113,7 @@ export default function Home() {
       if (sc) return allBookmarks.filter((b) => evaluateFilter(b, sc.query_json));
       return [];
     }
+    if (selection.kind === "feed") return [];
     return allBookmarks;
   }, [allBookmarks, selection, smartCollections]);
 
@@ -194,6 +199,18 @@ export default function Home() {
     groups.sort((a, b) => a.path.localeCompare(b.path));
     return groups;
   }, [isGroupedView, sortedBookmarks, collectionNameMap, buildCollectionPath]);
+
+  const visibleFeedItems = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return feedItems;
+    return feedItems.filter((item) => {
+      const haystack = [item.title, item.url, item.description]
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [feedItems, search]);
 
   const [isMobileViewport, setIsMobileViewport] = useState(false);
   const contentRef = useRef<HTMLElement>(null);
@@ -623,7 +640,6 @@ export default function Home() {
       setGlobalTagCounts(computeGlobalTagCounts(next));
       setSmartCollectionCounts(computeSmartCollectionCounts(next, smartCollectionsRef.current));
       setCollectionBookmarkCounts(computeCollectionBookmarkCounts(next));
-      setFeedCounts(computeFeedCounts(next));
     },
     []
   );
@@ -711,6 +727,9 @@ export default function Home() {
     setGlobalTagCounts({});
     setSmartCollectionCounts({});
     setCollectionBookmarkCounts({});
+    setFeedCounts({});
+    setFeedItems([]);
+    setFeedItemsError(null);
     setDetail(null);
     setToast(null);
     setLoadError(null);
@@ -812,7 +831,6 @@ export default function Home() {
         computeSmartCollectionCounts(bookmarks, smartCollectionsRef.current)
       );
       setCollectionBookmarkCounts(computeCollectionBookmarkCounts(bookmarks));
-      setFeedCounts(computeFeedCounts(bookmarks));
       setLoadError(null);
       return bookmarks;
     } catch (e) {
@@ -848,8 +866,25 @@ export default function Home() {
     try {
       const data = await api.listFeeds();
       setFeeds(data.subscriptions);
+      setFeedCounts(data.counts ?? {});
     } catch {
       // Feeds are non-critical
+    }
+  }, []);
+
+  const loadFeedItems = useCallback(async (feedId: string) => {
+    setLoadingFeedItems(true);
+    try {
+      const data = await api.listFeedItems(feedId);
+      setFeedItems(data.items);
+      setFeedItemsError(null);
+      return data.items;
+    } catch (e) {
+      setFeedItems([]);
+      setFeedItemsError(e instanceof Error ? e.message : "Failed to load feed items");
+      return null;
+    } finally {
+      setLoadingFeedItems(false);
     }
   }, []);
 
@@ -891,11 +926,14 @@ export default function Home() {
       try {
         await loadBootstrap();
         void loadFeeds();
+        if (selection.kind === "feed") {
+          void loadFeedItems(selection.id);
+        }
       } finally {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [loadBootstrap, loadFeeds]
+    [loadBootstrap, loadFeeds, loadFeedItems, selection]
   );
 
   // Initial load
@@ -926,6 +964,12 @@ export default function Home() {
   useEffect(() => {
     if (authLoading || !user || !initialDataLoaded) return;
     const syncVisibleBookmarks = () => {
+      if (selection.kind === "feed") {
+        setBookmarks([]);
+        setLoadingBookmarks(false);
+        return;
+      }
+
       const scoped = allBookmarksRef.current.filter((bookmark) => {
         if (selection.kind === "unsorted") return bookmark.collection_id === null;
         if (selection.kind === "pinned") return bookmark.pinned;
@@ -936,7 +980,6 @@ export default function Home() {
           if (sc) return evaluateFilter(bookmark, sc.query_json);
           return false;
         }
-        if (selection.kind === "feed") return bookmark.feed_subscription_id === selection.id;
         return true;
       });
 
@@ -960,6 +1003,16 @@ export default function Home() {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
     };
   }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded, smartCollections]);
+
+  useEffect(() => {
+    if (authLoading || !user || !initialDataLoaded) return;
+    if (selection.kind !== "feed") {
+      setFeedItems([]);
+      setFeedItemsError(null);
+      return;
+    }
+    void loadFeedItems(selection.id);
+  }, [authLoading, user, initialDataLoaded, selection, loadFeedItems]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
@@ -1154,6 +1207,14 @@ export default function Home() {
         { label: sc?.name ?? "Smart Collection", icon: sc?.icon, isCollection: false, selection: { kind: "smart_collection", id: selection.id } as Selection },
       ];
     }
+    if (selection.kind === "feed") {
+      const feed = feeds.find((item) => item.id === selection.id);
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Feeds", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection },
+      ];
+    }
 
     const path = pathToCollections(tree, selection.id) ?? [];
     return [
@@ -1165,7 +1226,7 @@ export default function Home() {
         selection: { kind: "collection", id: item.id } as Selection,
       })),
     ];
-  }, [selection, tree, smartCollections]);
+  }, [selection, tree, smartCollections, feeds]);
   const defaultCollectionForAdd =
     selection.kind === "collection" ? selection.id : null;
 
@@ -1261,6 +1322,49 @@ export default function Home() {
     await loadFeeds();
   }
 
+  async function handleKeepFeedItem(item: FeedItem) {
+    if (busyFeedItemId) return;
+    setBusyFeedItemId(item.id);
+    try {
+      const { bookmark } = await api.keepFeedItem(item.id);
+      updateAllBookmarksState((prev) =>
+        prev.some((existing) => existing.id === bookmark.id)
+          ? prev.map((existing) => (existing.id === bookmark.id ? bookmark : existing))
+          : [bookmark, ...prev]
+      );
+      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      if (selection.kind === "feed") {
+        setFeedCounts((prev) => ({
+          ...prev,
+          [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - 1),
+        }));
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to keep feed item");
+    } finally {
+      setBusyFeedItemId(null);
+    }
+  }
+
+  async function handleDismissFeedItem(item: FeedItem) {
+    if (busyFeedItemId) return;
+    setBusyFeedItemId(item.id);
+    try {
+      await api.dismissFeedItem(item.id);
+      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      if (selection.kind === "feed") {
+        setFeedCounts((prev) => ({
+          ...prev,
+          [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - 1),
+        }));
+      }
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to dismiss feed item");
+    } finally {
+      setBusyFeedItemId(null);
+    }
+  }
+
   async function handleDeleteFeed(id: string) {
     try {
       await api.deleteFeed(id);
@@ -1268,7 +1372,7 @@ export default function Home() {
         setSelection({ kind: "all" });
       }
       await loadFeeds();
-      await loadAllBookmarks();
+      await loadBootstrap();
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to delete feed");
     }
@@ -2130,7 +2234,22 @@ export default function Home() {
               onSelect={(id) => setSelection({ kind: "collection", id })}
             />
           )}
-          {isGroupedView && groupedBookmarks ? (
+          {selection.kind === "feed" ? (
+            <FeedInbox
+              feed={feeds.find((item) => item.id === selection.id) ?? null}
+              items={visibleFeedItems}
+              loading={loadingFeedItems}
+              error={feedItemsError}
+              search={search}
+              busyItemId={busyFeedItemId}
+              onOpen={(item) => {
+                if (!item.url) return;
+                window.open(item.url, "_blank", "noopener,noreferrer");
+              }}
+              onKeep={handleKeepFeedItem}
+              onDismiss={handleDismissFeedItem}
+            />
+          ) : isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
               <section
                 key={group.collectionId}
@@ -2444,7 +2563,8 @@ export default function Home() {
         }
         onSignOut={handleSignOut}
         onBookmarksChanged={() => {
-          loadAllBookmarks();
+          void loadBootstrap();
+          void loadFeeds();
         }}
         onGeneratedPreviewsQueued={handleGeneratedPreviewsQueued}
       />

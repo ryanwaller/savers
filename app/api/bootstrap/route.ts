@@ -99,6 +99,12 @@ export async function GET() {
     const collections = (collectionsResult.data as Collection[]) ?? [];
     const smartCollections = smartCollectionsResult.data ?? [];
     const bookmarks = bookmarksResult.data ?? [];
+    const { data: feedSubscriptions, error: feedSubscriptionsError } = await supabaseAdmin
+      .from("feed_subscriptions")
+      .select("id")
+      .eq("user_id", user.id);
+
+    if (feedSubscriptionsError) throw feedSubscriptionsError;
 
     const collectionCounts = new Map<string, number>();
     for (const row of bookmarkCountResult.data ?? []) {
@@ -112,12 +118,37 @@ export async function GET() {
       bookmark_count: collectionCounts.get(collection.id) ?? 0,
     }));
 
+    const feedCounts: Record<string, number> = {};
+    const feedIds = (feedSubscriptions ?? [])
+      .map((subscription) => subscription.id)
+      .filter((id): id is string => typeof id === "string");
+
+    if (feedIds.length > 0) {
+      const { data: feedRows, error: feedRowsError } = await supabaseAdmin
+        .from("feed_items")
+        .select("subscription_id")
+        .in("subscription_id", feedIds)
+        .eq("imported", false)
+        .eq("dismissed", false);
+
+      if (feedRowsError) throw feedRowsError;
+
+      for (const row of feedRows ?? []) {
+        const subscriptionId = row.subscription_id;
+        if (!subscriptionId || typeof subscriptionId !== "string") continue;
+        feedCounts[subscriptionId] = (feedCounts[subscriptionId] ?? 0) + 1;
+      }
+    }
+
     return NextResponse.json({
       collections: buildTree(flat),
       flat,
       smart_collections: smartCollections,
       bookmarks,
-      summaries: buildBookmarkSummaries(bookmarks, smartCollections),
+      summaries: {
+        ...buildBookmarkSummaries(bookmarks, smartCollections),
+        feedCounts,
+      },
     });
   } catch (error) {
     logUnexpectedError("Load bootstrap catch error:", error);

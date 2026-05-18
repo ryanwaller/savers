@@ -78,6 +78,20 @@ export interface FeedSubscription {
   created_at: string
 }
 
+export interface FeedItem {
+  id: string
+  subscription_id: string
+  guid: string
+  url: string | null
+  title: string | null
+  description: string | null
+  published_at: string | null
+  bookmark_id: string | null
+  imported: boolean
+  dismissed: boolean
+  created_at: string
+}
+
 export interface TagAlias {
   id: string
   canonical_tag: string

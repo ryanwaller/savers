@@ -1,8 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { enqueueScreenshot } from "@/lib/screenshot-queue";
-
-const MAX_NEW_BOOKMARKS_PER_CHECK = 10;
 
 // Simple RSS/Atom parser — extracts entries from XML without dependencies
 function parseFeedEntries(xml: string): {
@@ -169,41 +166,24 @@ export async function POST(req: NextRequest) {
           return db - da;
         });
 
-        // Record GUIDs for ALL entries upfront to prevent backfill on future checks
+        // Record or refresh feed items so the review queue has the latest metadata
+        // without immediately creating permanent bookmarks.
         const validEntries = entries.filter((e) => e.url && e.guid);
-        for (const entry of validEntries) {
-          const { data: existingGuid } = await supabase
-            .from("feed_items")
-            .select("id")
-            .eq("subscription_id", sub.id)
-            .eq("guid", entry.guid!)
-            .maybeSingle();
-          if (existingGuid) continue;
-          await supabase.from("feed_items").insert({
-            subscription_id: sub.id,
-            guid: entry.guid!,
-          });
-        }
-
-        // Create bookmarks for only the 10 newest entries that haven't been
-        // imported yet. Once a GUID is marked imported it stays imported —
-        // deleting the bookmark won't cause it to be re-created.
-        const toProcess = validEntries.slice(0, MAX_NEW_BOOKMARKS_PER_CHECK);
         let newCount = 0;
-        for (const entry of toProcess) {
-          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
-
-          // Skip entries already imported in a prior check
-          const { data: feedItem } = await supabase
+        for (const entry of validEntries) {
+          const { data: existingItem } = await supabase
             .from("feed_items")
-            .select("id, imported")
+            .select("id, imported, dismissed")
             .eq("subscription_id", sub.id)
             .eq("guid", entry.guid!)
             .maybeSingle();
 
-          if (feedItem?.imported) continue;
+          const publishedAt =
+            entry.pubDate && Date.parse(entry.pubDate)
+              ? new Date(entry.pubDate).toISOString()
+              : null;
 
-          // Check if a bookmark with this URL already exists for this user
+          // If the user already saved this URL, don't surface it in the review queue.
           const { data: existingBookmark } = await supabase
             .from("bookmarks")
             .select("id, feed_subscription_id")
@@ -211,65 +191,55 @@ export async function POST(req: NextRequest) {
             .eq("url", entry.url!)
             .maybeSingle();
 
-          if (existingBookmark) {
-            if (!existingBookmark.feed_subscription_id) {
+          if (existingItem) {
+            const patch: Record<string, unknown> = {
+              url: entry.url!,
+              title: entry.title || entry.url,
+              description: entry.description?.slice(0, 1000) ?? null,
+              published_at: publishedAt,
+            };
+
+            if (!existingItem.imported && !existingItem.dismissed && existingBookmark?.id) {
+              patch.imported = true;
+              patch.bookmark_id = existingBookmark.id;
+            }
+
+            await supabase
+              .from("feed_items")
+              .update(patch)
+              .eq("id", existingItem.id);
+
+            if (existingBookmark?.id && !existingBookmark.feed_subscription_id) {
               await supabase
                 .from("bookmarks")
                 .update({ feed_subscription_id: sub.id, source: "feed" })
                 .eq("id", existingBookmark.id);
             }
-            // Mark as imported so it won't re-surface if bookmark is deleted
-            await supabase
-              .from("feed_items")
-              .update({ imported: true })
-              .eq("subscription_id", sub.id)
-              .eq("guid", entry.guid!);
             continue;
           }
 
-          // No existing bookmark — create one.
-          // Use pubDate as created_at so feed chronological order is preserved.
-          const bookmarkCreatedAt = entry.pubDate && Date.parse(entry.pubDate)
-            ? new Date(entry.pubDate).toISOString()
-            : new Date().toISOString();
-          const { data: newBookmark, error: insertError } = await supabase
-            .from("bookmarks")
-            .insert({
-              user_id: sub.user_id,
-              url: entry.url!,
-              title: entry.title || entry.url,
-              description: entry.description?.slice(0, 1000) ?? null,
-              collection_id: sub.collection_id,
-              source: "feed",
-              feed_subscription_id: sub.id,
-              screenshot_status: "pending",
-              created_at: bookmarkCreatedAt,
-            })
-            .select("id, url")
-            .single();
+          await supabase.from("feed_items").insert({
+            subscription_id: sub.id,
+            guid: entry.guid!,
+            url: entry.url!,
+            title: entry.title || entry.url,
+            description: entry.description?.slice(0, 1000) ?? null,
+            published_at: publishedAt,
+            imported: !!existingBookmark?.id,
+            dismissed: false,
+            bookmark_id: existingBookmark?.id ?? null,
+          });
 
-          if (insertError) continue;
-
-          if (newBookmark) {
-            try {
-              await enqueueScreenshot({
-                bookmarkId: newBookmark.id,
-                url: newBookmark.url,
-                userId: sub.user_id,
-              });
-            } catch {
-              // Screenshot queue unavailable
-            }
+          if (existingBookmark?.id && !existingBookmark.feed_subscription_id) {
+            await supabase
+              .from("bookmarks")
+              .update({ feed_subscription_id: sub.id, source: "feed" })
+              .eq("id", existingBookmark.id);
           }
 
-          // Mark GUID as imported so it never re-surfaces
-          await supabase
-            .from("feed_items")
-            .update({ imported: true })
-            .eq("subscription_id", sub.id)
-            .eq("guid", entry.guid!);
-
-          newCount++;
+          if (!existingBookmark?.id) {
+            newCount++;
+          }
         }
 
         // Update last_checked_at

@@ -164,9 +164,9 @@ export default function SettingsSections({
     }
   }
 
-  async function createIPhoneShareToken() {
+  const createIPhoneShareToken = async () => {
     await createNamedToken("iPhone Share");
-  }
+  };
 
   async function copyBookmarklet() {
     try {
