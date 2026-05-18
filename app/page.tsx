@@ -80,6 +80,7 @@ export default function Home() {
   const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
   const [feedCounts, setFeedCounts] = useState<Record<string, number>>({});
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const [loadedFeedId, setLoadedFeedId] = useState<string | null>(null);
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
   const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
@@ -729,6 +730,7 @@ export default function Home() {
     setCollectionBookmarkCounts({});
     setFeedCounts({});
     setFeedItems([]);
+    setLoadedFeedId(null);
     setFeedItemsError(null);
     setDetail(null);
     setToast(null);
@@ -877,10 +879,12 @@ export default function Home() {
     try {
       const data = await api.listFeedItems(feedId);
       setFeedItems(data.items);
+      setLoadedFeedId(feedId);
       setFeedItemsError(null);
       return data.items;
     } catch (e) {
       setFeedItems([]);
+      setLoadedFeedId(null);
       setFeedItemsError(e instanceof Error ? e.message : "Failed to load feed items");
       return null;
     } finally {
@@ -1007,12 +1011,12 @@ export default function Home() {
   useEffect(() => {
     if (authLoading || !user || !initialDataLoaded) return;
     if (selection.kind !== "feed") {
-      setFeedItems([]);
       setFeedItemsError(null);
       return;
     }
+    if (loadedFeedId === selection.id) return;
     void loadFeedItems(selection.id);
-  }, [authLoading, user, initialDataLoaded, selection, loadFeedItems]);
+  }, [authLoading, user, initialDataLoaded, selection, loadFeedItems, loadedFeedId]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;

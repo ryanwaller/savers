@@ -36,6 +36,14 @@ function parseFeedEntries(xml: string): {
       return m ? decodeCdata(m[1]).trim() : null;
     };
 
+    const getAnyTagInner = (...tags: string[]): string | null => {
+      for (const tag of tags) {
+        const value = getTagInner(tag);
+        if (value) return value;
+      }
+      return null;
+    };
+
     const getTagText = (tag: string): string | null => {
       const inner = getTagInner(tag);
       return inner ? stripHtml(inner) : null;
@@ -49,8 +57,13 @@ function parseFeedEntries(xml: string): {
     }
 
     const title = getTagText("title");
-    const descriptionHtml =
-      getTagInner("description") || getTagInner("summary") || getTagInner("content");
+    const descriptionHtml = getAnyTagInner(
+      "description",
+      "summary",
+      "content",
+      "content:encoded",
+      "media:description"
+    );
     const description = descriptionHtml ? stripHtml(descriptionHtml) : null;
     // Try Atom-style <id> first, then RSS <guid>, then fallback to link
     let guid = getTagText("id") || getTagText("guid");
@@ -62,6 +75,8 @@ function parseFeedEntries(xml: string): {
       block.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image\/[^"']+["'][^>]*\/?>/i)?.[1] ||
       block.match(/<media:content[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
       block.match(/<media:thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
+      block.match(/<thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
+      block.match(/<itunes:image[^>]*href=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
       descriptionHtml?.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ||
       null;
 

@@ -65,13 +65,14 @@ export default function FeedInbox({
         <div className="feed-inbox-list">
           {items.map((item) => {
             const busy = busyItemIds?.has(item.id) ?? false;
+            const hasPreview = Boolean(item.preview_image);
             return (
-              <article key={item.id} className="feed-inbox-item">
+              <article key={item.id} className={`feed-inbox-item${hasPreview ? " has-preview" : ""}`}>
                 <div className="feed-inbox-item-main">
-                  {item.preview_image ? (
+                  {hasPreview ? (
                     <div className="feed-inbox-item-thumb">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.preview_image} alt="" />
+                      <img src={item.preview_image ?? undefined} alt="" />
                     </div>
                   ) : null}
 
@@ -137,9 +138,11 @@ export default function FeedInbox({
         }
         .feed-inbox-item-main {
           display: grid;
-          grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
           gap: 14px;
           align-items: start;
+        }
+        .feed-inbox-item.has-preview .feed-inbox-item-main {
+          grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
         }
         .feed-inbox-item-thumb {
           aspect-ratio: 16 / 10;
@@ -199,7 +202,7 @@ export default function FeedInbox({
           .feed-inbox {
             padding: 14px 14px 18px;
           }
-          .feed-inbox-item-main {
+          .feed-inbox-item.has-preview .feed-inbox-item-main {
             grid-template-columns: 1fr;
           }
           .feed-inbox-item-thumb {
