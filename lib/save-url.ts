@@ -27,9 +27,10 @@ type BuildBookmarkletCodeOptions = {
 
 export function buildBookmarkletCode(options: BuildBookmarkletCodeOptions = {}): string {
   const base = JSON.stringify((options.baseUrl || getPublicSiteUrl()).replace(/\/$/, ""));
-  // Self-contained so the popup opens synchronously with the click —
-  // browsers block window.open() from async callbacks (like <script onload>).
-  return `javascript:(function(){var b=${base},w=Math.min(540,screen.width-48),h=Math.min(680,screen.height-48);var p=window.open(b+'/save-overlay?url='+encodeURIComponent(location.href),'savers-save','width='+w+',height='+h+',left='+Math.round((screen.width-w)/2)+',top='+Math.round((screen.height-h)/2)+',popup=yes');if(!p)window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank');else p.focus()})()`;
+  // Self-contained — window.open() runs synchronously with the click.
+  // Avoid a sized popup (features string) which is more likely to be blocked.
+  // Fall back to a form submission when window.open is blocked outright.
+  return `javascript:(function(){var b=${base},u=b+'/save-overlay?url='+encodeURIComponent(location.href);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=u;f.target='savers-save';f.style.display='none';document.body.appendChild(f);f.submit();document.body.removeChild(f)})()`;
 }
 
 export function resolveSaveSource(

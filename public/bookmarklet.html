@@ -435,13 +435,13 @@
       var btn = document.getElementById("copy-btn");
       var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
-      // Self-contained — popup opens synchronously with the click.
-      // Loading an external script defers window.open() into an async
-      // callback, which browsers treat as non-user-initiated and block.
+      // Self-contained — window.open() runs synchronously with the click.
+      // A plain window.open (no features string) is less likely to be blocked
+      // than a sized popup. Form submission is the fallback.
       var bookmarkletCode =
         "javascript:(function(){var b=" +
         JSON.stringify(origin) +
-        ",w=Math.min(540,screen.width-48),h=Math.min(680,screen.height-48);var p=window.open(b+'/save-overlay?url='+encodeURIComponent(location.href),'savers-save','width='+w+',height='+h+',left='+Math.round((screen.width-w)/2)+',top='+Math.round((screen.height-h)/2)+',popup=yes');if(!p)window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank');else p.focus()})()";
+        ",u=b+'/save-overlay?url='+encodeURIComponent(location.href);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=u;f.target='savers-save';f.style.display='none';document.body.appendChild(f);f.submit();document.body.removeChild(f)})()";
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {

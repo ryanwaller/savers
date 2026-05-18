@@ -43,7 +43,8 @@ test("resolveSaveSource falls back to legacy url and then referrer", () => {
 test("buildBookmarkletCode generates self-contained popup code", () => {
   const code = buildBookmarkletCode({ baseUrl: "https://example.com" });
   assert.ok(code.startsWith("javascript:(function(){var b="));
-  assert.ok(code.includes("window.open(b+'/save-overlay?url='+encodeURIComponent(location.href)"));
-  assert.ok(code.includes("window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank')"));
+  assert.ok(code.includes("window.open(u,'savers-save')"));
+  assert.ok(code.includes("f.target='savers-save'"));
+  assert.ok(code.includes("f.submit()"));
   assert.ok(code.endsWith("})()"));
 });
