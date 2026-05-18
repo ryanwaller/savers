@@ -34,6 +34,12 @@ function hostnameFromUrl(url: string | null) {
   }
 }
 
+function itemTitle(item: FeedItem) {
+  if (item.title?.trim()) return item.title.trim();
+  if (item.url) return hostnameFromUrl(item.url);
+  return "Untitled";
+}
+
 export default function FeedInbox({
   feed,
   items,
@@ -61,40 +67,51 @@ export default function FeedInbox({
             const busy = busyItemIds?.has(item.id) ?? false;
             return (
               <article key={item.id} className="feed-inbox-item">
-                <div className="feed-inbox-item-top">
-                  <div className="feed-inbox-item-meta muted">
-                    <span>{hostnameFromUrl(item.url)}</span>
-                    {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
-                  </div>
-                  <div className="feed-inbox-item-actions">
-                    <button
-                      className="pill-btn pill-btn-sm"
-                      onClick={() => onOpen(item)}
-                      disabled={busy}
-                    >
-                      Open
-                    </button>
-                    <button
-                      className="pill-btn pill-btn-sm"
-                      onClick={() => onDismiss(item)}
-                      disabled={busy}
-                    >
-                      {busy ? "Working…" : "Dismiss"}
-                    </button>
-                    <button
-                      className="pill-btn pill-btn-primary pill-btn-sm"
-                      onClick={() => onKeep(item)}
-                      disabled={busy}
-                    >
-                      {busy ? "Keeping…" : "Keep"}
-                    </button>
+                <div className="feed-inbox-item-main">
+                  {item.preview_image ? (
+                    <div className="feed-inbox-item-thumb">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.preview_image} alt="" />
+                    </div>
+                  ) : null}
+
+                  <div className="feed-inbox-item-body">
+                    <div className="feed-inbox-item-top">
+                      <div className="feed-inbox-item-meta muted">
+                        <span>{hostnameFromUrl(item.url)}</span>
+                        {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
+                      </div>
+                      <div className="feed-inbox-item-actions">
+                        <button
+                          className="pill-btn pill-btn-sm"
+                          onClick={() => onOpen(item)}
+                          disabled={busy}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="pill-btn pill-btn-sm"
+                          onClick={() => onDismiss(item)}
+                          disabled={busy}
+                        >
+                          {busy ? "Working…" : "Dismiss"}
+                        </button>
+                        <button
+                          className="pill-btn pill-btn-primary pill-btn-sm"
+                          onClick={() => onKeep(item)}
+                          disabled={busy}
+                        >
+                          {busy ? "Keeping…" : "Keep"}
+                        </button>
+                      </div>
+                    </div>
+
+                    <h3 className="feed-inbox-item-title">{itemTitle(item)}</h3>
+                    {item.description && (
+                      <p className="feed-inbox-item-description muted">{item.description}</p>
+                    )}
                   </div>
                 </div>
-
-                <h3 className="feed-inbox-item-title">{item.title || item.url || "Untitled"}</h3>
-                {item.description && (
-                  <p className="feed-inbox-item-description muted">{item.description}</p>
-                )}
               </article>
             );
           })}
@@ -117,8 +134,30 @@ export default function FeedInbox({
           border-radius: 12px;
           background: var(--color-bg);
           padding: 14px;
+        }
+        .feed-inbox-item-main {
           display: grid;
-          gap: 10px;
+          grid-template-columns: minmax(0, 140px) minmax(0, 1fr);
+          gap: 14px;
+          align-items: start;
+        }
+        .feed-inbox-item-thumb {
+          aspect-ratio: 16 / 10;
+          border-radius: 10px;
+          overflow: hidden;
+          background: color-mix(in srgb, var(--color-text) 6%, var(--color-bg));
+          border: 1px solid var(--color-border);
+        }
+        .feed-inbox-item-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          display: block;
+        }
+        .feed-inbox-item-body {
+          display: grid;
+          gap: 8px;
+          min-width: 0;
         }
         .feed-inbox-item-top {
           display: flex;
@@ -143,7 +182,7 @@ export default function FeedInbox({
         }
         .feed-inbox-item-description {
           display: -webkit-box;
-          -webkit-line-clamp: 3;
+          -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
@@ -159,6 +198,12 @@ export default function FeedInbox({
         @media (max-width: 900px) {
           .feed-inbox {
             padding: 14px 14px 18px;
+          }
+          .feed-inbox-item-main {
+            grid-template-columns: 1fr;
+          }
+          .feed-inbox-item-thumb {
+            aspect-ratio: 16 / 9;
           }
           .feed-inbox-item-top {
             flex-direction: column;

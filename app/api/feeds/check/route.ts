@@ -6,6 +6,7 @@ function parseFeedEntries(xml: string): {
   title: string | null;
   url: string | null;
   description: string | null;
+  preview_image: string | null;
   guid: string | null;
   pubDate: string | null;
 }[] {
@@ -21,27 +22,69 @@ function parseFeedEntries(xml: string): {
   while ((itemMatch = itemRegex.exec(clean)) !== null) {
     const block = itemMatch[1];
 
-    const getTag = (tag: string): string | null => {
+    const decodeCdata = (value: string) => value.replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1");
+    const stripHtml = (value: string) =>
+      decodeCdata(value)
+        .replace(/<script[\s\S]*?<\/script>/gi, " ")
+        .replace(/<style[\s\S]*?<\/style>/gi, " ")
+        .replace(/<[^>]+>/g, " ")
+        .replace(/\s+/g, " ")
+        .trim();
+
+    const getTagInner = (tag: string): string | null => {
       const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
-      return m ? m[1].replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1").replace(/<[^>]+>/g, "").trim() : null;
+      return m ? decodeCdata(m[1]).trim() : null;
+    };
+
+    const getTagText = (tag: string): string | null => {
+      const inner = getTagInner(tag);
+      return inner ? stripHtml(inner) : null;
     };
 
     // For Atom <link>, the href is in an attribute
-    let link: string | null = getTag("link");
+    let link: string | null = getTagText("link");
     if (!link) {
       const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i);
       link = linkMatch ? linkMatch[1] : null;
     }
 
-    const title = getTag("title");
-    const description = getTag("description") || getTag("summary") || getTag("content");
+    const title = getTagText("title");
+    const descriptionHtml =
+      getTagInner("description") || getTagInner("summary") || getTagInner("content");
+    const description = descriptionHtml ? stripHtml(descriptionHtml) : null;
     // Try Atom-style <id> first, then RSS <guid>, then fallback to link
-    let guid = getTag("id") || getTag("guid");
+    let guid = getTagText("id") || getTagText("guid");
     if (!guid) guid = link;
 
-    const pubDate = getTag("pubDate") || getTag("published") || getTag("updated");
+    const pubDate = getTagText("pubDate") || getTagText("published") || getTagText("updated");
 
-    entries.push({ title, url: link, description, guid, pubDate });
+    const previewImage =
+      block.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image\/[^"']+["'][^>]*\/?>/i)?.[1] ||
+      block.match(/<media:content[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
+      block.match(/<media:thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
+      descriptionHtml?.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ||
+      null;
+
+    const fallbackTitle = (() => {
+      if (title) return title;
+      if (description) return description.slice(0, 120).trim();
+      if (!link) return null;
+      try {
+        const url = new URL(link);
+        const slug = url.pathname.split("/").filter(Boolean).pop();
+        if (slug) {
+          return slug
+            .replace(/[-_]+/g, " ")
+            .replace(/\.[a-z0-9]+$/i, "")
+            .replace(/\b\w/g, (char) => char.toUpperCase());
+        }
+        return url.hostname.replace(/^www\./, "");
+      } catch {
+        return link;
+      }
+    })();
+
+    entries.push({ title: fallbackTitle, url: link, description, preview_image: previewImage, guid, pubDate });
   }
 
   return entries;
@@ -196,6 +239,7 @@ export async function POST(req: NextRequest) {
               url: entry.url!,
               title: entry.title || entry.url,
               description: entry.description?.slice(0, 1000) ?? null,
+              preview_image: entry.preview_image ?? null,
               published_at: publishedAt,
             };
 
@@ -224,6 +268,7 @@ export async function POST(req: NextRequest) {
             url: entry.url!,
             title: entry.title || entry.url,
             description: entry.description?.slice(0, 1000) ?? null,
+            preview_image: entry.preview_image ?? null,
             published_at: publishedAt,
             imported: !!existingBookmark?.id,
             dismissed: false,

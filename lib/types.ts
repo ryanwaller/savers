@@ -85,6 +85,7 @@ export interface FeedItem {
   url: string | null
   title: string | null
   description: string | null
+  preview_image?: string | null
   published_at: string | null
   bookmark_id: string | null
   imported: boolean

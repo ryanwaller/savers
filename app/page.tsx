@@ -1018,6 +1018,7 @@ export default function Home() {
     if (typeof window === "undefined" || !user) return;
 
     const maybeRefresh = () => {
+      if (selection.kind === "feed") return;
       const now = Date.now();
       if (now - lastForegroundRefreshRef.current < 15_000) return;
       lastForegroundRefreshRef.current = now;
@@ -1035,7 +1036,7 @@ export default function Home() {
       window.removeEventListener("focus", maybeRefresh);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [user, refreshFromServer]);
+  }, [user, refreshFromServer, selection.kind]);
 
   useEffect(() => {
     if (!detail) return;
