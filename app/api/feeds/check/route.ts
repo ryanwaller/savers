@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { fetchPageContent } from "@/lib/page-content";
 
 // Simple RSS/Atom parser — extracts entries from XML without dependencies
 function parseFeedEntries(xml: string): {
@@ -229,6 +230,21 @@ export async function POST(req: NextRequest) {
         const validEntries = entries.filter((e) => e.url && e.guid);
         let newCount = 0;
         for (const entry of validEntries) {
+          let previewImage = entry.preview_image ?? null;
+          let entryTitle = entry.title || entry.url;
+          let entryDescription = entry.description?.slice(0, 1000) ?? null;
+
+          if ((!previewImage || !entryDescription) && entry.url) {
+            try {
+              const page = await fetchPageContent(entry.url);
+              previewImage = previewImage ?? page?.og_image ?? null;
+              entryTitle = entry.title || page?.title || entry.url;
+              entryDescription = entryDescription ?? page?.description ?? null;
+            } catch {
+              // Page metadata is a best-effort enhancement for feed inbox rows.
+            }
+          }
+
           const { data: existingItem } = await supabase
             .from("feed_items")
             .select("id, imported, dismissed")
@@ -252,9 +268,9 @@ export async function POST(req: NextRequest) {
           if (existingItem) {
             const patch: Record<string, unknown> = {
               url: entry.url!,
-              title: entry.title || entry.url,
-              description: entry.description?.slice(0, 1000) ?? null,
-              preview_image: entry.preview_image ?? null,
+              title: entryTitle,
+              description: entryDescription,
+              preview_image: previewImage,
               published_at: publishedAt,
             };
 
@@ -281,9 +297,9 @@ export async function POST(req: NextRequest) {
             subscription_id: sub.id,
             guid: entry.guid!,
             url: entry.url!,
-            title: entry.title || entry.url,
-            description: entry.description?.slice(0, 1000) ?? null,
-            preview_image: entry.preview_image ?? null,
+            title: entryTitle,
+            description: entryDescription,
+            preview_image: previewImage,
             published_at: publishedAt,
             imported: !!existingBookmark?.id,
             dismissed: false,
