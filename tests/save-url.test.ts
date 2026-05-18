@@ -2,7 +2,6 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import {
   buildBookmarkletCode,
-  buildBookmarkletScriptUrl,
   buildSaveUrl,
   resolveSaveSource,
 } from "../lib/save-url";
@@ -41,22 +40,10 @@ test("resolveSaveSource falls back to legacy url and then referrer", () => {
   );
 });
 
-test("buildBookmarkletScriptUrl includes token when present", () => {
-  assert.equal(
-    buildBookmarkletScriptUrl({
-      baseUrl: "https://example.com",
-      token: "svr_test",
-    }),
-    "https://example.com/bookmarklet.js?token=svr_test",
-  );
-});
-
-test("buildBookmarkletCode injects the bookmarklet script url", () => {
-  assert.equal(
-    buildBookmarkletCode({
-      baseUrl: "https://example.com",
-      token: "svr_test",
-    }),
-    'javascript:(function(){var d=document,s=d.createElement(\'script\');s.src="https://example.com/bookmarklet.js?token=svr_test";d.head.appendChild(s);}())',
-  );
+test("buildBookmarkletCode generates self-contained popup code", () => {
+  const code = buildBookmarkletCode({ baseUrl: "https://example.com" });
+  assert.ok(code.startsWith("javascript:(function(){var b="));
+  assert.ok(code.includes("window.open(b+'/save-overlay?url='+encodeURIComponent(location.href)"));
+  assert.ok(code.includes("window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank')"));
+  assert.ok(code.endsWith("})()"));
 });

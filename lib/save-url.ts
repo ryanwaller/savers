@@ -23,24 +23,13 @@ export function buildSaveUrl({
 
 type BuildBookmarkletCodeOptions = {
   baseUrl?: string;
-  token?: string | null;
 };
 
-export function buildBookmarkletScriptUrl({
-  baseUrl = getPublicSiteUrl(),
-  token,
-}: BuildBookmarkletCodeOptions = {}): string {
-  const url = new URL("/bookmarklet.js", baseUrl);
-  if (token?.trim()) {
-    url.searchParams.set("token", token.trim());
-  }
-  return url.toString();
-}
-
 export function buildBookmarkletCode(options: BuildBookmarkletCodeOptions = {}): string {
-  const scriptUrl = buildBookmarkletScriptUrl(options);
-  const quotedScriptUrl = JSON.stringify(scriptUrl);
-  return `javascript:(function(){var d=document,s=d.createElement('script');s.src=${quotedScriptUrl};d.head.appendChild(s);}())`;
+  const base = JSON.stringify((options.baseUrl || getPublicSiteUrl()).replace(/\/$/, ""));
+  // Self-contained so the popup opens synchronously with the click —
+  // browsers block window.open() from async callbacks (like <script onload>).
+  return `javascript:(function(){var b=${base},w=Math.min(540,screen.width-48),h=Math.min(680,screen.height-48);var p=window.open(b+'/save-overlay?url='+encodeURIComponent(location.href),'savers-save','width='+w+',height='+h+',left='+Math.round((screen.width-w)/2)+',top='+Math.round((screen.height-h)/2)+',popup=yes');if(!p)window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank');else p.focus()})()`;
 }
 
 export function resolveSaveSource(

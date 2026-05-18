@@ -424,7 +424,7 @@
           </span>
         </summary>
         <p class="detail-text">
-          This runs a small Savers script from your bookmarks bar, so it can read the page you are on and save it correctly. If you want a richer flow with suggestions and collection controls, use Settings → Save to Savers.
+          Opens Savers in a popup window so your login session works. Nothing to install — just a bookmark. Popups must be allowed for Savers (most browsers auto-allow clicks).
         </p>
       </details>
     </section>
@@ -435,11 +435,13 @@
       var btn = document.getElementById("copy-btn");
       var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
-      var scriptUrl = origin + "/bookmarklet.js";
+      // Self-contained — popup opens synchronously with the click.
+      // Loading an external script defers window.open() into an async
+      // callback, which browsers treat as non-user-initiated and block.
       var bookmarkletCode =
-        "javascript:(function(){var d=document,s=d.createElement('script');s.src=" +
-        JSON.stringify(scriptUrl) +
-        ";d.head.appendChild(s);}())";
+        "javascript:(function(){var b=" +
+        JSON.stringify(origin) +
+        ",w=Math.min(540,screen.width-48),h=Math.min(680,screen.height-48);var p=window.open(b+'/save-overlay?url='+encodeURIComponent(location.href),'savers-save','width='+w+',height='+h+',left='+Math.round((screen.width-w)/2)+',top='+Math.round((screen.height-h)/2)+',popup=yes');if(!p)window.open(b+'/save?url='+encodeURIComponent(location.href),'_blank');else p.focus()})()";
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {
