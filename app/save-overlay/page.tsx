@@ -5,11 +5,17 @@ import type { Bookmark, Collection } from "@/lib/types";
 import { api } from "@/lib/api";
 import AddBookmarkModal from "@/app/components/AddBookmarkModal";
 
-function notifyParent(msg: Record<string, unknown>) {
+function dismiss(type: "close" | "saved" = "close") {
+  // Popup (opened by script) — window.close() works
+  if (window.opener) {
+    window.close();
+    return;
+  }
+  // Iframe fallback (Chrome extension, etc.) — notify parent
   try {
-    window.parent.postMessage(msg, window.location.origin);
+    window.parent.postMessage({ type }, window.location.origin);
   } catch {
-    // cross-origin parent — ignore
+    window.close();
   }
 }
 
@@ -27,7 +33,7 @@ export default function SaveOverlayPage() {
 
   useEffect(() => {
     if (!url) {
-      notifyParent({ type: "close" });
+      dismiss();
       return;
     }
     api
@@ -61,16 +67,16 @@ export default function SaveOverlayPage() {
             setTree((prev) => [...prev, collection]);
             return collection;
           }}
-          onClose={() => notifyParent({ type: "close" })}
+          onClose={() => dismiss()}
           onCreated={() => {
-            notifyParent({ type: "saved" });
+            dismiss("saved");
           }}
-          onFeedCreated={() => notifyParent({ type: "close" })}
+          onFeedCreated={() => dismiss()}
         />
       )}
       <style jsx global>{`
         html, body {
-          background: transparent !important;
+          background: #0f0f0f !important;
           overflow: hidden;
         }
         .overlay-shell {
@@ -78,9 +84,7 @@ export default function SaveOverlayPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: rgba(0,0,0,0.52);
-          backdrop-filter: blur(10px);
-          -webkit-backdrop-filter: blur(10px);
+          background: #0f0f0f;
         }
         .overlay-error {
           color: #ff8f8f;
