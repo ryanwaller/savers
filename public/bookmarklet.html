@@ -435,12 +435,7 @@
       var btn = document.getElementById("copy-btn");
       var msg = document.getElementById("copied-msg");
       var origin = window.location.origin.replace(/\/$/, "");
-      var params = new URLSearchParams(window.location.search);
-      var token = params.get("token");
       var scriptUrl = origin + "/bookmarklet.js";
-      if (token) {
-        scriptUrl += "?token=" + encodeURIComponent(token);
-      }
       var bookmarkletCode =
         "javascript:(function(){var d=document,s=d.createElement('script');s.src=" +
         JSON.stringify(scriptUrl) +
@@ -449,9 +444,8 @@
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(bookmarkletCode).then(function () {
-            msg.textContent = token
-              ? "Copied your bookmarklet code. Now bookmark this page, edit that bookmark, and paste the code."
-              : "Copied. Now bookmark this page, edit that bookmark, and paste the code.";
+            msg.textContent =
+              "Copied. Now bookmark this page, edit that bookmark, and paste the code.";
             setTimeout(function () { msg.textContent = ""; }, 3500);
           }).catch(function () {
             msg.textContent = "Could not copy. Open Savers and use Settings → Save to Savers instead.";
