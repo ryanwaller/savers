@@ -64,7 +64,6 @@ export default function SettingsSections({
   const [copied, setCopied] = useState(false);
   const [revoking, setRevoking] = useState<string | null>(null);
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
-  const [bookmarkletToken, setBookmarkletToken] = useState<string | null>(null);
   const [refreshingPreviews, setRefreshingPreviews] = useState(false);
   const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
@@ -104,11 +103,6 @@ export default function SettingsSections({
     return count;
   })();
 
-  const bookmarkletTokenExists = useMemo(
-    () => tokens.some((token) => token.name.toLowerCase() === "bookmarklet"),
-    [tokens],
-  );
-  const bookmarkletLinkReady = !!bookmarkletToken;
   const hasIPhoneShareToken = useMemo(
     () => tokens.some((token) => token.name.toLowerCase().includes("iphone share")),
     [tokens],
@@ -170,25 +164,22 @@ export default function SettingsSections({
     }
   }
 
-  async function createBookmarkletSetupLink() {
-    const token = await createNamedToken("Bookmarklet");
-    if (token) {
-      setBookmarkletToken(token);
-    }
-  }
-
-  async function ensureBookmarkletToken() {
-    if (bookmarkletToken) return bookmarkletToken;
-    const token = await createNamedToken("Bookmarklet");
-    if (token) {
-      setBookmarkletToken(token);
-      return token;
-    }
-    return null;
-  }
-
   async function createIPhoneShareToken() {
     await createNamedToken("iPhone Share");
+  }
+
+  async function copyBookmarklet() {
+    try {
+      await navigator.clipboard.writeText(buildBookmarkletCode());
+      setBookmarkletCopied(true);
+      window.setTimeout(() => setBookmarkletCopied(false), 1800);
+    } catch {
+      // ignore
+    }
+  }
+
+  function openBookmarkletSetupPage() {
+    window.open("/bookmarklet", "_blank", "noopener,noreferrer");
   }
 
   async function revokeToken(id: string) {
@@ -214,26 +205,6 @@ export default function SettingsSections({
     } catch {
       // ignore
     }
-  }
-
-  async function copyBookmarklet() {
-    try {
-      const token = await ensureBookmarkletToken();
-      if (!token) return;
-      await navigator.clipboard.writeText(buildBookmarkletCode({ token }));
-      setBookmarkletCopied(true);
-      window.setTimeout(() => setBookmarkletCopied(false), 1800);
-    } catch {
-      // ignore
-    }
-  }
-
-  async function openBookmarkletSetupPage() {
-    const token = await ensureBookmarkletToken();
-    const href = token
-      ? `/bookmarklet?token=${encodeURIComponent(token)}`
-      : "/bookmarklet";
-    window.open(href, "_blank", "noopener,noreferrer");
   }
 
   async function refreshGeneratedPreviews() {
@@ -525,22 +496,12 @@ export default function SettingsSections({
                   Works from any browser bookmark bar. Best fallback when the extension is not available.
                 </div>
               </div>
-              <span className={`status-chip ${bookmarkletLinkReady ? "status-ready" : "status-muted"}`}>
-                {bookmarkletLinkReady ? "Ready" : bookmarkletTokenExists ? "Refresh link" : "Needs setup"}
-              </span>
+              <span className="status-chip status-ready">Ready</span>
             </div>
             <div className="feature-actions">
               <button
                 className="btn btn-primary"
-                onClick={() => void createBookmarkletSetupLink()}
-                disabled={creating}
-              >
-                {creating ? "Creating…" : bookmarkletTokenExists ? "Refresh save link" : "Set up quick save"}
-              </button>
-              <button
-                className="btn"
                 onClick={() => void copyBookmarklet()}
-                disabled={!bookmarkletToken}
               >
                 {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
               </button>
@@ -552,9 +513,7 @@ export default function SettingsSections({
               </button>
             </div>
             <p className="small muted">
-              {bookmarkletToken
-                ? "This bookmarklet includes your token, so it can save even when this browser is not signed in."
-                : "Copying or opening setup will generate a fresh save link for you."}
+              Uses your existing session &mdash; no token needed. The overlay opens right on the page you are saving.
             </p>
             <details className="details">
               <summary>
@@ -566,10 +525,9 @@ export default function SettingsSections({
                 </span>
               </summary>
               <ol className="bookmarklet-steps">
-                <li>Click {bookmarkletTokenExists ? "Create fresh save link" : "Set up quick save"}.</li>
                 <li>Click Copy bookmarklet code.</li>
                 <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
-                <li>Right-click the new bookmark, choose Edit, paste the copied code, and name it “Save to Savers”.</li>
+                <li>Right-click the new bookmark, choose Edit, paste the copied code, and name it &ldquo;Save to Savers&rdquo;.</li>
               </ol>
             </details>
           </div>
@@ -631,7 +589,7 @@ export default function SettingsSections({
             <span className="summary-copy">
               <span>RSS Feeds</span>
               <span className="small muted">
-                Monitor RSS/Atom feeds and auto-save new entries as bookmarks.
+                Monitor RSS/Atom feeds and review new entries before keeping them.
               </span>
             </span>
             <span className="dropdown-circle" aria-hidden="true">
@@ -644,7 +602,7 @@ export default function SettingsSections({
           <div className="advanced-card">
             <div className="feature-title">Add a feed</div>
             <div className="feature-sub">
-              Paste an RSS or Atom feed URL. New entries will appear in your bookmarks with a green border.
+              Paste an RSS or Atom feed URL. New entries will appear in that feed as a review queue.
             </div>
             <div className="create-row">
               <input
