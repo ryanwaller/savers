@@ -82,7 +82,7 @@ export default function Home() {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
-  const [busyFeedItemId, setBusyFeedItemId] = useState<string | null>(null);
+  const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
   const [totals, setTotals] = useState<BookmarkTotals>({
     all: 0,
     unsorted: 0,
@@ -1323,8 +1323,8 @@ export default function Home() {
   }
 
   async function handleKeepFeedItem(item: FeedItem) {
-    if (busyFeedItemId) return;
-    setBusyFeedItemId(item.id);
+    if (busyFeedItemIds.has(item.id)) return;
+    setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
     try {
       const { bookmark } = await api.keepFeedItem(item.id);
       updateAllBookmarksState((prev) =>
@@ -1342,13 +1342,17 @@ export default function Home() {
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to keep feed item");
     } finally {
-      setBusyFeedItemId(null);
+      setBusyFeedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   }
 
   async function handleDismissFeedItem(item: FeedItem) {
-    if (busyFeedItemId) return;
-    setBusyFeedItemId(item.id);
+    if (busyFeedItemIds.has(item.id)) return;
+    setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
     try {
       await api.dismissFeedItem(item.id);
       setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
@@ -1361,7 +1365,11 @@ export default function Home() {
     } catch (e) {
       alert(e instanceof Error ? e.message : "Failed to dismiss feed item");
     } finally {
-      setBusyFeedItemId(null);
+      setBusyFeedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
     }
   }
 
@@ -2241,7 +2249,7 @@ export default function Home() {
               loading={loadingFeedItems}
               error={feedItemsError}
               search={search}
-              busyItemId={busyFeedItemId}
+              busyItemIds={busyFeedItemIds}
               onOpen={(item) => {
                 if (!item.url) return;
                 window.open(item.url, "_blank", "noopener,noreferrer");

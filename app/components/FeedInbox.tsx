@@ -11,7 +11,7 @@ type Props = {
   onOpen: (item: FeedItem) => void;
   onKeep: (item: FeedItem) => void;
   onDismiss: (item: FeedItem) => void;
-  busyItemId?: string | null;
+  busyItemIds?: ReadonlySet<string>;
 };
 
 function formatWhen(value: string | null) {
@@ -43,22 +43,10 @@ export default function FeedInbox({
   onOpen,
   onKeep,
   onDismiss,
-  busyItemId = null,
+  busyItemIds,
 }: Props) {
   return (
     <section className="feed-inbox">
-      <header className="feed-inbox-head">
-        <div>
-          <h2 className="feed-inbox-title">{feed?.name ?? "Feed"}</h2>
-          <p className="feed-inbox-sub muted">
-            Review items here before they become bookmarks.
-          </p>
-        </div>
-        <div className="feed-inbox-count chip">
-          {items.length} pending
-        </div>
-      </header>
-
       {loading ? (
         <div className="feed-inbox-state muted">Loading feed items…</div>
       ) : error ? (
@@ -70,7 +58,7 @@ export default function FeedInbox({
       ) : (
         <div className="feed-inbox-list">
           {items.map((item) => {
-            const busy = busyItemId === item.id;
+            const busy = busyItemIds?.has(item.id) ?? false;
             return (
               <article key={item.id} className="feed-inbox-item">
                 <div className="feed-inbox-item-top">
@@ -119,23 +107,6 @@ export default function FeedInbox({
           flex-direction: column;
           gap: 14px;
           padding: 16px 20px 20px;
-        }
-        .feed-inbox-head {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 12px;
-        }
-        .feed-inbox-title {
-          font-size: 16px;
-          line-height: 22px;
-          font-weight: 500;
-        }
-        .feed-inbox-sub {
-          margin-top: 2px;
-        }
-        .feed-inbox-count {
-          flex-shrink: 0;
         }
         .feed-inbox-list {
           display: grid;
@@ -189,7 +160,6 @@ export default function FeedInbox({
           .feed-inbox {
             padding: 14px 14px 18px;
           }
-          .feed-inbox-head,
           .feed-inbox-item-top {
             flex-direction: column;
           }
