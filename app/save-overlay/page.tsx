@@ -20,10 +20,12 @@ function dismiss(type: "close" | "saved" = "close") {
 }
 
 export default function SaveOverlayPage() {
-  const url =
-    new URLSearchParams(
-      typeof window !== "undefined" ? window.location.search : ""
-    ).get("url") ?? "";
+  const searchParams =
+    typeof window !== "undefined"
+      ? new URLSearchParams(window.location.search)
+      : new URLSearchParams();
+  const url = searchParams.get("url") ?? "";
+  const token = searchParams.get("token") ?? undefined;
 
   const [ready, setReady] = useState(false);
   const [flat, setFlat] = useState<Collection[]>([]);
@@ -37,7 +39,7 @@ export default function SaveOverlayPage() {
       return;
     }
     api
-      .bootstrap()
+      .bootstrap(token)
       .then((data) => {
         setFlat(data.flat);
         setTree(data.collections);
@@ -76,7 +78,7 @@ export default function SaveOverlayPage() {
       )}
       <style jsx global>{`
         html, body {
-          background: #0f0f0f !important;
+          background: transparent !important;
           overflow: hidden;
         }
         .overlay-shell {
@@ -84,7 +86,6 @@ export default function SaveOverlayPage() {
           display: flex;
           align-items: center;
           justify-content: center;
-          background: #0f0f0f;
         }
         .overlay-error {
           color: #ff8f8f;

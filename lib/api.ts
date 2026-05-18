@@ -45,14 +45,16 @@ export const api = {
     return j(await fetch("/api/system-health", { cache: "no-store" }));
   },
 
-  async bootstrap(): Promise<{
+  async bootstrap(token?: string): Promise<{
     collections: Collection[];
     flat: Collection[];
     smart_collections: SmartCollection[];
     bookmarks: Bookmark[];
     summaries: BookmarkSummaries;
   }> {
-    return j(await fetch("/api/bootstrap", { cache: "no-store" }));
+    const headers: Record<string, string> = {};
+    if (token) headers["Authorization"] = `Bearer ${token}`;
+    return j(await fetch("/api/bootstrap", { cache: "no-store", headers }));
   },
 
   async listCollections(): Promise<{ collections: Collection[]; flat: Collection[] }> {

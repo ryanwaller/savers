@@ -23,13 +23,22 @@ export function buildSaveUrl({
 
 type BuildBookmarkletCodeOptions = {
   baseUrl?: string;
+  token?: string | null;
 };
 
 export function buildBookmarkletCode(options: BuildBookmarkletCodeOptions = {}): string {
   const base = JSON.stringify((options.baseUrl || getPublicSiteUrl()).replace(/\/$/, ""));
-  // Self-contained — window.open() runs synchronously with the click.
-  // Avoid a sized popup (features string) which is more likely to be blocked.
-  // Fall back to a form submission when window.open is blocked outright.
+
+  // Token provided — use an iframe overlay. Auth works because the token
+  // is passed in the URL, bypassing third-party cookie restrictions.
+  // The iframe approach is entirely DOM manipulation, so no popup blocker issues.
+  const token = options.token?.trim();
+  if (token) {
+    const t = JSON.stringify(token);
+    return `javascript:(function(){if(document.getElementById('savers-bm-root'))return;var b=${base},t=${t},u=b+'/save-overlay?url='+encodeURIComponent(location.href)+'&token='+t,r=document.createElement('div');r.id='savers-bm-root';r.innerHTML='<div id="savers-bm-backdrop" style="position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px"><iframe id="savers-bm-iframe" src="'+u+'" style="border:0;width:min(540px,calc(100vw - 48px));height:min(680px,calc(100vh - 48px));border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,0.32)" allow="clipboard-write" title="Save to Savers"></iframe></div>';document.body.appendChild(r);document.getElementById('savers-bm-backdrop').addEventListener('click',function(e){if(e.target===e.currentTarget)r.remove()});window.addEventListener('message',function(e){if(e.origin!==b)return;if(e.data&&(e.data.type==='close'||e.data.type==='saved'))r.remove()});document.addEventListener('keydown',function(e){if(e.key==='Escape')r.remove()})})()`;
+  }
+
+  // No token — fall back to popup (cookie-based auth, works if signed in)
   return `javascript:(function(){var b=${base},u=b+'/save-overlay?url='+encodeURIComponent(location.href);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=u;f.target='savers-save';f.style.display='none';document.body.appendChild(f);f.submit();document.body.removeChild(f)})()`;
 }
 

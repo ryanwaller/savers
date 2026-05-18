@@ -169,12 +169,35 @@ export default function SettingsSections({
   };
 
   async function copyBookmarklet() {
+    if (creating) return;
+    setCreating(true);
     try {
-      await navigator.clipboard.writeText(buildBookmarkletCode());
+      // Create a fresh Bookmarklet token on each copy — embeds the token
+      // in the code so auth works inside the cross-site iframe overlay.
+      const data = await api.listTokens();
+      const existing = data.tokens.find(
+        (t) => t.name.toLowerCase() === "bookmarklet",
+      );
+      if (existing) {
+        await api.deleteToken(existing.id);
+      }
+      const result = await api.createToken("Bookmarklet");
+      await navigator.clipboard.writeText(
+        buildBookmarkletCode({ token: result.token }),
+      );
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
     } catch {
-      // ignore
+      try {
+        // Fallback: copy without token (popup-based auth)
+        await navigator.clipboard.writeText(buildBookmarkletCode());
+        setBookmarkletCopied(true);
+        window.setTimeout(() => setBookmarkletCopied(false), 1800);
+      } catch {
+        // ignore
+      }
+    } finally {
+      setCreating(false);
     }
   }
 
@@ -502,8 +525,13 @@ export default function SettingsSections({
               <button
                 className="btn btn-primary"
                 onClick={() => void copyBookmarklet()}
+                disabled={creating}
               >
-                {bookmarkletCopied ? "Copied!" : "Copy bookmarklet code"}
+                {creating
+                  ? "Creating…"
+                  : bookmarkletCopied
+                    ? "Copied!"
+                    : "Copy bookmarklet code"}
               </button>
               <button
                 className="btn"
@@ -513,7 +541,8 @@ export default function SettingsSections({
               </button>
             </div>
             <p className="small muted">
-              Uses your existing session &mdash; no token needed. The overlay opens right on the page you are saving.
+              Opens an overlay on the page you are saving. A token is embedded in the code so
+              auth works from any site — recopy here if your bookmark ever stops working.
             </p>
             <details className="details">
               <summary>
