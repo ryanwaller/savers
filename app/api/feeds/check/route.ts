@@ -185,12 +185,23 @@ export async function POST(req: NextRequest) {
           });
         }
 
-        // Create bookmarks for only the 10 newest entries.
-        // Explicitly set created_at from pubDate so feed chronological order
-        // is preserved — DB now() would give all 10 the same transaction time.
+        // Create bookmarks for only the 10 newest entries that haven't been
+        // imported yet. Once a GUID is marked imported it stays imported —
+        // deleting the bookmark won't cause it to be re-created.
         const toProcess = validEntries.slice(0, MAX_NEW_BOOKMARKS_PER_CHECK);
         let newCount = 0;
         for (const entry of toProcess) {
+          if (newCount >= MAX_NEW_BOOKMARKS_PER_CHECK) break;
+
+          // Skip entries already imported in a prior check
+          const { data: feedItem } = await supabase
+            .from("feed_items")
+            .select("id, imported")
+            .eq("subscription_id", sub.id)
+            .eq("guid", entry.guid!)
+            .maybeSingle();
+
+          if (feedItem?.imported) continue;
 
           // Check if a bookmark with this URL already exists for this user
           const { data: existingBookmark } = await supabase
@@ -207,6 +218,12 @@ export async function POST(req: NextRequest) {
                 .update({ feed_subscription_id: sub.id, source: "feed" })
                 .eq("id", existingBookmark.id);
             }
+            // Mark as imported so it won't re-surface if bookmark is deleted
+            await supabase
+              .from("feed_items")
+              .update({ imported: true })
+              .eq("subscription_id", sub.id)
+              .eq("guid", entry.guid!);
             continue;
           }
 
@@ -244,6 +261,13 @@ export async function POST(req: NextRequest) {
               // Screenshot queue unavailable
             }
           }
+
+          // Mark GUID as imported so it never re-surfaces
+          await supabase
+            .from("feed_items")
+            .update({ imported: true })
+            .eq("subscription_id", sub.id)
+            .eq("guid", entry.guid!);
 
           newCount++;
         }
