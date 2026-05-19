@@ -20,6 +20,14 @@ async function j<T>(res: Response): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+let _token: string | undefined;
+
+function _fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  if (_token) headers.set("Authorization", `Bearer ${_token}`);
+  return fetch(input, { ...init, headers });
+}
+
 export const api = {
   async systemHealth(): Promise<{
     services: {
@@ -42,7 +50,7 @@ export const api = {
       };
     };
   }> {
-    return j(await fetch("/api/system-health", { cache: "no-store" }));
+    return j(await _fetch("/api/system-health", { cache: "no-store" }));
   },
 
   async bootstrap(token?: string): Promise<{
@@ -52,17 +60,16 @@ export const api = {
     bookmarks: Bookmark[];
     summaries: BookmarkSummaries;
   }> {
-    const headers: Record<string, string> = {};
-    if (token) headers["Authorization"] = `Bearer ${token}`;
-    return j(await fetch("/api/bootstrap", { cache: "no-store", headers }));
+    if (token) _token = token;
+    return j(await _fetch("/api/bootstrap", { cache: "no-store" }));
   },
 
   async listCollections(): Promise<{ collections: Collection[]; flat: Collection[] }> {
-    return j(await fetch("/api/collections", { cache: "no-store" }));
+    return j(await _fetch("/api/collections", { cache: "no-store" }));
   },
   async createCollection(name: string, parent_id: string | null = null): Promise<{ collection: Collection }> {
     return j(
-      await fetch("/api/collections", {
+      await _fetch("/api/collections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name, parent_id }),
@@ -71,7 +78,7 @@ export const api = {
   },
   async updateCollection(id: string, updates: Partial<Collection>): Promise<{ collection: Collection }> {
     return j(
-      await fetch("/api/collections", {
+      await _fetch("/api/collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
@@ -79,11 +86,11 @@ export const api = {
     );
   },
   async deleteCollection(id: string): Promise<{ ok: true }> {
-    return j(await fetch(`/api/collections?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
+    return j(await _fetch(`/api/collections?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
   },
   async reorderCollections(ids: string[]): Promise<{ ok: true }> {
     return j(
-      await fetch("/api/collections/reorder", {
+      await _fetch("/api/collections/reorder", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -96,11 +103,11 @@ export const api = {
     if (params.collection_id) sp.set("collection_id", params.collection_id);
     if (params.q) sp.set("q", params.q);
     const qs = sp.toString();
-    return j(await fetch(`/api/bookmarks${qs ? `?${qs}` : ""}`, { cache: "no-store" }));
+    return j(await _fetch(`/api/bookmarks${qs ? `?${qs}` : ""}`, { cache: "no-store" }));
   },
   async createBookmark(data: Partial<Bookmark> & { url: string }): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch("/api/bookmarks", {
+      await _fetch("/api/bookmarks", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
@@ -109,7 +116,7 @@ export const api = {
   },
   async updateBookmark(id: string, updates: Partial<Bookmark>): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch("/api/bookmarks", {
+      await _fetch("/api/bookmarks", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
@@ -117,7 +124,7 @@ export const api = {
     );
   },
   async deleteBookmark(id: string): Promise<{ ok: true }> {
-    return j(await fetch(`/api/bookmarks?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
+    return j(await _fetch(`/api/bookmarks?id=${encodeURIComponent(id)}`, { method: "DELETE" }));
   },
   async deleteDuplicateBookmarks(): Promise<{
     ok: true;
@@ -125,14 +132,14 @@ export const api = {
     deleted_count: number;
     duplicate_group_count: number;
   }> {
-    return j(await fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
+    return j(await _fetch("/api/bookmarks?duplicates=true", { method: "DELETE" }));
   },
   async getDuplicateGroups(): Promise<{
     groups: import("./types").DuplicateGroup[];
     totalDuplicates: number;
     groupCount: number;
   }> {
-    return j(await fetch("/api/bookmarks/duplicates", { cache: "no-store" }));
+    return j(await _fetch("/api/bookmarks/duplicates", { cache: "no-store" }));
   },
   async deleteSelectedDuplicates(ids: string[]): Promise<{
     ok: true;
@@ -140,7 +147,7 @@ export const api = {
     deleteId: string;
   }> {
     return j(
-      await fetch("/api/bookmarks/duplicates/delete", {
+      await _fetch("/api/bookmarks/duplicates/delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -152,7 +159,7 @@ export const api = {
     restoredCount: number;
   }> {
     return j(
-      await fetch("/api/bookmarks/duplicates/delete/undo", {
+      await _fetch("/api/bookmarks/duplicates/delete/undo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ deleteId }),
@@ -163,7 +170,7 @@ export const api = {
     token: string;
   }> {
     return j(
-      await fetch(`/api/bookmarks/${bookmarkId}/share`, {
+      await _fetch(`/api/bookmarks/${bookmarkId}/share`, {
         method: "POST",
       }),
     );
@@ -172,13 +179,13 @@ export const api = {
     subscriptions: import("./types").FeedSubscription[];
     counts: Record<string, number>;
   }> {
-    return j(await fetch("/api/feeds", { cache: "no-store" }));
+    return j(await _fetch("/api/feeds", { cache: "no-store" }));
   },
   async createFeed(feedUrl: string, name: string, collectionId?: string | null): Promise<{
     subscription: import("./types").FeedSubscription;
   }> {
     return j(
-      await fetch("/api/feeds", {
+      await _fetch("/api/feeds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ feed_url: feedUrl, name, collection_id: collectionId ?? null }),
@@ -186,13 +193,13 @@ export const api = {
     );
   },
   async deleteFeed(id: string): Promise<{ ok: boolean }> {
-    return j(await fetch(`/api/feeds/${id}`, { method: "DELETE" }));
+    return j(await _fetch(`/api/feeds/${id}`, { method: "DELETE" }));
   },
   async updateFeed(id: string, updates: { name?: string; icon?: string | null }): Promise<{
     subscription: import("./types").FeedSubscription;
   }> {
     return j(
-      await fetch(`/api/feeds/${id}`, {
+      await _fetch(`/api/feeds/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(updates),
@@ -204,7 +211,7 @@ export const api = {
     totalNew: number;
   }> {
     return j(
-      await fetch("/api/feeds/check", {
+      await _fetch("/api/feeds/check", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(subscriptionId ? { subscription_id: subscriptionId } : {}),
@@ -215,7 +222,7 @@ export const api = {
     match: boolean;
     feeds: { id: string; name: string }[];
   }> {
-    return j(await fetch(`/api/bookmarks/check-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
+    return j(await _fetch(`/api/bookmarks/check-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
   async detectFeed(url: string): Promise<{
     isFeed: boolean;
@@ -223,21 +230,21 @@ export const api = {
     title?: string | null;
     error?: string;
   }> {
-    return j(await fetch(`/api/bookmarks/detect-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
+    return j(await _fetch(`/api/bookmarks/detect-feed?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
   async listFeedItems(feedId: string): Promise<{ items: FeedItem[] }> {
-    return j(await fetch(`/api/feeds/${encodeURIComponent(feedId)}/items`, { cache: "no-store" }));
+    return j(await _fetch(`/api/feeds/${encodeURIComponent(feedId)}/items`, { cache: "no-store" }));
   },
   async keepFeedItem(itemId: string): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/keep`, {
+      await _fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/keep`, {
         method: "POST",
       })
     );
   },
   async dismissFeedItem(itemId: string): Promise<{ ok: boolean }> {
     return j(
-      await fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/dismiss`, {
+      await _fetch(`/api/feeds/items/${encodeURIComponent(itemId)}/dismiss`, {
         method: "POST",
       })
     );
@@ -249,7 +256,7 @@ export const api = {
       formData.set("file", source);
 
       return j(
-        await fetch("/api/bookmarks/custom-preview", {
+        await _fetch("/api/bookmarks/custom-preview", {
           method: "POST",
           body: formData,
         })
@@ -257,7 +264,7 @@ export const api = {
     }
 
     return j(
-      await fetch("/api/bookmarks/custom-preview", {
+      await _fetch("/api/bookmarks/custom-preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -269,7 +276,7 @@ export const api = {
   },
   async clearCustomPreview(bookmarkId: string): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch(
+      await _fetch(
         `/api/bookmarks/custom-preview?bookmark_id=${encodeURIComponent(bookmarkId)}`,
         { method: "DELETE" }
       )
@@ -278,7 +285,7 @@ export const api = {
 
   async refreshMetadata(bookmarkId: string): Promise<{ title: string | null; description: string | null }> {
     return j(
-      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/refresh-metadata`, {
+      await _fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/refresh-metadata`, {
         method: "POST",
       })
     );
@@ -293,7 +300,7 @@ export const api = {
     skipped_in_flight_count: number;
   }> {
     return j(
-      await fetch("/api/bookmarks/refresh-previews", {
+      await _fetch("/api/bookmarks/refresh-previews", {
         method: "POST",
       })
     );
@@ -301,7 +308,7 @@ export const api = {
 
   async deleteBookmarks(ids: string[]): Promise<{ deleted: number }> {
     return j(
-      await fetch("/api/bookmarks/bulk-delete", {
+      await _fetch("/api/bookmarks/bulk-delete", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids }),
@@ -311,7 +318,7 @@ export const api = {
 
   async moveBookmarks(ids: string[], collectionId: string | null): Promise<{ moved: number }> {
     return j(
-      await fetch("/api/bookmarks/bulk-move", {
+      await _fetch("/api/bookmarks/bulk-move", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, collectionId }),
@@ -325,7 +332,7 @@ export const api = {
     tags: string[],
   ): Promise<{ updated: number }> {
     return j(
-      await fetch("/api/bookmarks/bulk-tags", {
+      await _fetch("/api/bookmarks/bulk-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, action, tags }),
@@ -335,7 +342,7 @@ export const api = {
 
   async updateUrl(bookmarkId: string, url: string): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/update-url`, {
+      await _fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/update-url`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url }),
@@ -344,7 +351,7 @@ export const api = {
   },
 
   async fetchMetadata(url: string): Promise<OGData> {
-    return j(await fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));
+    return j(await _fetch(`/api/metadata?url=${encodeURIComponent(normalizeUrl(url))}`));
   },
 
   async categorize(payload: {
@@ -354,7 +361,7 @@ export const api = {
     collections: Collection[];
   }): Promise<{ suggestion: AISuggestion | null }> {
     return j(
-      await fetch("/api/categorize", {
+      await _fetch("/api/categorize", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -371,14 +378,14 @@ export const api = {
       created_at: string;
     }>;
   }> {
-    return j(await fetch("/api/tokens", { cache: "no-store" }));
+    return j(await _fetch("/api/tokens", { cache: "no-store" }));
   },
   async createToken(name: string): Promise<{
     token: string;
     record: { id: string; name: string; prefix: string; created_at: string };
   }> {
     return j(
-      await fetch("/api/tokens", {
+      await _fetch("/api/tokens", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name }),
@@ -387,7 +394,7 @@ export const api = {
   },
   async deleteToken(id: string): Promise<{ ok: true }> {
     return j(
-      await fetch(`/api/tokens?id=${encodeURIComponent(id)}`, { method: "DELETE" })
+      await _fetch(`/api/tokens?id=${encodeURIComponent(id)}`, { method: "DELETE" })
     );
   },
 
@@ -399,7 +406,7 @@ export const api = {
     collection_path?: string | null;
   }): Promise<{ tags: string[] }> {
     return j(
-      await fetch("/api/suggest-tags", {
+      await _fetch("/api/suggest-tags", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -410,11 +417,11 @@ export const api = {
   async listBookmarkTags(
     id: string,
   ): Promise<{ tags: { tag: string; source: "user" | "auto" }[] }> {
-    return j(await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`));
+    return j(await _fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`));
   },
   async acceptAutoTag(id: string, tag: string): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
+      await _fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "accept", tag }),
@@ -423,7 +430,7 @@ export const api = {
   },
   async rejectAutoTag(id: string, tag: string): Promise<{ bookmark: Bookmark }> {
     return j(
-      await fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
+      await _fetch(`/api/bookmarks/${encodeURIComponent(id)}/tags`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action: "reject", tag }),
@@ -432,7 +439,7 @@ export const api = {
   },
 
   async listSmartCollections(): Promise<{ smart_collections: SmartCollection[] }> {
-    return j(await fetch("/api/smart-collections", { cache: "no-store" }));
+    return j(await _fetch("/api/smart-collections", { cache: "no-store" }));
   },
   async createSmartCollection(payload: {
     name: string;
@@ -440,7 +447,7 @@ export const api = {
     query_json: FilterGroup;
   }): Promise<{ smart_collection: SmartCollection }> {
     return j(
-      await fetch("/api/smart-collections", {
+      await _fetch("/api/smart-collections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -452,7 +459,7 @@ export const api = {
     updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json" | "position">>
   ): Promise<{ smart_collection: SmartCollection }> {
     return j(
-      await fetch("/api/smart-collections", {
+      await _fetch("/api/smart-collections", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id, ...updates }),
@@ -461,7 +468,7 @@ export const api = {
   },
   async deleteSmartCollection(id: string): Promise<{ ok: true }> {
     return j(
-      await fetch(`/api/smart-collections?id=${encodeURIComponent(id)}`, {
+      await _fetch(`/api/smart-collections?id=${encodeURIComponent(id)}`, {
         method: "DELETE",
       })
     );
@@ -471,7 +478,7 @@ export const api = {
     sample: { id: string; title: string | null; url: string; tags: string[] }[];
   }> {
     return j(
-      await fetch("/api/smart-collections/preview", {
+      await _fetch("/api/smart-collections/preview", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ query_json }),
@@ -483,7 +490,7 @@ export const api = {
 
   /** Get counts of broken/redirect/unknown link statuses. */
   async getLinkHealthCounts(): Promise<{ counts: Record<string, number> }> {
-    return j(await fetch("/api/bookmarks/check-health", { cache: "no-store" }));
+    return j(await _fetch("/api/bookmarks/check-health", { cache: "no-store" }));
   },
 
   /** Enqueue link health checks for a scope. */
@@ -493,7 +500,7 @@ export const api = {
     all?: boolean;
   }): Promise<{ queued: number }> {
     return j(
-      await fetch("/api/bookmarks/check-health", {
+      await _fetch("/api/bookmarks/check-health", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(params),
@@ -507,7 +514,7 @@ export const api = {
     link_status: "active" | "unknown",
   ): Promise<{ success: boolean; link_status: "active" | "unknown"; bookmark: Bookmark }> {
     return j(
-      await fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
+      await _fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ link_status }),
@@ -518,7 +525,7 @@ export const api = {
   /** Trigger an immediate recheck of a bookmark's URL. */
   async recheckLink(bookmarkId: string): Promise<{ success: boolean }> {
     return j(
-      await fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
+      await _fetch(`/api/bookmarks/${bookmarkId}/link-status`, {
         method: "POST",
       })
     );
@@ -534,7 +541,7 @@ export const api = {
     link_status: string;
   }> {
     return j(
-      await fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/verify-broken`, {
+      await _fetch(`/api/bookmarks/${encodeURIComponent(bookmarkId)}/verify-broken`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ action }),
@@ -548,7 +555,7 @@ export const api = {
     targetTag: string,
   ): Promise<{ success: boolean; affectedBookmarks: number; mergeId: string | null }> {
     return j(
-      await fetch("/api/tags/merge", {
+      await _fetch("/api/tags/merge", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ sourceTags, targetTag }),
@@ -559,7 +566,7 @@ export const api = {
     mergeId: string,
   ): Promise<{ success: boolean; revertedBookmarks: number }> {
     return j(
-      await fetch("/api/tags/merge/undo", {
+      await _fetch("/api/tags/merge/undo", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mergeId }),
@@ -574,7 +581,7 @@ export const api = {
       reason: "case_insensitive" | "normalized" | "levenshtein";
     }[];
   }> {
-    return j(await fetch("/api/tags/similar", { cache: "no-store" }));
+    return j(await _fetch("/api/tags/similar", { cache: "no-store" }));
   },
 };
 
