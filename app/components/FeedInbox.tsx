@@ -70,10 +70,16 @@ export default function FeedInbox({
               <article key={item.id} className={`feed-inbox-item${hasPreview ? " has-preview" : ""}`}>
                 <div className="feed-inbox-item-main">
                   {hasPreview ? (
-                    <div className="feed-inbox-item-thumb">
+                    <button
+                      type="button"
+                      className="feed-inbox-item-thumb"
+                      onClick={() => onOpen(item)}
+                      disabled={!item.url}
+                      aria-label={`Open ${itemTitle(item)}`}
+                    >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img src={item.preview_image ?? undefined} alt="" />
-                    </div>
+                    </button>
                   ) : null}
 
                   <div className="feed-inbox-item-body">
@@ -107,7 +113,16 @@ export default function FeedInbox({
                       </div>
                     </div>
 
-                    <h3 className="feed-inbox-item-title">{itemTitle(item)}</h3>
+                    <h3 className="feed-inbox-item-title">
+                      <button
+                        type="button"
+                        className="feed-inbox-item-title-button"
+                        onClick={() => onOpen(item)}
+                        disabled={!item.url}
+                      >
+                        {itemTitle(item)}
+                      </button>
+                    </h3>
                     {item.description && (
                       <p className="feed-inbox-item-description muted">{item.description}</p>
                     )}
@@ -150,6 +165,11 @@ export default function FeedInbox({
           overflow: hidden;
           background: color-mix(in srgb, var(--color-text) 6%, var(--color-bg));
           border: 1px solid var(--color-border);
+          padding: 0;
+          cursor: pointer;
+        }
+        .feed-inbox-item-thumb:disabled {
+          cursor: default;
         }
         .feed-inbox-item-thumb img {
           width: 100%;
@@ -182,6 +202,26 @@ export default function FeedInbox({
           font-size: 16px;
           line-height: 22px;
           font-weight: 500;
+        }
+        .feed-inbox-item-title-button {
+          appearance: none;
+          border: 0;
+          background: transparent;
+          padding: 0;
+          margin: 0;
+          color: inherit;
+          font: inherit;
+          line-height: inherit;
+          text-align: left;
+          cursor: pointer;
+        }
+        .feed-inbox-item-title-button:disabled {
+          cursor: default;
+        }
+        .feed-inbox-item-title-button:hover,
+        .feed-inbox-item-title-button:focus-visible {
+          text-decoration: underline;
+          text-underline-offset: 2px;
         }
         .feed-inbox-item-description {
           display: -webkit-box;
