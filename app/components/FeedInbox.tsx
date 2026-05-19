@@ -8,10 +8,12 @@ type Props = {
   loading: boolean;
   error: string | null;
   search: string;
+  isEditMode?: boolean;
+  selectedIds?: ReadonlySet<string>;
   onOpen: (item: FeedItem) => void;
   onKeep: (item: FeedItem) => void;
   onDismiss: (item: FeedItem) => void;
-  onDismissAll: () => void;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
   busyItemIds?: ReadonlySet<string>;
   bulkBusy?: boolean;
 };
@@ -48,10 +50,12 @@ export default function FeedInbox({
   loading,
   error,
   search,
+  isEditMode = false,
+  selectedIds,
   onOpen,
   onKeep,
   onDismiss,
-  onDismissAll,
+  onToggleSelect,
   busyItemIds,
   bulkBusy = false,
 }: Props) {
@@ -66,43 +70,47 @@ export default function FeedInbox({
           {search.trim() ? "No feed items match that search." : "Nothing waiting in this feed."}
         </div>
       ) : (
-        <>
-          <div className="feed-inbox-toolbar">
-            <button
-              type="button"
-              className="pill-btn pill-btn-sm"
-              onClick={onDismissAll}
-              disabled={bulkBusy}
-            >
-              {bulkBusy ? "Dismissing all…" : "Dismiss all"}
-            </button>
-          </div>
-          <div className="feed-inbox-list">
-            {items.map((item) => {
-              const busy = bulkBusy || (busyItemIds?.has(item.id) ?? false);
-              const hasPreview = Boolean(item.preview_image);
-              return (
-                <article key={item.id} className={`feed-inbox-item${hasPreview ? " has-preview" : ""}`}>
-                  <div className="feed-inbox-item-main">
-                    {hasPreview ? (
-                      <button
-                        type="button"
-                        className="feed-inbox-item-thumb"
-                        onClick={() => onOpen(item)}
-                        disabled={!item.url || bulkBusy}
-                        aria-label={`Open ${itemTitle(item)}`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img src={item.preview_image ?? undefined} alt="" />
-                      </button>
-                    ) : null}
+        <div className="feed-inbox-list">
+          {items.map((item) => {
+            const busy = bulkBusy || (busyItemIds?.has(item.id) ?? false);
+            const hasPreview = Boolean(item.preview_image);
+            const selected = selectedIds?.has(item.id) ?? false;
+            return (
+              <article
+                key={item.id}
+                className={`feed-inbox-item${hasPreview ? " has-preview" : ""}${selected ? " is-selected" : ""}${isEditMode ? " is-edit-mode" : ""}`}
+              >
+                <div className="feed-inbox-item-main">
+                  {isEditMode ? (
+                    <button
+                      type="button"
+                      className={`feed-inbox-select-toggle${selected ? " is-selected" : ""}`}
+                      onClick={(event) => onToggleSelect?.(item.id, event.shiftKey)}
+                      aria-pressed={selected}
+                      aria-label={selected ? `Deselect ${itemTitle(item)}` : `Select ${itemTitle(item)}`}
+                    >
+                      <span className="feed-inbox-select-dot" />
+                    </button>
+                  ) : hasPreview ? (
+                    <button
+                      type="button"
+                      className="feed-inbox-item-thumb"
+                      onClick={() => onOpen(item)}
+                      disabled={!item.url || bulkBusy}
+                      aria-label={`Open ${itemTitle(item)}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.preview_image ?? undefined} alt="" />
+                    </button>
+                  ) : null}
 
-                    <div className="feed-inbox-item-body">
-                      <div className="feed-inbox-item-top">
-                        <div className="feed-inbox-item-meta muted">
-                          <span>{hostnameFromUrl(item.url)}</span>
-                          {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
-                        </div>
+                  <div className="feed-inbox-item-body">
+                    <div className="feed-inbox-item-top">
+                      <div className="feed-inbox-item-meta muted">
+                        <span>{hostnameFromUrl(item.url)}</span>
+                        {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
+                      </div>
+                      {!isEditMode && (
                         <div className="feed-inbox-item-actions">
                           <button
                             className="pill-btn pill-btn-sm"
@@ -126,28 +134,34 @@ export default function FeedInbox({
                             {busy ? "Keeping…" : "Keep"}
                           </button>
                         </div>
-                      </div>
-
-                      <h3 className="feed-inbox-item-title">
-                        <button
-                          type="button"
-                          className="feed-inbox-item-title-button"
-                          onClick={() => onOpen(item)}
-                          disabled={!item.url || bulkBusy}
-                        >
-                          {itemTitle(item)}
-                        </button>
-                      </h3>
-                      {item.description && (
-                        <p className="feed-inbox-item-description muted">{item.description}</p>
                       )}
                     </div>
+
+                    <h3 className="feed-inbox-item-title">
+                      <button
+                        type="button"
+                        className="feed-inbox-item-title-button"
+                        onClick={(event) => {
+                          if (isEditMode) {
+                            onToggleSelect?.(item.id, event.shiftKey);
+                            return;
+                          }
+                          onOpen(item);
+                        }}
+                        disabled={!item.url && !isEditMode}
+                      >
+                        {itemTitle(item)}
+                      </button>
+                    </h3>
+                    {item.description && (
+                      <p className="feed-inbox-item-description muted">{item.description}</p>
+                    )}
                   </div>
-                </article>
-              );
-            })}
-          </div>
-        </>
+                </div>
+              </article>
+            );
+          })}
+        </div>
       )}
 
       <style jsx>{`
@@ -156,10 +170,6 @@ export default function FeedInbox({
           flex-direction: column;
           gap: 14px;
           padding: 16px 20px 20px;
-        }
-        .feed-inbox-toolbar {
-          display: flex;
-          justify-content: flex-end;
         }
         .feed-inbox-list {
           display: grid;
@@ -171,6 +181,10 @@ export default function FeedInbox({
           background: var(--color-bg);
           padding: 14px;
         }
+        .feed-inbox-item.is-selected {
+          border-color: var(--color-text);
+          background: color-mix(in srgb, var(--color-text) 3%, var(--color-bg));
+        }
         .feed-inbox-item-main {
           display: grid;
           gap: 14px;
@@ -178,6 +192,37 @@ export default function FeedInbox({
         }
         .feed-inbox-item.has-preview .feed-inbox-item-main {
           grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+        }
+        .feed-inbox-item.is-edit-mode .feed-inbox-item-main {
+          grid-template-columns: auto minmax(0, 1fr);
+        }
+        .feed-inbox-select-toggle {
+          width: 26px;
+          height: 26px;
+          margin-top: 2px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: transparent;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          padding: 0;
+          cursor: pointer;
+        }
+        .feed-inbox-select-toggle.is-selected {
+          border-color: var(--color-text);
+          background: var(--color-text);
+        }
+        .feed-inbox-select-dot {
+          width: 10px;
+          height: 10px;
+          border-radius: 999px;
+          border: 1px solid var(--color-text);
+          background: transparent;
+        }
+        .feed-inbox-select-toggle.is-selected .feed-inbox-select-dot {
+          border-color: var(--color-bg);
+          background: var(--color-bg);
         }
         .feed-inbox-item-thumb {
           aspect-ratio: 16 / 10;
@@ -262,11 +307,11 @@ export default function FeedInbox({
           .feed-inbox {
             padding: 14px 14px 18px;
           }
-          .feed-inbox-toolbar {
-            justify-content: flex-start;
-          }
           .feed-inbox-item.has-preview .feed-inbox-item-main {
             grid-template-columns: 1fr;
+          }
+          .feed-inbox-item.is-edit-mode .feed-inbox-item-main {
+            grid-template-columns: auto minmax(0, 1fr);
           }
           .feed-inbox-item-thumb {
             aspect-ratio: 16 / 9;

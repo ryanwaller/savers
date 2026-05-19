@@ -249,10 +249,15 @@ export const api = {
       })
     );
   },
-  async dismissAllFeedItems(feedId: string): Promise<{ ok: boolean; dismissed: number }> {
+  async dismissAllFeedItems(
+    feedId: string,
+    itemIds?: string[]
+  ): Promise<{ ok: boolean; dismissed: number }> {
     return j(
       await _fetch(`/api/feeds/${encodeURIComponent(feedId)}/dismiss-all`, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(itemIds?.length ? { item_ids: itemIds } : {}),
       })
     );
   },

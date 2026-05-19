@@ -325,6 +325,8 @@ export default function Home() {
   const [bulkMoveSearch, setBulkMoveSearch] = useState("");
   const [bulkMoveBusy, setBulkMoveBusy] = useState(false);
   const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [selectedFeedItemIds, setSelectedFeedItemIds] = useState<Set<string>>(new Set());
+  const lastClickedFeedItemIdRef = useRef<string | null>(null);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [bulkTagBusy, setBulkTagBusy] = useState(false);
   const [resizingSidebar, setResizingSidebar] = useState(false);
@@ -1117,7 +1119,9 @@ export default function Home() {
       if (e.key === "Escape") {
         setIsEditMode(false);
         setSelectedIds(new Set());
+        setSelectedFeedItemIds(new Set());
         lastClickedIdRef.current = null;
+        lastClickedFeedItemIdRef.current = null;
       }
       if ((e.metaKey || e.ctrlKey) && e.key === "a") {
         // Don't prevent default — let the browser text-selection behavior
@@ -1126,12 +1130,16 @@ export default function Home() {
         const tag = (e.target as HTMLElement)?.tagName;
         if (tag === "INPUT" || tag === "TEXTAREA") return;
         e.preventDefault();
-        setSelectedIds(new Set(bookmarks.map((b) => b.id)));
+        if (selection.kind === "feed") {
+          setSelectedFeedItemIds(new Set(visibleFeedItems.map((item) => item.id)));
+        } else {
+          setSelectedIds(new Set(bookmarks.map((b) => b.id)));
+        }
       }
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [isEditMode, bookmarks]);
+  }, [isEditMode, bookmarks, selection.kind, visibleFeedItems]);
 
   // Collection paths for the bulk move picker (same logic as CollectionPicker)
   const collectionPaths = useMemo(() => {
@@ -1381,10 +1389,15 @@ export default function Home() {
 
   async function handleDismissAllFeedItems() {
     if (selection.kind !== "feed" || busyFeedBulkAction) return;
+    const ids = Array.from(selectedFeedItemIds);
+    if (ids.length === 0) return;
     setBusyFeedBulkAction(true);
     try {
-      const { dismissed } = await api.dismissAllFeedItems(selection.id);
-      setFeedItems([]);
+      const { dismissed } = await api.dismissAllFeedItems(selection.id, ids);
+      const dismissSet = new Set(ids);
+      setFeedItems((prev) => prev.filter((item) => !dismissSet.has(item.id)));
+      setSelectedFeedItemIds(new Set());
+      lastClickedFeedItemIdRef.current = null;
       setFeedCounts((prev) => ({
         ...prev,
         [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - dismissed),
@@ -2272,6 +2285,8 @@ export default function Home() {
               loading={loadingFeedItems}
               error={feedItemsError}
               search={search}
+              isEditMode={isEditMode}
+              selectedIds={selectedFeedItemIds}
               busyItemIds={busyFeedItemIds}
               bulkBusy={busyFeedBulkAction}
               onOpen={(item) => {
@@ -2280,7 +2295,26 @@ export default function Home() {
               }}
               onKeep={handleKeepFeedItem}
               onDismiss={handleDismissFeedItem}
-              onDismissAll={handleDismissAllFeedItems}
+              onToggleSelect={(id, shiftKey) => {
+                setSelectedFeedItemIds((prev) => {
+                  const next = new Set(prev);
+                  if (shiftKey && lastClickedFeedItemIdRef.current) {
+                    const fromIdx = visibleFeedItems.findIndex((item) => item.id === lastClickedFeedItemIdRef.current);
+                    const toIdx = visibleFeedItems.findIndex((item) => item.id === id);
+                    if (fromIdx !== -1 && toIdx !== -1) {
+                      const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                      for (let i = start; i <= end; i++) {
+                        next.add(visibleFeedItems[i].id);
+                      }
+                    }
+                  } else {
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                  }
+                  lastClickedFeedItemIdRef.current = id;
+                  return next;
+                });
+              }}
             />
           ) : isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
@@ -2382,7 +2416,29 @@ export default function Home() {
           )}
         </section>
         <div className="bottom-bar">
-          {isEditMode && selectedIds.size > 0 && (
+          {isEditMode && selection.kind === "feed" && selectedFeedItemIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="bulk-count">{selectedFeedItemIds.size} selected</span>
+              <button
+                className="btn btn-ghost danger"
+                onClick={() => handleDismissAllFeedItems()}
+                disabled={busyFeedBulkAction}
+              >
+                {busyFeedBulkAction ? "Dismissing…" : `Dismiss ${selectedFeedItemIds.size}`}
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setSelectedFeedItemIds(new Set());
+                  lastClickedFeedItemIdRef.current = null;
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {isEditMode && selection.kind !== "feed" && selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="bulk-count">{selectedIds.size} selected</span>
               <div className="bulk-tag-wrap">
@@ -2485,7 +2541,9 @@ export default function Home() {
                 onClick={() => {
                   setIsEditMode(false);
                   setSelectedIds(new Set());
+                  setSelectedFeedItemIds(new Set());
                   lastClickedIdRef.current = null;
+                  lastClickedFeedItemIdRef.current = null;
                 }}
               >
                 Cancel
@@ -2532,7 +2590,9 @@ export default function Home() {
               onClick={() => {
                 setIsEditMode((v) => !v);
                 setSelectedIds(new Set());
+                setSelectedFeedItemIds(new Set());
                 lastClickedIdRef.current = null;
+                lastClickedFeedItemIdRef.current = null;
               }}
               title={isEditMode ? "Exit edit mode" : "Edit mode"}
               aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}

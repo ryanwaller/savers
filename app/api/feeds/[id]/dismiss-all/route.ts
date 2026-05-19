@@ -3,7 +3,7 @@ import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -23,12 +23,23 @@ export async function POST(
       return NextResponse.json({ error: "Feed not found" }, { status: 404 });
     }
 
-    const { data: pendingItems, error: pendingError } = await supabase
+    const body = await req.json().catch(() => ({}));
+    const requestedIds = Array.isArray(body?.item_ids)
+      ? body.item_ids.filter((value: unknown): value is string => typeof value === "string" && value.length > 0)
+      : [];
+
+    let pendingQuery = supabase
       .from("feed_items")
       .select("id")
       .eq("subscription_id", id)
       .eq("imported", false)
       .eq("dismissed", false);
+
+    if (requestedIds.length > 0) {
+      pendingQuery = pendingQuery.in("id", requestedIds);
+    }
+
+    const { data: pendingItems, error: pendingError } = await pendingQuery;
 
     if (pendingError) throw pendingError;
 
