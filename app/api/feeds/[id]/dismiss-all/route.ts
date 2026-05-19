@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
+const BATCH_SIZE = 100;
+
 export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -28,38 +30,51 @@ export async function POST(
       ? body.item_ids.filter((value: unknown): value is string => typeof value === "string" && value.length > 0)
       : [];
 
-    let pendingQuery = supabase
-      .from("feed_items")
-      .select("id")
-      .eq("subscription_id", id)
-      .eq("imported", false)
-      .eq("dismissed", false);
+    let pendingIds: string[] = [];
 
     if (requestedIds.length > 0) {
-      pendingQuery = pendingQuery.in("id", requestedIds);
+      pendingIds = requestedIds;
+    } else {
+      const { data: pendingItems, error: pendingError } = await supabase
+        .from("feed_items")
+        .select("id")
+        .eq("subscription_id", id)
+        .eq("imported", false)
+        .eq("dismissed", false);
+
+      if (pendingError) throw pendingError;
+      pendingIds = (pendingItems ?? []).map((item) => item.id).filter(Boolean);
     }
 
-    const { data: pendingItems, error: pendingError } = await pendingQuery;
-
-    if (pendingError) throw pendingError;
-
-    const pendingIds = (pendingItems ?? []).map((item) => item.id).filter(Boolean);
     if (pendingIds.length === 0) {
       return NextResponse.json({ ok: true, dismissed: 0 });
     }
 
-    const { error: updateError } = await supabase
-      .from("feed_items")
-      .update({ dismissed: true })
-      .in("id", pendingIds);
+    let dismissed = 0;
+    for (let i = 0; i < pendingIds.length; i += BATCH_SIZE) {
+      const batch = pendingIds.slice(i, i + BATCH_SIZE);
+      const { error: updateError, count } = await supabase
+        .from("feed_items")
+        .update({ dismissed: true }, { count: "exact" })
+        .eq("subscription_id", id)
+        .eq("imported", false)
+        .eq("dismissed", false)
+        .in("id", batch);
 
-    if (updateError) throw updateError;
+      if (updateError) throw updateError;
+      dismissed += count ?? batch.length;
+    }
 
-    return NextResponse.json({ ok: true, dismissed: pendingIds.length });
+    return NextResponse.json({ ok: true, dismissed });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
     }
-    return NextResponse.json({ error: "Failed to dismiss feed items" }, { status: 500 });
+    return NextResponse.json(
+      {
+        error: err instanceof Error ? err.message : "Failed to dismiss feed items",
+      },
+      { status: 500 }
+    );
   }
 }
