@@ -1226,7 +1226,7 @@ export default function Home() {
       return [
         { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "Feeds", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
-        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection },
+        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection, websiteUrl: (() => { try { return new URL(feed?.feed_url ?? "").origin; } catch { return null; } })() },
       ];
     }
 
@@ -2111,22 +2111,42 @@ export default function Home() {
                   </svg>
                 )}
               </button>
-              {breadcrumbItems.map((item, i) => (
+              {breadcrumbItems.map((item, i) => {
+                const isLast = i === breadcrumbItems.length - 1;
+                const websiteUrl = "websiteUrl" in item ? (item.websiteUrl as string | null | undefined) : undefined;
+                const isExternal = isLast && websiteUrl != null;
+                return (
                 <span key={i} className="crumb">
-                  <button
-                    className={i === breadcrumbItems.length - 1 ? "crumb-link current" : "crumb-link ancestor"}
-                    onClick={() => setSelection(item.selection)}
-                  >
-                    {item.isCollection && (
-                      <span className="crumb-icon" aria-hidden>
-                        <CollectionIcon name={item.icon} size={13} />
-                      </span>
-                    )}
-                    <span className="crumb-label">{item.label}</span>
-                  </button>
+                  {isExternal ? (
+                    <a
+                      className="crumb-link current"
+                      href={websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {item.isCollection && (
+                        <span className="crumb-icon" aria-hidden>
+                          <CollectionIcon name={item.icon} size={13} />
+                        </span>
+                      )}
+                      <span className="crumb-label">{item.label}</span>
+                    </a>
+                  ) : (
+                    <button
+                      className={isLast ? "crumb-link current" : "crumb-link ancestor"}
+                      onClick={() => setSelection(item.selection)}
+                    >
+                      {item.isCollection && (
+                        <span className="crumb-icon" aria-hidden>
+                          <CollectionIcon name={item.icon} size={13} />
+                        </span>
+                      )}
+                      <span className="crumb-label">{item.label}</span>
+                    </button>
+                  )}
                   {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
                 </span>
-              ))}
+              )})}
               {isGroupedView && (() => {
                   const displayCollection = scrollCollection ?? groupedBookmarks?.[0]?.path ?? null;
                   if (!displayCollection) return null;
