@@ -249,6 +249,13 @@ export const api = {
       })
     );
   },
+  async dismissAllFeedItems(feedId: string): Promise<{ ok: boolean; dismissed: number }> {
+    return j(
+      await _fetch(`/api/feeds/${encodeURIComponent(feedId)}/dismiss-all`, {
+        method: "POST",
+      })
+    );
+  },
   async uploadCustomPreview(bookmarkId: string, source: CustomPreviewSource): Promise<{ bookmark: Bookmark }> {
     if (source instanceof File) {
       const formData = new FormData();

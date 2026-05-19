@@ -11,7 +11,9 @@ type Props = {
   onOpen: (item: FeedItem) => void;
   onKeep: (item: FeedItem) => void;
   onDismiss: (item: FeedItem) => void;
+  onDismissAll: () => void;
   busyItemIds?: ReadonlySet<string>;
+  bulkBusy?: boolean;
 };
 
 function formatWhen(value: string | null) {
@@ -49,7 +51,9 @@ export default function FeedInbox({
   onOpen,
   onKeep,
   onDismiss,
+  onDismissAll,
   busyItemIds,
+  bulkBusy = false,
 }: Props) {
   return (
     <section className="feed-inbox">
@@ -62,76 +66,88 @@ export default function FeedInbox({
           {search.trim() ? "No feed items match that search." : "Nothing waiting in this feed."}
         </div>
       ) : (
-        <div className="feed-inbox-list">
-          {items.map((item) => {
-            const busy = busyItemIds?.has(item.id) ?? false;
-            const hasPreview = Boolean(item.preview_image);
-            return (
-              <article key={item.id} className={`feed-inbox-item${hasPreview ? " has-preview" : ""}`}>
-                <div className="feed-inbox-item-main">
-                  {hasPreview ? (
-                    <button
-                      type="button"
-                      className="feed-inbox-item-thumb"
-                      onClick={() => onOpen(item)}
-                      disabled={!item.url}
-                      aria-label={`Open ${itemTitle(item)}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.preview_image ?? undefined} alt="" />
-                    </button>
-                  ) : null}
-
-                  <div className="feed-inbox-item-body">
-                    <div className="feed-inbox-item-top">
-                      <div className="feed-inbox-item-meta muted">
-                        <span>{hostnameFromUrl(item.url)}</span>
-                        {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
-                      </div>
-                      <div className="feed-inbox-item-actions">
-                        <button
-                          className="pill-btn pill-btn-sm"
-                          onClick={() => onOpen(item)}
-                          disabled={busy}
-                        >
-                          Open
-                        </button>
-                        <button
-                          className="pill-btn pill-btn-sm"
-                          onClick={() => onDismiss(item)}
-                          disabled={busy}
-                        >
-                          {busy ? "Working…" : "Dismiss"}
-                        </button>
-                        <button
-                          className="pill-btn pill-btn-primary pill-btn-sm"
-                          onClick={() => onKeep(item)}
-                          disabled={busy}
-                        >
-                          {busy ? "Keeping…" : "Keep"}
-                        </button>
-                      </div>
-                    </div>
-
-                    <h3 className="feed-inbox-item-title">
+        <>
+          <div className="feed-inbox-toolbar">
+            <button
+              type="button"
+              className="pill-btn pill-btn-sm"
+              onClick={onDismissAll}
+              disabled={bulkBusy}
+            >
+              {bulkBusy ? "Dismissing all…" : "Dismiss all"}
+            </button>
+          </div>
+          <div className="feed-inbox-list">
+            {items.map((item) => {
+              const busy = bulkBusy || (busyItemIds?.has(item.id) ?? false);
+              const hasPreview = Boolean(item.preview_image);
+              return (
+                <article key={item.id} className={`feed-inbox-item${hasPreview ? " has-preview" : ""}`}>
+                  <div className="feed-inbox-item-main">
+                    {hasPreview ? (
                       <button
                         type="button"
-                        className="feed-inbox-item-title-button"
+                        className="feed-inbox-item-thumb"
                         onClick={() => onOpen(item)}
-                        disabled={!item.url}
+                        disabled={!item.url || bulkBusy}
+                        aria-label={`Open ${itemTitle(item)}`}
                       >
-                        {itemTitle(item)}
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={item.preview_image ?? undefined} alt="" />
                       </button>
-                    </h3>
-                    {item.description && (
-                      <p className="feed-inbox-item-description muted">{item.description}</p>
-                    )}
+                    ) : null}
+
+                    <div className="feed-inbox-item-body">
+                      <div className="feed-inbox-item-top">
+                        <div className="feed-inbox-item-meta muted">
+                          <span>{hostnameFromUrl(item.url)}</span>
+                          {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
+                        </div>
+                        <div className="feed-inbox-item-actions">
+                          <button
+                            className="pill-btn pill-btn-sm"
+                            onClick={() => onOpen(item)}
+                            disabled={busy}
+                          >
+                            Open
+                          </button>
+                          <button
+                            className="pill-btn pill-btn-sm"
+                            onClick={() => onDismiss(item)}
+                            disabled={busy}
+                          >
+                            {busy ? "Working…" : "Dismiss"}
+                          </button>
+                          <button
+                            className="pill-btn pill-btn-primary pill-btn-sm"
+                            onClick={() => onKeep(item)}
+                            disabled={busy}
+                          >
+                            {busy ? "Keeping…" : "Keep"}
+                          </button>
+                        </div>
+                      </div>
+
+                      <h3 className="feed-inbox-item-title">
+                        <button
+                          type="button"
+                          className="feed-inbox-item-title-button"
+                          onClick={() => onOpen(item)}
+                          disabled={!item.url || bulkBusy}
+                        >
+                          {itemTitle(item)}
+                        </button>
+                      </h3>
+                      {item.description && (
+                        <p className="feed-inbox-item-description muted">{item.description}</p>
+                      )}
+                    </div>
                   </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
+                </article>
+              );
+            })}
+          </div>
+        </>
       )}
 
       <style jsx>{`
@@ -140,6 +156,10 @@ export default function FeedInbox({
           flex-direction: column;
           gap: 14px;
           padding: 16px 20px 20px;
+        }
+        .feed-inbox-toolbar {
+          display: flex;
+          justify-content: flex-end;
         }
         .feed-inbox-list {
           display: grid;
@@ -241,6 +261,9 @@ export default function FeedInbox({
         @media (max-width: 900px) {
           .feed-inbox {
             padding: 14px 14px 18px;
+          }
+          .feed-inbox-toolbar {
+            justify-content: flex-start;
           }
           .feed-inbox-item.has-preview .feed-inbox-item-main {
             grid-template-columns: 1fr;

@@ -84,6 +84,7 @@ export default function Home() {
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
   const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
+  const [busyFeedBulkAction, setBusyFeedBulkAction] = useState(false);
   const [totals, setTotals] = useState<BookmarkTotals>({
     all: 0,
     unsorted: 0,
@@ -1378,6 +1379,23 @@ export default function Home() {
     }
   }
 
+  async function handleDismissAllFeedItems() {
+    if (selection.kind !== "feed" || busyFeedBulkAction) return;
+    setBusyFeedBulkAction(true);
+    try {
+      const { dismissed } = await api.dismissAllFeedItems(selection.id);
+      setFeedItems([]);
+      setFeedCounts((prev) => ({
+        ...prev,
+        [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - dismissed),
+      }));
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Failed to dismiss feed items");
+    } finally {
+      setBusyFeedBulkAction(false);
+    }
+  }
+
   async function handleDeleteFeed(id: string) {
     try {
       await api.deleteFeed(id);
@@ -2255,12 +2273,14 @@ export default function Home() {
               error={feedItemsError}
               search={search}
               busyItemIds={busyFeedItemIds}
+              bulkBusy={busyFeedBulkAction}
               onOpen={(item) => {
                 if (!item.url) return;
                 window.open(item.url, "_blank", "noopener,noreferrer");
               }}
               onKeep={handleKeepFeedItem}
               onDismiss={handleDismissFeedItem}
+              onDismissAll={handleDismissAllFeedItems}
             />
           ) : isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
