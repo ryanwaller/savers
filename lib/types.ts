@@ -75,6 +75,7 @@ export interface FeedSubscription {
   icon: string | null
   collection_id: string | null
   last_checked_at: string | null
+  site_url: string | null
   created_at: string
 }
 

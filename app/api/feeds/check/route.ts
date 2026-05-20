@@ -2,6 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fetchPageContent } from "@/lib/page-content";
 
+// Extract the channel-level <link> — the actual website homepage URL.
+// RSS: <channel><link>https://example.com</link></channel>
+// Atom: <link href="https://example.com" rel="alternate" type="text/html"/>
+function extractChannelLink(xml: string): string | null {
+  // RSS: search within <channel> block
+  const channelMatch = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i);
+  if (channelMatch) {
+    const linkMatch = channelMatch[1].match(/<link[^>]*>([^<]+)<\/link>/i);
+    if (linkMatch) return linkMatch[1].trim() || null;
+  }
+  // Atom: search before the first <entry> block
+  const firstEntry = xml.search(/<entry\b/i);
+  const preamble = firstEntry >= 0 ? xml.slice(0, firstEntry) : xml;
+  // Prefer rel="alternate" (website), fall back to any feed-level <link>
+  const altMatch = preamble.match(/<link[^>]*rel=["']alternate["'][^>]*href=["']([^"']+)["'][^>]*\/?>/i);
+  if (altMatch) return altMatch[1].trim() || null;
+  const anyLink = preamble.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i);
+  if (anyLink) return anyLink[1].trim() || null;
+  return null;
+}
+
 // Simple RSS/Atom parser — extracts entries from XML without dependencies
 function parseFeedEntries(xml: string): {
   title: string | null;
@@ -217,6 +238,17 @@ export async function POST(req: NextRequest) {
         }
 
         const entries = parseFeedEntries(xml);
+
+        // Extract and persist the channel-level <link> (the actual website)
+        // so the UI can link to the real site, not just the XML feed URL.
+        const channelLink = extractChannelLink(xml);
+        if (channelLink && channelLink !== sub.site_url) {
+          supabase
+            .from("feed_subscriptions")
+            .update({ site_url: channelLink })
+            .eq("id", sub.id)
+            .then(/* fire-and-forget */);
+        }
 
         // Sort newest first by pubDate (fallback: keep original order)
         entries.sort((a, b) => {

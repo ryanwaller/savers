@@ -1226,7 +1226,7 @@ export default function Home() {
       return [
         { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "Feeds", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
-        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection, websiteUrl: (() => { try { return new URL(feed?.feed_url ?? "").origin; } catch { return null; } })() },
+        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection, websiteUrl: feed?.site_url || (() => { try { return new URL(feed?.feed_url ?? "").origin; } catch { return null; } })() },
       ];
     }
 
