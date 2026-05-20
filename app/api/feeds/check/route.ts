@@ -241,7 +241,11 @@ export async function POST(req: NextRequest) {
 
         // Extract and persist the channel-level <link> (the actual website)
         // so the UI can link to the real site, not just the XML feed URL.
-        const channelLink = extractChannelLink(xml);
+        const channelLink = (() => {
+          const raw = extractChannelLink(xml);
+          if (!raw) return null;
+          try { return new URL(raw).origin; } catch { return null; }
+        })();
         if (channelLink && channelLink !== sub.site_url) {
           supabase
             .from("feed_subscriptions")
