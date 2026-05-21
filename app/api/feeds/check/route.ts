@@ -165,9 +165,10 @@ export async function POST(req: NextRequest) {
     }[] = [];
 
     for (const sub of subscriptions) {
+      let timeout: ReturnType<typeof setTimeout> | null = null;
       try {
         const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 15000);
+        timeout = setTimeout(() => controller.abort(), 15000);
 
         const res = await fetch(sub.feed_url, {
           signal: controller.signal,
@@ -175,9 +176,10 @@ export async function POST(req: NextRequest) {
             "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)",
           },
         });
-        clearTimeout(timeout);
 
         if (!res.ok) {
+          clearTimeout(timeout);
+          timeout = null;
           results.push({
             subscription_id: sub.id,
             name: sub.name,
@@ -236,6 +238,9 @@ export async function POST(req: NextRequest) {
             }
           }
         }
+
+        // Network phase done — clear the abort timeout before per-entry processing.
+        if (timeout) { clearTimeout(timeout); timeout = null; }
 
         const entries = parseFeedEntries(xml);
 
@@ -367,6 +372,7 @@ export async function POST(req: NextRequest) {
           totalEntries: entries.length,
         });
       } catch (err) {
+        if (timeout) clearTimeout(timeout);
         results.push({
           subscription_id: sub.id,
           name: sub.name,
