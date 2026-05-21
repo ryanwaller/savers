@@ -73,7 +73,13 @@ export async function POST(req: NextRequest) {
       clearTimeout(timeout);
 
       const text = await probe.text();
-      const looksLikeXml = text.trimStart().startsWith("<");
+      const ct = probe.headers.get("content-type") || "";
+      const looksLikeXml =
+        ct.includes("application/rss") ||
+        ct.includes("application/atom") ||
+        ct.includes("text/xml") ||
+        ct.includes("application/xml") ||
+        text.trimStart().startsWith("<?");
 
       if (!looksLikeXml) {
         // Extract all <link> tags (handles multiline attributes)
@@ -127,6 +133,17 @@ export async function POST(req: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
+
+    // Kick off an immediate check for the new feed (fire-and-forget).
+    const newSubId = data.id;
+    fetch(
+      `${process.env.NEXT_PUBLIC_SITE_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`}/api/feeds/check`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ subscription_id: newSubId }),
+      },
+    ).catch(() => {});
 
     return NextResponse.json({ subscription: data });
   } catch (err) {
