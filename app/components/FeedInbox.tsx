@@ -107,7 +107,7 @@ export default function FeedInbox({
                   <div className="feed-inbox-item-body">
                     <div className="feed-inbox-item-meta muted">
                       {item.published_at && <span>{formatWhen(item.published_at)}</span>}
-                      {item.published_at && item.url && <span>·</span>}
+                      {item.published_at && item.url && <span>,</span>}
                       <span>{hostnameFromUrl(item.url)}</span>
                     </div>
 
@@ -176,7 +176,7 @@ export default function FeedInbox({
         }
         .feed-inbox-item {
           border: 1px solid var(--color-border);
-          border-radius: 12px;
+          border-radius: 16px;
           background: var(--color-bg);
           padding: 14px;
         }
