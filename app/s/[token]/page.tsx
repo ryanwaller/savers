@@ -1,12 +1,27 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { buildSaveUrl } from "@/lib/save-url";
 
-function resolveSiteUrl(): string {
+function fallbackSiteUrl(): string {
   const configured = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (configured) return configured.replace(/\/$/, "");
   return "https://savers-production.up.railway.app";
+}
+
+async function resolveSiteUrl(): Promise<string> {
+  const h = await headers();
+  const host =
+    h.get("x-forwarded-host")?.trim() ||
+    h.get("host")?.trim() ||
+    "";
+  const proto =
+    h.get("x-forwarded-proto")?.trim() ||
+    (host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https");
+
+  if (host) return `${proto}://${host}`.replace(/\/$/, "");
+  return fallbackSiteUrl();
 }
 
 type Props = {
@@ -73,7 +88,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const title = bookmark.title || bookmark.url;
   const description = bookmark.description || bookmark.url;
   const image = safeResolveImageUrl(bookmark);
-  const siteUrl = resolveSiteUrl();
+  const siteUrl = await resolveSiteUrl();
 
   return {
     title,
@@ -104,7 +119,7 @@ export default async function SharedBookmarkPage({ params }: Props) {
 
   const title = bookmark.title || bookmark.url;
   const imageUrl = safeResolveImageUrl(bookmark);
-  const siteUrl = resolveSiteUrl();
+  const siteUrl = await resolveSiteUrl();
   let saveUrl: string;
   try {
     saveUrl = buildSaveUrl({ baseUrl: siteUrl, sourceUrl: bookmark.url });
