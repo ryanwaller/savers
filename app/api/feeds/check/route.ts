@@ -192,8 +192,13 @@ export async function POST(req: NextRequest) {
 
         let xml = await res.text();
 
-        // Auto-discover feed URL if the response is HTML instead of XML
-        if (!xml.trimStart().startsWith("<")) {
+        // Auto-discover feed URL if the response is HTML instead of XML.
+        // HTML pages start with <!DOCTYPE or <html, both start with "<", so we
+        // can't just check the first character. Look for HTML signatures instead.
+        const looksLikeHtml =
+          /^\s*<!DOCTYPE\s+html|<html\b/i.test(xml.trimStart().slice(0, 500)) ||
+          (res.headers.get("content-type") ?? "").includes("text/html");
+        if (looksLikeHtml) {
           let discovered: string | null = null;
 
           // Extract all <link> tags (handles multiline attributes)
@@ -217,6 +222,7 @@ export async function POST(req: NextRequest) {
               try {
                 const candidate = new URL(path, sub.feed_url).href;
                 const probe = await fetch(candidate, {
+                  signal: controller.signal,
                   headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
                 });
                 if (probe.ok && probe.headers.get("content-type")?.includes("xml")) {
@@ -231,6 +237,7 @@ export async function POST(req: NextRequest) {
 
           if (discovered) {
             const feedRes = await fetch(discovered, {
+              signal: controller.signal,
               headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
             });
             if (feedRes.ok) {
