@@ -1354,7 +1354,7 @@ export default function SettingsSections({
         .create-row {
           display: flex;
           gap: 8px;
-          margin-bottom: 16px;
+          margin: 8px 0 12px;
         }
         .create-row input {
           flex: 1 1 auto;
