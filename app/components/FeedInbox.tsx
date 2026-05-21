@@ -190,7 +190,7 @@ export default function FeedInbox({
           align-items: start;
         }
         .feed-inbox-item.has-preview .feed-inbox-item-main {
-          grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
         }
         .feed-inbox-item.is-edit-mode .feed-inbox-item-main {
           grid-template-columns: auto minmax(0, 1fr);
