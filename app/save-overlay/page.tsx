@@ -13,7 +13,7 @@ function dismiss(type: "close" | "saved" = "close") {
   }
   // Iframe fallback (Chrome extension, etc.) — notify parent
   try {
-    window.parent.postMessage({ type }, window.location.origin);
+    window.parent.postMessage({ type }, "*");
   } catch {
     window.close();
   }
