@@ -105,36 +105,10 @@ export default function FeedInbox({
                   ) : null}
 
                   <div className="feed-inbox-item-body">
-                    <div className="feed-inbox-item-top">
-                      <div className="feed-inbox-item-meta muted">
-                        <span>{hostnameFromUrl(item.url)}</span>
-                        {item.published_at && <span>· {formatWhen(item.published_at)}</span>}
-                      </div>
-                      {!isEditMode && (
-                        <div className="feed-inbox-item-actions">
-                          <button
-                            className="pill-btn pill-btn-sm"
-                            onClick={() => onOpen(item)}
-                            disabled={busy}
-                          >
-                            Open
-                          </button>
-                          <button
-                            className="pill-btn pill-btn-sm"
-                            onClick={() => onDismiss(item)}
-                            disabled={busy}
-                          >
-                            {busy ? "Working…" : "Dismiss"}
-                          </button>
-                          <button
-                            className="pill-btn pill-btn-primary pill-btn-sm"
-                            onClick={() => onKeep(item)}
-                            disabled={busy}
-                          >
-                            {busy ? "Keeping…" : "Keep"}
-                          </button>
-                        </div>
-                      )}
+                    <div className="feed-inbox-item-meta muted">
+                      {item.published_at && <span>{formatWhen(item.published_at)}</span>}
+                      {item.published_at && item.url && <span>·</span>}
+                      <span>{hostnameFromUrl(item.url)}</span>
                     </div>
 
                     <h3 className="feed-inbox-item-title">
@@ -155,6 +129,31 @@ export default function FeedInbox({
                     </h3>
                     {item.description && (
                       <p className="feed-inbox-item-description muted">{item.description}</p>
+                    )}
+                    {!isEditMode && (
+                      <div className="feed-inbox-item-actions">
+                        <button
+                          className="pill-btn pill-btn-sm"
+                          onClick={() => onOpen(item)}
+                          disabled={busy}
+                        >
+                          Open
+                        </button>
+                        <button
+                          className="pill-btn pill-btn-sm"
+                          onClick={() => onDismiss(item)}
+                          disabled={busy}
+                        >
+                          {busy ? "Working…" : "Dismiss"}
+                        </button>
+                        <button
+                          className="pill-btn pill-btn-primary pill-btn-sm"
+                          onClick={() => onKeep(item)}
+                          disabled={busy}
+                        >
+                          {busy ? "Keeping…" : "Keep"}
+                        </button>
+                      </div>
                     )}
                   </div>
                 </div>
@@ -244,27 +243,28 @@ export default function FeedInbox({
         }
         .feed-inbox-item-body {
           display: grid;
-          gap: 8px;
+          align-content: start;
+          gap: 10px;
           min-width: 0;
-        }
-        .feed-inbox-item-top {
-          display: flex;
-          align-items: flex-start;
-          justify-content: space-between;
-          gap: 12px;
         }
         .feed-inbox-item-meta {
+          display: flex;
+          align-items: center;
+          gap: 6px;
           min-width: 0;
+          font-size: 15px;
+          line-height: 22px;
         }
         .feed-inbox-item-actions {
           display: flex;
           align-items: center;
           gap: 8px;
           flex-wrap: wrap;
-          justify-content: flex-end;
+          justify-content: flex-start;
+          padding-top: 2px;
         }
         .feed-inbox-item-title {
-          font-size: 16px;
+          font-size: 15px;
           line-height: 22px;
           font-weight: 500;
         }
@@ -289,8 +289,10 @@ export default function FeedInbox({
           text-underline-offset: 2px;
         }
         .feed-inbox-item-description {
+          font-size: 15px;
+          line-height: 22px;
           display: -webkit-box;
-          -webkit-line-clamp: 4;
+          -webkit-line-clamp: 6;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
@@ -315,9 +317,6 @@ export default function FeedInbox({
           }
           .feed-inbox-item-thumb {
             aspect-ratio: 16 / 9;
-          }
-          .feed-inbox-item-top {
-            flex-direction: column;
           }
           .feed-inbox-item-actions {
             justify-content: flex-start;
