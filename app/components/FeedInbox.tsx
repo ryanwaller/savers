@@ -244,7 +244,7 @@ export default function FeedInbox({
         .feed-inbox-item-body {
           display: grid;
           align-content: start;
-          gap: 10px;
+          gap: 8px;
           min-width: 0;
         }
         .feed-inbox-item-meta {
@@ -252,8 +252,8 @@ export default function FeedInbox({
           align-items: center;
           gap: 6px;
           min-width: 0;
-          font-size: 14px;
-          line-height: 20px;
+          font-size: 13px;
+          line-height: 18px;
         }
         .feed-inbox-item-actions {
           display: flex;
@@ -264,8 +264,8 @@ export default function FeedInbox({
           padding-top: 2px;
         }
         .feed-inbox-item-title {
-          font-size: 14px;
-          line-height: 20px;
+          font-size: 13px;
+          line-height: 18px;
           font-weight: 500;
         }
         .feed-inbox-item-title-button {
@@ -289,8 +289,8 @@ export default function FeedInbox({
           text-underline-offset: 2px;
         }
         .feed-inbox-item-description {
-          font-size: 14px;
-          line-height: 20px;
+          font-size: 13px;
+          line-height: 18px;
           display: -webkit-box;
           -webkit-line-clamp: 6;
           -webkit-box-orient: vertical;
