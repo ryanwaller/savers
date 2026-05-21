@@ -64,6 +64,7 @@ export default function Home() {
   // Library bootstrap state: counts and sidebar summaries are seeded from the
   // server, then kept in sync locally as bookmarks mutate.
   const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([]);
+  const [libraryDataLoaded, setLibraryDataLoaded] = useState(false);
   const allBookmarksRef = useRef<Bookmark[]>([]);
   const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
   const [bookmarkCountsHydrated, setBookmarkCountsHydrated] = useState(false);
@@ -723,6 +724,7 @@ export default function Home() {
     smartCollectionsRef.current = [];
     setBookmarkCountsHydrated(false);
     setAllBookmarks([]);
+    setLibraryDataLoaded(false);
     setBookmarks([]);
     setTreeRaw([]);
     setFlat([]);
@@ -859,9 +861,11 @@ export default function Home() {
       setSmartCollectionCounts(data.summaries.smartCollectionCounts);
       setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
       setFeedCounts(data.summaries.feedCounts);
+      setLibraryDataLoaded(true);
       setLoadError(null);
       return data.bookmarks;
     } catch (e) {
+      setLibraryDataLoaded(false);
       setLoadError(e instanceof Error ? e.message : "Failed to load library data");
     }
     return null;
@@ -1000,6 +1004,12 @@ export default function Home() {
         return;
       }
 
+      if (!libraryDataLoaded) {
+        setBookmarks([]);
+        setLoadingBookmarks(true);
+        return;
+      }
+
       const scoped = allBookmarksRef.current.filter((bookmark) => {
         if (selection.kind === "unsorted") return bookmark.collection_id === null;
         if (selection.kind === "pinned") return bookmark.pinned;
@@ -1032,7 +1042,7 @@ export default function Home() {
     return () => {
       if (searchTimer.current) window.clearTimeout(searchTimer.current);
     };
-  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded, smartCollections]);
+  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded, smartCollections, libraryDataLoaded]);
 
   useEffect(() => {
     if (authLoading || !user || !initialDataLoaded) return;
