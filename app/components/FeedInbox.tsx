@@ -187,7 +187,7 @@ export default function FeedInbox({
         .feed-inbox-item-main {
           display: grid;
           gap: 14px;
-          align-items: start;
+          align-items: stretch;
         }
         .feed-inbox-item.has-preview .feed-inbox-item-main {
           grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
@@ -246,6 +246,7 @@ export default function FeedInbox({
           align-content: start;
           gap: 8px;
           min-width: 0;
+          min-height: 100%;
         }
         .feed-inbox-item-meta {
           display: flex;
@@ -262,6 +263,7 @@ export default function FeedInbox({
           flex-wrap: wrap;
           justify-content: flex-start;
           padding-top: 2px;
+          margin-top: auto;
         }
         .feed-inbox-item-title {
           font-size: 13px;
