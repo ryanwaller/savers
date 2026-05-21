@@ -242,8 +242,9 @@ export default function FeedInbox({
           display: block;
         }
         .feed-inbox-item-body {
-          display: grid;
-          align-content: start;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
           gap: 8px;
           min-width: 0;
           min-height: 100%;
