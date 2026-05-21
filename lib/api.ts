@@ -29,6 +29,25 @@ function _fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response>
 }
 
 export const api = {
+  async sidebarBootstrap(): Promise<{
+    collections: Collection[];
+    flat: Collection[];
+    smart_collections: SmartCollection[];
+    feeds: import("./types").FeedSubscription[];
+    summaries: {
+      totals: {
+        all: number;
+        unsorted: number;
+        pinned: number;
+        broken: number;
+      };
+      collectionBookmarkCounts: Record<string, number>;
+      feedCounts: Record<string, number>;
+    };
+  }> {
+    return j(await _fetch("/api/sidebar-bootstrap", { cache: "no-store" }));
+  },
+
   async systemHealth(): Promise<{
     services: {
       redis: { configured: boolean; reachable: boolean };

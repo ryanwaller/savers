@@ -83,7 +83,6 @@ export default function Home() {
   const [loadedFeedId, setLoadedFeedId] = useState<string | null>(null);
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
-  const feedItemsByFeedIdRef = useRef<Record<string, FeedItem[]>>({});
   const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
   const [busyFeedBulkAction, setBusyFeedBulkAction] = useState(false);
   const [totals, setTotals] = useState<BookmarkTotals>({
@@ -736,7 +735,6 @@ export default function Home() {
     setFeedItems([]);
     setLoadedFeedId(null);
     setFeedItemsError(null);
-    feedItemsByFeedIdRef.current = {};
     setDetail(null);
     setToast(null);
     setLoadError(null);
@@ -869,6 +867,26 @@ export default function Home() {
     return null;
   }, []);
 
+  const loadSidebarBootstrap = useCallback(async () => {
+    try {
+      const data = await api.sidebarBootstrap();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+      smartCollectionsRef.current = data.smart_collections;
+      setSmartCollections(data.smart_collections);
+      setFeeds(data.feeds);
+      setBookmarkCountsHydrated(true);
+      setTotals(data.summaries.totals);
+      setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
+      setFeedCounts(data.summaries.feedCounts);
+      setLoadError(null);
+      return data;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load sidebar data");
+      return null;
+    }
+  }, []);
+
   const loadFeeds = useCallback(async () => {
     try {
       const data = await api.listFeeds();
@@ -879,19 +897,11 @@ export default function Home() {
     }
   }, []);
 
-  const loadFeedItems = useCallback(async (feedId: string, force = false) => {
-    const cached = feedItemsByFeedIdRef.current[feedId];
-    if (!force && cached) {
-      setFeedItems(cached);
-      setLoadedFeedId(feedId);
-      setFeedItemsError(null);
-      return cached;
-    }
+  const loadFeedItems = useCallback(async (feedId: string) => {
     setLoadingFeedItems(true);
     try {
       const data = await api.listFeedItems(feedId);
       setFeedItems(data.items);
-      feedItemsByFeedIdRef.current[feedId] = data.items;
       setLoadedFeedId(feedId);
       setFeedItemsError(null);
       return data.items;
@@ -941,8 +951,7 @@ export default function Home() {
     async (showLoading = false) => {
       if (showLoading) setLoadingBookmarks(true);
       try {
-        await loadBootstrap();
-        void loadFeeds();
+        await Promise.all([loadSidebarBootstrap(), loadBootstrap()]);
         if (selection.kind === "feed") {
           void loadFeedItems(selection.id);
         }
@@ -950,31 +959,35 @@ export default function Home() {
         if (showLoading) setLoadingBookmarks(false);
       }
     },
-    [loadBootstrap, loadFeeds, loadFeedItems, selection]
+    [loadSidebarBootstrap, loadBootstrap, loadFeedItems, selection]
   );
 
   // Initial load
   useEffect(() => {
     if (authLoading || !user) return;
     let cancelled = false;
+    let keepLoadingAfterSidebar = false;
 
     (async () => {
       setLoadingBookmarks(true);
       try {
-        await loadBootstrap();
-        void loadFeeds();
-        if (!cancelled) {
-          setInitialDataLoaded(true);
-        }
+        await loadSidebarBootstrap();
+        if (cancelled) return;
+        setInitialDataLoaded(true);
+        keepLoadingAfterSidebar = true;
+        void loadBootstrap().finally(() => {
+          if (!cancelled) setLoadingBookmarks(false);
+        });
+        return;
       } finally {
-        if (!cancelled) setLoadingBookmarks(false);
+        if (!cancelled && !keepLoadingAfterSidebar) setLoadingBookmarks(false);
       }
     })();
 
     return () => {
       cancelled = true;
     };
-  }, [authLoading, user, loadBootstrap]);
+  }, [authLoading, user, loadSidebarBootstrap, loadBootstrap]);
 
   // Load bookmarks for the current view (with debounced search)
   const searchTimer = useRef<number | null>(null);
@@ -1356,11 +1369,7 @@ export default function Home() {
           ? prev.map((existing) => (existing.id === bookmark.id ? bookmark : existing))
           : [bookmark, ...prev]
       );
-      setFeedItems((prev) => {
-        const next = prev.filter((candidate) => candidate.id !== item.id);
-        if (selection.kind === "feed") feedItemsByFeedIdRef.current[selection.id] = next;
-        return next;
-      });
+      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
       if (selection.kind === "feed") {
         setFeedCounts((prev) => ({
           ...prev,
@@ -1383,11 +1392,7 @@ export default function Home() {
     setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
     try {
       await api.dismissFeedItem(item.id);
-      setFeedItems((prev) => {
-        const next = prev.filter((candidate) => candidate.id !== item.id);
-        if (selection.kind === "feed") feedItemsByFeedIdRef.current[selection.id] = next;
-        return next;
-      });
+      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
       if (selection.kind === "feed") {
         setFeedCounts((prev) => ({
           ...prev,
@@ -1413,11 +1418,7 @@ export default function Home() {
     try {
       const { dismissed } = await api.dismissAllFeedItems(selection.id, ids);
       const dismissSet = new Set(ids);
-      setFeedItems((prev) => {
-        const next = prev.filter((item) => !dismissSet.has(item.id));
-        feedItemsByFeedIdRef.current[selection.id] = next;
-        return next;
-      });
+      setFeedItems((prev) => prev.filter((item) => !dismissSet.has(item.id)));
       setSelectedFeedItemIds(new Set());
       lastClickedFeedItemIdRef.current = null;
       setFeedCounts((prev) => ({
