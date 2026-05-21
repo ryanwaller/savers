@@ -83,6 +83,7 @@ export default function Home() {
   const [loadedFeedId, setLoadedFeedId] = useState<string | null>(null);
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
+  const feedItemsByFeedIdRef = useRef<Record<string, FeedItem[]>>({});
   const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
   const [busyFeedBulkAction, setBusyFeedBulkAction] = useState(false);
   const [totals, setTotals] = useState<BookmarkTotals>({
@@ -735,6 +736,7 @@ export default function Home() {
     setFeedItems([]);
     setLoadedFeedId(null);
     setFeedItemsError(null);
+    feedItemsByFeedIdRef.current = {};
     setDetail(null);
     setToast(null);
     setLoadError(null);
@@ -877,11 +879,19 @@ export default function Home() {
     }
   }, []);
 
-  const loadFeedItems = useCallback(async (feedId: string) => {
+  const loadFeedItems = useCallback(async (feedId: string, force = false) => {
+    const cached = feedItemsByFeedIdRef.current[feedId];
+    if (!force && cached) {
+      setFeedItems(cached);
+      setLoadedFeedId(feedId);
+      setFeedItemsError(null);
+      return cached;
+    }
     setLoadingFeedItems(true);
     try {
       const data = await api.listFeedItems(feedId);
       setFeedItems(data.items);
+      feedItemsByFeedIdRef.current[feedId] = data.items;
       setLoadedFeedId(feedId);
       setFeedItemsError(null);
       return data.items;
@@ -1346,7 +1356,11 @@ export default function Home() {
           ? prev.map((existing) => (existing.id === bookmark.id ? bookmark : existing))
           : [bookmark, ...prev]
       );
-      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") feedItemsByFeedIdRef.current[selection.id] = next;
+        return next;
+      });
       if (selection.kind === "feed") {
         setFeedCounts((prev) => ({
           ...prev,
@@ -1369,7 +1383,11 @@ export default function Home() {
     setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
     try {
       await api.dismissFeedItem(item.id);
-      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") feedItemsByFeedIdRef.current[selection.id] = next;
+        return next;
+      });
       if (selection.kind === "feed") {
         setFeedCounts((prev) => ({
           ...prev,
@@ -1395,7 +1413,11 @@ export default function Home() {
     try {
       const { dismissed } = await api.dismissAllFeedItems(selection.id, ids);
       const dismissSet = new Set(ids);
-      setFeedItems((prev) => prev.filter((item) => !dismissSet.has(item.id)));
+      setFeedItems((prev) => {
+        const next = prev.filter((item) => !dismissSet.has(item.id));
+        feedItemsByFeedIdRef.current[selection.id] = next;
+        return next;
+      });
       setSelectedFeedItemIds(new Set());
       lastClickedFeedItemIdRef.current = null;
       setFeedCounts((prev) => ({

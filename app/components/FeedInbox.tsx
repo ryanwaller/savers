@@ -91,17 +91,6 @@ export default function FeedInbox({
                     >
                       <span className="feed-inbox-select-dot" />
                     </button>
-                  ) : hasPreview ? (
-                    <button
-                      type="button"
-                      className="feed-inbox-item-thumb"
-                      onClick={() => onOpen(item)}
-                      disabled={!item.url || bulkBusy}
-                      aria-label={`Open ${itemTitle(item)}`}
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img src={item.preview_image ?? undefined} alt="" />
-                    </button>
                   ) : null}
 
                   <div className="feed-inbox-item-body">
@@ -157,6 +146,19 @@ export default function FeedInbox({
                       <p className="feed-inbox-item-description muted">{item.description}</p>
                     )}
                   </div>
+
+                  {hasPreview ? (
+                    <button
+                      type="button"
+                      className="feed-inbox-item-thumb"
+                      onClick={() => onOpen(item)}
+                      disabled={!item.url || bulkBusy}
+                      aria-label={`Open ${itemTitle(item)}`}
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={item.preview_image ?? undefined} alt="" />
+                    </button>
+                  ) : null}
                 </div>
               </article>
             );
@@ -179,7 +181,7 @@ export default function FeedInbox({
           border: 1px solid var(--color-border);
           border-radius: 12px;
           background: var(--color-bg);
-          padding: 14px;
+          padding: 16px;
         }
         .feed-inbox-item.is-selected {
           border-color: var(--color-text);
@@ -187,11 +189,11 @@ export default function FeedInbox({
         }
         .feed-inbox-item-main {
           display: grid;
-          gap: 14px;
+          gap: 18px;
           align-items: start;
         }
         .feed-inbox-item.has-preview .feed-inbox-item-main {
-          grid-template-columns: minmax(0, 160px) minmax(0, 1fr);
+          grid-template-columns: minmax(0, 1fr) 240px;
         }
         .feed-inbox-item.is-edit-mode .feed-inbox-item-main {
           grid-template-columns: auto minmax(0, 1fr);
@@ -232,6 +234,8 @@ export default function FeedInbox({
           border: 1px solid var(--color-border);
           padding: 0;
           cursor: pointer;
+          align-self: stretch;
+          min-height: 140px;
         }
         .feed-inbox-item-thumb:disabled {
           cursor: default;
@@ -244,8 +248,9 @@ export default function FeedInbox({
         }
         .feed-inbox-item-body {
           display: grid;
-          gap: 8px;
+          gap: 10px;
           min-width: 0;
+          align-content: start;
         }
         .feed-inbox-item-top {
           display: flex;
@@ -255,6 +260,8 @@ export default function FeedInbox({
         }
         .feed-inbox-item-meta {
           min-width: 0;
+          font-size: 13px;
+          line-height: 18px;
         }
         .feed-inbox-item-actions {
           display: flex;
@@ -264,8 +271,8 @@ export default function FeedInbox({
           justify-content: flex-end;
         }
         .feed-inbox-item-title {
-          font-size: 16px;
-          line-height: 22px;
+          font-size: 22px;
+          line-height: 30px;
           font-weight: 500;
         }
         .feed-inbox-item-title-button {
@@ -293,6 +300,8 @@ export default function FeedInbox({
           -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
           overflow: hidden;
+          font-size: 15px;
+          line-height: 23px;
         }
         .feed-inbox-state {
           border: 1px dashed var(--color-border);
