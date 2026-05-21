@@ -172,30 +172,14 @@ export default function SettingsSections({
     if (creating) return;
     setCreating(true);
     try {
-      // Create a fresh Bookmarklet token on each copy — embeds the token
-      // in the code so auth works inside the cross-site iframe overlay.
-      const data = await api.listTokens();
-      const existing = data.tokens.find(
-        (t) => t.name.toLowerCase() === "bookmarklet",
-      );
-      if (existing) {
-        await api.deleteToken(existing.id);
-      }
       const result = await api.createToken("Bookmarklet");
       await navigator.clipboard.writeText(
         buildBookmarkletCode({ token: result.token }),
       );
       setBookmarkletCopied(true);
       window.setTimeout(() => setBookmarkletCopied(false), 1800);
-    } catch {
-      try {
-        // Fallback: copy without token (popup-based auth)
-        await navigator.clipboard.writeText(buildBookmarkletCode());
-        setBookmarkletCopied(true);
-        window.setTimeout(() => setBookmarkletCopied(false), 1800);
-      } catch {
-        // ignore
-      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Failed to create token");
     } finally {
       setCreating(false);
     }
@@ -1370,6 +1354,7 @@ export default function SettingsSections({
         .create-row {
           display: flex;
           gap: 8px;
+          margin-bottom: 16px;
         }
         .create-row input {
           flex: 1 1 auto;
