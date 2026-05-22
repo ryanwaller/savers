@@ -37,6 +37,7 @@ export default function BookmarkDetail({
   const [tags, setTags] = useState<string[]>(bookmark.tags ?? []);
   const [autoTags, setAutoTags] = useState<string[]>(bookmark.auto_tags ?? []);
   const [tagInput, setTagInput] = useState("");
+  const [tagPendingDelete, setTagPendingDelete] = useState<string | null>(null);
   const [collectionId, setCollectionId] = useState<string | null>(bookmark.collection_id);
   const [saving, setSaving] = useState(false);
   const [tagSaving, setTagSaving] = useState(false);
@@ -837,13 +838,13 @@ export default function BookmarkDetail({
             <div className="label">Tags <span className="small muted">(press Enter)</span></div>
             <div className={`tag-editor ${tagSaving ? "busy" : ""}`}>
               {tags.map((tag) => (
-                <span key={tag} className="chip tag-pill">
+                <span key={tag} className={`chip tag-pill${tagPendingDelete === tag ? " tag-pending-delete" : ""}`}>
                   <span>{tag}</span>
                   <button
                     type="button"
                     className="chip-remove tag-pill-remove"
                     aria-label={`Remove ${tag}`}
-                    onClick={() => void removeTag(tag)}
+                    onClick={() => { void removeTag(tag); setTagPendingDelete(null); }}
                     disabled={tagSaving}
                   >
                     ×
@@ -856,7 +857,7 @@ export default function BookmarkDetail({
                   style={{ width: "100%", boxSizing: "border-box" }}
                   value={tagInput}
                   placeholder={tags.length ? "Add tag" : "Add a tag"}
-                  onChange={(e) => setTagInput(e.target.value)}
+                  onChange={(e) => { setTagInput(e.target.value); setTagPendingDelete(null); }}
                   onBlur={() => {
                     setTimeout(() => {
                       if (tagInput.trim() && tagAutosuggestions.length === 0) void commitTag(tagInput);
@@ -890,7 +891,14 @@ export default function BookmarkDetail({
                       }
                       if (e.key === "Backspace" && !tagInput && tags.length) {
                         e.preventDefault();
-                        void removeTag(tags[tags.length - 1]);
+                        if (tagPendingDelete) {
+                          void removeTag(tagPendingDelete);
+                          setTagPendingDelete(null);
+                        } else {
+                          setTagPendingDelete(tags[tags.length - 1]);
+                        }
+                      } else if (e.key !== "Backspace" && tagPendingDelete) {
+                        setTagPendingDelete(null);
                       }
                     }
                   }}
@@ -1420,10 +1428,19 @@ export default function BookmarkDetail({
           gap: 4px;
         }
         .tag-pill-remove {
+          opacity: 0;
           color: var(--color-text-muted);
+        }
+        .tag-pill:hover .tag-pill-remove,
+        .tag-pill:focus-within .tag-pill-remove {
+          opacity: 1;
         }
         .tag-pill-remove:hover:not(:disabled) {
           color: var(--color-text);
+        }
+        .tag-pending-delete {
+          outline: 2px solid var(--color-accent, #f59e0b);
+          outline-offset: 1px;
         }
         .tag-input {
           width: 100%;

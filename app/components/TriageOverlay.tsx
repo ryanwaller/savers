@@ -871,10 +871,15 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           gap: 2px;
         }
         .tag-pill-remove {
+          opacity: 0;
           appearance: none;
           color: var(--color-text-muted);
           padding: 0;
           cursor: pointer;
+        }
+        .tag-pill:hover .tag-pill-remove,
+        .tag-pill:focus-within .tag-pill-remove {
+          opacity: 1;
         }
         .tag-pill-remove:hover {
           color: var(--color-text);
