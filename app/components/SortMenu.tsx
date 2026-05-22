@@ -3,13 +3,22 @@
 import { useEffect, useRef } from "react";
 
 type Props = {
+  viewMode: "grid" | "list";
+  onSelectView: (view: "grid" | "list") => void;
   sortBy: "date" | "collection";
   onSelect: (sort: "date" | "collection") => void;
   isOpen: boolean;
   onClose: () => void;
 };
 
-export default function SortMenu({ sortBy, onSelect, isOpen, onClose }: Props) {
+export default function SortMenu({
+  viewMode,
+  onSelectView,
+  sortBy,
+  onSelect,
+  isOpen,
+  onClose,
+}: Props) {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -37,6 +46,26 @@ export default function SortMenu({ sortBy, onSelect, isOpen, onClose }: Props) {
 
   return (
     <div ref={menuRef} className="sort-menu">
+      <div className="sort-menu-label">View</div>
+      <button
+        className={`sort-menu-item ${viewMode === "grid" ? "sort-menu-active" : ""}`}
+        onClick={() => {
+          onSelectView("grid");
+          onClose();
+        }}
+      >
+        Grid
+      </button>
+      <button
+        className={`sort-menu-item ${viewMode === "list" ? "sort-menu-active" : ""}`}
+        onClick={() => {
+          onSelectView("list");
+          onClose();
+        }}
+      >
+        List
+      </button>
+      <div className="sort-menu-divider" />
       <div className="sort-menu-label">Sort by</div>
       <button
         className={`sort-menu-item ${sortBy === "date" ? "sort-menu-active" : ""}`}
@@ -73,6 +102,11 @@ export default function SortMenu({ sortBy, onSelect, isOpen, onClose }: Props) {
           font-size: 12px;
           font-weight: 600;
           color: var(--color-text-muted);
+        }
+        .sort-menu-divider {
+          height: 1px;
+          margin: 4px 6px;
+          background: var(--color-border);
         }
         .sort-menu-item {
           width: 100%;

@@ -256,6 +256,7 @@ export default function Home() {
   const [contentWidth, setContentWidth] = useState(0);
   const CARD_SIZES = ["s", "m", "l", "xl"] as const;
   type CardSize = (typeof CARD_SIZES)[number];
+  type ViewMode = "grid" | "list";
   // Desktop: choose column count, let cards stretch with 1fr.
   const CARD_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
     s: 4,
@@ -277,6 +278,7 @@ export default function Home() {
     xl: 480,
   };
   const [cardSize, setCardSize] = useState<CardSize>("m");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
   const cardMinWidth = CARD_SIZE_PX[cardSize];
   const desktopCols = CARD_SIZE_DESKTOP_COLS[cardSize];
   const mobileCols = CARD_SIZE_MOBILE_COLS[cardSize];
@@ -773,6 +775,19 @@ export default function Home() {
     if (typeof window === "undefined") return;
     window.localStorage.setItem("savers.grid.cardSize", cardSize);
   }, [cardSize]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.grid.viewMode");
+    if (raw === "grid" || raw === "list") {
+      setViewMode(raw);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.grid.viewMode", viewMode);
+  }, [viewMode]);
 
   useEffect(() => {
     if (!resizingSidebar) return;
@@ -2391,6 +2406,7 @@ export default function Home() {
                   cardMinWidth={cardMinWidth}
                   desktopCols={effectiveDesktopCols}
                   mobileCols={mobileCols}
+                  viewMode={viewMode}
                   loading={loadingBookmarks}
                   isEditMode={isEditMode}
                   selectedIds={selectedIds}
@@ -2431,6 +2447,7 @@ export default function Home() {
               cardMinWidth={cardMinWidth}
               desktopCols={effectiveDesktopCols}
               mobileCols={mobileCols}
+              viewMode={viewMode}
               loading={loadingBookmarks}
               isEditMode={isEditMode}
               selectedIds={selectedIds}
@@ -2626,12 +2643,14 @@ export default function Home() {
               <button
                 className={`sort-btn ${showSortMenu ? "sort-btn-active" : ""}`}
                 onClick={() => setShowSortMenu((v) => !v)}
-                title="Sort bookmarks"
-                aria-label="Sort bookmarks"
+                title="View and sort bookmarks"
+                aria-label="View and sort bookmarks"
               >
                 <List size={14} weight={showSortMenu ? "fill" : "regular"} />
               </button>
               <SortMenu
+                viewMode={viewMode}
+                onSelectView={setViewMode}
                 sortBy={sortBy}
                 onSelect={setSortBy}
                 isOpen={showSortMenu}

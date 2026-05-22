@@ -176,7 +176,7 @@ export default function FeedInbox({
         }
         .feed-inbox-item {
           border: 1px solid var(--color-border);
-          border-radius: 16px;
+          border-radius: 20px;
           background: var(--color-bg);
           padding: 14px;
         }

@@ -35,6 +35,7 @@ type Props = {
   cardMinWidth?: number;
   desktopCols?: number;
   mobileCols?: number;
+  viewMode?: "grid" | "list";
   loading?: boolean;
   emptyLabel?: string;
   isEditMode?: boolean;
@@ -55,6 +56,7 @@ export default function BookmarkGrid({
   cardMinWidth,
   desktopCols,
   mobileCols,
+  viewMode = "grid",
   loading,
   emptyLabel,
   isEditMode,
@@ -89,7 +91,7 @@ export default function BookmarkGrid({
   }, [gridRef]);
 
   return (
-    <div className="grid" ref={gridRef} style={gridStyle}>
+    <div className={`grid${viewMode === "list" ? " grid-list" : ""}`} ref={gridRef} style={gridStyle}>
       {bookmarks.map((b) =>
         isMobile ? (
           <div key={b.id} className="grid-cell">
@@ -106,6 +108,7 @@ export default function BookmarkGrid({
               cardMinWidth={cardMinWidth}
               mobileCols={mobileCols}
               desktopCols={desktopCols}
+              viewMode={viewMode}
               isEditMode={isEditMode}
               isSelected={selectedIds?.has(b.id) ?? false}
               onToggleSelect={onToggleSelect}
@@ -131,6 +134,7 @@ export default function BookmarkGrid({
               cardMinWidth={cardMinWidth}
               mobileCols={mobileCols}
               desktopCols={desktopCols}
+              viewMode={viewMode}
               isEditMode={isEditMode}
               isSelected={selectedIds?.has(b.id) ?? false}
               onToggleSelect={onToggleSelect}
@@ -154,12 +158,20 @@ export default function BookmarkGrid({
           width: 100%;
           min-width: 0;
         }
+        .grid-list {
+          grid-template-columns: 1fr;
+          gap: 12px;
+        }
         @media (max-width: 768px) {
           .grid {
             grid-template-columns: repeat(var(--mobile-grid-cols, 2), minmax(0, 1fr));
             padding: 12px;
             padding-bottom: 80px;
             gap: 12px;
+          }
+          .grid-list {
+            grid-template-columns: 1fr;
+            gap: 10px;
           }
         }
 
@@ -188,6 +200,7 @@ function BookmarkCard({
   cardMinWidth,
   mobileCols,
   desktopCols,
+  viewMode,
   isEditMode,
   isSelected,
   onToggleSelect,
@@ -204,6 +217,7 @@ function BookmarkCard({
   cardMinWidth?: number;
   mobileCols?: number;
   desktopCols?: number;
+  viewMode?: "grid" | "list";
   isEditMode?: boolean;
   isSelected?: boolean;
   onToggleSelect?: (id: string, shiftKey: boolean) => void;
@@ -219,6 +233,7 @@ function BookmarkCard({
   const stackAllThumbActions = w <= 250;
   const largeThumbActions = w >= 520 && !isCompact;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
+  const listMode = viewMode === "list";
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -334,6 +349,7 @@ function BookmarkCard({
 
   const tint = tintForDomain(b.url, isDark);
   const host = domainOf(b.url);
+  const visibleTags = b.tags ?? [];
   const effectivePreviewVersion = previewNonce ?? b.preview_version ?? null;
   const customSrc = storedPreviewUrl(b.custom_preview_path, {
     previewVersion: effectivePreviewVersion,
@@ -715,7 +731,121 @@ function BookmarkCard({
           )}
         </button>
       )}
-      <div className={`card${isCompact ? " card-compact" : ""}${b.source === "feed" ? " card-feed" : ""}`} title={b.title ?? b.url} data-bookmark-id={b.id}>
+      <div
+        className={`card${isCompact ? " card-compact" : ""}${b.source === "feed" ? " card-feed" : ""}${
+          listMode ? " card-list" : ""
+        }`}
+        title={b.title ?? b.url}
+        data-bookmark-id={b.id}
+      >
+        {listMode ? (
+          <div className="list-main">
+            <button
+              type="button"
+              className="list-thumb"
+              style={{ background: tint }}
+              onClick={handleVisit}
+              aria-label={`Visit ${b.title || host}`}
+            >
+              {screenshotSrc && !previewFailed ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  key={screenshotSrc}
+                  src={screenshotSrc}
+                  alt={`Preview of ${host}`}
+                  data-asset-type={b.asset_type ?? undefined}
+                  draggable={false}
+                  onLoad={() => setReloading(false)}
+                  onError={() => {
+                    if (previewStage === "custom") {
+                      setPreviewStage(storedSrc ? "stored" : b.og_image ? "og_image" : b.favicon ? "favicon" : "fail");
+                      return;
+                    }
+                    if (previewStage === "stored") {
+                      setPreviewStage(b.og_image ? "og_image" : b.favicon ? "favicon" : "fail");
+                      return;
+                    }
+                    if (previewStage === "og_image") {
+                      setPreviewStage(b.favicon ? "favicon" : "fail");
+                      return;
+                    }
+                    setReloading(false);
+                    setPreviewFailed(true);
+                    setPreviewStage("fail");
+                  }}
+                  loading="lazy"
+                />
+              ) : (
+                <span className="thumb-fallback small muted">Preview unavailable</span>
+              )}
+            </button>
+
+            <div
+              className="list-body"
+              role="button"
+              tabIndex={0}
+              onClick={onEdit}
+              onKeyDown={(event) => {
+                if (event.key === "Enter" || event.key === " ") {
+                  event.preventDefault();
+                  onEdit();
+                }
+              }}
+            >
+              <div className="list-title">{b.title || host}</div>
+              <div className="list-meta">
+                {b.favicon && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img className="fav" src={b.favicon} alt="" />
+                )}
+                <span className="host small muted">{host}</span>
+                {b.source === "feed" && <span className="feed-badge">Feed</span>}
+              </div>
+              {visibleTags.length > 0 && (
+                <div className="list-tags">
+                  {visibleTags.map((tag) => (
+                    <button
+                      type="button"
+                      key={tag}
+                      className="tag tag-interactive list-tag"
+                      onClick={(event) => handleTagActivate(tag, event)}
+                      title={`Filter by ${tag}`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="list-actions">
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm"
+                  onClick={handleVisit}
+                >
+                  Visit
+                </button>
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm"
+                  onClick={handleEdit}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm pill-btn-danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmDeleteOpen(true);
+                  }}
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="thumb-wrap">
           <div
             className={`thumb thumb-link ${dropActive ? "is-drop-active" : ""}`}
@@ -987,6 +1117,8 @@ function BookmarkCard({
             {b.description && (desktopCols ?? 0) < 6 && <div className="desc small muted">{b.description}</div>}
           </div>
         </div>
+        </>
+        )}
       </div>
 
       <div
@@ -1286,6 +1418,105 @@ function BookmarkCard({
           height: 1px;
           margin: 4px 8px;
           background: var(--color-border);
+        }
+        .card-list {
+          overflow: visible;
+        }
+        .list-main {
+          display: grid;
+          grid-template-columns: 132px minmax(0, 1fr);
+          gap: 16px;
+          align-items: stretch;
+          padding: 14px;
+          min-height: 126px;
+        }
+        .list-thumb {
+          align-self: start;
+          width: 132px;
+          aspect-ratio: 16 / 10;
+          border-radius: 10px;
+          border: 1px solid var(--color-border);
+          overflow: hidden;
+          background: color-mix(in srgb, var(--color-text) 6%, var(--color-bg));
+          padding: 0;
+          cursor: pointer;
+        }
+        .list-thumb :global(img) {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+          object-position: top center;
+          display: block;
+        }
+        .list-body {
+          min-width: 0;
+          min-height: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: stretch;
+          gap: 7px;
+          padding-right: 42px;
+          cursor: pointer;
+        }
+        .list-title {
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 600;
+          display: -webkit-box;
+          -webkit-line-clamp: 2;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+        .list-meta {
+          display: flex;
+          align-items: center;
+          gap: 7px;
+          min-width: 0;
+        }
+        .list-tags {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          align-items: flex-start;
+        }
+        .list-tag {
+          pointer-events: auto;
+          backdrop-filter: none;
+          -webkit-backdrop-filter: none;
+          box-shadow: none;
+        }
+        .list-actions {
+          margin-top: auto;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 8px;
+          align-items: center;
+        }
+        .list-actions :global(.pill-btn) {
+          min-height: 30px;
+          padding: 0 12px;
+        }
+        @media (max-width: 768px) {
+          .list-main {
+            grid-template-columns: 96px minmax(0, 1fr);
+            gap: 12px;
+            padding: 12px;
+            min-height: 0;
+          }
+          .list-thumb {
+            width: 96px;
+          }
+          .list-body {
+            gap: 6px;
+            padding-right: 34px;
+          }
+          .list-actions {
+            gap: 6px;
+          }
+          .list-actions :global(.pill-btn) {
+            min-height: 28px;
+            padding: 0 10px;
+          }
         }
         .card-feed {
           border-color: #22c55e;
