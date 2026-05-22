@@ -1488,9 +1488,11 @@ function BookmarkCard({
           align-items: center;
           justify-content: flex-end;
           align-self: flex-end;
+          margin-top: auto;
           margin-left: auto;
-          max-width: calc(100% + 18px);
-          margin-right: -18px;
+          margin-bottom: -2px;
+          max-width: calc(100% + 28px);
+          margin-right: -28px;
         }
         .list-tag {
           pointer-events: auto;
@@ -1528,8 +1530,9 @@ function BookmarkCard({
             padding-right: 66px;
           }
           .list-tags {
-            max-width: calc(100% + 10px);
-            margin-right: -10px;
+            margin-bottom: -1px;
+            max-width: calc(100% + 16px);
+            margin-right: -16px;
           }
           .list-actions {
             gap: 6px;
