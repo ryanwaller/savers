@@ -1291,6 +1291,11 @@ function BookmarkCard({
           align-items: center;
           gap: 6px;
         }
+        .card-list ~ .actions {
+          flex-direction: row;
+          align-items: center;
+          gap: 6px;
+        }
         .action-btn {
           width: 32px;
           height: 32px;
@@ -1455,7 +1460,7 @@ function BookmarkCard({
           flex-direction: column;
           align-items: stretch;
           gap: 7px;
-          padding-right: 42px;
+          padding-right: 74px;
           cursor: pointer;
         }
         .list-title {
@@ -1478,6 +1483,10 @@ function BookmarkCard({
           flex-wrap: wrap;
           gap: 6px;
           align-items: flex-start;
+          justify-content: flex-end;
+          margin-top: auto;
+          align-self: flex-end;
+          max-width: 100%;
         }
         .list-tag {
           pointer-events: auto;
@@ -1508,7 +1517,7 @@ function BookmarkCard({
           }
           .list-body {
             gap: 6px;
-            padding-right: 34px;
+            padding-right: 66px;
           }
           .list-actions {
             gap: 6px;
