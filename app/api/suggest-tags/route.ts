@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { isPublicUrl } from '@/lib/api'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { fetchPageContent } from '@/lib/page-content'
 import { deepseekJson } from '@/lib/ai-client'
 import { buildStructuredTaggingPrompt, flattenStructuredTags, MAX_AI_TAGS, TAGGING_SYSTEM_PROMPT } from '@/lib/structured-tagging'
@@ -43,7 +44,15 @@ function normalizeTagList(raw: unknown): string[] {
 
 export async function POST(req: NextRequest) {
   try {
-    await requireUser()
+    const { user } = await requireUser()
+
+    if (!checkRateLimit(`suggest-tags:${user.id}`)) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Try again in a minute.", tags: [] },
+        { status: 429 },
+      )
+    }
+
     const body = await req.json().catch(() => ({}))
     const {
       url,

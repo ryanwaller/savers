@@ -3,6 +3,8 @@ import { Collection } from '@/lib/types'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
 import { deepseekJson } from '@/lib/ai-client'
+import { isPublicUrl } from '@/lib/api'
+import { checkRateLimit } from '@/lib/rate-limit'
 import { fetchPageContent } from '@/lib/page-content'
 
 function logUnexpectedError(scope: string, error: unknown) {
@@ -71,8 +73,23 @@ async function loadCollectionExamples(collectionIds: string[], userId: string) {
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser()
+
+    if (!checkRateLimit(`categorize:${user.id}`)) {
+      return NextResponse.json(
+        { error: "Rate limit exceeded. Try again in a minute.", suggestion: null },
+        { status: 429 },
+      )
+    }
     const { url, title, description, collections } = await req.json()
-    const content = typeof url === 'string' ? await fetchPageContent(url).catch(() => null) : null
+
+    if (typeof url !== 'string' || !url.trim()) {
+      return NextResponse.json({ error: 'Missing url' }, { status: 400 })
+    }
+    if (!isPublicUrl(url)) {
+      return NextResponse.json({ error: 'Invalid url' }, { status: 400 })
+    }
+
+    const content = await fetchPageContent(url).catch(() => null)
 
     const hasCollections = Array.isArray(collections) && collections.length > 0
     const flat = hasCollections ? flattenCollections(collections) : []

@@ -1,7 +1,13 @@
+const ALLOWED_SCHEMES = new Set(["http:", "https:"]);
+
 export function normalizeUrl(input: string): string {
   const value = input.trim();
   if (!value) return value;
-  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) return value;
+  if (/^[a-zA-Z][a-zA-Z\d+\-.]*:/.test(value)) {
+    const scheme = value.slice(0, value.indexOf(":") + 1).toLowerCase();
+    if (!ALLOWED_SCHEMES.has(scheme)) return "";
+    return value;
+  }
   return `https://${value}`;
 }
 

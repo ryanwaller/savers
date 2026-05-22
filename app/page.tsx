@@ -6,6 +6,7 @@ import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react"
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
+import { notify } from "@/lib/notify";
 import { evaluateFilter } from "@/lib/smart-collections";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 import {
@@ -1311,7 +1312,7 @@ export default function Home() {
       await loadCollections();
       return collection;
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to create collection");
+      notify(e instanceof Error ? e.message : "Failed to create collection");
       throw e;
     }
   }
@@ -1320,7 +1321,7 @@ export default function Home() {
       await api.updateCollection(id, { name });
       await loadCollections();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to rename");
+      notify(e instanceof Error ? e.message : "Failed to rename");
     }
   }
   async function handleChangeCollectionIcon(id: string, iconName: string | null) {
@@ -1328,7 +1329,7 @@ export default function Home() {
       await api.updateCollection(id, { icon: iconName });
       await loadCollections();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to update icon");
+      notify(e instanceof Error ? e.message : "Failed to update icon");
     }
   }
   async function handleDeleteCollection(id: string) {
@@ -1339,7 +1340,7 @@ export default function Home() {
       }
       await loadBootstrap();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete");
+      notify(e instanceof Error ? e.message : "Failed to delete");
     }
   }
 
@@ -1370,7 +1371,7 @@ export default function Home() {
       }
       await loadSmartCollections();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete smart collection");
+      notify(e instanceof Error ? e.message : "Failed to delete smart collection");
     }
   }
 
@@ -1395,14 +1396,9 @@ export default function Home() {
           : [bookmark, ...prev]
       );
       setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
-      if (selection.kind === "feed") {
-        setFeedCounts((prev) => ({
-          ...prev,
-          [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - 1),
-        }));
-      }
+      void loadFeeds();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to keep feed item");
+      notify(e instanceof Error ? e.message : "Failed to keep feed item");
     } finally {
       setBusyFeedItemIds((prev) => {
         const next = new Set(prev);
@@ -1418,14 +1414,9 @@ export default function Home() {
     try {
       await api.dismissFeedItem(item.id);
       setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
-      if (selection.kind === "feed") {
-        setFeedCounts((prev) => ({
-          ...prev,
-          [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - 1),
-        }));
-      }
+      void loadFeeds();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to dismiss feed item");
+      notify(e instanceof Error ? e.message : "Failed to dismiss feed item");
     } finally {
       setBusyFeedItemIds((prev) => {
         const next = new Set(prev);
@@ -1446,12 +1437,9 @@ export default function Home() {
       setFeedItems((prev) => prev.filter((item) => !dismissSet.has(item.id)));
       setSelectedFeedItemIds(new Set());
       lastClickedFeedItemIdRef.current = null;
-      setFeedCounts((prev) => ({
-        ...prev,
-        [selection.id]: Math.max(0, (prev[selection.id] ?? 0) - dismissed),
-      }));
+      void loadFeeds();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to dismiss feed items");
+      notify(e instanceof Error ? e.message : "Failed to dismiss feed items");
     } finally {
       setBusyFeedBulkAction(false);
     }
@@ -1466,7 +1454,7 @@ export default function Home() {
       await loadFeeds();
       await loadBootstrap();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete feed");
+      notify(e instanceof Error ? e.message : "Failed to delete feed");
     }
   }
 
@@ -1476,7 +1464,7 @@ export default function Home() {
       await api.updateCollection(id, { parent_id: newParentId });
       await loadCollections();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to move collection");
+      notify(e instanceof Error ? e.message : "Failed to move collection");
     }
   }
 
@@ -1511,7 +1499,7 @@ export default function Home() {
     } catch (e) {
       // Revert on failure
       setTreeRaw(oldTree);
-      alert(e instanceof Error ? e.message : "Failed to reorder");
+      notify(e instanceof Error ? e.message : "Failed to reorder");
     }
   }
 
@@ -1577,7 +1565,7 @@ export default function Home() {
       });
       setToast(null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to move");
+      notify(e instanceof Error ? e.message : "Failed to move");
     }
   }
 
@@ -1598,7 +1586,7 @@ export default function Home() {
       });
       setToast(null);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to create and move");
+      notify(e instanceof Error ? e.message : "Failed to create and move");
     }
   }
 
@@ -1658,7 +1646,7 @@ export default function Home() {
       await api.deleteBookmark(id);
       handleBookmarkDeleted(id);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to delete");
+      notify(e instanceof Error ? e.message : "Failed to delete");
     }
   }
 
@@ -1743,7 +1731,7 @@ export default function Home() {
         prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x))
       );
       setBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
-      alert(e instanceof Error ? e.message : "Failed to update pin");
+      notify(e instanceof Error ? e.message : "Failed to update pin");
     }
   }
 
@@ -1957,7 +1945,7 @@ export default function Home() {
     const supabase = getSupabaseBrowserClient();
     const { error } = await supabase.auth.signOut();
     if (error) {
-      alert(error.message);
+      notify(error.message);
       return;
     }
     setSelection({ kind: "all" });

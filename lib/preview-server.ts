@@ -5,6 +5,7 @@ import { isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRul
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { generateProductInset } from "@/lib/generateProductInsetImage";
 import { getSaversUserAgent } from "@/lib/site-url";
+import { getRedis } from "@/lib/redis";
 
 export const PREVIEW_BUCKET = "bookmark-previews";
 
@@ -29,11 +30,34 @@ const APIFLASH_ACCESS_KEY = process.env.APIFLASH_ACCESS_KEY?.trim() || null;
 const SCREENSHOTONE_ACCESS_KEY = process.env.SCREENSHOTONE_ACCESS_KEY?.trim() || null;
 const CAPTUREKIT_ACCESS_KEY = process.env.CAPTUREKIT_ACCESS_KEY?.trim() || null;
 
-let microlinkBackoffUntil = 0;
-let apiFlashBackoffUntil = 0;
-let screenshotOneBackoffUntil = 0;
-let captureKitBackoffUntil = 0;
 let previewBucketReadyPromise: Promise<void> | null = null;
+
+// Preview provider backoff — persisted in Redis (survives restarts / multi-process).
+// Falls back to in-memory when Redis isn't configured.
+const BACKOFF_PREFIX = "preview:backoff:";
+
+const inMemoryBackoff = new Map<string, number>();
+
+async function getBackoff(provider: string): Promise<number> {
+  try {
+    const redis = getRedis();
+    const value = await redis.get(`${BACKOFF_PREFIX}${provider}`);
+    return value ? parseInt(value, 10) : 0;
+  } catch {
+    return inMemoryBackoff.get(provider) ?? 0;
+  }
+}
+
+async function setBackoff(provider: string, until: number): Promise<void> {
+  try {
+    const redis = getRedis();
+    // Set with the backoff duration as TTL so keys auto-expire
+    const ttlSeconds = Math.max(1, Math.round((until - Date.now()) / 1000));
+    await redis.set(`${BACKOFF_PREFIX}${provider}`, String(until), "EX", ttlSeconds);
+  } catch {
+    inMemoryBackoff.set(provider, until);
+  }
+}
 
 type ProviderKind = "microlink" | "apiflash" | "screenshotone" | "capturekit" | "puppeteer";
 
@@ -179,7 +203,7 @@ function captureKitUrl(url: string) {
   return `https://api.capturekit.dev/v1/capture?${params.toString()}`;
 }
 
-function buildCandidates(
+async function buildCandidates(
   url: string,
   force: boolean,
   cacheBust?: string | number | null,
@@ -187,8 +211,16 @@ function buildCandidates(
 ) {
   const candidates: ImageCandidate[] = [];
 
+  const [microlinkBackoff, apiFlashBackoff, screenshotOneBackoff, captureKitBackoff] =
+    await Promise.all([
+      getBackoff("microlink"),
+      getBackoff("apiflash"),
+      getBackoff("screenshotone"),
+      getBackoff("capturekit"),
+    ]);
+
   const addApiFlash = () => {
-    if (APIFLASH_ACCESS_KEY && (force || Date.now() >= apiFlashBackoffUntil)) {
+    if (APIFLASH_ACCESS_KEY && (force || Date.now() >= apiFlashBackoff)) {
       candidates.push({
         kind: "apiflash",
         url: apiFlashScreenshotUrl(url, preferCompact),
@@ -197,7 +229,7 @@ function buildCandidates(
   };
 
   const addScreenshotOne = () => {
-    if (SCREENSHOTONE_ACCESS_KEY && (force || Date.now() >= screenshotOneBackoffUntil)) {
+    if (SCREENSHOTONE_ACCESS_KEY && (force || Date.now() >= screenshotOneBackoff)) {
       candidates.push({
         kind: "screenshotone",
         url: screenshotOneUrl(url, preferCompact),
@@ -206,7 +238,7 @@ function buildCandidates(
   };
 
   const addMicrolink = () => {
-    if (force || Date.now() >= microlinkBackoffUntil) {
+    if (force || Date.now() >= microlinkBackoff) {
       candidates.push({
         kind: "microlink",
         url: screenshotPreviewUrl(url, {
@@ -218,7 +250,7 @@ function buildCandidates(
   };
 
   const addCaptureKit = () => {
-    if (CAPTUREKIT_ACCESS_KEY && (force || Date.now() >= captureKitBackoffUntil)) {
+    if (CAPTUREKIT_ACCESS_KEY && (force || Date.now() >= captureKitBackoff)) {
       candidates.push({
         kind: "capturekit",
         url: captureKitUrl(url),
@@ -295,47 +327,51 @@ async function fetchImage(candidate: ImageCandidate) {
   return { response, contentType: contentType as string };
 }
 
-function handleProviderError(kind: ProviderKind, error: Error) {
+async function handleProviderError(kind: ProviderKind, error: Error) {
   const status = (error as Error & { status?: number }).status;
   const errorCode = (error as Error & { errorCode?: string }).errorCode;
 
+  const store = (provider: string, until: number) => {
+    void setBackoff(provider, until);
+  };
+
   if (kind === "microlink") {
     if (status === 429) {
-      microlinkBackoffUntil = Date.now() + MICROLINK_QUOTA_BACKOFF_MS;
+      store("microlink", Date.now() + MICROLINK_QUOTA_BACKOFF_MS);
     } else if (status && status >= 500) {
-      microlinkBackoffUntil = Date.now() + MICROLINK_ERROR_BACKOFF_MS;
+      store("microlink", Date.now() + MICROLINK_ERROR_BACKOFF_MS);
     }
     return;
   }
 
   if (kind === "apiflash") {
     if (status === 402) {
-      apiFlashBackoffUntil = Date.now() + APIFLASH_QUOTA_BACKOFF_MS;
+      store("apiflash", Date.now() + APIFLASH_QUOTA_BACKOFF_MS);
     } else if (status === 429) {
-      apiFlashBackoffUntil = Date.now() + APIFLASH_RATE_LIMIT_BACKOFF_MS;
+      store("apiflash", Date.now() + APIFLASH_RATE_LIMIT_BACKOFF_MS);
     } else if (status && status >= 500) {
-      apiFlashBackoffUntil = Date.now() + APIFLASH_ERROR_BACKOFF_MS;
+      store("apiflash", Date.now() + APIFLASH_ERROR_BACKOFF_MS);
     }
     return;
   }
 
   if (kind === "screenshotone") {
     if (errorCode === "screenshots_limit_reached") {
-      screenshotOneBackoffUntil = Date.now() + SCREENSHOTONE_QUOTA_BACKOFF_MS;
+      store("screenshotone", Date.now() + SCREENSHOTONE_QUOTA_BACKOFF_MS);
     } else if (errorCode === "concurrency_limit_reached" || status === 429) {
-      screenshotOneBackoffUntil = Date.now() + SCREENSHOTONE_RATE_LIMIT_BACKOFF_MS;
+      store("screenshotone", Date.now() + SCREENSHOTONE_RATE_LIMIT_BACKOFF_MS);
     } else if (status && status >= 500) {
-      screenshotOneBackoffUntil = Date.now() + SCREENSHOTONE_ERROR_BACKOFF_MS;
+      store("screenshotone", Date.now() + SCREENSHOTONE_ERROR_BACKOFF_MS);
     }
     return;
   }
 
   if (status === 402) {
-    captureKitBackoffUntil = Date.now() + CAPTUREKIT_QUOTA_BACKOFF_MS;
+    store("capturekit", Date.now() + CAPTUREKIT_QUOTA_BACKOFF_MS);
   } else if (status === 429 || status === 401 || status === 403) {
-    captureKitBackoffUntil = Date.now() + CAPTUREKIT_RATE_LIMIT_BACKOFF_MS;
+    store("capturekit", Date.now() + CAPTUREKIT_RATE_LIMIT_BACKOFF_MS);
   } else if (status && status >= 500) {
-    captureKitBackoffUntil = Date.now() + CAPTUREKIT_ERROR_BACKOFF_MS;
+    store("capturekit", Date.now() + CAPTUREKIT_ERROR_BACKOFF_MS);
   }
 }
 
@@ -384,7 +420,7 @@ export async function fetchBestPreviewAsset({
   preferCompact = false,
 }: FetchPreviewOptions): Promise<PreviewAsset> {
   const normalizedUrl = normalizeRemotePreviewUrl(url);
-  const candidates = buildCandidates(normalizedUrl, force, cacheBust, preferCompact);
+  const candidates = await buildCandidates(normalizedUrl, force, cacheBust, preferCompact);
   let lastError: Error | null = null;
 
   for (const candidate of candidates) {

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, storedPreviewUrl } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
+import { notify } from "@/lib/notify";
 import CollectionIcon from "./CollectionIcon";
 import CollectionPicker from "./CollectionPicker";
 
@@ -221,7 +222,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
       });
     } catch (e) {
       console.error("Triage save failed for bookmark", bookmark.id, e);
-      window.alert(
+      notify(
         e instanceof Error ? e.message : "Couldn't move that bookmark."
       );
     }
@@ -244,7 +245,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
       onMutated?.();
     } catch (e) {
       setQueue((prev) => [current, ...prev]);
-      window.alert(
+      notify(
         e instanceof Error ? e.message : "Couldn't delete that bookmark."
       );
     }

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/lib/types";
 import { api, canonicalBookmarkUrl } from "@/lib/api";
+import { notify } from "@/lib/notify";
 import ExportBookmarksButton from "./ExportBookmarksButton";
 
 import { buildBookmarkletCode } from "@/lib/save-url";
@@ -275,7 +276,7 @@ export default function SettingsSections({
       setDuplicateGroups(data.groups);
       applyStrategyToGroups("newest", data.groups);
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to load duplicates");
+      notify(e instanceof Error ? e.message : "Failed to load duplicates");
     } finally {
       setLoadingDuplicateGroups(false);
     }
@@ -351,7 +352,7 @@ export default function SettingsSections({
       try { await api.checkFeeds(); } catch { /* ok */ }
       onBookmarksChanged?.();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to add feed");
+      notify(e instanceof Error ? e.message : "Failed to add feed");
     } finally {
       setAddingFeed(false);
     }
@@ -364,7 +365,7 @@ export default function SettingsSections({
       await api.deleteFeed(id);
       await loadFeeds();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Failed to remove feed");
+      notify(e instanceof Error ? e.message : "Failed to remove feed");
     } finally {
       setRemovingFeed(null);
     }
@@ -378,10 +379,10 @@ export default function SettingsSections({
       const lines = result.results.map(
         (r) => `${r.name}: ${r.error ? `❌ ${r.error}` : `${r.newItems} new / ${r.totalEntries} entries`}`
       );
-      alert(`${result.totalNew} new total\n\n${lines.join("\n")}`);
+      notify(`${result.totalNew} new total\n\n${lines.join("\n")}`);
       onBookmarksChanged?.();
     } catch (e) {
-      alert(e instanceof Error ? e.message : "Check failed");
+      notify(e instanceof Error ? e.message : "Check failed");
     } finally {
       setCheckingFeeds(false);
     }
@@ -417,7 +418,7 @@ export default function SettingsSections({
       setDupToast({ message: msg, deleteId: data.deleteId ?? null });
       onBookmarksChanged?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      notify(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setDupBusy(false);
     }
@@ -439,7 +440,7 @@ export default function SettingsSections({
       setDupToast(null);
       onBookmarksChanged?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Undo failed");
+      notify(err instanceof Error ? err.message : "Undo failed");
     } finally {
       setDupBusy(false);
     }

@@ -1,16 +1,21 @@
 /**
- * Shared DeepSeek chat completion client.
+ * Shared AI chat completion client.
  *
- * DeepSeek is OpenAI-compatible so we use plain fetch — no SDK needed.
- * Falls back gracefully when DEEPSEEK_API_KEY is not set.
+ * OpenAI-compatible API — plain fetch, no SDK needed. Set the env vars to
+ * point at any provider (DeepSeek, OpenAI, Groq, etc.). Falls back gracefully
+ * when no API key is configured.
+ *
+ *   AI_BASE_URL   — Base URL (default: https://api.deepseek.com/v1)
+ *   AI_API_KEY    — API key (falls back to DEEPSEEK_API_KEY for compat)
+ *   AI_MODEL      — Model name (default: deepseek-chat)
  */
 
-const DEEPSEEK_BASE = "https://api.deepseek.com/v1";
-const DEFAULT_MODEL = "deepseek-chat";
+const AI_BASE_URL = (process.env.AI_BASE_URL?.trim() || "https://api.deepseek.com/v1").replace(/\/+$/, "");
+const AI_MODEL = process.env.AI_MODEL?.trim() || "deepseek-chat";
 const REQUEST_TIMEOUT_MS = 25_000;
 
 function getApiKey(): string | undefined {
-  return process.env.DEEPSEEK_API_KEY?.trim() || undefined;
+  return (process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY)?.trim() || undefined;
 }
 
 export interface CompletionOptions {
@@ -37,7 +42,7 @@ export async function deepseekComplete(
 ): Promise<string | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
-    console.warn("[ai-client] DEEPSEEK_API_KEY is not set — skipping AI call");
+    console.warn("[ai-client] No AI API key configured — skipping AI call");
     return null;
   }
 
@@ -48,7 +53,7 @@ export async function deepseekComplete(
   );
 
   try {
-    const res = await fetch(`${DEEPSEEK_BASE}/chat/completions`, {
+    const res = await fetch(`${AI_BASE_URL}/chat/completions`, {
       method: "POST",
       signal: controller.signal,
       headers: {
@@ -56,7 +61,7 @@ export async function deepseekComplete(
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: options?.model ?? DEFAULT_MODEL,
+        model: options?.model ?? AI_MODEL,
         messages: [
           ...(options?.systemPrompt
             ? [{ role: "system", content: options.systemPrompt }]
@@ -74,7 +79,7 @@ export async function deepseekComplete(
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(
-        `[ai-client] DeepSeek API error ${res.status}: ${body.slice(0, 300)}`,
+        `[ai-client] AI API error ${res.status}: ${body.slice(0, 300)}`,
       );
       return null;
     }
@@ -85,7 +90,7 @@ export async function deepseekComplete(
 
     const text = data.choices?.[0]?.message?.content?.trim();
     if (!text) {
-      console.warn("[ai-client] DeepSeek returned empty response");
+      console.warn("[ai-client] AI returned empty response");
       return null;
     }
 
@@ -93,9 +98,9 @@ export async function deepseekComplete(
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     if ((err as Error).name === "AbortError") {
-      console.error(`[ai-client] DeepSeek request timed out after ${options?.timeout ?? REQUEST_TIMEOUT_MS}ms`);
+      console.error(`[ai-client] AI request timed out after ${options?.timeout ?? REQUEST_TIMEOUT_MS}ms`);
     } else {
-      console.error(`[ai-client] DeepSeek request failed: ${message}`);
+      console.error(`[ai-client] AI request failed: ${message}`);
     }
     return null;
   } finally {
@@ -117,7 +122,7 @@ export async function deepseekJson<T = unknown>(
   try {
     return JSON.parse(text.replace(/```json|```/g, "").trim()) as T;
   } catch {
-    console.error(`[ai-client] Failed to parse DeepSeek response as JSON: ${text.slice(0, 200)}`);
+    console.error(`[ai-client] Failed to parse AI response as JSON: ${text.slice(0, 200)}`);
     return null;
   }
 }

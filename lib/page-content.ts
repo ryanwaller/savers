@@ -17,6 +17,34 @@ export type PageContent = {
 const FETCH_TIMEOUT_MS = 8000;
 const BODY_TEXT_MAX_CHARS = 4000;
 
+// Simple LRU cache for page content fetches. Repeated metadata/categorize
+// requests for the same URL resolve instantly without re-fetching the page.
+const CACHE_MAX_SIZE = 200;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
+const contentCache = new Map<string, { content: PageContent; ts: number }>();
+
+function cacheGet(key: string): PageContent | null {
+  const entry = contentCache.get(key);
+  if (!entry) return null;
+  if (Date.now() - entry.ts > CACHE_TTL_MS) {
+    contentCache.delete(key);
+    return null;
+  }
+  // Bump to front (LRU)
+  contentCache.delete(key);
+  contentCache.set(key, entry);
+  return entry.content;
+}
+
+function cacheSet(key: string, content: PageContent) {
+  if (contentCache.size >= CACHE_MAX_SIZE) {
+    // Delete oldest entry
+    const first = contentCache.keys().next().value;
+    if (first !== undefined) contentCache.delete(first);
+  }
+  contentCache.set(key, { content, ts: Date.now() });
+}
+
 // Note: we deliberately do NOT strip <header> or <footer> here. Designer
 // portfolios overwhelmingly put location ("Based in Lagos", "📍 Brooklyn")
 // and contact info in the footer or header — exactly the specific facts we
@@ -82,6 +110,10 @@ function rewriteFetchUrl(originalUrl: string): string {
 }
 
 export async function fetchPageContent(url: string): Promise<PageContent | null> {
+  const cacheKey = url.trim().toLowerCase();
+  const cached = cacheGet(cacheKey);
+  if (cached) return cached;
+
   const fetchUrl = rewriteFetchUrl(url);
 
   let res: Response;
@@ -171,11 +203,14 @@ export async function fetchPageContent(url: string): Promise<PageContent | null>
 
   const body_text = chunks.join("\n").slice(0, BODY_TEXT_MAX_CHARS);
 
-  return {
+  const result: PageContent = {
     title: title?.slice(0, 200) ?? null,
     description: description?.slice(0, 500) ?? null,
     og_image: resolvedImage,
     favicon,
     body_text,
   };
+
+  cacheSet(cacheKey, result);
+  return result;
 }

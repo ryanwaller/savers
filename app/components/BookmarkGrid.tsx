@@ -6,13 +6,13 @@ import { motion } from "framer-motion";
 import { PushPin } from "@phosphor-icons/react";
 import type { Bookmark } from "@/lib/types";
 import ShareModal from "./ShareModal";
-import {
-  api,
+import { api,
   type CustomPreviewSource,
   domainOf,
   storedPreviewUrl,
   tintForDomain,
 } from "@/lib/api";
+import { notify } from "@/lib/notify";
 import { compressImageForPreview } from "@/lib/image-compress";
 import { openExternalLink, isNative as isNativeShell } from "@/lib/capacitor-bridge";
 import ConfirmDialog from "./ConfirmDialog";
@@ -653,7 +653,7 @@ function BookmarkCard({
       setPreviewNonce(null);
       setUndoPromptOpen(true);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to upload image");
+      notify(error instanceof Error ? error.message : "Failed to upload image");
     } finally {
       setUploadingPreview(false);
     }
@@ -674,7 +674,7 @@ function BookmarkCard({
       setPreviewNonce(null);
       setUndoPromptOpen(false);
     } catch (error) {
-      alert(error instanceof Error ? error.message : "Failed to undo");
+      notify(error instanceof Error ? error.message : "Failed to undo");
     } finally {
       setUndoing(false);
     }

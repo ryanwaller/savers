@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { notify } from "@/lib/notify";
 
 interface TagWithCount {
   tag: string;
@@ -132,7 +133,7 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
       setToast({ message: msg, mergeId: data.mergeId ?? null });
       onMerged?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Merge failed");
+      notify(err instanceof Error ? err.message : "Merge failed");
     } finally {
       setBusy(false);
     }
@@ -154,7 +155,7 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
       setToast(null);
       onMerged?.();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Undo failed");
+      notify(err instanceof Error ? err.message : "Undo failed");
     } finally {
       setBusy(false);
     }

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DuplicateGroup } from "@/lib/types";
+import { notify } from "@/lib/notify";
 
 type Props = {
   open: boolean;
@@ -141,7 +142,7 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
       setToast({ message: msg, deleteId: data.deleteId ?? null });
       onDeleted();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Delete failed");
+      notify(err instanceof Error ? err.message : "Delete failed");
     } finally {
       setBusy(false);
     }
@@ -163,7 +164,7 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
       setToast(null);
       onDeleted();
     } catch (err) {
-      alert(err instanceof Error ? err.message : "Undo failed");
+      notify(err instanceof Error ? err.message : "Undo failed");
     } finally {
       setBusy(false);
     }
