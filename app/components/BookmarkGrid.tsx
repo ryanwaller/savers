@@ -801,46 +801,48 @@ function BookmarkCard({
                 <span className="host small muted">{host}</span>
                 {b.source === "feed" && <span className="feed-badge">Feed</span>}
               </div>
-              {visibleTags.length > 0 && (
-                <div className="list-tags">
-                  {visibleTags.map((tag) => (
-                    <button
-                      type="button"
-                      key={tag}
-                      className="tag tag-interactive list-tag"
-                      onClick={(event) => handleTagActivate(tag, event)}
-                      title={`Filter by ${tag}`}
-                    >
-                      {tag}
-                    </button>
-                  ))}
+              <div className="list-bottom">
+                {visibleTags.length > 0 && (
+                  <div className="list-tags">
+                    {visibleTags.map((tag) => (
+                      <button
+                        type="button"
+                        key={tag}
+                        className="tag tag-interactive list-tag"
+                        onClick={(event) => handleTagActivate(tag, event)}
+                        title={`Filter by ${tag}`}
+                      >
+                        {tag}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="list-actions">
+                  <button
+                    type="button"
+                    className="pill-btn pill-btn-sm"
+                    onClick={handleVisit}
+                  >
+                    Visit
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn pill-btn-sm"
+                    onClick={handleEdit}
+                  >
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    className="pill-btn pill-btn-sm pill-btn-danger"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      setConfirmDeleteOpen(true);
+                    }}
+                  >
+                    Delete
+                  </button>
                 </div>
-              )}
-              <div className="list-actions">
-                <button
-                  type="button"
-                  className="pill-btn pill-btn-sm"
-                  onClick={handleVisit}
-                >
-                  Visit
-                </button>
-                <button
-                  type="button"
-                  className="pill-btn pill-btn-sm"
-                  onClick={handleEdit}
-                >
-                  Edit
-                </button>
-                <button
-                  type="button"
-                  className="pill-btn pill-btn-sm pill-btn-danger"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    setConfirmDeleteOpen(true);
-                  }}
-                >
-                  Delete
-                </button>
               </div>
             </div>
           </div>
@@ -1217,6 +1219,9 @@ function BookmarkCard({
           transform: translateZ(0);
           transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
         }
+        .card-list {
+          border-radius: 20px;
+        }
         .card:hover {
           border-color: var(--color-border-strong);
           transform: translateY(-2px);
@@ -1478,28 +1483,39 @@ function BookmarkCard({
           gap: 7px;
           min-width: 0;
         }
+        .list-bottom {
+          margin-top: auto;
+          display: flex;
+          align-items: flex-end;
+          justify-content: flex-end;
+          gap: 8px;
+          width: 100%;
+        }
         .list-tags {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          align-items: flex-start;
+          align-items: center;
           justify-content: flex-end;
-          margin-top: auto;
-          align-self: flex-end;
-          max-width: 100%;
+          flex: 1 1 auto;
+          min-width: 0;
         }
         .list-tag {
           pointer-events: auto;
           backdrop-filter: none;
           -webkit-backdrop-filter: none;
           box-shadow: none;
+          min-height: 30px;
+          padding: 0 12px;
+          display: inline-flex;
+          align-items: center;
         }
         .list-actions {
-          margin-top: auto;
           display: flex;
-          flex-wrap: wrap;
+          flex: 0 0 auto;
           gap: 8px;
-          align-items: center;
+          align-items: flex-end;
+          justify-content: flex-end;
         }
         .list-actions :global(.pill-btn) {
           min-height: 30px;
@@ -1519,10 +1535,17 @@ function BookmarkCard({
             gap: 6px;
             padding-right: 66px;
           }
+          .list-bottom {
+            gap: 6px;
+          }
           .list-actions {
             gap: 6px;
           }
           .list-actions :global(.pill-btn) {
+            min-height: 28px;
+            padding: 0 10px;
+          }
+          .list-tag {
             min-height: 28px;
             padding: 0 10px;
           }
