@@ -801,48 +801,46 @@ function BookmarkCard({
                 <span className="host small muted">{host}</span>
                 {b.source === "feed" && <span className="feed-badge">Feed</span>}
               </div>
-              <div className="list-bottom">
-                {visibleTags.length > 0 && (
-                  <div className="list-tags">
-                    {visibleTags.map((tag) => (
-                      <button
-                        type="button"
-                        key={tag}
-                        className="tag tag-interactive list-tag"
-                        onClick={(event) => handleTagActivate(tag, event)}
-                        title={`Filter by ${tag}`}
-                      >
-                        {tag}
-                      </button>
-                    ))}
-                  </div>
-                )}
-                <div className="list-actions">
-                  <button
-                    type="button"
-                    className="pill-btn pill-btn-sm"
-                    onClick={handleVisit}
-                  >
-                    Visit
-                  </button>
-                  <button
-                    type="button"
-                    className="pill-btn pill-btn-sm"
-                    onClick={handleEdit}
-                  >
-                    Edit
-                  </button>
-                  <button
-                    type="button"
-                    className="pill-btn pill-btn-sm pill-btn-danger"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      setConfirmDeleteOpen(true);
-                    }}
-                  >
-                    Delete
-                  </button>
+              {visibleTags.length > 0 && (
+                <div className="list-tags">
+                  {visibleTags.map((tag) => (
+                    <button
+                      type="button"
+                      key={tag}
+                      className="tag tag-interactive list-tag"
+                      onClick={(event) => handleTagActivate(tag, event)}
+                      title={`Filter by ${tag}`}
+                    >
+                      {tag}
+                    </button>
+                  ))}
                 </div>
+              )}
+              <div className="list-actions">
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm"
+                  onClick={handleVisit}
+                >
+                  Visit
+                </button>
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm"
+                  onClick={handleEdit}
+                >
+                  Edit
+                </button>
+                <button
+                  type="button"
+                  className="pill-btn pill-btn-sm pill-btn-danger"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setConfirmDeleteOpen(true);
+                  }}
+                >
+                  Delete
+                </button>
               </div>
             </div>
           </div>
@@ -1483,22 +1481,16 @@ function BookmarkCard({
           gap: 7px;
           min-width: 0;
         }
-        .list-bottom {
-          margin-top: auto;
-          display: flex;
-          align-items: flex-end;
-          justify-content: flex-end;
-          gap: 8px;
-          width: 100%;
-        }
         .list-tags {
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
           align-items: center;
           justify-content: flex-end;
-          flex: 1 1 auto;
-          min-width: 0;
+          align-self: flex-end;
+          margin-left: auto;
+          max-width: calc(100% + 18px);
+          margin-right: -18px;
         }
         .list-tag {
           pointer-events: auto;
@@ -1511,11 +1503,11 @@ function BookmarkCard({
           align-items: center;
         }
         .list-actions {
+          margin-top: auto;
           display: flex;
-          flex: 0 0 auto;
+          flex-wrap: wrap;
           gap: 8px;
-          align-items: flex-end;
-          justify-content: flex-end;
+          align-items: center;
         }
         .list-actions :global(.pill-btn) {
           min-height: 30px;
@@ -1535,8 +1527,9 @@ function BookmarkCard({
             gap: 6px;
             padding-right: 66px;
           }
-          .list-bottom {
-            gap: 6px;
+          .list-tags {
+            max-width: calc(100% + 10px);
+            margin-right: -10px;
           }
           .list-actions {
             gap: 6px;
