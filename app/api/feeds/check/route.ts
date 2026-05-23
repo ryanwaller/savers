@@ -1,127 +1,162 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { fetchPageContent } from "@/lib/page-content";
+import { DOMParser } from "linkedom";
 
 // Extract the channel-level <link> — the actual website homepage URL.
-// RSS: <channel><link>https://example.com</link></channel>
-// Atom: <link href="https://example.com" rel="alternate" type="text/html"/>
-function extractChannelLink(xml: string): string | null {
-  // RSS: search within <channel> block
-  const channelMatch = xml.match(/<channel[^>]*>([\s\S]*?)<\/channel>/i);
-  if (channelMatch) {
-    const linkMatch = channelMatch[1].match(/<link[^>]*>([^<]+)<\/link>/i);
-    if (linkMatch) return linkMatch[1].trim() || null;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function extractChannelLink(doc: any): string | null {
+  // RSS: <channel><link>https://example.com</link></channel>
+  const channel = doc.querySelector("channel");
+  if (channel) {
+    // RSS channel <link> is the direct child text of a <link> element.
+    // RSS link elements with no attributes = channel link.
+    const linkEls = channel.querySelectorAll("link");
+    for (const link of linkEls) {
+      if (!link.hasAttribute("rel") && !link.hasAttribute("href")) {
+        const text = link.textContent?.trim();
+        if (text) return text;
+      }
+    }
   }
-  // Atom: search before the first <entry> block
-  const firstEntry = xml.search(/<entry\b/i);
-  const preamble = firstEntry >= 0 ? xml.slice(0, firstEntry) : xml;
-  // Prefer rel="alternate" (website), fall back to any feed-level <link>
-  const altMatch = preamble.match(/<link[^>]*rel=["']alternate["'][^>]*href=["']([^"']+)["'][^>]*\/?>/i);
-  if (altMatch) return altMatch[1].trim() || null;
-  const anyLink = preamble.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i);
-  if (anyLink) return anyLink[1].trim() || null;
+
+  // Atom: <link href="..." rel="alternate" type="text/html"/>
+  const feedEl = doc.querySelector("feed");
+  if (feedEl) {
+    const links = feedEl.querySelectorAll("link");
+    for (const link of links) {
+      const rel = link.getAttribute("rel");
+      const type = link.getAttribute("type");
+      const href = link.getAttribute("href");
+      if (href && rel === "alternate" && type === "text/html") return href;
+    }
+    // Fallback: any feed-level <link> with href
+    for (const link of links) {
+      const href = link.getAttribute("href");
+      if (href) return href;
+    }
+  }
+
   return null;
 }
 
-// Simple RSS/Atom parser — extracts entries from XML without dependencies
-function parseFeedEntries(xml: string): {
+type FeedEntry = {
   title: string | null;
   url: string | null;
   description: string | null;
   preview_image: string | null;
   guid: string | null;
   pubDate: string | null;
-}[] {
-  const entries: ReturnType<typeof parseFeedEntries> = [];
+};
 
-  // Strip namespaces for simpler matching
-  const clean = xml.replace(/\sxmlns[:=][^\s>]*/g, "");
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function parseFeedEntries(doc: any): FeedEntry[] {
+  const entries: FeedEntry[] = [];
 
-  // Match <item> (RSS) or <entry> (Atom) blocks
-  const itemRegex = /<(?:item|entry)\b[^>]*>([\s\S]*?)<\/(?:item|entry)>/gi;
-  let itemMatch: RegExpExecArray | null;
-
-  while ((itemMatch = itemRegex.exec(clean)) !== null) {
-    const block = itemMatch[1];
-
-    const decodeCdata = (value: string) => value.replace(/<!\[CDATA\[(.*?)\]\]>/g, "$1");
-    const stripHtml = (value: string) =>
-      decodeCdata(value)
-        .replace(/<script[\s\S]*?<\/script>/gi, " ")
-        .replace(/<style[\s\S]*?<\/style>/gi, " ")
-        .replace(/<[^>]+>/g, " ")
-        .replace(/\s+/g, " ")
-        .trim();
-
-    const getTagInner = (tag: string): string | null => {
-      const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)</${tag}>`, "i"));
-      return m ? decodeCdata(m[1]).trim() : null;
-    };
-
-    const getAnyTagInner = (...tags: string[]): string | null => {
-      for (const tag of tags) {
-        const value = getTagInner(tag);
-        if (value) return value;
+  const getText = (el: Element | null, ...tags: string[]): string | null => {
+    if (!el) return null;
+    for (const tag of tags) {
+      const child = el.querySelector(tag);
+      if (child?.textContent?.trim()) {
+        return child.textContent.trim();
       }
-      return null;
-    };
-
-    const getTagText = (tag: string): string | null => {
-      const inner = getTagInner(tag);
-      return inner ? stripHtml(inner) : null;
-    };
-
-    // For Atom <link>, the href is in an attribute
-    let link: string | null = getTagText("link");
-    if (!link) {
-      const linkMatch = block.match(/<link[^>]*href=["']([^"']+)["'][^>]*\/?>/i);
-      link = linkMatch ? linkMatch[1] : null;
     }
+    return null;
+  };
 
-    const title = getTagText("title");
-    const descriptionHtml = getAnyTagInner(
-      "description",
-      "summary",
-      "content",
-      "content:encoded",
-      "media:description"
-    );
-    const description = descriptionHtml ? stripHtml(descriptionHtml) : null;
-    // Try Atom-style <id> first, then RSS <guid>, then fallback to link
-    let guid = getTagText("id") || getTagText("guid");
-    if (!guid) guid = link;
+  const getLink = (el: Element): string | null => {
+    // RSS: <link>text</link>
+    const rssLink = el.querySelector("link");
+    if (rssLink && !rssLink.hasAttribute("href")) {
+      return rssLink.textContent?.trim() || null;
+    }
+    // Atom: <link href="..."/>
+    const atomLinks = el.querySelectorAll("link");
+    for (const l of atomLinks) {
+      const href = l.getAttribute("href");
+      if (href && l.getAttribute("rel") !== "enclosure") return href;
+    }
+    return null;
+  };
 
-    const pubDate = getTagText("pubDate") || getTagText("published") || getTagText("updated");
+  const getPreviewImage = (el: Element): string | null => {
+    // enclosure with image type
+    const enclosures = el.querySelectorAll("enclosure");
+    for (const enc of enclosures) {
+      const type = enc.getAttribute("type") ?? "";
+      const url = enc.getAttribute("url");
+      if (url && type.startsWith("image/")) return url;
+    }
+    // media:content / media:thumbnail
+    const mediaContent = el.querySelector("media\\:content, content[url]");
+    if (mediaContent) {
+      const url = mediaContent.getAttribute("url");
+      if (url) return url;
+    }
+    const mediaThumb = el.querySelector("media\\:thumbnail, thumbnail");
+    if (mediaThumb) {
+      return mediaThumb.getAttribute("url") ?? null;
+    }
+    // itunes:image
+    const itunesImg = el.querySelector("itunes\\:image");
+    if (itunesImg) {
+      return itunesImg.getAttribute("href") ?? null;
+    }
+    // First <img> in description
+    const descEl = el.querySelector("description, content\\:encoded, summary, content");
+    if (descEl?.textContent) {
+      const imgMatch = descEl.textContent.match(/<img[^>]+src=["']([^"']+)["']/i);
+      if (imgMatch) return imgMatch[1];
+    }
+    return null;
+  };
 
-    const previewImage =
-      block.match(/<enclosure[^>]*url=["']([^"']+)["'][^>]*type=["']image\/[^"']+["'][^>]*\/?>/i)?.[1] ||
-      block.match(/<media:content[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
-      block.match(/<media:thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
-      block.match(/<thumbnail[^>]*url=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
-      block.match(/<itunes:image[^>]*href=["']([^"']+)["'][^>]*\/?>/i)?.[1] ||
-      descriptionHtml?.match(/<img[^>]+src=["']([^"']+)["']/i)?.[1] ||
-      null;
+  const stripHtml = (value: string): string =>
+    value
+      .replace(/<script[\s\S]*?<\/script>/gi, " ")
+      .replace(/<style[\s\S]*?<\/style>/gi, " ")
+      .replace(/<[^>]+>/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
 
-    const fallbackTitle = (() => {
-      if (title) return title;
-      if (description) return description.slice(0, 120).trim();
-      if (!link) return null;
-      try {
-        const url = new URL(link);
-        const slug = url.pathname.split("/").filter(Boolean).pop();
-        if (slug) {
-          return slug
-            .replace(/[-_]+/g, " ")
-            .replace(/\.[a-z0-9]+$/i, "")
-            .replace(/\b\w/g, (char) => char.toUpperCase());
-        }
-        return url.hostname.replace(/^www\./, "");
-      } catch {
-        return link;
+  const fallbackTitle = (title: string | null, description: string | null, link: string | null): string | null => {
+    if (title) return title;
+    if (description) return description.slice(0, 120).trim();
+    if (!link) return null;
+    try {
+      const url = new URL(link);
+      const slug = url.pathname.split("/").filter(Boolean).pop();
+      if (slug) {
+        return slug
+          .replace(/[-_]+/g, " ")
+          .replace(/\.[a-z0-9]+$/i, "")
+          .replace(/\b\w/g, (char) => char.toUpperCase());
       }
-    })();
+      return url.hostname.replace(/^www\./, "");
+    } catch {
+      return link;
+    }
+  };
 
-    entries.push({ title: fallbackTitle, url: link, description, preview_image: previewImage, guid, pubDate });
+  // RSS items and Atom entries
+  const itemElements = doc.querySelectorAll("item, entry");
+  for (const el of itemElements) {
+    const link = getLink(el);
+    const title = getText(el, "title");
+    const descriptionRaw = getText(el, "description", "summary", "content", "content\\:encoded");
+    const description = descriptionRaw ? stripHtml(descriptionRaw) : null;
+    const guid = getText(el, "id", "guid") || link;
+    const pubDate = getText(el, "pubDate", "published", "updated");
+    const previewImage = getPreviewImage(el);
+
+    entries.push({
+      title: fallbackTitle(title, description, link),
+      url: link,
+      description,
+      preview_image: previewImage,
+      guid,
+      pubDate,
+    });
   }
 
   return entries;
@@ -201,16 +236,17 @@ export async function POST(req: NextRequest) {
         if (looksLikeHtml) {
           let discovered: string | null = null;
 
-          // Extract all <link> tags (handles multiline attributes)
-          const linkTags = xml.match(/<link\b[^>]*\/?>/gi) || [];
-          for (const tag of linkTags) {
-            const hasAlternate = /\brel=["']alternate["']/i.test(tag);
-            const isFeedType = /\btype=["']application\/(?:rss|atom)\+xml["']/i.test(tag);
-            const hrefMatch = tag.match(/\bhref=["']([^"']+)["']/i);
-            const hrefLooksFeed = hrefMatch?.[1] && /(?:feed|rss|atom)/i.test(hrefMatch[1]);
+          // Use DOM to find feed <link> tags
+          const htmlDoc = new DOMParser().parseFromString(xml, "text/html");
+          const linkElements = htmlDoc.querySelectorAll('link[rel="alternate"]');
+          for (const linkEl of linkElements) {
+            const type = (linkEl.getAttribute("type") ?? "").toLowerCase();
+            const href = linkEl.getAttribute("href") ?? "";
+            const isFeedType = /application\/(?:rss|atom)\+xml/.test(type);
+            const hrefLooksFeed = /(?:feed|rss|atom)/i.test(href);
 
-            if ((hasAlternate && isFeedType) || (hasAlternate && hrefLooksFeed)) {
-              discovered = new URL(hrefMatch![1], sub.feed_url).href;
+            if (href && (isFeedType || hrefLooksFeed)) {
+              discovered = new URL(href, sub.feed_url).href;
               break;
             }
           }
@@ -249,12 +285,13 @@ export async function POST(req: NextRequest) {
         // Network phase done — clear the abort timeout before per-entry processing.
         if (timeout) { clearTimeout(timeout); timeout = null; }
 
-        const entries = parseFeedEntries(xml);
+        const feedDoc = new DOMParser().parseFromString(xml, "text/xml");
+        const entries = parseFeedEntries(feedDoc);
 
         // Extract and persist the channel-level <link> (the actual website)
         // so the UI can link to the real site, not just the XML feed URL.
         const channelLink = (() => {
-          const raw = extractChannelLink(xml);
+          const raw = extractChannelLink(feedDoc);
           if (!raw) return null;
           try { return new URL(raw).origin; } catch { return null; }
         })();
