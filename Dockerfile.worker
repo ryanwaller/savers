@@ -40,16 +40,18 @@ RUN apt-get update && apt-get install -y \
 
 WORKDIR /app
 
-# Install only the packages workers actually need — not the full Next.js/React tree.
+# Minimal package.json so npm install has a project to install into.
+# We pin only the 7 packages workers actually need — not the full Next.js/React tree.
 # tsx resolves the tsconfig paths compilerOptions.paths {"@/*": ["./*"]} at runtime.
-RUN npm install \
-  tsx \
-  bullmq \
-  ioredis \
-  @supabase/supabase-js \
-  puppeteer \
-  sharp \
-  cheerio \
+RUN echo '{"private":true}' > package.json && \
+  npm install \
+    tsx \
+    bullmq \
+    ioredis \
+    @supabase/supabase-js \
+    puppeteer \
+    sharp \
+    cheerio \
   && npm cache clean --force
 
 # Puppeteer will install its own Chromium on first launch
