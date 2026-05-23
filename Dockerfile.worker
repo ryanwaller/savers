@@ -55,6 +55,8 @@ RUN echo '{"private":true}' > package.json && \
     puppeteer \
     sharp \
     cheerio \
+    linkedom \
+    @mozilla/readability \
   && npm cache clean --force
 
 COPY tsconfig.json ./
