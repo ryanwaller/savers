@@ -1,7 +1,9 @@
 FROM node:22-slim
 
-# Chromium runtime dependencies (for Puppeteer)
+# Chromium runtime + download dependencies (for Puppeteer)
 RUN apt-get update && apt-get install -y \
+  tar \
+  unzip \
   ca-certificates \
   fonts-liberation \
   libasound2 \
@@ -43,6 +45,7 @@ WORKDIR /app
 # Minimal package.json so npm install has a project to install into.
 # We pin only the 7 packages workers actually need — not the full Next.js/React tree.
 # tsx resolves the tsconfig paths compilerOptions.paths {"@/*": ["./*"]} at runtime.
+# Puppeteer downloads Chromium during postinstall (tar + unzip added above).
 RUN echo '{"private":true}' > package.json && \
   npm install \
     tsx \
@@ -53,9 +56,6 @@ RUN echo '{"private":true}' > package.json && \
     sharp \
     cheerio \
   && npm cache clean --force
-
-# Puppeteer will install its own Chromium on first launch
-ENV PUPPETEER_SKIP_DOWNLOAD=false
 
 COPY tsconfig.json ./
 COPY lib/ ./lib/
