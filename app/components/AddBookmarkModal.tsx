@@ -531,22 +531,20 @@ export default function AddBookmarkModal({
                 }
               }}
             />
-            <div className="hint small muted">
-              {fetching ? "Fetching page details…" : "Press Enter or Tab to fetch page details."}
-            </div>
+            {fetching && <div className="hint small muted">Fetching…</div>}
             {(checkingFeed || detectingFeed) && (
               <div className="hint small muted">Checking feeds…</div>
             )}
             {feedMatch && !checkingFeed && (
               <div className="feed-match-hint">
-                Already tracked by {feedMatch.feeds.length === 1
+                Tracked by {feedMatch.feeds.length === 1
                   ? `the ${feedMatch.feeds[0].name} feed`
                   : `${feedMatch.feeds.length} feeds`}
               </div>
             )}
             {feedDetected && !feedMatch && (
               <div className="feed-match-hint">
-                <span>This is an RSS feed.</span>
+                <span>RSS feed</span>
                 <button
                   type="button"
                   className="btn btn-primary feed-add-btn"
@@ -578,12 +576,12 @@ export default function AddBookmarkModal({
           {duplicateBookmarks.length > 0 && (
             <div className="duplicate-card">
               <div className="duplicate-title">
-                Duplicate warning
+                Already saved
               </div>
               <div className="duplicate-copy">
                 {duplicateBookmarks.length === 1
-                  ? "This page is already saved once."
-                  : `This page is already saved ${duplicateBookmarks.length} times.`}
+                  ? "Saved once."
+                  : `Saved ${duplicateBookmarks.length} times.`}
               </div>
               <div className="duplicate-list small muted">
                 {duplicateBookmarks.slice(0, 3).map((bookmark) => (
@@ -624,7 +622,7 @@ export default function AddBookmarkModal({
 
             {showAiSuggestion && aiTargetLabel && (
               <div className="ai-card">
-                <div className="ai-title">Suggestion</div>
+                <div className="ai-title">Suggested collection</div>
                 <div className="ai-copy">
                   <span className="ai-confidence">{capitalize(aiSuggestion!.confidence)}</span>
                   {": "}
@@ -755,7 +753,7 @@ export default function AddBookmarkModal({
                     className={`parent-tree-opt ${inlineCreateParentId === null ? "on" : ""}`}
                     onClick={() => setInlineCreateParentId(null)}
                   >
-                    No Parent
+                    Top level
                   </button>
                   {sortedCollections.map((c) => {
                     const depth = collectionDepths.get(c.id) ?? 0;
@@ -801,7 +799,7 @@ export default function AddBookmarkModal({
           </div>
 
           <label className="field">
-            <div className="label">Tags <span className="small muted">(comma separated)</span></div>
+            <div className="label">Tags</div>
             <div className="autosuggest-container">
               <input
                 placeholder="design, inspiration"

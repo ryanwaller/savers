@@ -124,7 +124,7 @@ export default function SharingModal({
             <div className="row-text">
               <div className="row-title">Public</div>
               <div className="row-sub small muted">
-                Anyone with the link can view. No sign-in required.
+                Anyone with the link can view.
               </div>
             </div>
             <button
@@ -154,7 +154,7 @@ export default function SharingModal({
               )}
 
               <label className="field">
-                <span className="label">Vanity slug (optional)</span>
+                <span className="label">Vanity slug</span>
                 <div className="slug-row">
                   <span className="slug-prefix muted small">c/</span>
                   <input
@@ -181,16 +181,15 @@ export default function SharingModal({
                   </button>
                 </div>
                 <span className="hint small muted">
-                  Lowercase letters, digits, and hyphens. Leave blank for the
-                  random ID.
+                  Letters, numbers, and hyphens.
                 </span>
               </label>
 
               <label className="field">
-                <span className="label">Description (optional)</span>
+                <span className="label">Description</span>
                 <textarea
                   rows={2}
-                  placeholder="What this collection is for. Shows on the public page."
+                  placeholder="Optional"
                   value={description}
                   maxLength={280}
                   onChange={(e) => {

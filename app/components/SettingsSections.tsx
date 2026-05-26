@@ -486,14 +486,11 @@ export default function SettingsSections({
               <div>
                 <div className="feature-title">Browser extension</div>
                 <div className="feature-sub">
-                  Best in Chrome. Save the current page, suggest tags, and jump back into Savers from the toolbar.
+                  Save from the toolbar.
                 </div>
               </div>
               <span className="status-chip status-ready">Fastest</span>
             </div>
-            <p className="small muted">
-              If the Savers icon is already in your browser toolbar, you have the quickest save flow available.
-            </p>
           </div>
 
           <div className="settings-card feature-card">
@@ -501,7 +498,7 @@ export default function SettingsSections({
               <div>
                 <div className="feature-title">Quick save link</div>
                 <div className="feature-sub">
-                  Works from any browser bookmark bar. Best fallback when the extension is not available.
+                  Save from any bookmarks bar.
                 </div>
               </div>
               <span className="status-chip status-ready">Ready</span>
@@ -525,13 +522,10 @@ export default function SettingsSections({
                 Open setup page
               </button>
             </div>
-            <p className="small muted">
-              Opens an overlay on the page you are saving. A token is embedded in the code so
-              auth works from any site — recopy here if your bookmark ever stops working.
-            </p>
+            <p className="small muted">Recopy if it ever stops working.</p>
             <details className="details">
               <summary>
-                <span>Manual setup steps</span>
+                <span>Manual setup</span>
                 <span className="dropdown-circle" aria-hidden="true">
                   <svg viewBox="0 0 16 16" fill="none">
                     <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -539,9 +533,9 @@ export default function SettingsSections({
                 </span>
               </summary>
               <ol className="bookmarklet-steps">
-                <li>Click Copy bookmarklet code.</li>
-                <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>) to capture the icon.</li>
-                <li>Right-click the new bookmark, choose Edit, paste the copied code, and name it &ldquo;Save to Savers&rdquo;.</li>
+                <li>Copy bookmarklet code.</li>
+                <li>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>).</li>
+                <li>Edit that bookmark and paste the code.</li>
               </ol>
             </details>
           </div>
@@ -551,7 +545,7 @@ export default function SettingsSections({
               <div>
                 <div className="feature-title">iPhone / iPad share</div>
                 <div className="feature-sub">
-                  Use a token in the iOS share extension so saves still work when Safari is not signed in here.
+                  For the Savers iPhone extension.
                 </div>
               </div>
               <span className={`status-chip ${hasIPhoneShareToken ? "status-ready" : "status-muted"}`}>
@@ -565,18 +559,12 @@ export default function SettingsSections({
             >
               {creating ? "Creating…" : hasIPhoneShareToken ? "Create fresh share token" : "Create share token"}
             </button>
-            <p className="small muted">
-              After you create it, copy the token below and paste it into the iPhone share extension setup.
-            </p>
           </div>
         </div>
 
         {revealedToken && (
           <div className="settings-card reveal-card">
             <div className="feature-title">New token ready</div>
-            <p className="small muted">
-              Copy this now. For security, Savers won&apos;t show the full token again.
-            </p>
             <code className="reveal-token">{revealedToken}</code>
             <div className="reveal-actions">
               <button className="btn btn-primary" onClick={() => void copyRevealed()}>
@@ -600,12 +588,12 @@ export default function SettingsSections({
           }}
         >
           <summary>
-            <span className="summary-copy">
-              <span>RSS Feeds</span>
-              <span className="small muted">
-                Monitor RSS/Atom feeds and review new entries before keeping them.
+              <span className="summary-copy">
+                <span>RSS Feeds</span>
+                <span className="small muted">
+                  Review new entries before keeping them.
+                </span>
               </span>
-            </span>
             <span className="dropdown-circle" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none">
                 <path d="M4 6.5 8 10.5 12 6.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
@@ -616,7 +604,7 @@ export default function SettingsSections({
           <div className="advanced-card">
             <div className="feature-title">Add a feed</div>
             <div className="feature-sub">
-              Paste an RSS or Atom feed URL. New entries will appear in that feed as a review queue.
+              Paste an RSS or Atom URL.
             </div>
             <div className="create-row">
               <input
@@ -899,7 +887,7 @@ export default function SettingsSections({
           <div className="settings-card">
             <div className="feature-title">Export bookmarks</div>
             <div className="feature-sub">
-              Download your bookmarks, images, collections, and notes as a ZIP.
+              Download a ZIP.
             </div>
             <ExportBookmarksButton bookmarks={bookmarks} flatCollections={flatCollections} variant="button" />
           </div>
@@ -907,7 +895,7 @@ export default function SettingsSections({
           <div className="settings-card">
             <div className="feature-title">Previews & storage</div>
             <div className="feature-sub">
-              Re-run generated covers while preserving bookmarks that use manual uploaded images.
+              Refresh generated covers. Manual uploads stay untouched.
             </div>
             <button
               className="btn"
@@ -928,7 +916,7 @@ export default function SettingsSections({
           <summary>
             <span className="summary-copy">
               <span>Privacy, security & advanced</span>
-              <span className="small muted">Tokens, background services, and manual setup details</span>
+              <span className="small muted">Tokens and system status</span>
             </span>
             <span className="dropdown-circle" aria-hidden="true">
               <svg viewBox="0 0 16 16" fill="none">
@@ -942,9 +930,6 @@ export default function SettingsSections({
             <div className="feature-top">
               <div>
                 <div className="feature-title">System status</div>
-                <div className="feature-sub">
-                  A quick read on the background services that power previews, AI, and link checks.
-                </div>
               </div>
               <button className="btn" onClick={() => void loadSystemHealth()} disabled={loadingSystemHealth}>
                 {loadingSystemHealth ? "Refreshing…" : "Refresh"}
@@ -1007,7 +992,7 @@ export default function SettingsSections({
           <div className="settings-card advanced-card">
             <div className="feature-title">API tokens</div>
             <div className="feature-sub">
-              Long-lived tokens for clients that can&apos;t rely on your browser session, like the iPhone share flow or scripts.
+              For scripts and manual clients.
             </div>
 
             <div className="create-row">

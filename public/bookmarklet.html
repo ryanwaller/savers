@@ -363,7 +363,6 @@
 
       <div class="hero-copy">
         <div>Quick save setup</div>
-        <div class="sub">Copy the code, bookmark this page, then paste the code into that bookmark.</div>
       </div>
     </section>
 
@@ -371,9 +370,6 @@
       <div class="top-row">
         <div>
           <div class="section-title">Set up your quick-save bookmark</div>
-          <p class="section-sub">
-            Copy the code, bookmark this page, then paste it into that bookmark.
-          </p>
         </div>
       <div class="button-row">
         <button class="btn btn-primary" id="copy-btn" type="button">Copy bookmarklet code</button>
@@ -387,29 +383,19 @@
         <div class="step">
           <span class="step-index">1</span>
           <div class="step-copy">
-            <span>Click Copy bookmarklet code.</span>
-            <small>This copies the code your bookmark will use.</small>
+            <span>Copy bookmarklet code.</span>
           </div>
         </div>
         <div class="step">
           <span class="step-index">2</span>
           <div class="step-copy">
             <span>Bookmark this page (<kbd>Ctrl+D</kbd> / <kbd>&#8984;+D</kbd>).</span>
-            <small>That captures the Savers icon in your bookmarks bar.</small>
           </div>
         </div>
         <div class="step">
           <span class="step-index">3</span>
           <div class="step-copy">
-            <span>Right-click the new bookmark and choose <strong>Edit</strong>.</span>
-            <small>Open the bookmark details so you can replace its URL.</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-index">4</span>
-          <div class="step-copy">
-            <span>Paste the copied code and name it Save to Savers.</span>
-            <small>After that, a normal left-click opens Savers and saves the page you were on.</small>
+            <span>Edit that bookmark and paste the code.</span>
           </div>
         </div>
       </div>
@@ -424,7 +410,7 @@
           </span>
         </summary>
         <p class="detail-text">
-          Opens Savers in a new tab. For the overlay-on-page version, go to Settings → Save to Savers.
+          Opens Savers in a new tab.
         </p>
       </details>
     </section>
@@ -447,13 +433,13 @@
         if (navigator.clipboard && navigator.clipboard.writeText) {
           navigator.clipboard.writeText(bookmarkletCode).then(function () {
             msg.textContent =
-              "Copied. Now bookmark this page, edit that bookmark, and paste the code.";
+              "Copied.";
             setTimeout(function () { msg.textContent = ""; }, 3500);
           }).catch(function () {
-            msg.textContent = "Could not copy. Open Savers and use Settings → Save to Savers instead.";
+            msg.textContent = "Could not copy.";
           });
         } else {
-          msg.textContent = "Clipboard access is unavailable here. Open Savers and use Settings → Save to Savers.";
+          msg.textContent = "Clipboard unavailable.";
         }
       });
     })();
