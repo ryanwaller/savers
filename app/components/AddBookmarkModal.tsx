@@ -1004,6 +1004,13 @@ export default function AddBookmarkModal({
           flex-direction: column;
           overflow: hidden;
           animation: slideIn 200ms ease;
+          font-family: inherit;
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 500;
+          letter-spacing: 0;
+          -webkit-font-smoothing: antialiased;
+          -moz-osx-font-smoothing: grayscale;
         }
         @keyframes slideIn {
           from { transform: translateX(30px); opacity: 0; }
@@ -1040,8 +1047,18 @@ export default function AddBookmarkModal({
         .field textarea {
           width: 100%;
           box-sizing: border-box;
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 500;
+          letter-spacing: 0;
         }
-        .label { font-size: 12px; color: var(--color-text-muted); }
+        .label {
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
+          color: var(--color-text-muted);
+          letter-spacing: 0;
+        }
         .hint { margin-top: 2px; }
         .feed-match-hint {
           margin-top: 4px;
@@ -1050,6 +1067,8 @@ export default function AddBookmarkModal({
           background: rgba(34, 197, 94, 0.1);
           color: #16a34a;
           font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1119,6 +1138,7 @@ export default function AddBookmarkModal({
         .preview-title {
           font-size: 12px;
           font-weight: 500;
+          line-height: 17px;
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
@@ -1152,16 +1172,22 @@ export default function AddBookmarkModal({
         .duplicate-title {
           font-size: 12px;
           color: #ff8f8f;
-          font-weight: 600;
+          font-weight: 500;
+          line-height: 17px;
         }
         .duplicate-copy {
           font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
           color: #ff8f8f;
         }
         .duplicate-list {
           display: flex;
           flex-direction: column;
           gap: 2px;
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
           color: #ffb4b4;
         }
         .duplicate-item {
@@ -1171,14 +1197,17 @@ export default function AddBookmarkModal({
         }
         .ai-title {
           font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
           color: var(--color-text-muted);
         }
         .ai-copy {
           font-size: 12px;
           color: var(--color-text);
           line-height: 17px;
+          font-weight: 400;
         }
-        .ai-confidence { font-weight: 600; }
+        .ai-confidence { font-weight: 500; }
         .ai-actions {
           display: flex;
           gap: 8px;
@@ -1216,6 +1245,8 @@ export default function AddBookmarkModal({
           text-align: left;
           padding: 5px 8px;
           font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
           border-radius: 3px;
           color: var(--color-text);
         }
@@ -1241,6 +1272,9 @@ export default function AddBookmarkModal({
           border-radius: var(--radius-sm);
           background: var(--color-bg-secondary);
           color: var(--color-text);
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 400;
         }
         .foot {
           display: flex;
