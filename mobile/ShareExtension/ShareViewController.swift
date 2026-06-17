@@ -56,10 +56,6 @@ final class ShareViewController: UIViewController {
     @MainActor
     private func handleShare() async {
         let payload = await extractShareContent()
-        guard let url = payload.url else {
-            await showFinal(message: "No URL found in this share.", isError: true)
-            return
-        }
 
         // v1: token is hardcoded in Config.swift for personal sideload.
         // TokenStore is the v2 path — when we add a setup UI we'll prefer
@@ -71,6 +67,34 @@ final class ShareViewController: UIViewController {
                     "No token configured. Open Config.swift, paste a token from the Savers web Settings, and rebuild.",
                 isError: true
             )
+            return
+        }
+
+        // Image branch — take precedence over URL when the share contains
+        // raw image bytes (Photos.app, screenshots, files). Many image
+        // shares also include a URL attachment (the file:// URL) but we
+        // prefer the inline bytes since they're already available.
+        if let image = payload.image {
+            label.text = "Uploading image…"
+            do {
+                try await postImage(image: image, token: token)
+                await showFinal(message: "Uploaded.", isError: false)
+            } catch BookmarkSaveError.unauthorized {
+                await showFinal(
+                    message: "Token rejected. Add a fresh one in the Savers app.",
+                    isError: true
+                )
+            } catch {
+                await showFinal(
+                    message: "Couldn't upload: \(error.localizedDescription)",
+                    isError: true
+                )
+            }
+            return
+        }
+
+        guard let url = payload.url else {
+            await showFinal(message: "No URL or image found in this share.", isError: true)
             return
         }
 
@@ -97,10 +121,17 @@ final class ShareViewController: UIViewController {
         }
     }
 
+    struct SharedImage {
+        var data: Data
+        var mimeType: String
+        var filename: String
+    }
+
     struct ShareContent {
         var url: URL?
         var title: String?
         var description: String?
+        var image: SharedImage?
     }
 
     private func extractShareContent() async -> ShareContent {
@@ -135,6 +166,28 @@ final class ShareViewController: UIViewController {
             }
 
             for provider in item.attachments ?? [] {
+                // Image branch — Photos.app, screenshots, file attachments.
+                // We check this BEFORE URL so that a Photos share (which
+                // can include both an image + a backing photos:// URL)
+                // routes to the image upload endpoint.
+                if result.image == nil {
+                    let imageTypes: [UTType] = [
+                        .jpeg, .png, .gif, .webP, .heic, .heif, .svg, .image,
+                    ]
+                    var matchedType: UTType? = nil
+                    for t in imageTypes {
+                        if provider.hasItemConformingToTypeIdentifier(t.identifier) {
+                            matchedType = t
+                            break
+                        }
+                    }
+                    if let utType = matchedType {
+                        if let img = await loadImage(from: provider, utType: utType) {
+                            result.image = img
+                        }
+                    }
+                }
+
                 if result.url == nil,
                    provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                     if let u: URL = await loadItem(
@@ -267,6 +320,90 @@ final class ShareViewController: UIViewController {
                 (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
             let message = (bodyMessage?["error"] as? String) ?? "HTTP \(http.statusCode)"
             throw BookmarkSaveError.server(message)
+        }
+    }
+
+    // MARK: - Image upload
+
+    /// Pull raw bytes for an image attachment, falling back through
+    /// loadDataRepresentation (works for inline data) and loadInPlaceFileRepresentation
+    /// (works when iOS hands us a temp file path).
+    private func loadImage(
+        from provider: NSItemProvider,
+        utType: UTType
+    ) async -> SharedImage? {
+        // loadDataRepresentation is the most reliable path for crossing
+        // the extension process boundary — it materialises the bytes
+        // even when the source is a Photos asset behind a file URL.
+        let data: Data? = await withCheckedContinuation { continuation in
+            provider.loadDataRepresentation(forTypeIdentifier: utType.identifier) { d, _ in
+                continuation.resume(returning: d)
+            }
+        }
+        guard let bytes = data, !bytes.isEmpty else { return nil }
+
+        let mime = utType.preferredMIMEType ?? "application/octet-stream"
+        let ext = utType.preferredFilenameExtension ?? "bin"
+        let suggested = provider.suggestedName?.replacingOccurrences(of: "/", with: "_")
+        let filename = suggested.map { "\($0).\(ext)" }
+            ?? "share-\(Int(Date().timeIntervalSince1970)).\(ext)"
+
+        return SharedImage(data: bytes, mimeType: mime, filename: filename)
+    }
+
+    private func postImage(image: SharedImage, token: String) async throws {
+        guard let endpoint = URL(string: "\(Config.apiBase)/api/images/upload") else {
+            throw BookmarkSaveError.server("Invalid API base.")
+        }
+
+        let boundary = "Boundary-\(UUID().uuidString)"
+        var request = URLRequest(url: endpoint)
+        request.httpMethod = "POST"
+        request.setValue(
+            "multipart/form-data; boundary=\(boundary)",
+            forHTTPHeaderField: "Content-Type"
+        )
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        request.timeoutInterval = 60
+
+        var body = Data()
+        let lineBreak = "\r\n"
+        body.append("--\(boundary)\(lineBreak)".data(using: .utf8)!)
+        body.append(
+            "Content-Disposition: form-data; name=\"files\"; filename=\"\(image.filename)\"\(lineBreak)"
+                .data(using: .utf8)!
+        )
+        body.append("Content-Type: \(image.mimeType)\(lineBreak)\(lineBreak)".data(using: .utf8)!)
+        body.append(image.data)
+        body.append("\(lineBreak)--\(boundary)--\(lineBreak)".data(using: .utf8)!)
+
+        request.httpBody = body
+
+        let (data, response) = try await URLSession.shared.upload(for: request, from: body)
+        guard let http = response as? HTTPURLResponse else {
+            throw BookmarkSaveError.server("Unexpected response.")
+        }
+
+        if http.statusCode == 401 {
+            throw BookmarkSaveError.unauthorized
+        }
+
+        if !(200..<300).contains(http.statusCode) {
+            let bodyMessage =
+                (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+            let message = (bodyMessage?["error"] as? String) ?? "HTTP \(http.statusCode)"
+            throw BookmarkSaveError.server(message)
+        }
+
+        // Treat per-file errors (e.g. 20MB cap exceeded) as a soft failure
+        // so the user gets a useful message instead of "Uploaded.".
+        if let parsed = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+           let errors = parsed["errors"] as? [[String: Any]],
+           let first = errors.first,
+           let reason = first["reason"] as? String,
+           (parsed["images"] as? [Any])?.isEmpty ?? true
+        {
+            throw BookmarkSaveError.server(reason)
         }
     }
 }
