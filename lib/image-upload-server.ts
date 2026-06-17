@@ -70,6 +70,7 @@ export interface ImageUploadInput {
   collectionId?: string | null;
   sourceKind?: SourceKind;
   sourceUrl?: string | null;
+  awaitAi?: boolean;
 }
 
 export interface UploadedImageRow {
@@ -281,7 +282,11 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
   // Only runs when we have a raster preview to send; PDFs and EPS files
   // get enriched later by the worker once it generates their preview.
   if (previewBuffer && fileKind === "image") {
-    void enrichImageWithAi(imageId, userId, previewBuffer);
+    if (input.awaitAi) {
+      await enrichImageWithAi(imageId, userId, previewBuffer);
+    } else {
+      void enrichImageWithAi(imageId, userId, previewBuffer);
+    }
   }
 
   return data as UploadedImageRow;

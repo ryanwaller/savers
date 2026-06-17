@@ -68,6 +68,7 @@ export async function POST(req: NextRequest) {
           contentType: file.type || "application/octet-stream",
           body: buffer,
           collectionId,
+          awaitAi: files.length === 1,
         });
         successes.push(row);
       } catch (err) {
