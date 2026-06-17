@@ -31,6 +31,7 @@ import ConfirmDialog from "./components/ConfirmDialog";
 import SettingsModal from "./components/SettingsModal";
 import SharingModal, { type ShareableCollection } from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
+import ImageTriageOverlay from "./components/ImageTriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
 import AddImageModal from "./components/AddImageModal";
@@ -402,6 +403,7 @@ export default function Home() {
   const [showSettings, setShowSettings] = useState(false);
   const [sharingCollection, setSharingCollection] = useState<ShareableCollection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
+  const [imageTriageOpen, setImageTriageOpen] = useState(false);
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
@@ -512,12 +514,14 @@ export default function Home() {
     const onOpenSettings = () => setShowSettings(true);
     const onAddImages = () => setShowAddImages(true);
     const onNewImageCollection = () => setShowCreateImageFolder(true);
+    const onOpenImageTriage = () => setImageTriageOpen(true);
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
     window.addEventListener("savers:new-collection", onNewCollection);
     window.addEventListener("savers:open-settings", onOpenSettings);
     window.addEventListener("savers:add-images", onAddImages);
     window.addEventListener("savers:new-image-collection", onNewImageCollection);
+    window.addEventListener("savers:open-image-triage", onOpenImageTriage);
     return () => {
       window.removeEventListener("savers:open-smart-builder", onOpen);
       window.removeEventListener("savers:edit-smart-collection", onEdit);
@@ -525,6 +529,7 @@ export default function Home() {
       window.removeEventListener("savers:open-settings", onOpenSettings);
       window.removeEventListener("savers:add-images", onAddImages);
       window.removeEventListener("savers:new-image-collection", onNewImageCollection);
+      window.removeEventListener("savers:open-image-triage", onOpenImageTriage);
     };
   }, []);
 
@@ -3045,6 +3050,18 @@ export default function Home() {
           void loadAllBookmarks();
         }}
         allTags={allTags}
+      />
+
+      <ImageTriageOverlay
+        open={imageTriageOpen}
+        onClose={() => setImageTriageOpen(false)}
+        imageCollections={imageCollections}
+        onMutated={() => {
+          // Bump the reload key so the image loader re-fetches, and
+          // refresh folder counts so the sidebar reflects the new total.
+          setImagesReloadKey((v) => v + 1);
+          void loadImageCollections();
+        }}
       />
 
       <SmartCollectionBuilderModal

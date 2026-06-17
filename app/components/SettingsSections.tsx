@@ -68,6 +68,8 @@ export default function SettingsSections({
   const [bookmarkletCopied, setBookmarkletCopied] = useState(false);
   const [refreshingPreviews, setRefreshingPreviews] = useState(false);
   const [previewRefreshMessage, setPreviewRefreshMessage] = useState<string | null>(null);
+  const [bulkReenriching, setBulkReenriching] = useState(false);
+  const [bulkReenrichMessage, setBulkReenrichMessage] = useState<string | null>(null);
   const [duplicateGroups, setDuplicateGroups] = useState<DuplicateGroup[]>([]);
   const [loadingDuplicateGroups, setLoadingDuplicateGroups] = useState(false);
   const [keptByGroup, setKeptByGroup] = useState<Map<string, Set<string>>>(new Map());
@@ -268,6 +270,32 @@ export default function SettingsSections({
   }, [duplicateGroups, keptByGroup]);
 
   const canDelete = !dupBusy && deleteCount > 0;
+
+  async function runBulkReenrich() {
+    if (bulkReenriching) return;
+    setBulkReenriching(true);
+    setBulkReenrichMessage(null);
+    try {
+      const res = await fetch("/api/images/reenrich-failed", { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setBulkReenrichMessage(body?.error || `Re-enrich failed (${res.status}).`);
+        return;
+      }
+      const parts: string[] = [];
+      if (body.attempted === 0) {
+        parts.push("No failed images to re-enrich.");
+      } else {
+        parts.push(`Tried ${body.attempted}, succeeded ${body.succeeded}, failed ${body.failed}.`);
+        if (body.errors?.length) parts.push(`Top error: ${body.errors[0]}`);
+      }
+      setBulkReenrichMessage(parts.join(" "));
+    } catch (err) {
+      setBulkReenrichMessage(err instanceof Error ? err.message : "Re-enrich request failed.");
+    } finally {
+      setBulkReenriching(false);
+    }
+  }
 
   async function handleOpenDuplicates(open: boolean) {
     if (!open || duplicateGroups.length > 0) return;
@@ -908,6 +936,21 @@ export default function SettingsSections({
                 : `Refresh generated previews${generatedPreviewCount > 0 ? ` (${generatedPreviewCount})` : ""}`}
             </button>
             {previewRefreshMessage && <div className="small muted">{previewRefreshMessage}</div>}
+          </div>
+
+          <div className="settings-card">
+            <div className="feature-title">Image AI</div>
+            <div className="feature-sub">
+              Re-run vision AI on every image whose first attempt failed (most often because Anthropic credits or model access were unavailable at upload time).
+            </div>
+            <button
+              className="btn"
+              onClick={() => void runBulkReenrich()}
+              disabled={bulkReenriching}
+            >
+              {bulkReenriching ? "Re-enriching…" : "Re-run AI on failed images"}
+            </button>
+            {bulkReenrichMessage && <div className="small muted">{bulkReenrichMessage}</div>}
           </div>
         </div>
       </section>

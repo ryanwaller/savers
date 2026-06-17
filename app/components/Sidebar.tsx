@@ -635,15 +635,28 @@ export default function Sidebar({
           </div>
           {imagesExpanded && (
             <>
-              <button
-                className={`sidebar-images-all ${selection.kind === "images_all" ? "active" : ""}`}
-                onClick={() => {
-                  // Match link-folder behaviour — don't dismiss the sidebar.
-                  onSelect({ kind: "images_all" });
-                }}
-              >
-                All images
-              </button>
+              <div className="sidebar-images-all-row">
+                <button
+                  className={`sidebar-images-all ${selection.kind === "images_all" ? "active" : ""}`}
+                  onClick={() => {
+                    // Match link-folder behaviour — don't dismiss the sidebar.
+                    onSelect({ kind: "images_all" });
+                  }}
+                >
+                  All images
+                </button>
+                <button
+                  className="sidebar-images-sort"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    window.dispatchEvent(new CustomEvent("savers:open-image-triage"));
+                    onCloseMobile?.();
+                  }}
+                  title="Triage unsorted images one by one"
+                >
+                  Sort
+                </button>
+              </div>
               {imageCollections.map((c) => (
                 <ImageCollectionRow
                   key={c.id}
@@ -944,6 +957,32 @@ export default function Sidebar({
         }
         .sidebar-images-all:hover { background: var(--color-bg-hover); }
         .sidebar-images-all.active { background: var(--color-bg-active); }
+        .sidebar-images-all-row {
+          position: relative;
+          display: flex;
+          align-items: center;
+        }
+        .sidebar-images-all-row .sidebar-images-all { flex: 1 1 auto; }
+        .sidebar-images-sort {
+          position: absolute;
+          right: 12px;
+          top: 50%;
+          transform: translateY(-50%);
+          padding: 2px 8px;
+          font-size: 11px;
+          color: var(--color-text-muted);
+          background: transparent;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          cursor: pointer;
+          opacity: 0;
+          transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+        }
+        .sidebar-images-all-row:hover .sidebar-images-sort { opacity: 1; }
+        .sidebar-images-sort:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+        }
         /* .sidebar-image-collection styles live in the ImageCollectionRow
            subcomponent (styled-jsx is scoped per-component). */
         .sidebar-images-empty-cta {
