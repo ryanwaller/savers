@@ -77,6 +77,7 @@ export default function ImageDetail({
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reenriching, setReenriching] = useState(false);
+  const [regeneratingPreview, setRegeneratingPreview] = useState(false);
 
   // When the user picks a different image in the slideshow, reset state.
   useEffect(() => {
@@ -195,6 +196,24 @@ export default function ImageDetail({
     }
   }, [image.id, onPatched]);
 
+  const handleRegeneratePreview = useCallback(async () => {
+    setRegeneratingPreview(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/images/${image.id}/regenerate-preview`, {
+        method: "POST",
+      });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(body?.error || `Regenerate failed (${res.status})`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Regenerate failed");
+    } finally {
+      setRegeneratingPreview(false);
+    }
+  }, [image.id]);
+
   const handleDelete = useCallback(async () => {
     setDeleting(true);
     setError(null);
@@ -236,6 +255,22 @@ export default function ImageDetail({
             <div className="preview-thumb">
               <img src={image.preview_url} alt="" draggable={false} />
             </div>
+          )}
+
+          {/* Regenerate-preview affordance only relevant for non-raster
+              uploads (PDF/EPS/SVG) — the raster path generates inline at
+              upload time and has no worker job to re-enqueue. */}
+          {image.file_kind !== "image" && (
+            <button
+              type="button"
+              className="link-btn"
+              style={{ alignSelf: "flex-start", marginTop: "-6px" }}
+              onClick={() => void handleRegeneratePreview()}
+              disabled={regeneratingPreview}
+              title="Re-run the worker job that rasterises this file into a preview"
+            >
+              {regeneratingPreview ? "Queued…" : "Regenerate preview"}
+            </button>
           )}
 
           {error && <div className="err">{error}</div>}
