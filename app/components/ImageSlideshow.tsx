@@ -80,35 +80,15 @@ export default function ImageSlideshow({
 
   return (
     <div className="ss-backdrop" onClick={onClose}>
-      <div className="ss-toolbar" onClick={(e) => e.stopPropagation()}>
+      <div className="ss-topbar" onClick={(e) => e.stopPropagation()}>
         <div className="ss-counter">{counter}</div>
-        <div className="ss-actions">
-          {current.source_url && (
-            <a
-              className="ss-btn ghost"
-              href={current.source_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open the source URL in a new tab"
-            >
-              Go to source
-            </a>
-          )}
-          <button
-            className="ss-btn ghost"
-            onClick={downloadOriginal}
-            title="Download the full-resolution original"
-          >
-            Download Original
-          </button>
-          <button
-            className="ss-btn close"
-            onClick={onClose}
-            aria-label="Close"
-          >
-            ×
-          </button>
-        </div>
+        <button
+          className="ss-btn close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
       </div>
 
       <div className="ss-stage" onClick={onClose}>
@@ -127,8 +107,28 @@ export default function ImageSlideshow({
         )}
       </div>
 
-      <div className="ss-caption" onClick={(e) => e.stopPropagation()}>
+      <div className="ss-footer" onClick={(e) => e.stopPropagation()}>
         <div className="ss-title">{current.title || "Untitled"}</div>
+        <div className="ss-actions">
+          {current.source_url && (
+            <a
+              className="ss-btn"
+              href={current.source_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Open the source URL in a new tab"
+            >
+              Go to source
+            </a>
+          )}
+          <button
+            className="ss-btn"
+            onClick={downloadOriginal}
+            title="Download the full-resolution original"
+          >
+            Download Original
+          </button>
+        </div>
       </div>
 
       {index > 0 && (
@@ -167,7 +167,7 @@ export default function ImageSlideshow({
           display: flex;
           flex-direction: column;
         }
-        .ss-toolbar {
+        .ss-topbar {
           position: absolute;
           top: 0;
           left: 0;
@@ -184,35 +184,41 @@ export default function ImageSlideshow({
           letter-spacing: 0.04em;
           color: rgba(255, 255, 255, 0.55);
         }
-        .ss-actions {
-          display: flex;
-          gap: 8px;
-        }
         .ss-btn {
-          background: rgba(255, 255, 255, 0.08);
-          color: #fff;
-          border: 1px solid rgba(255, 255, 255, 0.18);
+          background: #fff;
+          color: #111;
+          border: 1px solid #fff;
           border-radius: 8px;
-          padding: 6px 12px;
+          padding: 8px 14px;
           font-size: 13px;
           font-weight: 500;
           cursor: pointer;
           text-decoration: none;
           font-family: inherit;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
         }
         .ss-btn:hover {
-          background: rgba(255, 255, 255, 0.16);
-          border-color: rgba(255, 255, 255, 0.3);
+          background: #f0f0f0;
+          border-color: #f0f0f0;
         }
         .ss-btn.close {
           width: 32px;
           height: 32px;
           padding: 0;
           font-size: 20px;
-          line-height: 1;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
+          /* The close X sits on the dark backdrop alone — keep it
+             dark/glass instead of the bright white the bottom buttons
+             use. */
+          background: rgba(0, 0, 0, 0.6);
+          color: #fff;
+          border-color: rgba(255, 255, 255, 0.25);
+        }
+        .ss-btn.close:hover {
+          background: rgba(0, 0, 0, 0.8);
+          border-color: rgba(255, 255, 255, 0.4);
         }
 
         .ss-stage {
@@ -220,7 +226,7 @@ export default function ImageSlideshow({
           display: flex;
           align-items: center;
           justify-content: center;
-          padding: 72px 96px;
+          padding: 72px 96px 132px;
           min-height: 0;
         }
         .ss-img {
@@ -239,20 +245,29 @@ export default function ImageSlideshow({
           border-radius: 12px;
         }
 
-        .ss-caption {
+        .ss-footer {
           position: absolute;
           bottom: 0;
           left: 0;
           right: 0;
-          padding: 18px 24px 22px;
-          text-align: center;
-          color: rgba(255, 255, 255, 0.85);
-          font-size: 14px;
+          padding: 18px 24px 24px;
           z-index: 2;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 12px;
         }
         .ss-title {
           font-weight: 500;
           letter-spacing: 0.01em;
+          color: rgba(255, 255, 255, 0.92);
+          font-size: 14px;
+          text-align: center;
+        }
+        .ss-actions {
+          display: flex;
+          gap: 8px;
+          align-items: center;
         }
 
         .ss-nav {

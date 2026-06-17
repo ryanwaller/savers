@@ -636,8 +636,8 @@ export default function Sidebar({
               <button
                 className={`sidebar-images-all ${selection.kind === "images_all" ? "active" : ""}`}
                 onClick={() => {
+                  // Match link-folder behaviour — don't dismiss the sidebar.
                   onSelect({ kind: "images_all" });
-                  onCloseMobile?.();
                 }}
               >
                 All images
@@ -939,36 +939,8 @@ export default function Sidebar({
         }
         .sidebar-images-all:hover { background: var(--color-bg-hover); }
         .sidebar-images-all.active { background: var(--color-bg-active); }
-        .sidebar-image-collection {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          width: calc(100% - 12px);
-          margin: 2px 6px;
-          padding: 6px 10px 6px 28px;
-          background: transparent;
-          color: var(--color-text);
-          font-size: 13px;
-          text-align: left;
-          border: none;
-          border-radius: var(--radius-sm);
-          cursor: pointer;
-        }
-        .sidebar-image-collection-label {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          flex: 1 1 auto;
-        }
-        .sidebar-image-collection-bullet {
-          width: 14px;
-          text-align: center;
-          color: var(--color-text-muted);
-          font-size: 16px;
-          line-height: 1;
-        }
-        .sidebar-image-collection:hover { background: var(--color-bg-hover); }
-        .sidebar-image-collection.active { background: var(--color-bg-active); }
+        /* .sidebar-image-collection styles live in the ImageCollectionRow
+           subcomponent (styled-jsx is scoped per-component). */
         .sidebar-images-empty-cta {
           display: block;
           width: calc(100% - 12px);
@@ -2917,6 +2889,37 @@ function ImageCollectionRow({
 
       <style jsx>{`
         .sidebar-image-collection-row { position: relative; }
+        .sidebar-image-collection {
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          width: calc(100% - 12px);
+          margin: 2px 6px;
+          padding: 6px 10px 6px 28px;
+          background: transparent;
+          color: var(--color-text);
+          font-size: 13px;
+          text-align: left;
+          border: none;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+        }
+        .sidebar-image-collection:hover { background: var(--color-bg-hover); }
+        .sidebar-image-collection.active { background: var(--color-bg-active); }
+        .sidebar-image-collection-label {
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          flex: 1 1 auto;
+        }
+        .sidebar-image-collection-bullet {
+          width: 14px;
+          flex-shrink: 0;
+          text-align: center;
+          color: var(--color-text-muted);
+          font-size: 16px;
+          line-height: 1;
+        }
         .sidebar-image-collection-rename-input {
           flex: 1 1 auto;
           background: var(--color-bg);
