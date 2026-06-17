@@ -9,6 +9,7 @@ type Props = {
   initialIndex: number;
   open: boolean;
   onClose: () => void;
+  onEdit?: (image: ImageRow) => void;
 };
 
 /**
@@ -28,6 +29,7 @@ export default function ImageSlideshow({
   initialIndex,
   open,
   onClose,
+  onEdit,
 }: Props) {
   const [index, setIndex] = useState(initialIndex);
 
@@ -110,6 +112,13 @@ export default function ImageSlideshow({
       <div className="ss-footer" onClick={(e) => e.stopPropagation()}>
         <div className="ss-title">{current.title || "Untitled"}</div>
         <div className="ss-actions">
+          <button
+            className="ss-btn"
+            onClick={() => onEdit?.(current)}
+            title="Edit image details"
+          >
+            Edit details
+          </button>
           {current.source_url && (
             <a
               className="ss-btn"

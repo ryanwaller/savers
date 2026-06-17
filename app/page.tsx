@@ -37,6 +37,7 @@ import AddImageModal from "./components/AddImageModal";
 import ImageGrid, { type ImageRow } from "./components/ImageGrid";
 import CreateImageCollectionModal from "./components/CreateImageCollectionModal";
 import ImageSlideshow from "./components/ImageSlideshow";
+import ImageDetail from "./components/ImageDetail";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
 import {
@@ -57,6 +58,19 @@ type Selection =
   // Images surface (parallel taxonomy from Links)
   | { kind: "images_all" }
   | { kind: "image_collection"; id: string };
+
+type EditableImageRow = ImageRow & {
+  description?: string | null;
+  notes?: string | null;
+  tags?: string[];
+  original_filename?: string | null;
+  original_size_bytes?: number | null;
+  mime_type?: string | null;
+  taken_at?: string | null;
+  camera_make?: string | null;
+  camera_model?: string | null;
+  collection_id?: string | null;
+};
 
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
@@ -358,6 +372,7 @@ export default function Home() {
   const [loadingImages, setLoadingImages] = useState(false);
   const [imagesReloadKey, setImagesReloadKey] = useState(0);
   const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
+  const [imageDetailId, setImageDetailId] = useState<string | null>(null);
   const [imageDropUploading, setImageDropUploading] = useState<{
     count: number;
     label: string;
@@ -390,6 +405,11 @@ export default function Home() {
   const refreshImages = useCallback(() => {
     setImagesReloadKey((v) => v + 1);
   }, []);
+
+  const selectedImageDetail = useMemo(
+    () => (imageDetailId ? images.find((image) => image.id === imageDetailId) ?? null : null),
+    [imageDetailId, images],
+  );
 
   useEffect(() => {
     if (authLoading || !user) return;
@@ -1070,6 +1090,12 @@ export default function Home() {
 
     return () => { cancelled = true; };
   }, [authLoading, user, selection, imagesReloadKey]);
+
+  useEffect(() => {
+    if (imageDetailId && !images.some((image) => image.id === imageDetailId)) {
+      setImageDetailId(null);
+    }
+  }, [imageDetailId, images]);
 
   // Initial load
   useEffect(() => {
@@ -1902,6 +1928,23 @@ export default function Home() {
     setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
     setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
     return bookmark;
+  }
+
+  function handleImagePatched(updated: EditableImageRow) {
+    setImages((prev) => {
+      if (selection.kind === "image_collection" && updated.collection_id !== selection.id) {
+        return prev.filter((image) => image.id !== updated.id);
+      }
+      return prev.map((image) => (image.id === updated.id ? ({ ...image, ...updated } as ImageRow) : image));
+    });
+    void loadImageCollections();
+  }
+
+  function handleImageDeleted(id: string) {
+    setImages((prev) => prev.filter((image) => image.id !== id));
+    setImageDetailId(null);
+    setSlideshowIndex(null);
+    void loadImageCollections();
   }
 
   async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
@@ -2993,7 +3036,18 @@ export default function Home() {
         images={images}
         initialIndex={slideshowIndex ?? 0}
         onClose={() => setSlideshowIndex(null)}
+        onEdit={(image) => setImageDetailId(image.id)}
       />
+
+      {selectedImageDetail && (
+        <ImageDetail
+          image={selectedImageDetail}
+          imageCollections={imageCollections}
+          onClose={() => setImageDetailId(null)}
+          onPatched={handleImagePatched}
+          onDeleted={handleImageDeleted}
+        />
+      )}
 
       <SharingModal
         collection={sharingCollection}
