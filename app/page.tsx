@@ -117,7 +117,46 @@ export default function Home() {
   const [globalTagCounts, setGlobalTagCounts] = useState<Record<string, number>>({});
   const [smartCollectionCounts, setSmartCollectionCounts] = useState<Record<string, number>>({});
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [selection, setSelection] = useState<Selection>({ kind: "all" });
+  const [selection, setSelection] = useState<Selection>(() => {
+    // Restore the last-active selection across page reloads. Saved as JSON
+    // in localStorage by the useEffect below. If the saved value is for a
+    // collection/folder that no longer exists, we'll still hydrate it here
+    // — a follow-up effect bounces back to "all" once the loaded lists
+    // confirm the id is missing.
+    if (typeof window === "undefined") return { kind: "all" };
+    try {
+      const raw = window.localStorage.getItem("savers.selection");
+      if (!raw) return { kind: "all" };
+      const parsed = JSON.parse(raw) as Selection | { kind?: string };
+      const kind = parsed?.kind;
+      if (
+        kind === "all" ||
+        kind === "unsorted" ||
+        kind === "pinned" ||
+        kind === "broken" ||
+        kind === "images_all"
+      ) {
+        return { kind } as Selection;
+      }
+      if (
+        (kind === "collection" || kind === "smart_collection" || kind === "feed" || kind === "image_collection") &&
+        typeof (parsed as { id?: unknown }).id === "string"
+      ) {
+        return parsed as Selection;
+      }
+    } catch {
+      /* fall through to default */
+    }
+    return { kind: "all" };
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("savers.selection", JSON.stringify(selection));
+    } catch {
+      /* quota or denied — ignore */
+    }
+  }, [selection]);
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Tags in the sidebar are scoped to the current selection: in a specific

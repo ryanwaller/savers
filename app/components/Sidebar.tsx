@@ -2921,8 +2921,11 @@ function ImageCollectionRow({
       <style jsx>{`
         /* Match the link-folder visual treatment exactly — see the
            CollectionNode styles in the parent Sidebar block for the
-           original tokens. */
-        .img-node { position: relative; padding: 0 6px; }
+           original tokens. No horizontal padding on the wrapper —
+           CollectionNode renders its .node directly without any inset,
+           so adding 6px here pushed both the leading icon and the count
+           pill inward relative to link folders. */
+        .img-node { position: relative; }
         .img-row {
           display: flex;
           align-items: center;

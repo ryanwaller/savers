@@ -60,16 +60,28 @@ export async function POST(
     const enrichment = await describeImage(buffer, "image/jpeg");
 
     if (!enrichment) {
+      // Surface a hint for the most likely failure modes so the user can
+      // SQL-check processing_error rather than dig through Railway logs.
+      const provider = (process.env.IMAGE_AI_PROVIDER?.trim() || "anthropic").toLowerCase();
+      const reason =
+        provider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()
+          ? "ANTHROPIC_API_KEY not set"
+          : provider === "deepseek" && !(process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY)?.trim()
+            ? "DEEPSEEK_API_KEY not set"
+            : `${provider} returned no usable result`;
       const { data: failed } = await supabaseAdmin
         .schema("savers")
         .from("images")
-        .update({ ai_failed_at: new Date().toISOString() })
+        .update({
+          ai_failed_at: new Date().toISOString(),
+          processing_error: reason,
+        })
         .eq("id", id)
         .eq("user_id", user.id)
         .select("*")
         .single();
       return NextResponse.json(
-        { error: "AI returned no usable result", image: failed },
+        { error: reason, image: failed },
         { status: 502 },
       );
     }
@@ -77,6 +89,7 @@ export async function POST(
     const patch: Record<string, unknown> = {
       ai_processed_at: new Date().toISOString(),
       ai_failed_at: null,
+      processing_error: null,
     };
     if (enrichment.title) patch.title = enrichment.title;
     if (enrichment.description) patch.description = enrichment.description;
