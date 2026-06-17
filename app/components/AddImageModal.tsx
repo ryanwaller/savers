@@ -345,7 +345,7 @@ export default function AddImageModal({
           padding: 24px;
         }
         .add-image-panel {
-          background: var(--color-surface);
+          background: var(--color-bg);
           color: var(--color-text);
           border: 1px solid var(--color-border);
           border-radius: 16px;
@@ -382,7 +382,7 @@ export default function AddImageModal({
           align-items: center;
           justify-content: center;
         }
-        .close:hover { background: var(--color-hover); }
+        .close:hover { background: var(--color-bg-hover); }
         .close:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .dropzone {
@@ -394,10 +394,10 @@ export default function AddImageModal({
           cursor: pointer;
           transition: background 120ms ease, border-color 120ms ease;
         }
-        .dropzone:hover { background: var(--color-hover); }
+        .dropzone:hover { background: var(--color-bg-hover); }
         .dropzone.dragging {
           border-color: var(--color-text);
-          background: var(--color-hover);
+          background: var(--color-bg-hover);
         }
         .dropzone-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
         .dropzone-sub { font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px; }
@@ -435,7 +435,7 @@ export default function AddImageModal({
           padding: 3px 8px;
           border-radius: 99px;
           letter-spacing: 0.02em;
-          background: var(--color-hover);
+          background: var(--color-bg-hover);
           color: var(--color-text-muted);
         }
         .q-pill-uploading { background: rgba(120, 140, 200, 0.18); color: #b2c2ec; }
@@ -483,7 +483,7 @@ export default function AddImageModal({
           border: 1px solid var(--color-border);
         }
         .btn.ghost { background: transparent; color: var(--color-text); }
-        .btn.ghost:hover { background: var(--color-hover); }
+        .btn.ghost:hover { background: var(--color-bg-hover); }
         .btn.primary { background: var(--color-text); color: var(--color-bg); border-color: var(--color-text); }
         .btn.primary:disabled, .btn.ghost:disabled { opacity: 0.4; cursor: not-allowed; }
       `}</style>

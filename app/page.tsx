@@ -34,6 +34,8 @@ import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
 import AddImageModal from "./components/AddImageModal";
+import ImageGrid, { type ImageRow } from "./components/ImageGrid";
+import CreateImageCollectionModal from "./components/CreateImageCollectionModal";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
 import {
@@ -50,7 +52,10 @@ type Selection =
   | { kind: "broken" }
   | { kind: "collection"; id: string }
   | { kind: "smart_collection"; id: string }
-  | { kind: "feed"; id: string };
+  | { kind: "feed"; id: string }
+  // Images surface (parallel taxonomy from Links)
+  | { kind: "images_all" }
+  | { kind: "image_collection"; id: string };
 
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
@@ -347,6 +352,7 @@ export default function Home() {
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [showAddImages, setShowAddImages] = useState(false);
+  const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
   const [deepLinkBookmarkId, setDeepLinkBookmarkId] = useState<string | null>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
@@ -412,17 +418,20 @@ export default function Home() {
     const onNewCollection = () => setShowCreateCollection(true);
     const onOpenSettings = () => setShowSettings(true);
     const onAddImages = () => setShowAddImages(true);
+    const onNewImageCollection = () => setShowCreateImageFolder(true);
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
     window.addEventListener("savers:new-collection", onNewCollection);
     window.addEventListener("savers:open-settings", onOpenSettings);
     window.addEventListener("savers:add-images", onAddImages);
+    window.addEventListener("savers:new-image-collection", onNewImageCollection);
     return () => {
       window.removeEventListener("savers:open-smart-builder", onOpen);
       window.removeEventListener("savers:edit-smart-collection", onEdit);
       window.removeEventListener("savers:new-collection", onNewCollection);
       window.removeEventListener("savers:open-settings", onOpenSettings);
       window.removeEventListener("savers:add-images", onAddImages);
+      window.removeEventListener("savers:new-image-collection", onNewImageCollection);
     };
   }, []);
 
@@ -1281,6 +1290,19 @@ export default function Home() {
         { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "Feeds", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection, websiteUrl: feed?.site_url || (() => { try { return new URL(feed?.feed_url ?? "").origin; } catch { return null; } })() },
+      ];
+    }
+    if (selection.kind === "images_all") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+      ];
+    }
+    if (selection.kind === "image_collection") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+        { label: "Image folder", icon: null, isCollection: false, selection: { kind: "image_collection", id: selection.id } as Selection },
       ];
     }
 
@@ -2767,6 +2789,15 @@ export default function Home() {
           // TODO: refresh the image grid once it lands. For now the upload
           // succeeds and the rows are written; the user-facing grid wires
           // up in a later step.
+        }}
+      />
+
+      <CreateImageCollectionModal
+        open={showCreateImageFolder}
+        onClose={() => setShowCreateImageFolder(false)}
+        onCreated={() => {
+          // TODO: refresh the image-collections sidebar tree once the
+          // loader is wired up (next step).
         }}
       />
 

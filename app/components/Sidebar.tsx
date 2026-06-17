@@ -39,7 +39,10 @@ type Selection =
   | { kind: "broken" }
   | { kind: "collection"; id: string }
   | { kind: "smart_collection"; id: string }
-  | { kind: "feed"; id: string };
+  | { kind: "feed"; id: string }
+  // Images surface — kept in sync with the same union in app/page.tsx.
+  | { kind: "images_all" }
+  | { kind: "image_collection"; id: string };
 
 type Props = {
   tree: Collection[];
@@ -882,6 +885,9 @@ export default function Sidebar({
         }
         .sidebar-supergroup-label .caret {
           color: var(--color-text);
+          /* Don't inherit the 600 weight from the supergroup label —
+             keeps all carets in the sidebar visually identical. */
+          font-weight: 400;
         }
         .sidebar-images-empty-cta {
           display: block;
@@ -899,7 +905,7 @@ export default function Sidebar({
         }
         .sidebar-images-empty-cta:hover {
           color: var(--color-text);
-          background: var(--color-hover);
+          background: var(--color-bg-hover);
           border-color: var(--color-text);
         }
         .sidebar-label.root-nest-target {
@@ -941,7 +947,9 @@ export default function Sidebar({
           padding-right: 8px;
         }
         .section-header-row-tags {
-          padding-left: 4px;
+          /* No extra left padding — keeps the Tags caret aligned with
+             the Links/Images supergroup carets above. */
+          padding-left: 0;
         }
         .sidebar-empty {
           padding: 6px 10px 4px;
