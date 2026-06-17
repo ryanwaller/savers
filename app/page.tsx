@@ -33,6 +33,7 @@ import SharingModal from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
+import AddImageModal from "./components/AddImageModal";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
 import {
@@ -345,6 +346,7 @@ export default function Home() {
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [showAddImages, setShowAddImages] = useState(false);
   const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
   const [deepLinkBookmarkId, setDeepLinkBookmarkId] = useState<string | null>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
@@ -409,15 +411,18 @@ export default function Home() {
     };
     const onNewCollection = () => setShowCreateCollection(true);
     const onOpenSettings = () => setShowSettings(true);
+    const onAddImages = () => setShowAddImages(true);
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
     window.addEventListener("savers:new-collection", onNewCollection);
     window.addEventListener("savers:open-settings", onOpenSettings);
+    window.addEventListener("savers:add-images", onAddImages);
     return () => {
       window.removeEventListener("savers:open-smart-builder", onOpen);
       window.removeEventListener("savers:edit-smart-collection", onEdit);
       window.removeEventListener("savers:new-collection", onNewCollection);
       window.removeEventListener("savers:open-settings", onOpenSettings);
+      window.removeEventListener("savers:add-images", onAddImages);
     };
   }, []);
 
@@ -2752,6 +2757,16 @@ export default function Home() {
         onClose={() => setShowCreateCollection(false)}
         onCreated={() => {
           void loadCollections();
+        }}
+      />
+
+      <AddImageModal
+        open={showAddImages}
+        onClose={() => setShowAddImages(false)}
+        onUploaded={() => {
+          // TODO: refresh the image grid once it lands. For now the upload
+          // succeeds and the rows are written; the user-facing grid wires
+          // up in a later step.
         }}
       />
 

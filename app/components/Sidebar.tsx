@@ -622,7 +622,15 @@ export default function Sidebar({
             </button>
           </div>
           {imagesExpanded && (
-            <div className="sidebar-empty">No image collections yet.</div>
+            <button
+              className="sidebar-images-empty-cta"
+              onClick={() => {
+                window.dispatchEvent(new CustomEvent("savers:add-images"));
+                onCloseMobile?.();
+              }}
+            >
+              + Add images
+            </button>
           )}
         </div>
 
@@ -874,6 +882,25 @@ export default function Sidebar({
         }
         .sidebar-supergroup-label .caret {
           color: var(--color-text);
+        }
+        .sidebar-images-empty-cta {
+          display: block;
+          width: calc(100% - 12px);
+          margin: 2px 6px 4px;
+          padding: 6px 8px;
+          background: transparent;
+          color: var(--color-text-muted);
+          font-size: 12px;
+          text-align: left;
+          border: 1px dashed var(--color-border);
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          transition: color 120ms ease, background 120ms ease, border-color 120ms ease;
+        }
+        .sidebar-images-empty-cta:hover {
+          color: var(--color-text);
+          background: var(--color-hover);
+          border-color: var(--color-text);
         }
         .sidebar-label.root-nest-target {
           color: var(--color-text);
