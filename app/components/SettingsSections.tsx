@@ -31,6 +31,7 @@ type SystemHealth = {
   services: {
     redis: { configured: boolean; reachable: boolean };
     ai: { configured: boolean };
+    imageAi: { provider: string; configured: boolean };
     screenshotQueue: QueueStatus;
     autoTagQueue: QueueStatus;
     linkCheckQueue: QueueStatus;
@@ -956,6 +957,16 @@ export default function SettingsSections({
                   <div className="health-label">AI suggestions</div>
                   <div className={`health-badge ${systemHealth.services.ai.configured ? "status-ready" : "status-muted"}`}>
                     {systemHealth.services.ai.configured ? "Configured" : "Unavailable"}
+                  </div>
+                </div>
+                <div className="health-row">
+                  <div className="health-label">Image AI</div>
+                  <div className={`health-badge ${systemHealth.services.imageAi.configured ? "status-ready" : "status-muted"}`}>
+                    {systemHealth.services.imageAi.configured
+                      ? systemHealth.services.imageAi.provider === "deepseek"
+                        ? "DeepSeek"
+                        : "Anthropic"
+                      : "Unavailable"}
                   </div>
                 </div>
                 {[

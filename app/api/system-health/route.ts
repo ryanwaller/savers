@@ -42,7 +42,12 @@ export async function GET() {
     await requireUser();
 
     const redisConfigured = !!process.env.REDIS_URL;
-    const aiConfigured = !!process.env.DEEPSEEK_API_KEY?.trim();
+    const suggestionsAiConfigured = !!(process.env.AI_API_KEY || process.env.DEEPSEEK_API_KEY)?.trim();
+    const imageAiProvider = (process.env.IMAGE_AI_PROVIDER?.trim() || "anthropic").toLowerCase();
+    const imageAiConfigured =
+      imageAiProvider === "deepseek"
+        ? !!(process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY)?.trim()
+        : !!process.env.ANTHROPIC_API_KEY?.trim();
 
     let redisReachable = false;
     if (redisConfigured) {
@@ -68,7 +73,11 @@ export async function GET() {
           reachable: redisReachable,
         },
         ai: {
-          configured: aiConfigured,
+          configured: suggestionsAiConfigured,
+        },
+        imageAi: {
+          provider: imageAiProvider,
+          configured: imageAiConfigured,
         },
         screenshotQueue,
         autoTagQueue,

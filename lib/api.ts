@@ -52,6 +52,7 @@ export const api = {
     services: {
       redis: { configured: boolean; reachable: boolean };
       ai: { configured: boolean };
+      imageAi: { provider: string; configured: boolean };
       screenshotQueue: {
         configured: boolean;
         reachable: boolean;
