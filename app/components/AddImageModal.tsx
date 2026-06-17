@@ -225,8 +225,18 @@ export default function AddImageModal({
 
     setUploading(false);
 
+    // If everything succeeded, close the modal — the parent will
+    // navigate to All Images and the uploads will be visible there.
+    // If only some succeeded, leave the modal open so the user sees
+    // which files failed and can retry / remove them.
+    const anyFailed = Array.from(updates.values()).some((u) => u.status === "error");
     if (succeeded > 0) {
       onUploaded(succeeded);
+      if (!anyFailed) {
+        // Give the user a beat to see the "Done" pills before the modal
+        // disappears.
+        setTimeout(() => onClose(), 400);
+      }
     }
   }
 

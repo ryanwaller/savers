@@ -353,6 +353,29 @@ export default function Home() {
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [showAddImages, setShowAddImages] = useState(false);
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
+  const [images, setImages] = useState<ImageRow[]>([]);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imageCollections, setImageCollections] = useState<
+    Array<{ id: string; name: string; parent_id: string | null }>
+  >([]);
+
+  // Load the image-collection folder list (flat). Called on auth-ready and
+  // after a successful create/delete so the sidebar refreshes.
+  const loadImageCollections = useCallback(async () => {
+    try {
+      const res = await fetch("/api/image-collections", { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json();
+      setImageCollections((body.collections as Array<{ id: string; name: string; parent_id: string | null }>) || []);
+    } catch (err) {
+      console.error("[image-collections] load failed", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    void loadImageCollections();
+  }, [authLoading, user, loadImageCollections]);
   const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
   const [deepLinkBookmarkId, setDeepLinkBookmarkId] = useState<string | null>(null);
   const deepLinkHandledRef = useRef<string | null>(null);
@@ -995,6 +1018,39 @@ export default function Home() {
     },
     [loadSidebarBootstrap, loadBootstrap, loadFeedItems, selection]
   );
+
+  // Load images for the current view. Runs whenever the user switches
+  // into an image-related selection. Fast enough that we re-fetch on
+  // every entry — pagination + incremental fetch is a later concern.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (selection.kind !== "images_all" && selection.kind !== "image_collection") return;
+
+    let cancelled = false;
+    setLoadingImages(true);
+
+    (async () => {
+      try {
+        const url = new URL("/api/images", window.location.origin);
+        if (selection.kind === "image_collection") {
+          url.searchParams.set("collection_id", selection.id);
+        }
+        const res = await fetch(url.toString(), { cache: "no-store" });
+        const body = await res.json().catch(() => ({}));
+        if (cancelled) return;
+        if (!res.ok) {
+          console.error("[images] load failed", body);
+          setImages([]);
+        } else {
+          setImages((body.images as ImageRow[]) || []);
+        }
+      } finally {
+        if (!cancelled) setLoadingImages(false);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [authLoading, user, selection]);
 
   // Initial load
   useEffect(() => {
@@ -2138,6 +2194,7 @@ export default function Home() {
             setAllBookmarks(data.bookmarks);
           } catch { /* best-effort refresh */ }
         }}
+        imageCollections={imageCollections}
       />
 
       <div
@@ -2397,6 +2454,19 @@ export default function Home() {
                   lastClickedFeedItemIdRef.current = id;
                   return next;
                 });
+              }}
+            />
+          ) : (selection.kind === "images_all" || selection.kind === "image_collection") ? (
+            <ImageGrid
+              images={images}
+              loading={loadingImages}
+              emptyLabel={loadingImages ? "Loading images…" : "No images yet."}
+              cardMinWidth={cardMinWidth}
+              desktopCols={effectiveDesktopCols}
+              mobileCols={mobileCols}
+              onOpen={(img) => {
+                // TODO: open slideshow modal. For now, just log.
+                console.log("open image", img);
               }}
             />
           ) : isGroupedView && groupedBookmarks ? (
@@ -2786,18 +2856,21 @@ export default function Home() {
         open={showAddImages}
         onClose={() => setShowAddImages(false)}
         onUploaded={() => {
-          // TODO: refresh the image grid once it lands. For now the upload
-          // succeeds and the rows are written; the user-facing grid wires
-          // up in a later step.
+          // If we're already viewing the image grid, switch to All Images
+          // and refetch so the new uploads appear immediately.
+          setSelection({ kind: "images_all" });
         }}
       />
 
       <CreateImageCollectionModal
         open={showCreateImageFolder}
         onClose={() => setShowCreateImageFolder(false)}
-        onCreated={() => {
-          // TODO: refresh the image-collections sidebar tree once the
-          // loader is wired up (next step).
+        onCreated={(id) => {
+          void loadImageCollections();
+          // Jump to the new folder so the user immediately sees it
+          // selected in the sidebar with an empty grid waiting to be
+          // populated.
+          setSelection({ kind: "image_collection", id });
         }}
       />
 

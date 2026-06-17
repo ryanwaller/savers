@@ -86,6 +86,8 @@ type Props = {
   onChangeFeedIcon?: (id: string, icon: string | null) => Promise<void>;
   onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
+  // Image collections (folders under the Images supergroup).
+  imageCollections?: Array<{ id: string; name: string; parent_id: string | null }>;
 };
 
 export default function Sidebar({
@@ -123,6 +125,7 @@ export default function Sidebar({
   onRenameFeed,
   onDeleteFeed,
   onTagsChanged,
+  imageCollections = [],
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(() => {
@@ -625,15 +628,41 @@ export default function Sidebar({
             </button>
           </div>
           {imagesExpanded && (
-            <button
-              className="sidebar-images-empty-cta"
-              onClick={() => {
-                window.dispatchEvent(new CustomEvent("savers:add-images"));
-                onCloseMobile?.();
-              }}
-            >
-              + Add images
-            </button>
+            <>
+              <button
+                className={`sidebar-images-all ${selection.kind === "images_all" ? "active" : ""}`}
+                onClick={() => {
+                  onSelect({ kind: "images_all" });
+                  onCloseMobile?.();
+                }}
+              >
+                All images
+              </button>
+              {imageCollections.map((c) => (
+                <button
+                  key={c.id}
+                  className={`sidebar-image-collection ${
+                    selection.kind === "image_collection" && selection.id === c.id ? "active" : ""
+                  }`}
+                  onClick={() => {
+                    onSelect({ kind: "image_collection", id: c.id });
+                    onCloseMobile?.();
+                  }}
+                  title={c.name}
+                >
+                  {c.name}
+                </button>
+              ))}
+              <button
+                className="sidebar-images-empty-cta"
+                onClick={() => {
+                  window.dispatchEvent(new CustomEvent("savers:add-images"));
+                  onCloseMobile?.();
+                }}
+              >
+                + Add images
+              </button>
+            </>
           )}
         </div>
 
@@ -889,6 +918,41 @@ export default function Sidebar({
              keeps all carets in the sidebar visually identical. */
           font-weight: 400;
         }
+        .sidebar-images-all {
+          display: flex;
+          align-items: center;
+          width: calc(100% - 12px);
+          margin: 2px 6px;
+          padding: 6px 10px 6px 32px;
+          background: transparent;
+          color: var(--color-text);
+          font-size: 13px;
+          text-align: left;
+          border: none;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+        }
+        .sidebar-images-all:hover { background: var(--color-bg-hover); }
+        .sidebar-images-all.active { background: var(--color-bg-active); }
+        .sidebar-image-collection {
+          display: flex;
+          align-items: center;
+          width: calc(100% - 12px);
+          margin: 2px 6px;
+          padding: 6px 10px 6px 32px;
+          background: transparent;
+          color: var(--color-text);
+          font-size: 13px;
+          text-align: left;
+          border: none;
+          border-radius: var(--radius-sm);
+          cursor: pointer;
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .sidebar-image-collection:hover { background: var(--color-bg-hover); }
+        .sidebar-image-collection.active { background: var(--color-bg-active); }
         .sidebar-images-empty-cta {
           display: block;
           width: calc(100% - 12px);
