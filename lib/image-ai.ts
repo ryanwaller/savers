@@ -24,7 +24,10 @@ import "server-only";
  */
 
 const PROVIDER = (process.env.IMAGE_AI_PROVIDER?.trim() || "anthropic").toLowerCase();
-const ANTHROPIC_MODEL = process.env.IMAGE_AI_MODEL?.trim() || "claude-sonnet-4-6";
+// Use a stable Anthropic alias by default. The prior default model string
+// was too speculative and could cause image enrichment to fail even when
+// ANTHROPIC_API_KEY was configured correctly.
+const ANTHROPIC_MODEL = process.env.IMAGE_AI_MODEL?.trim() || "claude-3-5-sonnet-latest";
 const DEEPSEEK_MODEL = process.env.IMAGE_AI_MODEL?.trim() || "deepseek-chat";
 const REQUEST_TIMEOUT_MS = 30_000;
 

@@ -85,6 +85,9 @@ export interface UploadedImageRow {
   created_at: string;
 }
 
+const IMAGE_ROW_SELECT =
+  "id, user_id, title, preview_path, width, height, file_kind, processing_status, created_at";
+
 function inferFileKind(contentType: string): FileKind {
   if (contentType === "application/pdf") return "pdf";
   if (contentType === "image/svg+xml") return "svg";
@@ -260,7 +263,7 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
       height,
       processing_status: previewBuffer || fileKind !== "image" ? (previewBuffer ? "ready" : "pending") : "pending",
     })
-    .select("id, user_id, title, preview_path, width, height, file_kind, processing_status, created_at")
+    .select(IMAGE_ROW_SELECT)
     .single();
 
   if (insertError || !data) {
@@ -284,6 +287,16 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
   if (previewBuffer && fileKind === "image") {
     if (input.awaitAi) {
       await enrichImageWithAi(imageId, userId, previewBuffer);
+      const { data: refreshed } = await supabaseAdmin
+        .schema("savers")
+        .from("images")
+        .select(IMAGE_ROW_SELECT)
+        .eq("id", imageId)
+        .eq("user_id", userId)
+        .maybeSingle();
+      if (refreshed) {
+        return refreshed as UploadedImageRow;
+      }
     } else {
       void enrichImageWithAi(imageId, userId, previewBuffer);
     }
@@ -297,12 +310,12 @@ async function enrichImageWithAi(
   userId: string,
   previewBuffer: Buffer,
 ): Promise<void> {
+  const supabaseAdmin = getSupabaseAdmin();
   try {
     const enrichment = await describeImage(previewBuffer, "image/jpeg");
     if (!enrichment) {
       // AI not configured, timed out, or returned bad data. Mark the
       // attempt so we don't keep retrying on every grid refresh.
-      const supabaseAdmin = getSupabaseAdmin();
       await supabaseAdmin
         .schema("savers")
         .from("images")
@@ -312,9 +325,9 @@ async function enrichImageWithAi(
       return;
     }
 
-    const supabaseAdmin = getSupabaseAdmin();
     const patch: Record<string, unknown> = {
       ai_processed_at: new Date().toISOString(),
+      ai_failed_at: null,
     };
     if (enrichment.title) patch.title = enrichment.title;
     if (enrichment.description) patch.description = enrichment.description;
@@ -330,6 +343,12 @@ async function enrichImageWithAi(
     console.error(
       `[image-upload] AI enrichment failed for ${imageId}: ${err instanceof Error ? err.message : String(err)}`,
     );
+    await supabaseAdmin
+      .schema("savers")
+      .from("images")
+      .update({ ai_failed_at: new Date().toISOString() })
+      .eq("id", imageId)
+      .eq("user_id", userId);
   }
 }
 
