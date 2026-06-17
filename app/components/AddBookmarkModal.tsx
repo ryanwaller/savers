@@ -1053,7 +1053,7 @@ export default function AddBookmarkModal({
         .label {
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           color: var(--color-text-muted);
           letter-spacing: 0;
         }
@@ -1066,7 +1066,7 @@ export default function AddBookmarkModal({
           color: #16a34a;
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -1176,7 +1176,7 @@ export default function AddBookmarkModal({
         .duplicate-copy {
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           color: #ff8f8f;
         }
         .duplicate-list {
@@ -1185,7 +1185,7 @@ export default function AddBookmarkModal({
           gap: 2px;
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           color: #ffb4b4;
         }
         .duplicate-item {
@@ -1196,14 +1196,14 @@ export default function AddBookmarkModal({
         .ai-title {
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           color: var(--color-text-muted);
         }
         .ai-copy {
           font-size: 12px;
           color: var(--color-text);
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
         }
         .ai-confidence { font-weight: 500; }
         .ai-actions {
@@ -1244,7 +1244,7 @@ export default function AddBookmarkModal({
           padding: 5px 8px;
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
           border-radius: 3px;
           color: var(--color-text);
         }
@@ -1272,7 +1272,7 @@ export default function AddBookmarkModal({
           color: var(--color-text);
           font-size: 12px;
           line-height: 17px;
-          font-weight: 400;
+          font-weight: 500;
         }
         .foot {
           display: flex;
