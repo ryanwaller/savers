@@ -32,6 +32,12 @@ type Props = {
   desktopCols?: number;
   mobileCols?: number;
   onOpen?: (image: ImageRow) => void;
+  /**
+   * Quick-delete affordance: when provided, a small × button shows in the
+   * top-right corner of each card on hover. Single click prompts a
+   * confirm() and deletes if accepted.
+   */
+  onDelete?: (image: ImageRow) => void | Promise<void>;
 };
 
 const GAP = 16;
@@ -66,6 +72,7 @@ export default function ImageGrid({
   desktopCols,
   mobileCols,
   onOpen,
+  onDelete,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -159,35 +166,55 @@ export default function ImageGrid({
           style={{ height: totalHeight, position: "relative" }}
         >
           {placements.map(({ image, left, top, width, height }) => (
-            <button
+            <div
               key={image.id}
-              className="image-card"
-              style={{ left, top, width, height }}
-              onClick={() => onOpen?.(image)}
-              type="button"
+              className="image-card-wrap"
+              style={{ left, top, width, height, position: "absolute" }}
             >
-              <div className="image-card-frame">
-                {image.preview_url ? (
-                  <img
-                    className="image-card-img"
-                    src={image.preview_url}
-                    alt={image.title || ""}
-                    loading="lazy"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="image-card-placeholder">
-                    {image.processing_status === "pending" ? "Processing…"
-                      : image.file_kind === "pdf" ? "PDF"
-                      : image.file_kind === "eps" ? "EPS"
-                      : "—"}
-                  </div>
-                )}
-              </div>
-              <div className="image-card-title" title={image.title || undefined}>
-                {image.title || "Untitled"}
-              </div>
-            </button>
+              <button
+                className="image-card"
+                onClick={() => onOpen?.(image)}
+                type="button"
+              >
+                <div className="image-card-frame">
+                  {image.preview_url ? (
+                    <img
+                      className="image-card-img"
+                      src={image.preview_url}
+                      alt={image.title || ""}
+                      loading="lazy"
+                      draggable={false}
+                    />
+                  ) : (
+                    <div className="image-card-placeholder">
+                      {image.processing_status === "pending" ? "Processing…"
+                        : image.file_kind === "pdf" ? "PDF"
+                        : image.file_kind === "eps" ? "EPS"
+                        : "—"}
+                    </div>
+                  )}
+                </div>
+                <div className="image-card-title" title={image.title || undefined}>
+                  {image.title || "Untitled"}
+                </div>
+              </button>
+              {onDelete && (
+                <button
+                  className="image-card-delete"
+                  type="button"
+                  aria-label="Delete image"
+                  title="Delete image"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    if (confirm(`Delete "${image.title || "this image"}"? This cannot be undone.`)) {
+                      void onDelete(image);
+                    }
+                  }}
+                >
+                  ×
+                </button>
+              )}
+            </div>
           ))}
         </div>
       )}
@@ -207,8 +234,14 @@ export default function ImageGrid({
         .image-grid {
           width: 100%;
         }
+        .image-card-wrap {
+          /* positioned by inline style; this wrapper exists so the delete
+             button can be a sibling of the card button (nested buttons
+             aren't valid HTML). */
+        }
         .image-card {
-          position: absolute;
+          width: 100%;
+          height: 100%;
           background: transparent;
           border: none;
           padding: 0;
@@ -217,6 +250,33 @@ export default function ImageGrid({
           display: flex;
           flex-direction: column;
           color: inherit;
+        }
+        .image-card-delete {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          width: 26px;
+          height: 26px;
+          border-radius: 13px;
+          border: none;
+          background: rgba(0, 0, 0, 0.65);
+          color: #fff;
+          cursor: pointer;
+          font-size: 18px;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          opacity: 0;
+          transition: opacity 120ms ease, background 120ms ease, transform 120ms ease;
+          z-index: 2;
+        }
+        .image-card-wrap:hover .image-card-delete {
+          opacity: 1;
+        }
+        .image-card-delete:hover {
+          background: rgba(200, 60, 60, 0.95);
+          transform: scale(1.06);
         }
         .image-card-frame {
           flex: 1 1 auto;

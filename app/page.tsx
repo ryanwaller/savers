@@ -2673,6 +2673,18 @@ export default function Home() {
                 const idx = images.findIndex((i) => i.id === img.id);
                 if (idx >= 0) setSlideshowIndex(idx);
               }}
+              onDelete={async (img) => {
+                try {
+                  const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                  if (!res.ok) {
+                    console.error("[image-grid] delete failed", await res.text().catch(() => ""));
+                    return;
+                  }
+                  handleImageDeleted(img.id);
+                } catch (err) {
+                  console.error("[image-grid] delete error", err);
+                }
+              }}
             />
           ) : isGroupedView && groupedBookmarks ? (
             groupedBookmarks.map((group) => (
