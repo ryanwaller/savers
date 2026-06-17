@@ -86,11 +86,13 @@ export interface UploadedImageRow {
   height: number | null;
   file_kind: FileKind;
   processing_status: string;
+  ai_processed_at?: string | null;
+  ai_failed_at?: string | null;
   created_at: string;
 }
 
 const IMAGE_ROW_SELECT =
-  "id, user_id, title, preview_path, width, height, file_kind, processing_status, created_at";
+  "id, user_id, title, preview_path, width, height, file_kind, processing_status, ai_processed_at, ai_failed_at, created_at";
 
 function inferFileKind(contentType: string): FileKind {
   if (contentType === "application/pdf") return "pdf";

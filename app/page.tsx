@@ -2242,8 +2242,15 @@ export default function Home() {
             }
             const okCount = body.images.length as number;
             const failCount = Array.isArray(body.errors) ? body.errors.length : 0;
+            const aiMissCount = Array.isArray(body.images)
+              ? body.images.filter((img: { ai_failed_at?: string | null; ai_processed_at?: string | null }) => img.ai_failed_at && !img.ai_processed_at).length
+              : 0;
             setDropStatus(
-              failCount > 0
+              aiMissCount > 0
+                ? okCount === 1
+                  ? "Image saved, but AI title didn’t land."
+                  : `${okCount} images saved. ${aiMissCount} missing AI titles.`
+                : failCount > 0
                 ? `${okCount} image${okCount === 1 ? "" : "s"} saved, ${failCount} failed.`
                 : okCount === 1
                 ? "Image saved."

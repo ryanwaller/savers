@@ -36,7 +36,7 @@ export async function GET(req: NextRequest) {
       .schema("savers")
       .from("images")
       .select(
-        "id, user_id, collection_id, title, description, tags, notes, source_url, source_kind, file_kind, mime_type, width, height, preview_path, original_path, original_filename, original_size_bytes, processing_status, taken_at, camera_make, camera_model, position, created_at",
+        "id, user_id, collection_id, title, description, tags, notes, source_url, source_kind, file_kind, mime_type, width, height, preview_path, original_path, original_filename, original_size_bytes, processing_status, taken_at, camera_make, camera_model, ai_processed_at, ai_failed_at, position, created_at",
       )
       .eq("user_id", user.id)
       .limit(limit);

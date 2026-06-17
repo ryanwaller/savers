@@ -22,6 +22,8 @@ type Props = {
     camera_make?: string | null;
     camera_model?: string | null;
     collection_id?: string | null;
+    ai_processed_at?: string | null;
+    ai_failed_at?: string | null;
   };
   imageCollections: ImageCollection[];
   onClose: () => void;
@@ -174,6 +176,25 @@ export default function ImageDetail({
     void patchAndPropagate({ title: base });
   }, [image.original_filename, patchAndPropagate]);
 
+  const handleSuggestAi = useCallback(async () => {
+    setReenriching(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/images/${image.id}/reenrich`, { method: "POST" });
+      const body = await res.json().catch(() => ({}));
+      if (body?.image) {
+        onPatched(body.image as PatchedImage);
+      }
+      if (!res.ok) {
+        setError(body?.error || `AI suggest failed (${res.status})`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "AI suggest failed");
+    } finally {
+      setReenriching(false);
+    }
+  }, [image.id, onPatched]);
+
   const handleDelete = useCallback(async () => {
     setDeleting(true);
     setError(null);
@@ -222,16 +243,27 @@ export default function ImageDetail({
           <label className="field">
             <span className="label-row">
               <span>Title</span>
-              {image.original_filename && (
+              <span className="label-actions">
                 <button
                   type="button"
                   className="link-btn"
-                  onClick={revertTitleToFilename}
-                  title="Use the original filename as the title"
+                  onClick={() => void handleSuggestAi()}
+                  disabled={reenriching}
+                  title="Ask AI to suggest a title, description, and tags"
                 >
-                  Use filename
+                  {reenriching ? "Suggesting…" : "Suggest with AI"}
                 </button>
-              )}
+                {image.original_filename && (
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={revertTitleToFilename}
+                    title="Use the original filename as the title"
+                  >
+                    Use filename
+                  </button>
+                )}
+              </span>
             </span>
             <input
               type="text"
@@ -244,6 +276,10 @@ export default function ImageDetail({
               placeholder="Title"
             />
           </label>
+
+          {image.ai_failed_at && !image.ai_processed_at && (
+            <div className="ai-note">AI title didn&apos;t land on import. Try Suggest with AI.</div>
+          )}
 
           <label className="field">
             <span>Description</span>
@@ -482,6 +518,11 @@ export default function ImageDetail({
           justify-content: space-between;
           align-items: center;
         }
+        .label-actions {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
         .field input[type="text"],
         .field textarea,
         .field select {
@@ -512,6 +553,16 @@ export default function ImageDetail({
           text-decoration: underline;
         }
         .link-btn:hover { color: var(--color-text); }
+        .link-btn:disabled {
+          opacity: 0.55;
+          cursor: default;
+        }
+        .ai-note {
+          margin-top: -4px;
+          font-size: 11px;
+          line-height: 1.4;
+          color: var(--color-text-muted);
+        }
 
         .tag-row {
           display: flex;

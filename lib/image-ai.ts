@@ -29,7 +29,7 @@ const PROVIDER = (process.env.IMAGE_AI_PROVIDER?.trim() || "anthropic").toLowerC
 // ANTHROPIC_API_KEY was configured correctly.
 const ANTHROPIC_MODEL = process.env.IMAGE_AI_MODEL?.trim() || "claude-3-5-sonnet-latest";
 const DEEPSEEK_MODEL = process.env.IMAGE_AI_MODEL?.trim() || "deepseek-chat";
-const REQUEST_TIMEOUT_MS = 30_000;
+const REQUEST_TIMEOUT_MS = 55_000;
 
 export interface ImageDescription {
   title: string;

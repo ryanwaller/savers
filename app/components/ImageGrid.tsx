@@ -12,6 +12,8 @@ export type ImageRow = {
   height: number | null;
   file_kind: string;
   processing_status: string;
+  ai_processed_at?: string | null;
+  ai_failed_at?: string | null;
   source_url: string | null;
   created_at: string;
 };

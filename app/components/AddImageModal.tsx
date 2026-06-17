@@ -215,7 +215,11 @@ export default function AddImageModal({
         if (body.errors?.length) {
           updates.set(item.id, { status: "error", message: body.errors[0].reason });
         } else {
-          updates.set(item.id, { status: "done" });
+          const aiFailed = body.images?.[0]?.ai_failed_at && !body.images?.[0]?.ai_processed_at;
+          updates.set(item.id, {
+            status: aiFailed ? "warning" : "done",
+            message: aiFailed ? "Saved, but AI title didn’t land" : undefined,
+          });
           succeeded++;
         }
       } catch (err) {
@@ -240,12 +244,15 @@ export default function AddImageModal({
     // If only some succeeded, leave the modal open so the user sees
     // which files failed and can retry / remove them.
     const anyFailed = Array.from(updates.values()).some((u) => u.status === "error");
+    const anyAiMiss = Array.from(updates.values()).some((u) => u.message?.includes("AI title didn’t land"));
     if (succeeded > 0) {
       onUploaded(succeeded);
-      if (!anyFailed) {
+      if (!anyFailed && !anyAiMiss) {
         // Give the user a beat to see the "Done" pills before the modal
         // disappears.
         setTimeout(() => onClose(), 400);
+      } else if (anyAiMiss) {
+        setError("Saved, but AI title didn’t land. Open the image and use Suggest with AI.");
       }
     }
   }
@@ -267,6 +274,10 @@ export default function AddImageModal({
       }
       setUrlInput("");
       onUploaded(1);
+      if (body.images?.[0]?.ai_failed_at && !body.images?.[0]?.ai_processed_at) {
+        setError("Imported, but AI title didn’t land. Open the image and use Suggest with AI.");
+        return;
+      }
       setTimeout(() => onClose(), 400);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Import failed");
