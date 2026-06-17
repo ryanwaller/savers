@@ -36,6 +36,7 @@ import CreateCollectionModal from "./components/CreateCollectionModal";
 import AddImageModal from "./components/AddImageModal";
 import ImageGrid, { type ImageRow } from "./components/ImageGrid";
 import CreateImageCollectionModal from "./components/CreateImageCollectionModal";
+import ImageSlideshow from "./components/ImageSlideshow";
 import SortMenu from "./components/SortMenu";
 import { useScrollCollectionSpy } from "./hooks/useScrollCollectionSpy";
 import {
@@ -355,6 +356,7 @@ export default function Home() {
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [images, setImages] = useState<ImageRow[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
   const [imageCollections, setImageCollections] = useState<
     Array<{ id: string; name: string; parent_id: string | null }>
   >([]);
@@ -2226,6 +2228,42 @@ export default function Home() {
           } catch { /* best-effort refresh */ }
         }}
         imageCollections={imageCollections}
+        onUpdateImageCollection={async (id, updates) => {
+          try {
+            const res = await fetch(`/api/image-collections/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updates),
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              console.error("[image-collection] update failed", body);
+              return;
+            }
+            await loadImageCollections();
+          } catch (err) {
+            console.error("[image-collection] update error", err);
+          }
+        }}
+        onDeleteImageCollection={async (id) => {
+          try {
+            const res = await fetch(`/api/image-collections/${id}`, {
+              method: "DELETE",
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              console.error("[image-collection] delete failed", body);
+              return;
+            }
+            // If we were viewing the deleted folder, bounce to All Images.
+            if (selection.kind === "image_collection" && selection.id === id) {
+              setSelection({ kind: "images_all" });
+            }
+            await loadImageCollections();
+          } catch (err) {
+            console.error("[image-collection] delete error", err);
+          }
+        }}
       />
 
       <div
@@ -2496,8 +2534,8 @@ export default function Home() {
               desktopCols={effectiveDesktopCols}
               mobileCols={mobileCols}
               onOpen={(img) => {
-                // TODO: open slideshow modal. For now, just log.
-                console.log("open image", img);
+                const idx = images.findIndex((i) => i.id === img.id);
+                if (idx >= 0) setSlideshowIndex(idx);
               }}
             />
           ) : isGroupedView && groupedBookmarks ? (
@@ -2903,6 +2941,13 @@ export default function Home() {
           // populated.
           setSelection({ kind: "image_collection", id });
         }}
+      />
+
+      <ImageSlideshow
+        open={slideshowIndex !== null}
+        images={images}
+        initialIndex={slideshowIndex ?? 0}
+        onClose={() => setSlideshowIndex(null)}
       />
 
       <SharingModal

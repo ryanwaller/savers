@@ -3,6 +3,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { describeImage } from "@/lib/image-ai";
 
 /**
  * Server-side image upload pipeline.
@@ -272,7 +273,59 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
     );
   }
 
+  // Fire-and-forget vision enrichment: ask the AI provider for a title,
+  // description, and tags, then update the row. We don't await so the
+  // upload API returns fast — the grid will pick up the enriched fields
+  // on the next /api/images refresh.
+  //
+  // Only runs when we have a raster preview to send; PDFs and EPS files
+  // get enriched later by the worker once it generates their preview.
+  if (previewBuffer && fileKind === "image") {
+    void enrichImageWithAi(imageId, userId, previewBuffer);
+  }
+
   return data as UploadedImageRow;
+}
+
+async function enrichImageWithAi(
+  imageId: string,
+  userId: string,
+  previewBuffer: Buffer,
+): Promise<void> {
+  try {
+    const enrichment = await describeImage(previewBuffer, "image/jpeg");
+    if (!enrichment) {
+      // AI not configured, timed out, or returned bad data. Mark the
+      // attempt so we don't keep retrying on every grid refresh.
+      const supabaseAdmin = getSupabaseAdmin();
+      await supabaseAdmin
+        .schema("savers")
+        .from("images")
+        .update({ ai_failed_at: new Date().toISOString() })
+        .eq("id", imageId)
+        .eq("user_id", userId);
+      return;
+    }
+
+    const supabaseAdmin = getSupabaseAdmin();
+    const patch: Record<string, unknown> = {
+      ai_processed_at: new Date().toISOString(),
+    };
+    if (enrichment.title) patch.title = enrichment.title;
+    if (enrichment.description) patch.description = enrichment.description;
+    if (enrichment.tags.length > 0) patch.tags = enrichment.tags;
+
+    await supabaseAdmin
+      .schema("savers")
+      .from("images")
+      .update(patch)
+      .eq("id", imageId)
+      .eq("user_id", userId);
+  } catch (err) {
+    console.error(
+      `[image-upload] AI enrichment failed for ${imageId}: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
 }
 
 export function isAcceptedMime(contentType: string): boolean {

@@ -88,6 +88,8 @@ type Props = {
   onDeleteFeed?: (id: string) => Promise<void>;
   // Image collections (folders under the Images supergroup).
   imageCollections?: Array<{ id: string; name: string; parent_id: string | null; icon?: string | null }>;
+  onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
+  onDeleteImageCollection?: (id: string) => Promise<void> | void;
 };
 
 export default function Sidebar({
@@ -126,6 +128,8 @@ export default function Sidebar({
   onDeleteFeed,
   onTagsChanged,
   imageCollections = [],
+  onUpdateImageCollection,
+  onDeleteImageCollection,
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(() => {
@@ -639,22 +643,20 @@ export default function Sidebar({
                 All images
               </button>
               {imageCollections.map((c) => (
-                <button
+                <ImageCollectionRow
                   key={c.id}
-                  className={`sidebar-image-collection ${
-                    selection.kind === "image_collection" && selection.id === c.id ? "active" : ""
-                  }`}
-                  onClick={() => {
-                    // Deliberately not calling onCloseMobile() — matches the
-                    // link-folder behaviour where selecting a folder keeps the
-                    // sidebar open.
-                    onSelect({ kind: "image_collection", id: c.id });
-                  }}
-                  title={c.name}
-                >
-                  {c.icon ? <CollectionIcon name={c.icon} size={14} /> : <span className="sidebar-image-collection-bullet">·</span>}
-                  <span className="sidebar-image-collection-label">{c.name}</span>
-                </button>
+                  collection={c}
+                  active={selection.kind === "image_collection" && selection.id === c.id}
+                  onSelect={() => onSelect({ kind: "image_collection", id: c.id })}
+                  onUpdate={
+                    onUpdateImageCollection
+                      ? (updates) => onUpdateImageCollection(c.id, updates)
+                      : undefined
+                  }
+                  onDelete={
+                    onDeleteImageCollection ? () => onDeleteImageCollection(c.id) : undefined
+                  }
+                />
               ))}
               <button
                 className="sidebar-images-empty-cta"
@@ -2747,4 +2749,252 @@ function countSubtree(c: Collection): number {
   let n = c.bookmark_count ?? 0;
   for (const child of c.children ?? []) n += countSubtree(child);
   return n;
+}
+
+// ---------------------------------------------------------------------------
+// ImageCollectionRow — one row under the Images supergroup. Owns its own
+// hover-menu, icon-picker, and inline-rename state so the parent Sidebar
+// doesn't have to coordinate per-row modal state.
+// ---------------------------------------------------------------------------
+
+type ImageCollectionRowProps = {
+  collection: { id: string; name: string; icon?: string | null };
+  active: boolean;
+  onSelect: () => void;
+  onUpdate?: (updates: { name?: string; icon?: string | null }) => void | Promise<void>;
+  onDelete?: () => void | Promise<void>;
+};
+
+function ImageCollectionRow({
+  collection,
+  active,
+  onSelect,
+  onUpdate,
+  onDelete,
+}: ImageCollectionRowProps) {
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [renameValue, setRenameValue] = useState(collection.name);
+  const rowRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    setRenameValue(collection.name);
+  }, [collection.name]);
+
+  useEffect(() => {
+    if (!menuOpen) return;
+    function handleClickAway(e: MouseEvent) {
+      if (!rowRef.current?.contains(e.target as Node)) setMenuOpen(false);
+    }
+    document.addEventListener("mousedown", handleClickAway);
+    return () => document.removeEventListener("mousedown", handleClickAway);
+  }, [menuOpen]);
+
+  async function commitRename() {
+    const next = renameValue.trim();
+    if (next && next !== collection.name && onUpdate) {
+      await onUpdate({ name: next });
+    }
+    setRenaming(false);
+  }
+
+  return (
+    <div ref={rowRef} className="sidebar-image-collection-row">
+      {renaming ? (
+        <div className={`sidebar-image-collection rename ${active ? "active" : ""}`}>
+          {collection.icon ? (
+            <CollectionIcon name={collection.icon} size={14} />
+          ) : (
+            <span className="sidebar-image-collection-bullet">·</span>
+          )}
+          <input
+            autoFocus
+            className="sidebar-image-collection-rename-input"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") void commitRename();
+              else if (e.key === "Escape") {
+                setRenameValue(collection.name);
+                setRenaming(false);
+              }
+            }}
+            onBlur={commitRename}
+          />
+        </div>
+      ) : (
+        <button
+          className={`sidebar-image-collection ${active ? "active" : ""}`}
+          onClick={onSelect}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setMenuOpen(true);
+          }}
+          title={collection.name}
+        >
+          {collection.icon ? (
+            <CollectionIcon name={collection.icon} size={14} />
+          ) : (
+            <span className="sidebar-image-collection-bullet">·</span>
+          )}
+          <span className="sidebar-image-collection-label">{collection.name}</span>
+          {onUpdate && onDelete && (
+            <span
+              className="sidebar-image-collection-kebab"
+              role="button"
+              tabIndex={0}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpen((v) => !v);
+              }}
+              aria-label="Folder menu"
+            >
+              …
+            </span>
+          )}
+        </button>
+      )}
+
+      {menuOpen && (
+        <div className="sidebar-image-collection-menu">
+          {onUpdate && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setIconPickerOpen(true);
+              }}
+            >
+              Change icon
+            </button>
+          )}
+          {onUpdate && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                setRenaming(true);
+              }}
+            >
+              Rename
+            </button>
+          )}
+          {onDelete && (
+            <button
+              className="danger"
+              onClick={async () => {
+                setMenuOpen(false);
+                if (
+                  confirm(`Delete "${collection.name}"? Images inside will be moved to Unsorted.`)
+                ) {
+                  await onDelete();
+                }
+              }}
+            >
+              Delete
+            </button>
+          )}
+        </div>
+      )}
+
+      {iconPickerOpen && (
+        <div className="sidebar-image-collection-icon-popup">
+          <div
+            className="sidebar-image-collection-icon-backdrop"
+            onClick={() => setIconPickerOpen(false)}
+          />
+          <div className="sidebar-image-collection-icon-card">
+            <IconPicker
+              value={collection.icon ?? null}
+              onPick={async (name) => {
+                setIconPickerOpen(false);
+                if (onUpdate) await onUpdate({ icon: name });
+              }}
+              onClose={() => setIconPickerOpen(false)}
+            />
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .sidebar-image-collection-row { position: relative; }
+        .sidebar-image-collection-rename-input {
+          flex: 1 1 auto;
+          background: var(--color-bg);
+          color: var(--color-text);
+          border: 1px solid var(--color-border-strong);
+          border-radius: var(--radius-sm);
+          padding: 2px 6px;
+          font-size: 13px;
+          outline: none;
+        }
+        .sidebar-image-collection-kebab {
+          margin-left: auto;
+          opacity: 0;
+          padding: 0 6px;
+          color: var(--color-text-muted);
+          font-size: 16px;
+          line-height: 1;
+          letter-spacing: 0.06em;
+          cursor: pointer;
+          border-radius: var(--radius-sm);
+        }
+        .sidebar-image-collection-row:hover .sidebar-image-collection-kebab {
+          opacity: 1;
+        }
+        .sidebar-image-collection-kebab:hover { color: var(--color-text); }
+
+        .sidebar-image-collection-menu {
+          position: absolute;
+          right: 6px;
+          top: 100%;
+          z-index: 40;
+          margin-top: 2px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+          min-width: 160px;
+          padding: 4px;
+        }
+        .sidebar-image-collection-menu button {
+          display: block;
+          width: 100%;
+          background: transparent;
+          color: var(--color-text);
+          border: none;
+          text-align: left;
+          padding: 6px 10px;
+          font-size: 13px;
+          border-radius: 6px;
+          cursor: pointer;
+        }
+        .sidebar-image-collection-menu button:hover {
+          background: var(--color-bg-hover);
+        }
+        .sidebar-image-collection-menu button.danger { color: #d96a6a; }
+
+        .sidebar-image-collection-icon-popup {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .sidebar-image-collection-icon-backdrop {
+          position: absolute;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.4);
+        }
+        .sidebar-image-collection-icon-card {
+          position: relative;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 12px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+          padding: 12px;
+        }
+      `}</style>
+    </div>
+  );
 }
