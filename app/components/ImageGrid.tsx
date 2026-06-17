@@ -50,6 +50,8 @@ type Placement = {
   top: number;
   width: number;
   height: number;
+  /** Just the image portion of the card; the title sits below this. */
+  frameHeight: number;
 };
 
 /**
@@ -169,6 +171,7 @@ export default function ImageGrid({
         top,
         width: colWidth,
         height: imageH + titleH,
+        frameHeight: imageH,
       });
 
       colHeights[targetCol] = top + imageH + titleH + GAP;
@@ -189,7 +192,7 @@ export default function ImageGrid({
           className="image-grid"
           style={{ height: totalHeight, position: "relative" }}
         >
-          {placements.map(({ image, left, top, width, height }) => {
+          {placements.map(({ image, left, top, width, height, frameHeight }) => {
             const menuOpen = openMenuId === image.id;
             return (
               <div
@@ -202,7 +205,10 @@ export default function ImageGrid({
                   onClick={() => onOpen?.(image)}
                   type="button"
                 >
-                  <div className="image-card-frame">
+                  <div
+                    className="image-card-frame"
+                    style={{ height: frameHeight }}
+                  >
                     {image.preview_url ? (
                       <img
                         className="image-card-img"
@@ -308,12 +314,17 @@ export default function ImageGrid({
           padding: 0;
           cursor: pointer;
           text-align: left;
-          display: flex;
-          flex-direction: column;
+          /* Block instead of flex so the .image-card-frame's explicit
+             inline height (= colWidth × imageAspect) is honored exactly
+             and the title flows naturally below. flex-grow on the frame
+             previously absorbed leftover space, which caused the
+             letterbox bands. */
+          display: block;
           color: inherit;
         }
         .image-card-frame {
-          flex: 1 1 auto;
+          /* No flex — height set inline from the masonry placement so the
+             frame matches the image's natural aspect exactly. */
           width: 100%;
           /* Transparent so the image scale-down on hover doesn't reveal
              a gray edge around the photo. The placeholder div below
@@ -335,7 +346,12 @@ export default function ImageGrid({
           display: block;
           width: 100%;
           height: 100%;
-          object-fit: cover;
+          /* object-fit contain so the natural aspect ratio is always
+             preserved — never crop. The masonry layout sizes each card
+             based on the image dimensions, so contain usually fills
+             cleanly, and letterboxes a few px when the stored dims are
+             slightly off (e.g. older EXIF-rotated uploads). */
+          object-fit: contain;
           object-position: center;
           transition: transform 180ms ease;
         }

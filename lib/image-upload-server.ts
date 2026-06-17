@@ -222,9 +222,18 @@ async function prepareRaster(body: Buffer, contentType: string) {
   }
 
   try {
+    // sharp's metadata() returns the raw dimensions BEFORE EXIF
+    // orientation is applied — a portrait iPhone photo with
+    // orientation=6 returns width=4032, height=3024 even though the
+    // image is logically 3024×4032. Always swap when the EXIF flag
+    // says we'd rotate by ±90°.
     const meta = await sharp(body, { failOn: "none" }).metadata();
-    const width = meta.width ?? null;
-    const height = meta.height ?? null;
+    let width = meta.width ?? null;
+    let height = meta.height ?? null;
+    const orient = meta.orientation ?? 1;
+    if (orient >= 5 && orient <= 8 && width && height) {
+      [width, height] = [height, width];
+    }
 
     // For JPEG specifically, we re-encode without metadata to strip the
     // EXIF block (including GPS). Sharp's default does not preserve

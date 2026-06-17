@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImageRow } from "./ImageGrid";
+import CollectionIcon from "./CollectionIcon";
 
 type ImageCollection = {
   id: string;
@@ -235,7 +236,9 @@ export default function ImageTriageOverlay({
                       disabled={busy}
                       title={c.name}
                     >
-                      <span className="it-folder-dot" aria-hidden>·</span>
+                      <span className="it-folder-icon" aria-hidden>
+                        <CollectionIcon name={c.icon ?? null} size={14} />
+                      </span>
                       <span className="it-folder-name">{c.name}</span>
                     </button>
                   ))
@@ -390,7 +393,15 @@ export default function ImageTriageOverlay({
           border-color: var(--color-border-strong);
         }
         .it-folder-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-        .it-folder-dot { color: var(--color-text-muted); }
+        .it-folder-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          width: 14px;
+          height: 14px;
+        }
+        .it-folder-btn:hover .it-folder-icon { color: var(--color-text); }
         .it-folder-name {
           white-space: nowrap;
           overflow: hidden;

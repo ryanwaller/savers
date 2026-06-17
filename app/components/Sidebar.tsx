@@ -963,26 +963,38 @@ export default function Sidebar({
           align-items: center;
         }
         .sidebar-images-all-row .sidebar-images-all { flex: 1 1 auto; }
+        /* Match the link side's .unsorted-sort button — same dark glass
+           pill, same fade in on hover, same dimensions. */
         .sidebar-images-sort {
           position: absolute;
           right: 12px;
           top: 50%;
           transform: translateY(-50%);
-          padding: 2px 8px;
-          font-size: 11px;
-          color: var(--color-text-muted);
-          background: transparent;
-          border: 1px solid var(--color-border);
+          min-width: 34px;
+          height: 22px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border: 0;
           border-radius: 999px;
           cursor: pointer;
           opacity: 0;
-          transition: opacity 120ms ease, color 120ms ease, border-color 120ms ease;
+          transition: opacity 140ms ease;
+          white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .sidebar-images-sort {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
         }
         .sidebar-images-all-row:hover .sidebar-images-sort { opacity: 1; }
-        .sidebar-images-sort:hover {
-          color: var(--color-text);
-          border-color: var(--color-border-strong);
-        }
+        .sidebar-images-sort:hover,
+        .sidebar-images-sort:active { opacity: 1; }
         /* .sidebar-image-collection styles live in the ImageCollectionRow
            subcomponent (styled-jsx is scoped per-component). */
         .sidebar-images-empty-cta {
