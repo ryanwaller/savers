@@ -1,9 +1,12 @@
 FROM node:22-slim
 
 # Chromium runtime + download dependencies (for Puppeteer)
+# Ghostscript is for the image-preview-worker: rasterising the first page
+# of PDF and EPS uploads into JPEG previews for the image grid.
 RUN apt-get update && apt-get install -y \
   tar \
   unzip \
+  ghostscript \
   ca-certificates \
   fonts-liberation \
   libasound2 \

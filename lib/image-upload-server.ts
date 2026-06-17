@@ -6,6 +6,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { describeImage } from "@/lib/image-ai";
 import { fetchPageContent } from "@/lib/page-content";
 import { normalizeUrl } from "@/lib/normalizeUrl";
+import { enqueueImagePreview } from "@/lib/image-preview-queue";
 
 /**
  * Server-side image upload pipeline.
@@ -384,6 +385,24 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
     } else {
       void enrichImageWithAi(imageId, userId, previewBuffer);
     }
+  }
+
+  // For non-raster formats (PDF / EPS / SVG) the preview wasn't generated
+  // synchronously above. Enqueue a worker job to rasterise the first page
+  // (or render the SVG), upload the JPEG to the previews bucket, and
+  // update the row.
+  if (fileKind !== "image") {
+    void enqueueImagePreview({
+      imageId,
+      userId,
+      originalPath,
+      fileKind,
+      mimeType: contentType,
+    }).catch((err) => {
+      console.error(
+        `[image-upload] failed to enqueue preview job for ${imageId}: ${err instanceof Error ? err.message : String(err)}`,
+      );
+    });
   }
 
   return data as UploadedImageRow;

@@ -82,7 +82,13 @@ export default function ImageGrid({
   // Close the open menu on outside click or Escape.
   useEffect(() => {
     if (!openMenuId) return;
-    function onClickAway() {
+    function onClickAway(e: MouseEvent) {
+      // Only close if the click landed outside the menu's own DOM.
+      // Otherwise the mousedown would unmount the menu before the actual
+      // click on a menu item gets a chance to fire — meaning Edit/Delete
+      // would never trigger.
+      const target = e.target as HTMLElement | null;
+      if (target?.closest(".image-card-actions")) return;
       setOpenMenuId(null);
     }
     function onKey(e: KeyboardEvent) {
@@ -335,10 +341,12 @@ export default function ImageGrid({
         }
         .image-card:hover .image-card-frame {
           box-shadow: 0 0 0 rgba(0, 0, 0, 0);
-          transform: translateY(2px);
+          /* Subtler press — was 2px and felt heavy. */
+          transform: translateY(1px);
         }
         .image-card:hover .image-card-img {
-          transform: scale(0.97);
+          /* Was 0.97; smaller scale-down so the press is just a hint. */
+          transform: scale(0.99);
         }
         .image-card-placeholder {
           width: 100%;
@@ -370,8 +378,10 @@ export default function ImageGrid({
            pattern. */
         .image-card-actions {
           position: absolute;
-          top: 8px;
-          right: 8px;
+          /* Pushed down + in slightly from the corner so the kebab feels
+             centered against the artwork rather than nailed to the edge. */
+          top: 14px;
+          right: 14px;
           z-index: 2;
         }
         .image-card-menu-trigger {
