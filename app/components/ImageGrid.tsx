@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export type ImageRow = {
   id: string;
@@ -31,12 +31,11 @@ type Props = {
   /** Fixed column count override. If set, ignores cardMinWidth. */
   desktopCols?: number;
   mobileCols?: number;
+  /** Single click on the card. Opens the slideshow viewer. */
   onOpen?: (image: ImageRow) => void;
-  /**
-   * Quick-delete affordance: when provided, a small × button shows in the
-   * top-right corner of each card on hover. Single click prompts a
-   * confirm() and deletes if accepted.
-   */
+  /** Opens the right-side edit panel from the kebab menu. */
+  onEdit?: (image: ImageRow) => void;
+  /** Deletes the image (with confirm). Triggered from the kebab menu. */
   onDelete?: (image: ImageRow) => void | Promise<void>;
 };
 
@@ -72,11 +71,30 @@ export default function ImageGrid({
   desktopCols,
   mobileCols,
   onOpen,
+  onEdit,
   onDelete,
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
+  const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+
+  // Close the open menu on outside click or Escape.
+  useEffect(() => {
+    if (!openMenuId) return;
+    function onClickAway() {
+      setOpenMenuId(null);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpenMenuId(null);
+    }
+    document.addEventListener("mousedown", onClickAway);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onClickAway);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [openMenuId]);
 
   useEffect(() => {
     const check = () => setIsMobile(window.innerWidth < 768);
@@ -165,57 +183,96 @@ export default function ImageGrid({
           className="image-grid"
           style={{ height: totalHeight, position: "relative" }}
         >
-          {placements.map(({ image, left, top, width, height }) => (
-            <div
-              key={image.id}
-              className="image-card-wrap"
-              style={{ left, top, width, height, position: "absolute" }}
-            >
-              <button
-                className="image-card"
-                onClick={() => onOpen?.(image)}
-                type="button"
+          {placements.map(({ image, left, top, width, height }) => {
+            const menuOpen = openMenuId === image.id;
+            return (
+              <div
+                key={image.id}
+                className="image-card-wrap"
+                style={{ left, top, width, height, position: "absolute" }}
               >
-                <div className="image-card-frame">
-                  {image.preview_url ? (
-                    <img
-                      className="image-card-img"
-                      src={image.preview_url}
-                      alt={image.title || ""}
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="image-card-placeholder">
-                      {image.processing_status === "pending" ? "Processing…"
-                        : image.file_kind === "pdf" ? "PDF"
-                        : image.file_kind === "eps" ? "EPS"
-                        : "—"}
-                    </div>
-                  )}
-                </div>
-                <div className="image-card-title" title={image.title || undefined}>
-                  {image.title || "Untitled"}
-                </div>
-              </button>
-              {onDelete && (
                 <button
-                  className="image-card-delete"
+                  className="image-card"
+                  onClick={() => onOpen?.(image)}
                   type="button"
-                  aria-label="Delete image"
-                  title="Delete image"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    if (confirm(`Delete "${image.title || "this image"}"? This cannot be undone.`)) {
-                      void onDelete(image);
-                    }
-                  }}
                 >
-                  ×
+                  <div className="image-card-frame">
+                    {image.preview_url ? (
+                      <img
+                        className="image-card-img"
+                        src={image.preview_url}
+                        alt={image.title || ""}
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="image-card-placeholder">
+                        {image.processing_status === "pending" ? "Processing…"
+                          : image.file_kind === "pdf" ? "PDF"
+                          : image.file_kind === "eps" ? "EPS"
+                          : "—"}
+                      </div>
+                    )}
+                  </div>
+                  <div className="image-card-title" title={image.title || undefined}>
+                    {image.title || "Untitled"}
+                  </div>
                 </button>
-              )}
-            </div>
-          ))}
+
+                {(onEdit || onDelete) && (
+                  <div className={`image-card-actions ${menuOpen ? "menu-open" : ""}`}>
+                    <button
+                      type="button"
+                      className="image-card-menu-trigger"
+                      aria-label="Image options"
+                      aria-expanded={menuOpen}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setOpenMenuId(menuOpen ? null : image.id);
+                      }}
+                    >
+                      ⋮
+                    </button>
+                    {menuOpen && (
+                      <div
+                        className="image-card-menu"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {onEdit && (
+                          <button
+                            className="image-card-menu-item"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              onEdit(image);
+                            }}
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {onDelete && (
+                          <button
+                            className="image-card-menu-item danger"
+                            onClick={() => {
+                              setOpenMenuId(null);
+                              if (
+                                confirm(
+                                  `Delete "${image.title || "this image"}"? This cannot be undone.`,
+                                )
+                              ) {
+                                void onDelete(image);
+                              }
+                            }}
+                          >
+                            Delete
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
@@ -235,9 +292,7 @@ export default function ImageGrid({
           width: 100%;
         }
         .image-card-wrap {
-          /* positioned by inline style; this wrapper exists so the delete
-             button can be a sibling of the card button (nested buttons
-             aren't valid HTML). */
+          /* positioned by inline style. */
         }
         .image-card {
           width: 100%;
@@ -251,37 +306,13 @@ export default function ImageGrid({
           flex-direction: column;
           color: inherit;
         }
-        .image-card-delete {
-          position: absolute;
-          top: 6px;
-          right: 6px;
-          width: 26px;
-          height: 26px;
-          border-radius: 13px;
-          border: none;
-          background: rgba(0, 0, 0, 0.65);
-          color: #fff;
-          cursor: pointer;
-          font-size: 18px;
-          line-height: 1;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          opacity: 0;
-          transition: opacity 120ms ease, background 120ms ease, transform 120ms ease;
-          z-index: 2;
-        }
-        .image-card-wrap:hover .image-card-delete {
-          opacity: 1;
-        }
-        .image-card-delete:hover {
-          background: rgba(200, 60, 60, 0.95);
-          transform: scale(1.06);
-        }
         .image-card-frame {
           flex: 1 1 auto;
           width: 100%;
-          background: var(--color-bg-secondary);
+          /* Transparent so the image scale-down on hover doesn't reveal
+             a gray edge around the photo. The placeholder div below
+             keeps its own background for PDF/EPS/processing states. */
+          background: transparent;
           border-radius: 8px;
           overflow: hidden;
           box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
@@ -312,6 +343,9 @@ export default function ImageGrid({
         .image-card-placeholder {
           width: 100%;
           height: 100%;
+          /* Only the placeholder gets the gray fill — the frame is
+             transparent so real images don't show a halo on hover. */
+          background: var(--color-bg-secondary);
           display: flex;
           align-items: center;
           justify-content: center;
@@ -330,6 +364,84 @@ export default function ImageGrid({
         }
         .image-card:hover .image-card-title {
           opacity: 1;
+        }
+
+        /* Hover-revealed circle kebab menu — matches the link card
+           pattern. */
+        .image-card-actions {
+          position: absolute;
+          top: 8px;
+          right: 8px;
+          z-index: 2;
+        }
+        .image-card-menu-trigger {
+          width: 32px;
+          height: 32px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          font-size: 14px;
+          line-height: 1;
+          color: var(--color-text-muted);
+          cursor: pointer;
+          opacity: 0;
+          transform: translateY(6px) scale(0.92);
+          pointer-events: none;
+          transition:
+            opacity 160ms ease,
+            transform 180ms cubic-bezier(0.2, 0.8, 0.25, 1),
+            color 120ms ease,
+            background 120ms ease,
+            border-color 120ms ease;
+        }
+        .image-card-wrap:hover .image-card-menu-trigger,
+        .image-card-actions.menu-open .image-card-menu-trigger {
+          opacity: 1;
+          transform: translateY(0) scale(1);
+          pointer-events: auto;
+        }
+        .image-card-menu-trigger:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg);
+        }
+        @media (hover: none) {
+          .image-card-menu-trigger {
+            opacity: 1;
+            transform: none;
+            pointer-events: auto;
+          }
+        }
+        .image-card-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          min-width: 112px;
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          background: var(--color-bg);
+          overflow: hidden;
+          z-index: 4;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+        }
+        .image-card-menu-item {
+          width: 100%;
+          text-align: left;
+          padding: 8px 10px;
+          font-size: 12px;
+          color: var(--color-text);
+          background: transparent;
+          border: none;
+          cursor: pointer;
+        }
+        .image-card-menu-item:hover {
+          background: var(--color-bg-hover);
+        }
+        .image-card-menu-item.danger {
+          color: #d96a6a;
         }
       `}</style>
     </div>

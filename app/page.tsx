@@ -2673,6 +2673,7 @@ export default function Home() {
                 const idx = images.findIndex((i) => i.id === img.id);
                 if (idx >= 0) setSlideshowIndex(idx);
               }}
+              onEdit={(img) => setImageDetailId(img.id)}
               onDelete={async (img) => {
                 try {
                   const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
