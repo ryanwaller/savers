@@ -215,8 +215,21 @@ export default function ImageGrid({
                 }}
               >
                 {isEditMode && (
-                  <span className={`image-list-check ${selected ? "on" : ""}`} aria-hidden>
-                    {selected ? "✓" : ""}
+                  <span
+                    className={`image-list-check ${selected ? "on" : ""}`}
+                    aria-hidden
+                  >
+                    {selected && (
+                      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                        <path
+                          d="M3 8l3.5 3.5L13 5"
+                          stroke="currentColor"
+                          strokeWidth="2"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        />
+                      </svg>
+                    )}
                   </span>
                 )}
                 <span className="image-list-thumb">
@@ -267,8 +280,21 @@ export default function ImageGrid({
                   type="button"
                 >
                   {isEditMode && (
-                    <span className={`image-card-check ${selected ? "on" : ""}`} aria-hidden>
-                      {selected ? "✓" : ""}
+                    <span
+                      className={`image-card-check ${selected ? "on" : ""}`}
+                      aria-hidden
+                    >
+                      {selected && (
+                        <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                          <path
+                            d="M3 8l3.5 3.5L13 5"
+                            stroke="currentColor"
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          />
+                        </svg>
+                      )}
                     </span>
                   )}
                   <div
@@ -482,20 +508,25 @@ export default function ImageGrid({
           background: var(--color-bg-active);
           border-color: var(--color-border-strong);
         }
+        /* Matches .select-btn on the link side: 26px circle, light glass
+           background when off, filled with --color-text when on. */
         .image-list-check {
-          width: 18px;
-          height: 18px;
+          width: 26px;
+          height: 26px;
           flex-shrink: 0;
-          border: 1px solid var(--color-border-strong);
-          border-radius: 4px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: var(--color-text-muted);
           display: inline-flex;
           align-items: center;
           justify-content: center;
-          font-size: 12px;
-          color: var(--color-text);
         }
         .image-list-check.on {
           background: var(--color-text);
+          border-color: var(--color-text);
           color: var(--color-bg);
         }
         .image-list-thumb {
@@ -542,25 +573,29 @@ export default function ImageGrid({
         .image-card-wrap.selected .image-card-frame {
           box-shadow: 0 0 0 3px var(--color-text);
         }
+        /* Match .select-btn on the link card — 32px circle, top-left
+           corner, light glass when off, filled with --color-text when on,
+           same opaque pill style. */
         .image-card-check {
           position: absolute;
           top: 8px;
           left: 8px;
-          width: 24px;
-          height: 24px;
           z-index: 3;
-          border-radius: 6px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border-strong);
-          color: var(--color-text);
-          font-size: 14px;
-          line-height: 1;
+          width: 32px;
+          height: 32px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: var(--color-text-muted);
           display: inline-flex;
           align-items: center;
           justify-content: center;
         }
         .image-card-check.on {
           background: var(--color-text);
+          border-color: var(--color-text);
           color: var(--color-bg);
         }
 

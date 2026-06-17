@@ -2891,11 +2891,11 @@ export default function Home() {
             selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="bulk-count">
-                {selectedIds.size} image{selectedIds.size === 1 ? "" : "s"} selected
+                {selectedIds.size} selected
               </span>
-              <div className="bulk-move-wrap">
+              <div className="image-bulk-move-wrap">
                 <select
-                  className="bulk-move-input"
+                  className="image-bulk-move"
                   defaultValue=""
                   onChange={(e) => {
                     const v = e.target.value;
@@ -2907,7 +2907,7 @@ export default function Home() {
                     }
                   }}
                 >
-                  <option value="" disabled>Move to folder…</option>
+                  <option value="" disabled>Move {selectedIds.size}…</option>
                   <option value="__unsorted__">Unsorted</option>
                   {imageCollections.map((c) => (
                     <option key={c.id} value={c.id}>{c.name}</option>
@@ -2915,7 +2915,7 @@ export default function Home() {
                 </select>
               </div>
               <button
-                className="bulk-delete-btn"
+                className="btn"
                 onClick={() => {
                   if (confirm(`Delete ${selectedIds.size} image${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`)) {
                     void handleImageBulkDelete();
@@ -2925,7 +2925,7 @@ export default function Home() {
                 Delete {selectedIds.size}
               </button>
               <button
-                className="bulk-cancel-btn"
+                className="btn"
                 onClick={() => {
                   setSelectedIds(new Set());
                   setIsEditMode(false);
@@ -3437,6 +3437,29 @@ export default function Home() {
           padding: 0 12px;
           font-size: 12px;
           border-radius: 999px;
+        }
+        /* Image bulk: matches the .btn pill exactly so the Move/Delete/
+           Cancel buttons read as a uniform opaque row. */
+        .image-bulk-move-wrap { position: relative; }
+        .image-bulk-move {
+          height: 32px;
+          padding: 0 28px 0 12px;
+          font-size: 12px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-family: inherit;
+          cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
+          /* Caret chevron */
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 16 16' fill='none'><path d='M4 6.5 8 10.5 12 6.5' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+        }
+        .image-bulk-move:hover {
+          border-color: var(--color-border-strong);
         }
         .bulk-count {
           font-size: 12px;
