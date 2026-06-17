@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TagManagerModal from "./TagManagerModal";
 import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
-import type { Bookmark, Collection, FeedSubscription, SmartCollection } from "@/lib/types";
+import type { Bookmark, Collection, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
@@ -65,6 +65,7 @@ type Props = {
   onReorderCollections: (ids: string[]) => Promise<void>;
   onReparentCollection: (id: string, newParentId: string | null) => Promise<void>;
   onShareCollection?: (collection: Collection) => void;
+  onShareImageCollection?: (collection: ImageCollection) => void;
   onOpenTriage?: () => void;
   onSignOut?: () => void | Promise<void>;
   onOpenSettings?: () => void;
@@ -87,13 +88,7 @@ type Props = {
   onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
   // Image collections (folders under the Images supergroup).
-  imageCollections?: Array<{
-    id: string;
-    name: string;
-    parent_id: string | null;
-    icon?: string | null;
-    image_count?: number;
-  }>;
+  imageCollections?: ImageCollection[];
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
 };
@@ -118,6 +113,7 @@ export default function Sidebar({
   onReorderCollections,
   onReparentCollection,
   onShareCollection,
+  onShareImageCollection,
   onOpenTriage,
   onSignOut,
   onOpenSettings,
@@ -661,6 +657,9 @@ export default function Sidebar({
                   }
                   onDelete={
                     onDeleteImageCollection ? () => onDeleteImageCollection(c.id) : undefined
+                  }
+                  onShare={
+                    onShareImageCollection ? () => onShareImageCollection(c) : undefined
                   }
                 />
               ))}
@@ -2736,11 +2735,12 @@ function countSubtree(c: Collection): number {
 // ---------------------------------------------------------------------------
 
 type ImageCollectionRowProps = {
-  collection: { id: string; name: string; icon?: string | null; image_count?: number };
+  collection: ImageCollection;
   active: boolean;
   onSelect: () => void;
   onUpdate?: (updates: { name?: string; icon?: string | null }) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
+  onShare?: () => void;
 };
 
 function ImageCollectionRow({
@@ -2749,6 +2749,7 @@ function ImageCollectionRow({
   onSelect,
   onUpdate,
   onDelete,
+  onShare,
 }: ImageCollectionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
@@ -2821,9 +2822,12 @@ function ImageCollectionRow({
           <button
             className="img-name"
             onClick={onSelect}
-            title={collection.name}
+            title={collection.is_public ? `${collection.name} · public` : collection.name}
           >
             {collection.name}
+            {collection.is_public && (
+              <span className="public-dot" aria-hidden title="Public" />
+            )}
           </button>
         )}
         <div className={`img-tail ${menuOpen ? "open" : ""}`}>
@@ -2865,6 +2869,16 @@ function ImageCollectionRow({
               }}
             >
               Rename
+            </button>
+          )}
+          {onShare && (
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                onShare();
+              }}
+            >
+              {collection.is_public ? "Sharing settings…" : "Share…"}
             </button>
           )}
           {onDelete && (

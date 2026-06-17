@@ -94,6 +94,21 @@ export interface FeedItem {
   created_at: string
 }
 
+export interface ImageCollection {
+  id: string
+  user_id?: string | null
+  name: string
+  parent_id: string | null
+  position?: number
+  created_at?: string
+  icon?: string | null
+  image_count?: number
+  is_public?: boolean
+  public_id?: string | null
+  public_slug?: string | null
+  public_description?: string | null
+}
+
 export interface TagAlias {
   id: string
   canonical_tag: string

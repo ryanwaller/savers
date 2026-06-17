@@ -1,13 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Collection } from "@/lib/types";
+export type ShareableCollection = {
+  id: string;
+  name: string;
+  icon: string | null;
+  is_public?: boolean;
+  public_id?: string | null;
+  public_slug?: string | null;
+  public_description?: string | null;
+  shareKind?: "links" | "images";
+};
 
 type Props = {
-  collection: Collection | null;
+  collection: ShareableCollection | null;
   open: boolean;
   onClose: () => void;
-  onUpdate: (next: Collection) => void;
+  onUpdate: (next: ShareableCollection) => void;
 };
 
 type VisibilityResponse = {
@@ -60,6 +69,10 @@ export default function SharingModal({
     setSaving(true);
     setError(null);
     try {
+      const endpoint =
+        collection.shareKind === "images"
+          ? "/api/image-collections/visibility"
+          : "/api/collections/visibility";
       const body: Record<string, unknown> = {
         id: collection.id,
         is_public: nextPublic,
@@ -68,7 +81,7 @@ export default function SharingModal({
         body.public_slug = slug.trim() || null;
         body.public_description = description.trim() || null;
       }
-      const res = await fetch("/api/collections/visibility", {
+      const res = await fetch(endpoint, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
@@ -77,7 +90,7 @@ export default function SharingModal({
       if (!res.ok) {
         throw new Error(json?.error || `Failed (${res.status})`);
       }
-      const updated: Collection = {
+      const updated: ShareableCollection = {
         ...collection,
         is_public: json.collection.is_public,
         public_id: json.collection.public_id,

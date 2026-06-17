@@ -4,7 +4,7 @@ import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
-import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, SmartCollection } from "@/lib/types";
+import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
 import { notify } from "@/lib/notify";
 import { evaluateFilter } from "@/lib/smart-collections";
@@ -29,7 +29,7 @@ import DuplicateImportModal from "./components/DuplicateImportModal";
 import AuthScreen from "./components/AuthScreen";
 import ConfirmDialog from "./components/ConfirmDialog";
 import SettingsModal from "./components/SettingsModal";
-import SharingModal from "./components/SharingModal";
+import SharingModal, { type ShareableCollection } from "./components/SharingModal";
 import TriageOverlay from "./components/TriageOverlay";
 import SmartCollectionBuilderModal from "./components/SmartCollectionBuilderModal";
 import CreateCollectionModal from "./components/CreateCollectionModal";
@@ -361,7 +361,7 @@ export default function Home() {
 
   const [showAdd, setShowAdd] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [sharingCollection, setSharingCollection] = useState<Collection | null>(null);
+  const [sharingCollection, setSharingCollection] = useState<ShareableCollection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
@@ -377,9 +377,7 @@ export default function Home() {
     count: number;
     label: string;
   } | null>(null);
-  const [imageCollections, setImageCollections] = useState<
-    Array<{ id: string; name: string; parent_id: string | null; icon?: string | null; image_count?: number }>
-  >([]);
+  const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
 
   // Load the image-collection folder list (flat). Called on auth-ready and
   // after a successful create/delete so the sidebar refreshes.
@@ -389,13 +387,7 @@ export default function Home() {
       if (!res.ok) return;
       const body = await res.json();
       setImageCollections(
-        (body.collections as Array<{
-          id: string;
-          name: string;
-          parent_id: string | null;
-          icon?: string | null;
-          image_count?: number;
-        }>) || [],
+        (body.collections as ImageCollection[]) || [],
       );
     } catch (err) {
       console.error("[image-collections] load failed", err);
@@ -2301,6 +2293,17 @@ export default function Home() {
         onReorderCollections={handleReorderCollections}
         onReparentCollection={handleReparentCollection}
         onShareCollection={(c) => setSharingCollection(c)}
+        onShareImageCollection={(c) =>
+          setSharingCollection({
+            ...c,
+            icon: c.icon ?? null,
+            is_public: c.is_public,
+            public_id: c.public_id,
+            public_slug: c.public_slug,
+            public_description: c.public_description,
+            shareKind: "images",
+          })
+        }
         onOpenTriage={() => setTriageOpen(true)}
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
@@ -3062,6 +3065,22 @@ export default function Home() {
         onClose={() => setSharingCollection(null)}
         onUpdate={(updated) => {
           setSharingCollection(updated);
+          if (updated.shareKind === "images") {
+            setImageCollections((prev) =>
+              prev.map((c) =>
+                c.id === updated.id
+                  ? {
+                      ...c,
+                      is_public: updated.is_public,
+                      public_id: updated.public_id,
+                      public_slug: updated.public_slug,
+                      public_description: updated.public_description,
+                    }
+                  : c
+              )
+            );
+            return;
+          }
           // Reflect the change in our local trees so the sidebar's
           // "public dot" affordance updates without a refresh.
           const patch = (list: Collection[]): Collection[] =>

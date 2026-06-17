@@ -104,12 +104,20 @@ export async function PATCH(req: NextRequest) {
         let attempts = 0
         let candidate = generatePublicId()
         while (attempts < 5) {
-          const { data: clash } = await admin
-            .from('collections')
-            .select('id')
-            .eq('public_id', candidate)
-            .maybeSingle()
-          if (!clash) break
+          const [{ data: collectionClash }, { data: imageClash }] = await Promise.all([
+            admin
+              .from('collections')
+              .select('id')
+              .eq('public_id', candidate)
+              .maybeSingle(),
+            admin
+              .schema('savers')
+              .from('image_collections')
+              .select('id')
+              .eq('public_id', candidate)
+              .maybeSingle(),
+          ])
+          if (!collectionClash && !imageClash) break
           candidate = generatePublicId()
           attempts += 1
         }
@@ -128,12 +136,20 @@ export async function PATCH(req: NextRequest) {
             )
           }
           // Uniqueness check.
-          const { data: takenBy } = await admin
-            .from('collections')
-            .select('id, user_id')
-            .eq('public_slug', slug)
-            .maybeSingle()
-          if (takenBy && takenBy.id !== id) {
+          const [{ data: takenByCollection }, { data: takenByImage }] = await Promise.all([
+            admin
+              .from('collections')
+              .select('id, user_id')
+              .eq('public_slug', slug)
+              .maybeSingle(),
+            admin
+              .schema('savers')
+              .from('image_collections')
+              .select('id')
+              .eq('public_slug', slug)
+              .maybeSingle(),
+          ])
+          if ((takenByCollection && takenByCollection.id !== id) || takenByImage) {
             return NextResponse.json(
               { error: 'Slug already taken.' },
               { status: 409 }

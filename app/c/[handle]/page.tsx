@@ -1,9 +1,27 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
-import { headers } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { storedPreviewUrl } from "@/lib/api";
 import CollectionIcon from "@/app/components/CollectionIcon";
+
+type SharedCollection = {
+  id: string;
+  name: string;
+  icon: string | null;
+  public_id: string | null;
+  public_slug: string | null;
+  public_description: string | null;
+  parent_id: string | null;
+};
+
+type ChildCollection = {
+  id: string;
+  name: string;
+  icon: string | null;
+  public_id: string | null;
+  public_slug: string | null;
+  public_description: string | null;
+};
 
 type Bookmark = {
   id: string;
@@ -18,78 +36,139 @@ type Bookmark = {
   preview_version: number | null;
 };
 
-type ChildCollection = {
+type ImageItem = {
   id: string;
-  name: string;
-  icon: string | null;
-  public_id: string | null;
-  public_slug: string | null;
-  public_description: string | null;
+  title: string | null;
+  description: string | null;
+  preview_path: string | null;
+  width: number | null;
+  height: number | null;
+  source_url: string | null;
+  created_at: string;
 };
 
-type CollectionRow = {
-  id: string;
-  name: string;
-  icon: string | null;
-  public_id: string | null;
-  public_slug: string | null;
-  public_description: string | null;
-  parent_id: string | null;
+type LinkCollectionData = {
+  kind: "links";
+  collection: SharedCollection;
+  bookmarks: Bookmark[];
+  children: ChildCollection[];
 };
+
+type ImageCollectionData = {
+  kind: "images";
+  collection: SharedCollection;
+  images: ImageItem[];
+  children: ChildCollection[];
+};
+
+type PublicCollectionData = LinkCollectionData | ImageCollectionData;
 
 const HANDLE_PATTERN = /^[a-z0-9](?:[a-z0-9-]{0,38}[a-z0-9])?$/;
 
-async function loadPublicCollection(handle: string) {
+async function findPublicLinkCollection(handle: string): Promise<SharedCollection | null> {
+  const admin = getSupabaseAdmin();
+  const { data: bySlug } = await admin
+    .from("collections")
+    .select("id, name, icon, public_id, public_slug, public_description, parent_id")
+    .eq("public_slug", handle)
+    .eq("is_public", true)
+    .maybeSingle<SharedCollection>();
+
+  if (bySlug) return bySlug;
+
+  const { data: byId } = await admin
+    .from("collections")
+    .select("id, name, icon, public_id, public_slug, public_description, parent_id")
+    .eq("public_id", handle)
+    .eq("is_public", true)
+    .maybeSingle<SharedCollection>();
+
+  return byId ?? null;
+}
+
+async function findPublicImageCollection(handle: string): Promise<SharedCollection | null> {
+  const admin = getSupabaseAdmin();
+  const { data: bySlug } = await admin
+    .schema("savers")
+    .from("image_collections")
+    .select("id, name, icon, public_id, public_slug, public_description, parent_id")
+    .eq("public_slug", handle)
+    .eq("is_public", true)
+    .maybeSingle<SharedCollection>();
+
+  if (bySlug) return bySlug;
+
+  const { data: byId } = await admin
+    .schema("savers")
+    .from("image_collections")
+    .select("id, name, icon, public_id, public_slug, public_description, parent_id")
+    .eq("public_id", handle)
+    .eq("is_public", true)
+    .maybeSingle<SharedCollection>();
+
+  return byId ?? null;
+}
+
+async function loadPublicCollection(handle: string): Promise<PublicCollectionData | null> {
   if (!HANDLE_PATTERN.test(handle)) return null;
   const admin = getSupabaseAdmin();
 
-  const { data: bySlug } = await admin
-    .from("collections")
-    .select(
-      "id, name, icon, public_id, public_slug, public_description, parent_id"
-    )
-    .eq("public_slug", handle)
-    .eq("is_public", true)
-    .maybeSingle<CollectionRow>();
+  const linkCollection = await findPublicLinkCollection(handle);
+  if (linkCollection) {
+    const [{ data: bookmarks }, { data: children }] = await Promise.all([
+      admin
+        .from("bookmarks")
+        .select(
+          "id, url, title, description, og_image, favicon, tags, pinned, preview_path, preview_version"
+        )
+        .eq("collection_id", linkCollection.id)
+        .order("pinned", { ascending: false })
+        .order("position", { ascending: true })
+        .order("created_at", { ascending: false })
+        .returns<Bookmark[]>(),
+      admin
+        .from("collections")
+        .select("id, name, icon, public_id, public_slug, public_description")
+        .eq("parent_id", linkCollection.id)
+        .eq("is_public", true)
+        .order("position", { ascending: true })
+        .returns<ChildCollection[]>(),
+    ]);
 
-  let collection = bySlug;
-  if (!collection) {
-    const { data: byId } = await admin
-      .from("collections")
-      .select(
-        "id, name, icon, public_id, public_slug, public_description, parent_id"
-      )
-      .eq("public_id", handle)
-      .eq("is_public", true)
-      .maybeSingle<CollectionRow>();
-    collection = byId ?? null;
+    return {
+      kind: "links",
+      collection: linkCollection,
+      bookmarks: bookmarks ?? [],
+      children: children ?? [],
+    };
   }
 
-  if (!collection) return null;
+  const imageCollection = await findPublicImageCollection(handle);
+  if (!imageCollection) return null;
 
-  const [{ data: bookmarks }, { data: children }] = await Promise.all([
+  const [{ data: images }, { data: children }] = await Promise.all([
     admin
-      .from("bookmarks")
-      .select(
-        "id, url, title, description, og_image, favicon, tags, pinned, preview_path, preview_version"
-      )
-      .eq("collection_id", collection.id)
-      .order("pinned", { ascending: false })
+      .schema("savers")
+      .from("images")
+      .select("id, title, description, preview_path, width, height, source_url, created_at")
+      .eq("collection_id", imageCollection.id)
       .order("position", { ascending: true })
       .order("created_at", { ascending: false })
-      .returns<Bookmark[]>(),
+      .returns<ImageItem[]>(),
     admin
-      .from("collections")
+      .schema("savers")
+      .from("image_collections")
       .select("id, name, icon, public_id, public_slug, public_description")
-      .eq("parent_id", collection.id)
+      .eq("parent_id", imageCollection.id)
       .eq("is_public", true)
       .order("position", { ascending: true })
       .returns<ChildCollection[]>(),
   ]);
 
   return {
-    collection,
-    bookmarks: bookmarks ?? [],
+    kind: "images",
+    collection: imageCollection,
+    images: images ?? [],
     children: children ?? [],
   };
 }
@@ -102,9 +181,14 @@ export async function generateMetadata({
   const { handle } = await params;
   const data = await loadPublicCollection(handle);
   if (!data) return { title: "Savers" };
+
+  const count =
+    data.kind === "links" ? data.bookmarks.length : data.images.length;
+  const noun = data.kind === "links" ? "bookmarks" : "images";
   const desc =
     data.collection.public_description ??
-    `${data.bookmarks.length} bookmarks in ${data.collection.name}`;
+    `${count} ${noun} in ${data.collection.name}`;
+
   return {
     title: `${data.collection.name} · Savers`,
     description: desc,
@@ -124,11 +208,7 @@ export default async function PublicCollectionPage({
   const data = await loadPublicCollection(handle);
   if (!data) notFound();
 
-  const { collection, bookmarks, children } = data;
-  const headersList = await headers();
-  const host = headersList.get("host") ?? "savers.app";
-  const proto = headersList.get("x-forwarded-proto") ?? "https";
-  const origin = `${proto}://${host}`;
+  const count = data.kind === "links" ? data.bookmarks.length : data.images.length;
 
   function publicHref(child: ChildCollection): string {
     return `/c/${child.public_slug ?? child.public_id}`;
@@ -139,19 +219,19 @@ export default async function PublicCollectionPage({
       <header className="public-head">
         <div className="public-head-row">
           <span className="public-icon" aria-hidden>
-            <CollectionIcon name={collection.icon} size={14} />
+            <CollectionIcon name={data.collection.icon} size={14} />
           </span>
-          <h1 className="public-title">{collection.name}</h1>
-          <span className="public-count">{bookmarks.length}</span>
+          <h1 className="public-title">{data.collection.name}</h1>
+          <span className="public-count">{count}</span>
         </div>
-        {collection.public_description && (
-          <p className="public-desc">{collection.public_description}</p>
+        {data.collection.public_description && (
+          <p className="public-desc">{data.collection.public_description}</p>
         )}
       </header>
 
-      {children.length > 0 && (
+      {data.children.length > 0 && (
         <nav className="public-children" aria-label="Sub-collections">
-          {children.map((child) => (
+          {data.children.map((child) => (
             <a key={child.id} href={publicHref(child)} className="public-child">
               <span className="public-child-icon" aria-hidden>
                 <CollectionIcon name={child.icon} size={14} />
@@ -162,18 +242,30 @@ export default async function PublicCollectionPage({
         </nav>
       )}
 
-      <main className="public-grid">
-        {bookmarks.length === 0 ? (
-          <div className="public-empty muted small">No bookmarks here yet.</div>
-        ) : (
-          bookmarks.map((b) => (
-            <PublicCard key={b.id} bookmark={b} origin={origin} />
-          ))
-        )}
-      </main>
+      {data.kind === "links" ? (
+        <main className="public-grid">
+          {data.bookmarks.length === 0 ? (
+            <div className="public-empty muted small">No bookmarks here yet.</div>
+          ) : (
+            data.bookmarks.map((bookmark) => (
+              <PublicBookmarkCard key={bookmark.id} bookmark={bookmark} />
+            ))
+          )}
+        </main>
+      ) : (
+        <main className="public-image-grid">
+          {data.images.length === 0 ? (
+            <div className="public-empty muted small">No images here yet.</div>
+          ) : (
+            data.images.map((image) => (
+              <PublicImageCard key={image.id} image={image} />
+            ))
+          )}
+        </main>
+      )}
 
       <footer className="public-foot">
-        <a className="public-cta" href={`/?savers_ref=public_${collection.public_id}`}>
+        <a className="public-cta" href={`/?savers_ref=public_${data.collection.public_id}`}>
           Save this collection
         </a>
       </footer>
@@ -290,8 +382,11 @@ export default async function PublicCollectionPage({
           grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
           gap: 16px;
         }
+        .public-image-grid {
+          columns: 280px;
+          column-gap: 16px;
+        }
         .public-empty {
-          grid-column: 1 / -1;
           padding: 48px 24px;
           text-align: center;
         }
@@ -314,28 +409,25 @@ export default async function PublicCollectionPage({
         .public-cta:hover {
           border-color: var(--public-text);
         }
-        .public-attribution {
-          font-size: 12px;
-        }
-        .public-brand {
-          color: inherit;
-          text-decoration: underline;
-          text-underline-offset: 3px;
-        }
         .small { font-size: 12px; }
         .muted { color: var(--public-muted); }
+        @media (max-width: 680px) {
+          .public-shell {
+            padding: 36px 16px 72px;
+          }
+          .public-grid {
+            grid-template-columns: minmax(0, 1fr);
+          }
+          .public-image-grid {
+            columns: 1;
+          }
+        }
       `}</style>
     </div>
   );
 }
 
-function PublicCard({
-  bookmark,
-  origin,
-}: {
-  bookmark: Bookmark;
-  origin: string;
-}) {
+function PublicBookmarkCard({ bookmark }: { bookmark: Bookmark }) {
   const previewSrc =
     storedPreviewUrl(bookmark.preview_path, { previewVersion: bookmark.preview_version }) ??
     bookmark.og_image ??
@@ -358,12 +450,7 @@ function PublicCard({
       <div className="public-card-thumb">
         {previewSrc ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={previewSrc}
-            alt=""
-            loading="lazy"
-            referrerPolicy="no-referrer"
-          />
+          <img src={previewSrc} alt="" loading="lazy" referrerPolicy="no-referrer" />
         ) : (
           <span className="public-card-thumb-fallback">{host}</span>
         )}
@@ -449,6 +536,97 @@ function PublicCard({
           line-height: 17px;
           display: -webkit-box;
           -webkit-line-clamp: 3;
+          -webkit-box-orient: vertical;
+          overflow: hidden;
+        }
+      `}</style>
+    </a>
+  );
+}
+
+function PublicImageCard({
+  image,
+}: {
+  image: ImageItem;
+}) {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/+$/, "") || "";
+  const previewSrc =
+    image.preview_path
+      ? `${supabaseUrl}/storage/v1/object/public/image-previews/${image.preview_path}`
+      : null;
+  const href = image.source_url || previewSrc || "#";
+
+  return (
+    <a
+      className="public-image-card"
+      href={href}
+      target={href === "#" ? undefined : "_blank"}
+      rel={href === "#" ? undefined : "noopener noreferrer"}
+    >
+      <div className="public-image-thumb">
+        {previewSrc ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={previewSrc} alt={image.title || ""} loading="lazy" referrerPolicy="no-referrer" />
+        ) : (
+          <div className="public-image-fallback" />
+        )}
+      </div>
+      {(image.title || image.description) && (
+        <div className="public-image-meta">
+          {image.title && <div className="public-image-title">{image.title}</div>}
+          {image.description && <p className="public-image-desc small muted">{image.description}</p>}
+        </div>
+      )}
+      <style>{`
+        .public-image-card {
+          display: inline-flex;
+          flex-direction: column;
+          width: 100%;
+          margin: 0 0 16px;
+          break-inside: avoid;
+          background: var(--public-surface);
+          border: 1px solid var(--public-border);
+          border-radius: 12px;
+          overflow: hidden;
+          color: inherit;
+          text-decoration: none;
+          transition: border-color 120ms ease;
+        }
+        .public-image-card:hover {
+          border-color: var(--public-text);
+        }
+        .public-image-thumb {
+          width: 100%;
+          background: var(--public-bg);
+        }
+        .public-image-thumb img,
+        .public-image-fallback {
+          display: block;
+          width: 100%;
+          height: auto;
+          min-height: 180px;
+          object-fit: cover;
+        }
+        .public-image-fallback {
+          background: linear-gradient(180deg, rgba(0,0,0,0.02), rgba(0,0,0,0.08));
+        }
+        .public-image-meta {
+          display: flex;
+          flex-direction: column;
+          gap: 6px;
+          padding: 12px 14px 14px;
+        }
+        .public-image-title {
+          font-size: 12px;
+          font-weight: 600;
+          line-height: 17px;
+          letter-spacing: -0.005em;
+        }
+        .public-image-desc {
+          line-height: 17px;
+          margin: 0;
+          display: -webkit-box;
+          -webkit-line-clamp: 4;
           -webkit-box-orient: vertical;
           overflow: hidden;
         }
