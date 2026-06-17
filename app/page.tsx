@@ -356,7 +356,12 @@ export default function Home() {
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [images, setImages] = useState<ImageRow[]>([]);
   const [loadingImages, setLoadingImages] = useState(false);
+  const [imagesReloadKey, setImagesReloadKey] = useState(0);
   const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
+  const [imageDropUploading, setImageDropUploading] = useState<{
+    count: number;
+    label: string;
+  } | null>(null);
   const [imageCollections, setImageCollections] = useState<
     Array<{ id: string; name: string; parent_id: string | null; icon?: string | null; image_count?: number }>
   >([]);
@@ -380,6 +385,10 @@ export default function Home() {
     } catch (err) {
       console.error("[image-collections] load failed", err);
     }
+  }, []);
+
+  const refreshImages = useCallback(() => {
+    setImagesReloadKey((v) => v + 1);
   }, []);
 
   useEffect(() => {
@@ -1060,7 +1069,7 @@ export default function Home() {
     })();
 
     return () => { cancelled = true; };
-  }, [authLoading, user, selection]);
+  }, [authLoading, user, selection, imagesReloadKey]);
 
   // Initial load
   useEffect(() => {
@@ -2162,10 +2171,18 @@ export default function Home() {
         if (selection.kind === "image_collection") {
           fd.append("collection_id", selection.id);
         }
+        const count = files.length;
+        setImageDropUploading({
+          count,
+          label: count === 1 ? "Uploading image…" : `Uploading ${count} images…`,
+        });
+        setDropStatus(count === 1 ? "Uploading image…" : `Uploading ${count} images…`);
         try {
           const res = await fetch("/api/images/upload", { method: "POST", body: fd });
           if (!res.ok) {
             console.error("[image-drop] upload failed", await res.text().catch(() => ""));
+            setDropStatus("Image upload failed.");
+            window.setTimeout(() => setDropStatus(null), 5000);
             return;
           }
           const body = await res.json().catch(() => ({}));
@@ -2175,12 +2192,31 @@ export default function Home() {
           if (body.images?.length) {
             // If already viewing an image collection, stay there; otherwise
             // switch to All Images so the uploads are visible.
-            if (selection.kind !== "image_collection") {
+            if (selection.kind === "images_all" || selection.kind === "image_collection") {
+              refreshImages();
+            } else {
               setSelection({ kind: "images_all" });
             }
+            const okCount = body.images.length as number;
+            const failCount = Array.isArray(body.errors) ? body.errors.length : 0;
+            setDropStatus(
+              failCount > 0
+                ? `${okCount} image${okCount === 1 ? "" : "s"} saved, ${failCount} failed.`
+                : okCount === 1
+                ? "Image saved."
+                : `${okCount} images saved.`,
+            );
+            window.setTimeout(() => setDropStatus(null), failCount > 0 ? 5000 : 3000);
+          } else if (body.errors?.length) {
+            setDropStatus("Image upload failed.");
+            window.setTimeout(() => setDropStatus(null), 5000);
           }
         } catch (err) {
           console.error("[image-drop] upload error", err);
+          setDropStatus("Image upload failed.");
+          window.setTimeout(() => setDropStatus(null), 5000);
+        } finally {
+          setImageDropUploading(null);
         }
       }}
     >
@@ -2935,6 +2971,7 @@ export default function Home() {
         onUploaded={() => {
           // If we're already viewing the image grid, switch to All Images
           // and refetch so the new uploads appear immediately.
+          refreshImages();
           setSelection({ kind: "images_all" });
         }}
       />
@@ -3018,6 +3055,20 @@ export default function Home() {
         onCancel={() => setConfirmBulkDelete(false)}
       />
 
+      {imageDropUploading && (
+        <div className="image-upload-overlay" aria-live="polite" aria-busy="true">
+          <div className="image-upload-card">
+            <div className="image-upload-spinner" aria-hidden />
+            <div className="image-upload-title">{imageDropUploading.label}</div>
+            <div className="image-upload-subtitle">
+              {imageDropUploading.count === 1
+                ? "Saving it into your image library and generating a title."
+                : `Saving ${imageDropUploading.count} items into your image library.`}
+            </div>
+          </div>
+        </div>
+      )}
+
       <style jsx>{`
         .app {
           display: flex;
@@ -3058,6 +3109,54 @@ export default function Home() {
           padding: 6px 14px;
           color: var(--color-text-muted);
           white-space: nowrap;
+        }
+        .image-upload-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 140;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          background: rgba(0, 0, 0, 0.16);
+          backdrop-filter: blur(3px);
+          -webkit-backdrop-filter: blur(3px);
+        }
+        .image-upload-card {
+          min-width: 220px;
+          max-width: min(360px, calc(100vw - 32px));
+          padding: 18px 20px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          background: var(--color-bg);
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          text-align: center;
+        }
+        .image-upload-spinner {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          border: 2px solid var(--color-border);
+          border-top-color: var(--color-text);
+          animation: upload-spin 700ms linear infinite;
+        }
+        .image-upload-title {
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text);
+        }
+        .image-upload-subtitle {
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+        }
+        @keyframes upload-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
         .bulk-actions {
           display: flex;
