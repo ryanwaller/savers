@@ -1349,16 +1349,16 @@ export default function Home() {
       ];
     }
     if (selection.kind === "images_all") {
+      // Images live in their own root, not nested under bookmarks.
       return [
-        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
       ];
     }
     if (selection.kind === "image_collection") {
+      const folder = imageCollections.find((c) => c.id === selection.id);
       return [
-        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
         { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
-        { label: "Image folder", icon: null, isCollection: false, selection: { kind: "image_collection", id: selection.id } as Selection },
+        { label: folder?.name ?? "Folder", icon: null, isCollection: false, selection: { kind: "image_collection", id: selection.id } as Selection },
       ];
     }
 
@@ -1372,7 +1372,7 @@ export default function Home() {
         selection: { kind: "collection", id: item.id } as Selection,
       })),
     ];
-  }, [selection, tree, smartCollections, feeds]);
+  }, [selection, tree, smartCollections, feeds, imageCollections]);
   const defaultCollectionForAdd =
     selection.kind === "collection" ? selection.id : null;
 
@@ -2142,7 +2142,38 @@ export default function Home() {
   }
 
   return (
-    <DropZone onUrls={handleDroppedUrls}>
+    <DropZone
+      onUrls={handleDroppedUrls}
+      onFiles={async (files) => {
+        // Page-wide image drop. Upload directly via the API and jump to
+        // All Images so the new uploads land somewhere visible.
+        const fd = new FormData();
+        for (const f of files) fd.append("files", f);
+        if (selection.kind === "image_collection") {
+          fd.append("collection_id", selection.id);
+        }
+        try {
+          const res = await fetch("/api/images/upload", { method: "POST", body: fd });
+          if (!res.ok) {
+            console.error("[image-drop] upload failed", await res.text().catch(() => ""));
+            return;
+          }
+          const body = await res.json().catch(() => ({}));
+          if (body.errors?.length) {
+            console.warn("[image-drop] some files failed:", body.errors);
+          }
+          if (body.images?.length) {
+            // If already viewing an image collection, stay there; otherwise
+            // switch to All Images so the uploads are visible.
+            if (selection.kind !== "image_collection") {
+              setSelection({ kind: "images_all" });
+            }
+          }
+        } catch (err) {
+          console.error("[image-drop] upload error", err);
+        }
+      }}
+    >
     <div
       className={`app ${!sidebarOpen ? "sidebar-closed" : ""} ${sidebarOpen ? "mobile-sidebar-open" : ""}`}
       data-savers-app

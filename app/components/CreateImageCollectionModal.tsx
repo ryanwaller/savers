@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import CollectionIcon from "./CollectionIcon";
+import IconPicker from "./IconPicker";
 
 type Props = {
   open: boolean;
@@ -16,6 +18,8 @@ export default function CreateImageCollectionModal({
   parentId = null,
 }: Props) {
   const [name, setName] = useState("");
+  const [icon, setIcon] = useState<string | null>(null);
+  const [showIconPicker, setShowIconPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -23,6 +27,8 @@ export default function CreateImageCollectionModal({
   useEffect(() => {
     if (!open) return;
     setName("");
+    setIcon(null);
+    setShowIconPicker(false);
     setError(null);
     setSaving(false);
     // Focus the name input on open
@@ -51,7 +57,7 @@ export default function CreateImageCollectionModal({
       const res = await fetch("/api/image-collections", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: name.trim(), parent_id: parentId }),
+        body: JSON.stringify({ name: name.trim(), parent_id: parentId, icon }),
       });
       const body = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -83,17 +89,42 @@ export default function CreateImageCollectionModal({
         </div>
 
         <div className="ic-body">
-          <input
-            ref={inputRef}
-            className="ic-input"
-            placeholder="Folder name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void save();
-            }}
-            disabled={saving}
-          />
+          <div className="ic-name-row">
+            <button
+              className="ic-icon-btn"
+              onClick={() => setShowIconPicker((v) => !v)}
+              title="Choose icon"
+              type="button"
+            >
+              <CollectionIcon name={icon} size={16} />
+            </button>
+            {showIconPicker && (
+              <div className="ic-icon-picker-wrap">
+                <div className="ic-icon-picker-backdrop" onClick={() => setShowIconPicker(false)} />
+                <div className="ic-icon-picker-popup">
+                  <IconPicker
+                    value={icon}
+                    onPick={(name) => {
+                      setIcon(name);
+                      setShowIconPicker(false);
+                    }}
+                    onClose={() => setShowIconPicker(false)}
+                  />
+                </div>
+              </div>
+            )}
+            <input
+              ref={inputRef}
+              className="ic-input"
+              placeholder="Folder name"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") void save();
+              }}
+              disabled={saving}
+            />
+          </div>
           {error && <div className="ic-error">{error}</div>}
         </div>
 
@@ -155,8 +186,46 @@ export default function CreateImageCollectionModal({
         .ic-close:disabled { opacity: 0.4; cursor: not-allowed; }
 
         .ic-body { padding: 16px 18px; }
+        .ic-name-row {
+          display: flex;
+          align-items: stretch;
+          gap: 8px;
+          position: relative;
+        }
+        .ic-icon-btn {
+          width: 38px;
+          flex-shrink: 0;
+          background: transparent;
+          color: var(--color-text);
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .ic-icon-btn:hover { background: var(--color-bg-hover); }
+        .ic-icon-picker-wrap {
+          position: absolute;
+          top: 100%;
+          left: 0;
+          z-index: 30;
+          margin-top: 6px;
+        }
+        .ic-icon-picker-backdrop {
+          position: fixed;
+          inset: 0;
+        }
+        .ic-icon-picker-popup {
+          position: relative;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 12px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
+        }
         .ic-input {
           width: 100%;
+          flex: 1 1 auto;
           padding: 10px 12px;
           font-size: 14px;
           border: 1px solid var(--color-border);

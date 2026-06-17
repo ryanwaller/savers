@@ -46,6 +46,9 @@ export async function POST(req: NextRequest) {
     const parentId = typeof body?.parent_id === "string" && body.parent_id.trim()
       ? body.parent_id.trim()
       : null;
+    const icon = typeof body?.icon === "string" && body.icon.trim()
+      ? body.icon.trim()
+      : null;
 
     if (!name) {
       return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -78,6 +81,7 @@ export async function POST(req: NextRequest) {
         name,
         parent_id: parentId,
         position: nextPos,
+        icon,
       })
       .select("id, user_id, name, parent_id, position, icon, is_public, public_id, public_slug, public_description, created_at")
       .single();

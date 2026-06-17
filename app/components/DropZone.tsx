@@ -5,54 +5,79 @@ import { extractUrlsFromDataTransfer, hasDroppableContent } from "@/lib/webloc";
 
 type Props = {
   onUrls: (urls: string[]) => void;
+  /**
+   * Called when the drop is *only* image files (PDF/EPS/SVG/JPG/etc).
+   * Page-level callback so the user can drop images anywhere in the
+   * window — no need to open the upload modal first.
+   */
+  onFiles?: (files: File[]) => void;
   children: React.ReactNode;
 };
 
+// Mime types the AddImageModal accepts. Kept in sync there.
+const IMAGE_DROP_MIME_PREFIXES = ["image/"];
+const IMAGE_DROP_EXACT_TYPES = new Set([
+  "application/pdf",
+  "application/postscript",
+  "application/eps",
+]);
+
+function isImageDropType(type: string): boolean {
+  if (!type) return false;
+  if (IMAGE_DROP_EXACT_TYPES.has(type)) return true;
+  return IMAGE_DROP_MIME_PREFIXES.some((p) => type.startsWith(p));
+}
+
 // Full-viewport drop zone. Shows an overlay while an external file/URL
 // is being dragged over the window.
-export default function DropZone({ onUrls, children }: Props) {
+export default function DropZone({ onUrls, onFiles, children }: Props) {
   const [active, setActive] = useState(false);
+  const [activeKind, setActiveKind] = useState<"url" | "image">("url");
   const depthRef = useRef(0);
   const internalDragRef = useRef(false);
 
-  const shouldHandleBookmarkDrop = useCallback((dt: DataTransfer | null | undefined) => {
-    if (!hasDroppableContent(dt)) return false;
-    if (!dt) return false;
-
-    const items = Array.from(dt.items || []);
-    const hasOnlyImageFiles =
-      items.length > 0 &&
-      items.every((item) => item.kind === "file") &&
-      items.some((item) => item.type.startsWith("image/"));
-
-    return !hasOnlyImageFiles;
-  }, []);
+  const classifyDrop = useCallback(
+    (dt: DataTransfer | null | undefined): "url" | "image" | null => {
+      if (!dt) return null;
+      const items = Array.from(dt.items || []);
+      const allFiles = items.length > 0 && items.every((item) => item.kind === "file");
+      const allImageish = allFiles && items.every((item) => isImageDropType(item.type));
+      if (allImageish && onFiles) return "image";
+      if (hasDroppableContent(dt)) return "url";
+      return null;
+    },
+    [onFiles],
+  );
 
   const onEnter = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
+    const kind = classifyDrop(e.dataTransfer);
+    if (!kind) return;
     e.preventDefault();
     depthRef.current += 1;
+    setActiveKind(kind);
     setActive(true);
-  }, [shouldHandleBookmarkDrop]);
+  }, [classifyDrop]);
 
   const onOver = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
+    const kind = classifyDrop(e.dataTransfer);
+    if (!kind) return;
     e.preventDefault();
     if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
-  }, [shouldHandleBookmarkDrop]);
+  }, [classifyDrop]);
 
   const onLeave = useCallback((e: DragEvent) => {
     if (internalDragRef.current) return;
-    if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
+    const kind = classifyDrop(e.dataTransfer);
+    if (!kind) return;
     e.preventDefault();
     depthRef.current -= 1;
     if (depthRef.current <= 0) {
       depthRef.current = 0;
       setActive(false);
     }
-  }, [shouldHandleBookmarkDrop]);
+  }, [classifyDrop]);
 
   const onDrop = useCallback(
     async (e: DragEvent) => {
@@ -63,14 +88,22 @@ export default function DropZone({ onUrls, children }: Props) {
         return;
       }
       if (!e.dataTransfer) return;
-      if (!shouldHandleBookmarkDrop(e.dataTransfer)) return;
+      const kind = classifyDrop(e.dataTransfer);
+      if (!kind) return;
       e.preventDefault();
       depthRef.current = 0;
       setActive(false);
+
+      if (kind === "image" && onFiles) {
+        const files = Array.from(e.dataTransfer.files).filter((f) => isImageDropType(f.type));
+        if (files.length) onFiles(files);
+        return;
+      }
+
       const urls = await extractUrlsFromDataTransfer(e.dataTransfer);
       if (urls.length) onUrls(urls);
     },
-    [onUrls, shouldHandleBookmarkDrop]
+    [onUrls, onFiles, classifyDrop]
   );
 
   useEffect(() => {
@@ -111,9 +144,13 @@ export default function DropZone({ onUrls, children }: Props) {
         <div className="drop-overlay" aria-hidden>
           <div className="drop-card">
             <div className="drop-mark">⤓</div>
-            <div className="drop-title">Drop to save</div>
+            <div className="drop-title">
+              {activeKind === "image" ? "Drop to upload images" : "Drop to save"}
+            </div>
             <div className="drop-sub small muted">
-              .webloc files or URLs from the address bar
+              {activeKind === "image"
+                ? "JPG, PNG, WebP, GIF, HEIC, SVG, PDF, EPS · max 20 MB"
+                : ".webloc files or URLs from the address bar"}
             </div>
           </div>
           <style jsx>{`

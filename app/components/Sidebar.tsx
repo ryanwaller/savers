@@ -87,7 +87,7 @@ type Props = {
   onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
   // Image collections (folders under the Images supergroup).
-  imageCollections?: Array<{ id: string; name: string; parent_id: string | null }>;
+  imageCollections?: Array<{ id: string; name: string; parent_id: string | null; icon?: string | null }>;
 };
 
 export default function Sidebar({
@@ -645,12 +645,15 @@ export default function Sidebar({
                     selection.kind === "image_collection" && selection.id === c.id ? "active" : ""
                   }`}
                   onClick={() => {
+                    // Deliberately not calling onCloseMobile() — matches the
+                    // link-folder behaviour where selecting a folder keeps the
+                    // sidebar open.
                     onSelect({ kind: "image_collection", id: c.id });
-                    onCloseMobile?.();
                   }}
                   title={c.name}
                 >
-                  {c.name}
+                  {c.icon ? <CollectionIcon name={c.icon} size={14} /> : <span className="sidebar-image-collection-bullet">·</span>}
+                  <span className="sidebar-image-collection-label">{c.name}</span>
                 </button>
               ))}
               <button
@@ -937,9 +940,10 @@ export default function Sidebar({
         .sidebar-image-collection {
           display: flex;
           align-items: center;
+          gap: 6px;
           width: calc(100% - 12px);
           margin: 2px 6px;
-          padding: 6px 10px 6px 32px;
+          padding: 6px 10px 6px 28px;
           background: transparent;
           color: var(--color-text);
           font-size: 13px;
@@ -947,9 +951,19 @@ export default function Sidebar({
           border: none;
           border-radius: var(--radius-sm);
           cursor: pointer;
+        }
+        .sidebar-image-collection-label {
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
+          flex: 1 1 auto;
+        }
+        .sidebar-image-collection-bullet {
+          width: 14px;
+          text-align: center;
+          color: var(--color-text-muted);
+          font-size: 16px;
+          line-height: 1;
         }
         .sidebar-image-collection:hover { background: var(--color-bg-hover); }
         .sidebar-image-collection.active { background: var(--color-bg-active); }
