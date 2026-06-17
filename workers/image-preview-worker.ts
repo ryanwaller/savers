@@ -101,10 +101,16 @@ async function rasterizeViaGhostscript(
  * Rasterise an SVG via sharp. sharp's librsvg-based loader handles most
  * SVGs cleanly; complex ones with embedded fonts may need a different
  * approach (Puppeteer) but that's a follow-up.
+ *
+ * `.flatten({ background: "#fff" })` is critical — SVGs are typically
+ * authored on transparency, but JPEG doesn't support alpha. Without
+ * flatten, transparent regions become black in the output. Flattening
+ * onto white gives the expected "the SVG sits on a page" appearance.
  */
 async function rasterizeSvg(inputBuffer: Buffer): Promise<Buffer> {
   return sharp(inputBuffer, { density: 300 })
     .resize(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE, { fit: "inside", withoutEnlargement: false })
+    .flatten({ background: "#ffffff" })
     .jpeg({ quality: PREVIEW_QUALITY, mozjpeg: true })
     .toBuffer();
 }
