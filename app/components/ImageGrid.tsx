@@ -31,6 +31,12 @@ type Props = {
   /** Fixed column count override. If set, ignores cardMinWidth. */
   desktopCols?: number;
   mobileCols?: number;
+  /** "grid" → masonry. "list" → dense single-column rows. */
+  viewMode?: "grid" | "list";
+  /** Bulk-select mode: shows checkboxes and lets the parent track the set. */
+  isEditMode?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string, shiftKey: boolean) => void;
   /** Single click on the card. Opens the slideshow viewer. */
   onOpen?: (image: ImageRow) => void;
   /** Opens the right-side edit panel from the kebab menu. */
@@ -72,6 +78,10 @@ export default function ImageGrid({
   cardMinWidth = DEFAULT_MIN_WIDTH,
   desktopCols,
   mobileCols,
+  viewMode = "grid",
+  isEditMode = false,
+  selectedIds,
+  onToggleSelect,
   onOpen,
   onEdit,
   onDelete,
@@ -187,6 +197,50 @@ export default function ImageGrid({
         <div className="image-grid-empty">Loading images…</div>
       ) : !loading && images.length === 0 ? (
         <div className="image-grid-empty">{emptyLabel}</div>
+      ) : viewMode === "list" ? (
+        <div className="image-list">
+          {images.map((image) => {
+            const selected = selectedIds?.has(image.id) ?? false;
+            return (
+              <button
+                key={image.id}
+                type="button"
+                className={`image-list-row ${selected ? "selected" : ""}`}
+                onClick={(e) => {
+                  if (isEditMode) {
+                    onToggleSelect?.(image.id, e.shiftKey);
+                  } else {
+                    onOpen?.(image);
+                  }
+                }}
+              >
+                {isEditMode && (
+                  <span className={`image-list-check ${selected ? "on" : ""}`} aria-hidden>
+                    {selected ? "✓" : ""}
+                  </span>
+                )}
+                <span className="image-list-thumb">
+                  {image.preview_url ? (
+                    <img src={image.preview_url} alt="" loading="lazy" draggable={false} />
+                  ) : (
+                    <span className="image-list-thumb-fallback">
+                      {image.file_kind?.toUpperCase() || "—"}
+                    </span>
+                  )}
+                </span>
+                <span className="image-list-meta">
+                  <span className="image-list-title">{image.title || "Untitled"}</span>
+                  <span className="image-list-sub">
+                    {image.file_kind?.toUpperCase()} ·{" "}
+                    {image.width && image.height
+                      ? `${image.width} × ${image.height}`
+                      : "—"}
+                  </span>
+                </span>
+              </button>
+            );
+          })}
+        </div>
       ) : (
         <div
           className="image-grid"
@@ -194,17 +248,29 @@ export default function ImageGrid({
         >
           {placements.map(({ image, left, top, width, height, frameHeight }) => {
             const menuOpen = openMenuId === image.id;
+            const selected = selectedIds?.has(image.id) ?? false;
             return (
               <div
                 key={image.id}
-                className="image-card-wrap"
+                className={`image-card-wrap ${selected ? "selected" : ""}`}
                 style={{ left, top, width, height, position: "absolute" }}
               >
                 <button
                   className="image-card"
-                  onClick={() => onOpen?.(image)}
+                  onClick={(e) => {
+                    if (isEditMode) {
+                      onToggleSelect?.(image.id, e.shiftKey);
+                    } else {
+                      onOpen?.(image);
+                    }
+                  }}
                   type="button"
                 >
+                  {isEditMode && (
+                    <span className={`image-card-check ${selected ? "on" : ""}`} aria-hidden>
+                      {selected ? "✓" : ""}
+                    </span>
+                  )}
                   <div
                     className="image-card-frame"
                     style={{ height: frameHeight }}
@@ -388,6 +454,114 @@ export default function ImageGrid({
         }
         .image-card:hover .image-card-title {
           opacity: 1;
+        }
+
+        /* List view — dense single-column rows, no masonry math. */
+        .image-list {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+        .image-list-row {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          padding: 8px 10px;
+          background: transparent;
+          border: 1px solid transparent;
+          border-radius: 8px;
+          cursor: pointer;
+          text-align: left;
+          color: inherit;
+          width: 100%;
+        }
+        .image-list-row:hover {
+          background: var(--color-bg-hover);
+        }
+        .image-list-row.selected {
+          background: var(--color-bg-active);
+          border-color: var(--color-border-strong);
+        }
+        .image-list-check {
+          width: 18px;
+          height: 18px;
+          flex-shrink: 0;
+          border: 1px solid var(--color-border-strong);
+          border-radius: 4px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: var(--color-text);
+        }
+        .image-list-check.on {
+          background: var(--color-text);
+          color: var(--color-bg);
+        }
+        .image-list-thumb {
+          width: 56px;
+          height: 56px;
+          flex-shrink: 0;
+          border-radius: 6px;
+          overflow: hidden;
+          background: var(--color-bg-secondary);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .image-list-thumb img {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: center;
+        }
+        .image-list-thumb-fallback {
+          font-size: 11px;
+          color: var(--color-text-muted);
+          letter-spacing: 0.04em;
+        }
+        .image-list-meta {
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          flex: 1 1 auto;
+        }
+        .image-list-title {
+          font-size: 13px;
+          color: var(--color-text);
+          white-space: nowrap;
+          overflow: hidden;
+          text-overflow: ellipsis;
+        }
+        .image-list-sub {
+          font-size: 11px;
+          color: var(--color-text-muted);
+        }
+
+        /* Edit mode — selection ring + corner checkbox on the masonry card. */
+        .image-card-wrap.selected .image-card-frame {
+          box-shadow: 0 0 0 3px var(--color-text);
+        }
+        .image-card-check {
+          position: absolute;
+          top: 8px;
+          left: 8px;
+          width: 24px;
+          height: 24px;
+          z-index: 3;
+          border-radius: 6px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border-strong);
+          color: var(--color-text);
+          font-size: 14px;
+          line-height: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+        }
+        .image-card-check.on {
+          background: var(--color-text);
+          color: var(--color-bg);
         }
 
         /* Hover-revealed circle kebab menu — matches the link card

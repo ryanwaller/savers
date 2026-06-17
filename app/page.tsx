@@ -1110,6 +1110,10 @@ export default function Home() {
         if (selection.kind === "image_collection") {
           url.searchParams.set("collection_id", selection.id);
         }
+        // Map the bookmark sort dropdown's values into the image API's
+        // `sort` query param. "collection" sort is bookmark-only for
+        // now — fall back to newest in that case.
+        url.searchParams.set("sort", sortBy === "date" ? "newest" : "newest");
         const res = await fetch(url.toString(), { cache: "no-store" });
         const body = await res.json().catch(() => ({}));
         if (cancelled) return;
@@ -1125,7 +1129,7 @@ export default function Home() {
     })();
 
     return () => { cancelled = true; };
-  }, [authLoading, user, selection, imagesReloadKey]);
+  }, [authLoading, user, selection, imagesReloadKey, sortBy]);
 
   useEffect(() => {
     if (imageDetailId && !images.some((image) => image.id === imageDetailId)) {
@@ -1829,6 +1833,61 @@ export default function Home() {
       setDropStatus(`Delete failed: ${e instanceof Error ? e.message : "unknown"}`);
       setTimeout(() => setDropStatus(null), 5000);
     }
+  }
+
+  async function handleImageBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/images/${id}`, { method: "DELETE" });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)));
+    setSelectedIds(new Set());
+    setIsEditMode(false);
+    void loadImageCollections();
+    setDropStatus(
+      failed > 0
+        ? `${ids.length - failed} deleted, ${failed} failed.`
+        : `${ids.length} image${ids.length === 1 ? "" : "s"} deleted.`,
+    );
+    setTimeout(() => setDropStatus(null), 3000);
+  }
+
+  async function handleImageBulkMove(collectionId: string | null) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/images/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collection_id: collectionId }),
+        });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setImagesReloadKey((v) => v + 1);
+    setSelectedIds(new Set());
+    setIsEditMode(false);
+    void loadImageCollections();
+    const folderName = collectionId
+      ? imageCollections.find((c) => c.id === collectionId)?.name ?? "folder"
+      : "Unsorted";
+    setDropStatus(
+      failed > 0
+        ? `${ids.length - failed} moved to ${folderName}, ${failed} failed.`
+        : `${ids.length} image${ids.length === 1 ? "" : "s"} moved to ${folderName}.`,
+    );
+    setTimeout(() => setDropStatus(null), 3000);
   }
 
   async function handleBulkMove(collectionId: string | null) {
@@ -2674,6 +2733,17 @@ export default function Home() {
               cardMinWidth={cardMinWidth}
               desktopCols={effectiveDesktopCols}
               mobileCols={mobileCols}
+              viewMode={viewMode}
+              isEditMode={isEditMode}
+              selectedIds={selectedIds}
+              onToggleSelect={(id) => {
+                setSelectedIds((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id);
+                  else next.add(id);
+                  return next;
+                });
+              }}
               onOpen={(img) => {
                 const idx = images.findIndex((i) => i.id === img.id);
                 if (idx >= 0) setSlideshowIndex(idx);
@@ -2816,7 +2886,58 @@ export default function Home() {
               </button>
             </div>
           )}
-          {isEditMode && selection.kind !== "feed" && selectedIds.size > 0 && (
+          {isEditMode &&
+            (selection.kind === "images_all" || selection.kind === "image_collection") &&
+            selectedIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="bulk-count">
+                {selectedIds.size} image{selectedIds.size === 1 ? "" : "s"} selected
+              </span>
+              <div className="bulk-move-wrap">
+                <select
+                  className="bulk-move-input"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    e.currentTarget.value = "";
+                    if (v === "__unsorted__") {
+                      void handleImageBulkMove(null);
+                    } else if (v) {
+                      void handleImageBulkMove(v);
+                    }
+                  }}
+                >
+                  <option value="" disabled>Move to folder…</option>
+                  <option value="__unsorted__">Unsorted</option>
+                  {imageCollections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="bulk-delete-btn"
+                onClick={() => {
+                  if (confirm(`Delete ${selectedIds.size} image${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`)) {
+                    void handleImageBulkDelete();
+                  }
+                }}
+              >
+                Delete {selectedIds.size}
+              </button>
+              <button
+                className="bulk-cancel-btn"
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setIsEditMode(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {isEditMode && selection.kind !== "feed" &&
+            selection.kind !== "images_all" && selection.kind !== "image_collection" &&
+            selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="bulk-count">{selectedIds.size} selected</span>
               <div className="bulk-tag-wrap">
