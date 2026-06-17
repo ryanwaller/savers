@@ -158,6 +158,34 @@ export default function Sidebar({
     try { window.localStorage.setItem("savers.sidebar.feedsExpanded", String(feedsExpanded)); } catch { /* ignore */ }
   }, [feedsExpanded]);
 
+  // Supergroup expansion — wraps the existing Feeds/Collections/Smart
+  // Collections trio inside a single "Links" toggle, and adds a parallel
+  // "Images" toggle for the new image-collection tree (folder CRUD comes
+  // online later in the build).
+  const [linksExpanded, setLinksExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.linksExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.linksExpanded", String(linksExpanded)); } catch { /* ignore */ }
+  }, [linksExpanded]);
+
+  const [imagesExpanded, setImagesExpanded] = useState(() => {
+    if (typeof window === "undefined") return true;
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.imagesExpanded");
+      if (raw === "false") return false;
+    } catch { /* ignore */ }
+    return true;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.imagesExpanded", String(imagesExpanded)); } catch { /* ignore */ }
+  }, [imagesExpanded]);
+
   const [smartMenuOpen, setSmartMenuOpen] = useState<string | null>(null);
 
   const [tagsExpanded, setTagsExpanded] = useState(() => {
@@ -375,6 +403,23 @@ export default function Sidebar({
           )}
         </div>
 
+        {/* Links supergroup — wraps Feeds, Collections, and Smart
+            Collections. The user has a parallel Images supergroup below;
+            Smart Collections and Feeds are intentionally link-only for now. */}
+        <div className="sidebar-section sidebar-section-group">
+          <div className="sidebar-divider" />
+          <div className="section-header-row">
+            <button
+              className="sidebar-label sidebar-supergroup-label collapsible flex-1"
+              onClick={() => setLinksExpanded(!linksExpanded)}
+            >
+              <span className="caret">{linksExpanded ? "▾" : "▸"}</span>
+              Links
+            </button>
+          </div>
+        </div>
+
+        {linksExpanded && (<>
         {/* Feeds */}
         {(feedSubscriptions && feedSubscriptions.length > 0) && (
           <div className="sidebar-section sidebar-section-group">
@@ -551,6 +596,35 @@ export default function Sidebar({
             )}
           </div>
         )}
+        </>)}
+
+        {/* Images supergroup — parallel to Links. Folder CRUD lands in a
+            follow-up step; for now this just shows the empty state. */}
+        <div className="sidebar-section sidebar-section-group">
+          <div className="sidebar-divider" />
+          <div className="section-header-row">
+            <button
+              className="sidebar-label sidebar-supergroup-label collapsible flex-1"
+              onClick={() => setImagesExpanded(!imagesExpanded)}
+            >
+              <span className="caret">{imagesExpanded ? "▾" : "▸"}</span>
+              Images
+            </button>
+            <button
+              className="sidebar-new-smart"
+              onClick={() => {
+                const event = new CustomEvent("savers:new-image-collection");
+                window.dispatchEvent(event);
+              }}
+              title="New image collection"
+            >
+              +
+            </button>
+          </div>
+          {imagesExpanded && (
+            <div className="sidebar-empty">No image collections yet.</div>
+          )}
+        </div>
 
         {allTags.length > 0 && (
           <div className="sidebar-section sidebar-section-group">
@@ -788,6 +862,17 @@ export default function Sidebar({
           user-select: none;
         }
         .sidebar-label.collapsible:hover {
+          color: var(--color-text);
+        }
+        /* Supergroup labels (Links / Images) sit one level above the
+           existing section labels (Feeds, Collections, Smart Collections,
+           image folders) — slightly heavier to read as a parent. */
+        .sidebar-supergroup-label {
+          color: var(--color-text);
+          font-weight: 600;
+          letter-spacing: 0.02em;
+        }
+        .sidebar-supergroup-label .caret {
           color: var(--color-text);
         }
         .sidebar-label.root-nest-target {
