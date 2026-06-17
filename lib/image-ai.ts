@@ -37,6 +37,18 @@ export interface ImageDescription {
   tags: string[];
 }
 
+/**
+ * Last error message produced by the most recent describeImage call.
+ * Surfaced into `processing_error` by the reenrich + upload routes so the
+ * actual reason (e.g. "credit balance is too low", "invalid x-api-key")
+ * is visible in SQL rather than only Railway logs. Per-request state; not
+ * concurrency-safe but acceptable since the routes are short-lived.
+ */
+let _lastError: string | null = null;
+export function lastImageAiError(): string | null {
+  return _lastError;
+}
+
 const SYSTEM_PROMPT = `You are tagging images for a personal save-it-for-later library. Look at the image and return JSON with three fields:
   - "title": a 2–6 word title written like an editorial caption. No quotes. No trailing punctuation.
   - "description": a single sentence (or two short sentences) that describes what is visible. Grounded in the image only — no speculation.
@@ -108,6 +120,14 @@ async function describeViaAnthropic(
     if (!res.ok) {
       const body = await res.text().catch(() => "");
       console.error(`[image-ai] anthropic error ${res.status}: ${body.slice(0, 300)}`);
+      // Try to pull the human-readable error message from Anthropic's
+      // structured response so processing_error reads cleanly.
+      let detail = body.slice(0, 200);
+      try {
+        const parsed = JSON.parse(body) as { error?: { message?: string } };
+        if (parsed?.error?.message) detail = parsed.error.message;
+      } catch { /* leave detail as raw body slice */ }
+      _lastError = `anthropic ${res.status}: ${detail}`;
       return null;
     }
 
@@ -115,13 +135,21 @@ async function describeViaAnthropic(
       content?: Array<{ type: string; text?: string }>;
     };
     const text = data.content?.find((b) => b.type === "text")?.text?.trim();
-    if (!text) return null;
-    return parseJson(text);
+    if (!text) {
+      _lastError = "anthropic returned empty content";
+      return null;
+    }
+    const parsedResult = parseJson(text);
+    if (!parsedResult) _lastError = "anthropic returned unparseable JSON";
+    return parsedResult;
   } catch (err) {
     if ((err as Error)?.name === "AbortError") {
       console.error("[image-ai] anthropic request timed out");
+      _lastError = "anthropic timed out";
     } else {
-      console.error(`[image-ai] anthropic request failed: ${err instanceof Error ? err.message : String(err)}`);
+      const m = err instanceof Error ? err.message : String(err);
+      console.error(`[image-ai] anthropic request failed: ${m}`);
+      _lastError = `anthropic request failed: ${m}`;
     }
     return null;
   } finally {
@@ -228,6 +256,7 @@ export async function describeImage(
   buffer: Buffer,
   mimeType: string,
 ): Promise<ImageDescription | null> {
+  _lastError = null;
   const base64 = safeBase64(buffer);
   if (PROVIDER === "deepseek") {
     return describeViaDeepseek(base64, mimeType);

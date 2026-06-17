@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
-import { describeImage } from "@/lib/image-ai";
+import { describeImage, lastImageAiError } from "@/lib/image-ai";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -60,15 +60,19 @@ export async function POST(
     const enrichment = await describeImage(buffer, "image/jpeg");
 
     if (!enrichment) {
-      // Surface a hint for the most likely failure modes so the user can
-      // SQL-check processing_error rather than dig through Railway logs.
+      // Surface the actual cause: prefer the specific error message the
+      // AI client recorded (e.g. "anthropic 400: credit balance too low"),
+      // fall back to a config-derived hint, and finally a generic message.
       const provider = (process.env.IMAGE_AI_PROVIDER?.trim() || "anthropic").toLowerCase();
+      const specific = lastImageAiError();
       const reason =
-        provider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()
-          ? "ANTHROPIC_API_KEY not set"
-          : provider === "deepseek" && !(process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY)?.trim()
-            ? "DEEPSEEK_API_KEY not set"
-            : `${provider} returned no usable result`;
+        specific
+          ? specific
+          : provider === "anthropic" && !process.env.ANTHROPIC_API_KEY?.trim()
+            ? "ANTHROPIC_API_KEY not set"
+            : provider === "deepseek" && !(process.env.DEEPSEEK_API_KEY || process.env.AI_API_KEY)?.trim()
+              ? "DEEPSEEK_API_KEY not set"
+              : `${provider} returned no usable result`;
       const { data: failed } = await supabaseAdmin
         .schema("savers")
         .from("images")
