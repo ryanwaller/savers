@@ -87,7 +87,13 @@ type Props = {
   onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
   // Image collections (folders under the Images supergroup).
-  imageCollections?: Array<{ id: string; name: string; parent_id: string | null; icon?: string | null }>;
+  imageCollections?: Array<{
+    id: string;
+    name: string;
+    parent_id: string | null;
+    icon?: string | null;
+    image_count?: number;
+  }>;
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
 };
@@ -2730,7 +2736,7 @@ function countSubtree(c: Collection): number {
 // ---------------------------------------------------------------------------
 
 type ImageCollectionRowProps = {
-  collection: { id: string; name: string; icon?: string | null };
+  collection: { id: string; name: string; icon?: string | null; image_count?: number };
   active: boolean;
   onSelect: () => void;
   onUpdate?: (updates: { name?: string; icon?: string | null }) => void | Promise<void>;
@@ -2772,50 +2778,61 @@ function ImageCollectionRow({
   }
 
   return (
-    <div ref={rowRef} className="sidebar-image-collection-row">
-      {renaming ? (
-        <div className={`sidebar-image-collection rename ${active ? "active" : ""}`}>
-          {collection.icon ? (
-            <CollectionIcon name={collection.icon} size={14} />
-          ) : (
-            <span className="sidebar-image-collection-bullet">·</span>
-          )}
-          <input
-            autoFocus
-            className="sidebar-image-collection-rename-input"
-            value={renameValue}
-            onChange={(e) => setRenameValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") void commitRename();
-              else if (e.key === "Escape") {
-                setRenameValue(collection.name);
-                setRenaming(false);
-              }
-            }}
-            onBlur={commitRename}
-          />
-        </div>
-      ) : (
+    <div ref={rowRef} className="img-node">
+      <div className={`img-row ${active ? "active" : ""} ${menuOpen ? "menu-open" : ""}`}>
+        {/* Chev placeholder — kept hidden but reserves the same horizontal
+            slot as link folders so the leading icon aligns exactly. */}
+        <span className="img-chev" aria-hidden>▸</span>
         <button
-          className={`sidebar-image-collection ${active ? "active" : ""}`}
-          onClick={onSelect}
-          onContextMenu={(e) => {
-            e.preventDefault();
-            setMenuOpen(true);
+          type="button"
+          className="img-leading-icon"
+          aria-label={`Change icon for ${collection.name}`}
+          title="Change icon"
+          onClick={(e) => {
+            e.stopPropagation();
+            setIconPickerOpen((v) => !v);
           }}
-          title={collection.name}
         >
-          {collection.icon ? (
-            <CollectionIcon name={collection.icon} size={14} />
-          ) : (
-            <span className="sidebar-image-collection-bullet">·</span>
-          )}
-          <span className="sidebar-image-collection-label">{collection.name}</span>
-          {onUpdate && onDelete && (
-            <span
-              className="sidebar-image-collection-kebab"
-              role="button"
-              tabIndex={0}
+          <CollectionIcon name={collection.icon ?? null} size={14} />
+        </button>
+        {renaming ? (
+          <form
+            className="img-inline-form"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void commitRename();
+            }}
+          >
+            <input
+              autoFocus
+              className="img-edit"
+              value={renameValue}
+              onChange={(e) => setRenameValue(e.target.value)}
+              onBlur={() => void commitRename()}
+              onKeyDown={(e) => {
+                if (e.key === "Escape") {
+                  setRenameValue(collection.name);
+                  setRenaming(false);
+                }
+              }}
+            />
+          </form>
+        ) : (
+          <button
+            className="img-name"
+            onClick={onSelect}
+            title={collection.name}
+          >
+            {collection.name}
+          </button>
+        )}
+        <div className={`img-tail ${menuOpen ? "open" : ""}`}>
+          <span className="img-tail-count">
+            {collection.image_count && collection.image_count > 0 ? collection.image_count : ""}
+          </span>
+          {(onUpdate || onDelete) && (
+            <button
+              className="img-more"
               onClick={(e) => {
                 e.stopPropagation();
                 setMenuOpen((v) => !v);
@@ -2823,13 +2840,13 @@ function ImageCollectionRow({
               aria-label="Folder menu"
             >
               …
-            </span>
+            </button>
           )}
-        </button>
-      )}
+        </div>
+      </div>
 
       {menuOpen && (
-        <div className="sidebar-image-collection-menu">
+        <div className="img-menu">
           {onUpdate && (
             <button
               onClick={() => {
@@ -2888,65 +2905,152 @@ function ImageCollectionRow({
       )}
 
       <style jsx>{`
-        .sidebar-image-collection-row { position: relative; }
-        .sidebar-image-collection {
+        /* Match the link-folder visual treatment exactly — see the
+           CollectionNode styles in the parent Sidebar block for the
+           original tokens. */
+        .img-node { position: relative; padding: 0 6px; }
+        .img-row {
           display: flex;
           align-items: center;
-          gap: 6px;
-          width: calc(100% - 12px);
-          margin: 2px 6px;
-          padding: 6px 10px 6px 28px;
-          background: transparent;
-          color: var(--color-text);
-          font-size: 13px;
-          text-align: left;
-          border: none;
+          gap: 4px;
+          padding: 3px 8px 3px 4px;
           border-radius: var(--radius-sm);
+          position: relative;
+          transition: background 140ms ease, transform 180ms ease;
+        }
+        .img-row:hover {
+          background: var(--color-bg-hover);
+          transform: translateX(4px);
+        }
+        .img-row.active {
+          background: var(--color-bg-active);
+        }
+        .img-row.active:hover { transform: none; }
+
+        .img-chev {
+          width: 18px;
+          height: 22px;
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          visibility: hidden;
+          flex-shrink: 0;
+        }
+        .img-leading-icon {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+          border-radius: 4px;
+          background: transparent;
+          padding: 0;
+          border: none;
           cursor: pointer;
         }
-        .sidebar-image-collection:hover { background: var(--color-bg-hover); }
-        .sidebar-image-collection.active { background: var(--color-bg-active); }
-        .sidebar-image-collection-label {
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-          flex: 1 1 auto;
+        .img-leading-icon:hover {
+          background: var(--color-bg-active);
+          color: var(--color-text);
         }
-        .sidebar-image-collection-bullet {
-          width: 14px;
-          flex-shrink: 0;
-          text-align: center;
-          color: var(--color-text-muted);
-          font-size: 16px;
-          line-height: 1;
-        }
-        .sidebar-image-collection-rename-input {
-          flex: 1 1 auto;
+        .img-row:hover .img-leading-icon { color: var(--color-text); }
+        .img-row.active .img-leading-icon { color: var(--color-text); }
+
+        .img-inline-form { flex: 1; min-width: 0; }
+        .img-edit {
+          width: 100%;
+          font-size: 12px;
+          padding: 2px 4px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
           background: var(--color-bg);
           color: var(--color-text);
-          border: 1px solid var(--color-border-strong);
-          border-radius: var(--radius-sm);
-          padding: 2px 6px;
-          font-size: 13px;
           outline: none;
         }
-        .sidebar-image-collection-kebab {
-          margin-left: auto;
-          opacity: 0;
-          padding: 0 6px;
-          color: var(--color-text-muted);
-          font-size: 16px;
-          line-height: 1;
-          letter-spacing: 0.06em;
+        .img-name {
+          flex: 1;
+          text-align: left;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          font-size: 12px;
+          background: transparent;
+          border: none;
+          color: inherit;
           cursor: pointer;
-          border-radius: var(--radius-sm);
+          padding: 0;
         }
-        .sidebar-image-collection-row:hover .sidebar-image-collection-kebab {
-          opacity: 1;
-        }
-        .sidebar-image-collection-kebab:hover { color: var(--color-text); }
 
-        .sidebar-image-collection-menu {
+        .img-tail {
+          position: relative;
+          width: 54px;
+          height: 22px;
+          flex-shrink: 0;
+        }
+        .img-tail-count {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border-radius: 999px;
+          font-variant-numeric: tabular-nums;
+          font-feature-settings: "tnum" 1;
+          transition: opacity 120ms ease;
+          white-space: nowrap;
+        }
+        @media (prefers-color-scheme: light) {
+          .img-tail-count {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+        }
+        .img-more {
+          position: absolute;
+          top: 0;
+          right: 0;
+          min-width: 34px;
+          max-width: 100%;
+          height: 22px;
+          padding: 0 10px;
+          z-index: 1;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          color: rgba(255, 255, 255, 0.78);
+          background: rgba(0, 0, 0, 0.52);
+          border: none;
+          opacity: 0;
+          border-radius: 999px;
+          transition: opacity 120ms ease;
+          white-space: nowrap;
+          cursor: pointer;
+        }
+        @media (prefers-color-scheme: light) {
+          .img-more {
+            color: rgba(0, 0, 0, 0.72);
+            background: rgba(0, 0, 0, 0.12);
+          }
+        }
+        .img-row:hover .img-tail-count,
+        .img-tail.open .img-tail-count { opacity: 0; }
+        .img-row:hover .img-more,
+        .img-tail.open .img-more { opacity: 1; }
+
+        .img-menu {
           position: absolute;
           right: 6px;
           top: 100%;
@@ -2959,7 +3063,7 @@ function ImageCollectionRow({
           min-width: 160px;
           padding: 4px;
         }
-        .sidebar-image-collection-menu button {
+        .img-menu button {
           display: block;
           width: 100%;
           background: transparent;
@@ -2971,10 +3075,8 @@ function ImageCollectionRow({
           border-radius: 6px;
           cursor: pointer;
         }
-        .sidebar-image-collection-menu button:hover {
-          background: var(--color-bg-hover);
-        }
-        .sidebar-image-collection-menu button.danger { color: #d96a6a; }
+        .img-menu button:hover { background: var(--color-bg-hover); }
+        .img-menu button.danger { color: #d96a6a; }
 
         .sidebar-image-collection-icon-popup {
           position: fixed;

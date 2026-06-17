@@ -358,7 +358,7 @@ export default function Home() {
   const [loadingImages, setLoadingImages] = useState(false);
   const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
   const [imageCollections, setImageCollections] = useState<
-    Array<{ id: string; name: string; parent_id: string | null }>
+    Array<{ id: string; name: string; parent_id: string | null; icon?: string | null; image_count?: number }>
   >([]);
 
   // Load the image-collection folder list (flat). Called on auth-ready and
@@ -368,7 +368,15 @@ export default function Home() {
       const res = await fetch("/api/image-collections", { cache: "no-store" });
       if (!res.ok) return;
       const body = await res.json();
-      setImageCollections((body.collections as Array<{ id: string; name: string; parent_id: string | null }>) || []);
+      setImageCollections(
+        (body.collections as Array<{
+          id: string;
+          name: string;
+          parent_id: string | null;
+          icon?: string | null;
+          image_count?: number;
+        }>) || [],
+      );
     } catch (err) {
       console.error("[image-collections] load failed", err);
     }

@@ -16,16 +16,39 @@ export async function GET() {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();
 
-    const { data, error } = await supabaseAdmin
-      .schema("savers")
-      .from("image_collections")
-      .select("id, user_id, name, parent_id, position, icon, is_public, public_id, public_slug, public_description, created_at")
-      .eq("user_id", user.id)
-      .order("parent_id", { ascending: true, nullsFirst: true })
-      .order("position", { ascending: true });
+    const [{ data: collections, error: cErr }, { data: countRows, error: countErr }] = await Promise.all([
+      supabaseAdmin
+        .schema("savers")
+        .from("image_collections")
+        .select("id, user_id, name, parent_id, position, icon, is_public, public_id, public_slug, public_description, created_at")
+        .eq("user_id", user.id)
+        .order("parent_id", { ascending: true, nullsFirst: true })
+        .order("position", { ascending: true }),
+      // Pull just the collection_id column for every image we own. Grouping
+      // in JS is cheaper than a per-folder COUNT roundtrip and the typical
+      // user has hundreds of images, not millions.
+      supabaseAdmin
+        .schema("savers")
+        .from("images")
+        .select("collection_id")
+        .eq("user_id", user.id),
+    ]);
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-    return NextResponse.json({ collections: data ?? [] });
+    if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 });
+    if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
+
+    const counts = new Map<string, number>();
+    for (const row of (countRows ?? []) as Array<{ collection_id: string | null }>) {
+      if (!row.collection_id) continue;
+      counts.set(row.collection_id, (counts.get(row.collection_id) ?? 0) + 1);
+    }
+
+    const enriched = (collections ?? []).map((c) => ({
+      ...c,
+      image_count: counts.get(c.id) ?? 0,
+    }));
+
+    return NextResponse.json({ collections: enriched });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
