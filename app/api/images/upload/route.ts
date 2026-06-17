@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import {
   processAndStoreImage,
+  processAndStoreRemoteImage,
   isAcceptedMime,
   HARD_CAP_MB,
   ImageUploadError,
@@ -36,9 +37,13 @@ export async function POST(req: NextRequest) {
 
     const formData = await req.formData();
     const files = formData.getAll("files").filter((v): v is File => v instanceof File);
+    const remoteUrlRaw = formData.get("remote_url");
+    const remoteUrl = typeof remoteUrlRaw === "string" && remoteUrlRaw.trim()
+      ? remoteUrlRaw.trim()
+      : null;
 
-    if (files.length === 0) {
-      return NextResponse.json({ error: "No files provided" }, { status: 400 });
+    if (files.length === 0 && !remoteUrl) {
+      return NextResponse.json({ error: "No files or URL provided" }, { status: 400 });
     }
 
     const collectionIdRaw = formData.get("collection_id");
@@ -48,6 +53,25 @@ export async function POST(req: NextRequest) {
 
     const successes: UploadedImageRow[] = [];
     const errors: Array<{ name: string; reason: string }> = [];
+
+    if (remoteUrl) {
+      try {
+        const row = await processAndStoreRemoteImage({
+          userId: user.id,
+          remoteUrl,
+          collectionId,
+          awaitAi: true,
+        });
+        successes.push(row);
+      } catch (err) {
+        if (err instanceof ImageUploadError) {
+          errors.push({ name: remoteUrl, reason: err.message });
+        } else {
+          console.error(`[images/upload] url ${remoteUrl} failed: ${errorMessage(err)}`);
+          errors.push({ name: remoteUrl, reason: errorMessage(err) });
+        }
+      }
+    }
 
     for (const file of files) {
       try {

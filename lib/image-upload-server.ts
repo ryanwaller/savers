@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { describeImage } from "@/lib/image-ai";
+import { fetchPageContent } from "@/lib/page-content";
+import { normalizeUrl } from "@/lib/normalizeUrl";
 
 /**
  * Server-side image upload pipeline.
@@ -71,6 +73,8 @@ export interface ImageUploadInput {
   sourceKind?: SourceKind;
   sourceUrl?: string | null;
   awaitAi?: boolean;
+  initialTitle?: string | null;
+  initialDescription?: string | null;
 }
 
 export interface UploadedImageRow {
@@ -124,6 +128,83 @@ function titleFromFilename(fileName: string): string {
   const base = fileName.replace(/\.[^.]+$/, "");
   // Convert common separators to spaces, collapse runs of whitespace.
   return base.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
+}
+
+function isPublicUrl(url: string): boolean {
+  try {
+    const parsed = new URL(normalizeUrl(url));
+    const host = parsed.hostname.toLowerCase();
+
+    if (
+      host === "localhost" ||
+      host === "127.0.0.1" ||
+      host === "[::1]" ||
+      host === "0.0.0.0"
+    ) {
+      return false;
+    }
+
+    if (
+      host.startsWith("10.") ||
+      host.startsWith("192.168.") ||
+      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
+    ) {
+      return false;
+    }
+
+    if (
+      host.endsWith(".local") ||
+      host.endsWith(".internal") ||
+      host.endsWith(".test") ||
+      host.endsWith(".invalid") ||
+      host.endsWith(".example") ||
+      host === "metadata.google.internal" ||
+      host === "169.254.169.254"
+    ) {
+      return false;
+    }
+
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function filenameFromUrl(url: string, fallback: string): string {
+  try {
+    const parsed = new URL(url);
+    const last = parsed.pathname.split("/").filter(Boolean).pop();
+    if (last) return decodeURIComponent(last);
+  } catch {
+    // ignore
+  }
+  return fallback;
+}
+
+async function fetchRemoteBinary(url: string): Promise<{
+  body: Buffer;
+  contentType: string;
+  fileName: string;
+}> {
+  const response = await fetch(url, {
+    headers: {
+      "User-Agent":
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
+      Accept:
+        "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      "Accept-Language": "en-US,en;q=0.9",
+    },
+    signal: AbortSignal.timeout(20_000),
+  });
+
+  if (!response.ok) {
+    throw new ImageUploadError(`Failed to fetch URL (${response.status})`, 502);
+  }
+
+  const contentType = response.headers.get("content-type")?.split(";")[0]?.trim() || "application/octet-stream";
+  const body = Buffer.from(await response.arrayBuffer());
+  const fileName = filenameFromUrl(url, "remote-image");
+  return { body, contentType, fileName };
 }
 
 /**
@@ -249,7 +330,8 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
       id: imageId,
       user_id: userId,
       collection_id: input.collectionId ?? null,
-      title: titleFromFilename(fileName),
+      title: input.initialTitle?.trim() || titleFromFilename(fileName),
+      description: input.initialDescription?.trim() || null,
       original_path: originalPath,
       preview_path: previewPath,
       original_filename: fileName,
@@ -303,6 +385,70 @@ export async function processAndStoreImage(input: ImageUploadInput): Promise<Upl
   }
 
   return data as UploadedImageRow;
+}
+
+export async function processAndStoreRemoteImage(input: {
+  userId: string;
+  remoteUrl: string;
+  collectionId?: string | null;
+  awaitAi?: boolean;
+}): Promise<UploadedImageRow> {
+  const normalizedUrl = normalizeUrl(input.remoteUrl);
+  if (!normalizedUrl || !isPublicUrl(normalizedUrl)) {
+    throw new ImageUploadError("Invalid or non-public URL");
+  }
+
+  let assetUrl = normalizedUrl;
+  let sourceKind: SourceKind = "direct_url";
+  let initialTitle: string | null = null;
+  let initialDescription: string | null = null;
+
+  try {
+    const head = await fetch(normalizedUrl, {
+      method: "HEAD",
+      redirect: "follow",
+      signal: AbortSignal.timeout(8_000),
+    });
+    const hintedType = head.headers.get("content-type")?.split(";")[0]?.trim() || "";
+    if (!hintedType.startsWith("image/") && !ACCEPTED_MIME_TYPES.has(hintedType)) {
+      const page = await fetchPageContent(normalizedUrl);
+      if (!page?.og_image) {
+        throw new ImageUploadError("No image found on that page");
+      }
+      assetUrl = page.og_image;
+      sourceKind = "page_url";
+      initialTitle = page.title;
+      initialDescription = page.description;
+    }
+  } catch (err) {
+    if (err instanceof ImageUploadError) throw err;
+    // If HEAD fails, fall back to full metadata/page detection below.
+    const page = await fetchPageContent(normalizedUrl);
+    if (page?.og_image) {
+      assetUrl = page.og_image;
+      sourceKind = "page_url";
+      initialTitle = page.title;
+      initialDescription = page.description;
+    }
+  }
+
+  if (!isPublicUrl(assetUrl)) {
+    throw new ImageUploadError("Resolved image URL is not public");
+  }
+
+  const { body, contentType, fileName } = await fetchRemoteBinary(assetUrl);
+  return processAndStoreImage({
+    userId: input.userId,
+    fileName,
+    contentType,
+    body,
+    collectionId: input.collectionId ?? null,
+    sourceKind,
+    sourceUrl: normalizedUrl,
+    awaitAi: input.awaitAi,
+    initialTitle,
+    initialDescription,
+  });
 }
 
 async function enrichImageWithAi(

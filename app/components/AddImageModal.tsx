@@ -57,6 +57,7 @@ export default function AddImageModal({
   collectionId = null,
 }: Props) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
+  const [urlInput, setUrlInput] = useState("");
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -66,6 +67,7 @@ export default function AddImageModal({
   useEffect(() => {
     if (open) {
       setQueue([]);
+      setUrlInput("");
       setError(null);
       setIsDragging(false);
       setUploading(false);
@@ -146,6 +148,12 @@ export default function AddImageModal({
       if (files.length) {
         e.preventDefault();
         addFiles(files);
+        return;
+      }
+
+      const text = e.clipboardData?.getData("text/plain")?.trim();
+      if (text && /^https?:\/\//i.test(text)) {
+        setUrlInput(text);
       }
     }
     window.addEventListener("paste", handlePaste);
@@ -166,6 +174,8 @@ export default function AddImageModal({
     () => queue.filter((q) => q.status === "queued" || q.status === "warning").length,
     [queue],
   );
+
+  const canImportUrl = urlInput.trim().length > 0;
 
   async function uploadAll() {
     if (uploading || uploadableCount === 0) return;
@@ -240,6 +250,31 @@ export default function AddImageModal({
     }
   }
 
+  async function importUrl() {
+    const remoteUrl = urlInput.trim();
+    if (!remoteUrl || uploading) return;
+    setUploading(true);
+    setError(null);
+    try {
+      const fd = new FormData();
+      fd.append("remote_url", remoteUrl);
+      if (collectionId) fd.append("collection_id", collectionId);
+      const res = await fetch("/api/images/upload", { method: "POST", body: fd });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok || body.errors?.length) {
+        setError(body?.error || body?.errors?.[0]?.reason || `Import failed (${res.status})`);
+        return;
+      }
+      setUrlInput("");
+      onUploaded(1);
+      setTimeout(() => onClose(), 400);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function removeItem(id: string) {
     setQueue((prev) => prev.filter((q) => q.id !== id));
   }
@@ -293,6 +328,33 @@ export default function AddImageModal({
             }}
             style={{ display: "none" }}
           />
+        </div>
+
+        <div className="url-import">
+          <div className="url-label">Or paste an image or page URL</div>
+          <div className="url-row">
+            <input
+              className="url-input"
+              type="text"
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void importUrl();
+                }
+              }}
+              placeholder="https://..."
+              disabled={uploading}
+            />
+            <button
+              className="btn primary"
+              onClick={() => void importUrl()}
+              disabled={uploading || !canImportUrl}
+            >
+              {uploading && canImportUrl && queue.length === 0 ? "Importing…" : "Import URL"}
+            </button>
+          </div>
         </div>
 
         {queue.length > 0 && (
@@ -412,6 +474,35 @@ export default function AddImageModal({
         .dropzone-title { font-size: 15px; font-weight: 600; margin-bottom: 4px; }
         .dropzone-sub { font-size: 13px; color: var(--color-text-muted); margin-bottom: 8px; }
         .dropzone-meta { font-size: 11px; color: var(--color-text-muted); letter-spacing: 0.02em; }
+
+        .url-import {
+          margin: 0 18px 12px;
+        }
+        .url-label {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          margin-bottom: 8px;
+        }
+        .url-row {
+          display: flex;
+          gap: 8px;
+          align-items: center;
+        }
+        .url-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          font-size: 13px;
+          color: var(--color-text);
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 8px;
+          padding: 10px 12px;
+          font-family: inherit;
+        }
+        .url-input:focus {
+          outline: none;
+          border-color: var(--color-border-strong);
+        }
 
         .queue {
           padding: 4px 18px 8px;
