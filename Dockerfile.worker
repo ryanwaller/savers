@@ -43,20 +43,27 @@ RUN apt-get update && apt-get install -y \
 WORKDIR /app
 
 # Minimal package.json so npm install has a project to install into.
-# We pin only the 7 packages workers actually need — not the full Next.js/React tree.
+# We pin only the packages workers actually need — not the full Next.js/React tree.
 # tsx resolves the tsconfig paths compilerOptions.paths {"@/*": ["./*"]} at runtime.
 # Puppeteer downloads Chromium during postinstall (tar + unzip added above).
+#
+# IMPORTANT: every package is pinned to an exact version. Previously this
+# was unpinned (e.g. `npm install puppeteer`) which meant every redeploy
+# pulled whatever the latest version happened to be — and a newer
+# Puppeteer/Chromium broke website screenshot rendering (raw un-styled
+# HTML captured instead of the styled page). Pin everything so deploys
+# are reproducible.
 RUN echo '{"private":true}' > package.json && \
   npm install \
-    tsx \
-    bullmq \
-    ioredis \
-    @supabase/supabase-js \
-    puppeteer \
-    sharp \
-    cheerio \
-    linkedom \
-    @mozilla/readability \
+    tsx@4.21.0 \
+    bullmq@5.76.4 \
+    ioredis@5.10.1 \
+    @supabase/supabase-js@2.103.3 \
+    puppeteer@24.42.0 \
+    sharp@0.34.5 \
+    cheerio@1.2.0 \
+    linkedom@0.18.12 \
+    @mozilla/readability@0.6.0 \
   && npm cache clean --force
 
 COPY tsconfig.json ./
