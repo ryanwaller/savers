@@ -954,36 +954,45 @@ export default function Sidebar({
           align-items: center;
         }
         .sidebar-images-all-row .sidebar-images-all { flex: 1 1 auto; }
-        /* Match the link side's .unsorted-sort button — same dark glass
-           pill, same fade in on hover, same dimensions. */
+        /* Match the link side's .unsorted-sort exactly — anchored to the
+           right edge, expands from a 34px nub to its full width on hover
+           via clip-path. Uses the same red treatment the link Sort gets
+           when there's something to triage. */
         .sidebar-images-sort {
           position: absolute;
-          right: 12px;
           top: 50%;
+          right: 0;
           transform: translateY(-50%);
           min-width: 34px;
           height: 22px;
           padding: 0 10px;
+          z-index: 1;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           font-size: 12px;
-          color: rgba(255, 255, 255, 0.78);
-          background: rgba(0, 0, 0, 0.52);
-          border: 0;
-          border-radius: 999px;
-          cursor: pointer;
+          color: #c62828;
+          background: #fce4ec;
           opacity: 0;
-          transition: opacity 140ms ease;
+          border-radius: 999px;
+          border: 0;
+          cursor: pointer;
           white-space: nowrap;
+          /* Pinch from the right so the pill expands leftward into view
+             — mirrors the link side's reveal direction. */
+          clip-path: inset(0 0 0 calc(100% - 34px));
+          transition: opacity 140ms ease, clip-path 180ms ease;
         }
-        @media (prefers-color-scheme: light) {
+        @media (prefers-color-scheme: dark) {
           .sidebar-images-sort {
-            color: rgba(0, 0, 0, 0.72);
-            background: rgba(0, 0, 0, 0.12);
+            background: rgba(198, 40, 40, 0.22);
+            color: #ef5350;
           }
         }
-        .sidebar-images-all-row:hover .sidebar-images-sort { opacity: 1; }
+        .sidebar-images-all-row:hover .sidebar-images-sort {
+          opacity: 1;
+          clip-path: inset(0 0 0 0);
+        }
         .sidebar-images-sort:hover,
         .sidebar-images-sort:active { opacity: 1; }
         /* .sidebar-image-collection styles live in the ImageCollectionRow
