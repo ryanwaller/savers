@@ -978,9 +978,10 @@ export default function Sidebar({
           border: 0;
           cursor: pointer;
           white-space: nowrap;
-          /* Pinch from the right so the pill expands leftward into view
-             — mirrors the link side's reveal direction. */
-          clip-path: inset(0 0 0 calc(100% - 34px));
+          /* Same direction as the link side's .unsorted-sort: the
+             visible area starts at the LEFTmost 34px of the pill and
+             grows rightward toward the row's right edge on hover. */
+          clip-path: inset(0 calc(100% - 34px) 0 0);
           transition: opacity 140ms ease, clip-path 180ms ease;
         }
         @media (prefers-color-scheme: dark) {
