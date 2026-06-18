@@ -3145,7 +3145,12 @@ export default function Home() {
                 role="radio"
                 aria-checked={cardSize === size}
                 className={`size-btn size-btn-${size} ${cardSize === size ? "size-btn-active" : ""}`}
-                onClick={() => setCardSize(size)}
+                onClick={() => {
+                  setCardSize(size);
+                  // Picking a size implies "I want to see thumbnails at
+                  // this scale" — bounce out of list view back to grid.
+                  if (viewMode === "list") setViewMode("grid");
+                }}
                 title={`${size.toUpperCase()} previews`}
               >
                 {size.toUpperCase()}
