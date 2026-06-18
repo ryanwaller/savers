@@ -326,11 +326,25 @@ export default function Home() {
     l: 2,
     xl: 1,
   };
+  // Image grid uses denser layouts than bookmarks — one step tighter
+  // at every size (S=5, M=4, L=3, XL=2) so you can see more thumbs.
+  const IMAGE_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
+    s: 5,
+    m: 4,
+    l: 3,
+    xl: 2,
+  };
   // Mobile: fewer columns due to narrow viewport.
   const CARD_SIZE_MOBILE_COLS: Record<CardSize, number> = {
     s: 3,
     m: 2,
     l: 1,
+    xl: 1,
+  };
+  const IMAGE_SIZE_MOBILE_COLS: Record<CardSize, number> = {
+    s: 3,
+    m: 2,
+    l: 2,
     xl: 1,
   };
   const CARD_SIZE_PX: Record<CardSize, number> = {
@@ -344,6 +358,8 @@ export default function Home() {
   const cardMinWidth = CARD_SIZE_PX[cardSize];
   const desktopCols = CARD_SIZE_DESKTOP_COLS[cardSize];
   const mobileCols = CARD_SIZE_MOBILE_COLS[cardSize];
+  const imageDesktopCols = IMAGE_SIZE_DESKTOP_COLS[cardSize];
+  const imageMobileCols = IMAGE_SIZE_MOBILE_COLS[cardSize];
   const effectiveDesktopCols = useMemo(() => {
     if (isMobileViewport || !contentWidth) return desktopCols;
 
@@ -2799,8 +2815,8 @@ export default function Home() {
               loading={loadingImages}
               emptyLabel={loadingImages ? "Loading images…" : "No images yet."}
               cardMinWidth={cardMinWidth}
-              desktopCols={effectiveDesktopCols}
-              mobileCols={mobileCols}
+              desktopCols={imageDesktopCols}
+              mobileCols={imageMobileCols}
               viewMode={viewMode}
               isEditMode={isEditMode}
               selectedIds={selectedIds}
