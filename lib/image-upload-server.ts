@@ -269,6 +269,10 @@ async function generateRasterPreview(body: Buffer, contentType: string): Promise
     return await sharp(body, { failOn: "none" })
       .rotate()
       .resize(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+      // Flatten transparency onto white. JPEG doesn't support alpha;
+      // without this, PNG/WebP/HEIC images with transparent regions
+      // end up with a black background after encoding to JPEG.
+      .flatten({ background: "#ffffff" })
       .jpeg({ quality: PREVIEW_QUALITY, mozjpeg: true })
       .toBuffer();
   } catch (err) {

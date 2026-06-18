@@ -676,15 +676,6 @@ export default function Sidebar({
                   }
                 />
               ))}
-              <button
-                className="sidebar-images-empty-cta"
-                onClick={() => {
-                  window.dispatchEvent(new CustomEvent("savers:add-images"));
-                  onCloseMobile?.();
-                }}
-              >
-                + Add images
-              </button>
             </>
           )}
         </div>

@@ -400,6 +400,7 @@ export default function Home() {
   const [loadError, setLoadError] = useState<string | null>(null);
 
   const [showAdd, setShowAdd] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [sharingCollection, setSharingCollection] = useState<ShareableCollection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
@@ -2617,9 +2618,45 @@ export default function Home() {
                     onChange={(e) => setSearch(e.target.value)}
                   />
                 </div>
-                <button className="btn btn-primary" onClick={() => setShowAdd(true)}>
-                  + Add bookmark
-                </button>
+                <div className="add-menu-wrap">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setAddMenuOpen((v) => !v)}
+                    aria-expanded={addMenuOpen}
+                  >
+                    + Add
+                  </button>
+                  {addMenuOpen && (
+                    <>
+                      <div
+                        className="add-menu-backdrop"
+                        onClick={() => setAddMenuOpen(false)}
+                      />
+                      <div className="add-menu" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="add-menu-item"
+                          onClick={() => {
+                            setAddMenuOpen(false);
+                            setShowAdd(true);
+                          }}
+                        >
+                          Bookmark
+                          <span className="add-menu-sub">URL, .webloc, or paste</span>
+                        </button>
+                        <button
+                          className="add-menu-item"
+                          onClick={() => {
+                            setAddMenuOpen(false);
+                            setShowAddImages(true);
+                          }}
+                        >
+                          Image
+                          <span className="add-menu-sub">Upload files or paste a URL</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
               </div>
 
               <div className="mobile-actions">
@@ -2652,13 +2689,44 @@ export default function Home() {
                     >
                       <MagnifyingGlass size={14} />
                     </button>
-                    <button
-                      className="circle-btn circle-btn-primary"
-                      aria-label="Add bookmark"
-                      onClick={() => setShowAdd(true)}
-                    >
-                      <Plus size={14} weight="bold" />
-                    </button>
+                    <div className="add-menu-wrap">
+                      <button
+                        className="circle-btn circle-btn-primary"
+                        aria-label="Add"
+                        aria-expanded={addMenuOpen}
+                        onClick={() => setAddMenuOpen((v) => !v)}
+                      >
+                        <Plus size={14} weight="bold" />
+                      </button>
+                      {addMenuOpen && (
+                        <>
+                          <div
+                            className="add-menu-backdrop"
+                            onClick={() => setAddMenuOpen(false)}
+                          />
+                          <div className="add-menu" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="add-menu-item"
+                              onClick={() => {
+                                setAddMenuOpen(false);
+                                setShowAdd(true);
+                              }}
+                            >
+                              Bookmark
+                            </button>
+                            <button
+                              className="add-menu-item"
+                              onClick={() => {
+                                setAddMenuOpen(false);
+                                setShowAddImages(true);
+                              }}
+                            >
+                              Image
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
                   </>
                 )}
               </div>
@@ -3427,6 +3495,48 @@ export default function Home() {
         @keyframes upload-spin {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
+        }
+        .add-menu-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .add-menu-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+        }
+        .add-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          z-index: 60;
+          min-width: 200px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+          padding: 4px;
+          display: flex;
+          flex-direction: column;
+        }
+        .add-menu-item {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          padding: 8px 10px;
+          font-size: 13px;
+          color: var(--color-text);
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .add-menu-item:hover { background: var(--color-bg-hover); }
+        .add-menu-sub {
+          font-size: 11px;
+          color: var(--color-text-muted);
         }
         .bulk-actions {
           display: flex;

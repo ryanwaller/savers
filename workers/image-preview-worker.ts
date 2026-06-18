@@ -120,6 +120,7 @@ async function downsizeAndEncode(rasterBuffer: Buffer): Promise<{ buffer: Buffer
   const meta = await pipeline.metadata();
   const buffer = await pipeline
     .resize(PREVIEW_MAX_EDGE, PREVIEW_MAX_EDGE, { fit: "inside", withoutEnlargement: true })
+    .flatten({ background: "#ffffff" })  // any alpha → white, never black
     .jpeg({ quality: PREVIEW_QUALITY, mozjpeg: true })
     .toBuffer();
   return {
