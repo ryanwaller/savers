@@ -45,7 +45,9 @@ type Props = {
   onDelete?: (image: ImageRow) => void | Promise<void>;
 };
 
-const GAP = 16;
+// Match BookmarkGrid's DESKTOP_GAP_PX / DESKTOP_PADDING_X_PX so the
+// image grid spacing reads identically to the link grid.
+const GAP = 20;
 const PADDING_X = 20;
 const DEFAULT_MIN_WIDTH = 240;
 const FALLBACK_ASPECT = 1; // square for images without dimensions yet
@@ -383,7 +385,10 @@ export default function ImageGrid({
       <style jsx>{`
         .image-grid-wrap {
           width: 100%;
-          padding: 8px ${PADDING_X}px 24px;
+          /* Match BookmarkGrid's .grid: 20px on all sides, with a
+             80px bottom for breathing room below the last row. */
+          padding: ${PADDING_X}px;
+          padding-bottom: 80px;
           box-sizing: border-box;
         }
         .image-grid-empty {
