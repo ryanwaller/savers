@@ -51,6 +51,8 @@ export default function ImageTriageOverlay({
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [queue, setQueue] = useState<ImageRow[]>([]);
   const [busy, setBusy] = useState(false);
+  const [newFolderOpen, setNewFolderOpen] = useState(false);
+  const [newFolderName, setNewFolderName] = useState("");
 
   const current = queue[0] ?? null;
   const remaining = queue.length;
@@ -137,6 +139,41 @@ export default function ImageTriageOverlay({
     if (busy) return;
     advance();
   }, [busy, advance]);
+
+  const createAndMove = useCallback(async () => {
+    if (!current || busy) return;
+    const name = newFolderName.trim();
+    if (!name) return;
+    setBusy(true);
+    try {
+      const createRes = await fetch("/api/image-collections", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name }),
+      });
+      const createBody = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || !createBody.collection?.id) {
+        console.error("[image-triage] folder create failed", createBody);
+        return;
+      }
+      const newId = createBody.collection.id as string;
+      const patchRes = await fetch(`/api/images/${current.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ collection_id: newId }),
+      });
+      if (!patchRes.ok) {
+        console.error("[image-triage] move-into-new failed", await patchRes.text().catch(() => ""));
+        return;
+      }
+      setNewFolderOpen(false);
+      setNewFolderName("");
+      onMutated?.();
+      advance();
+    } finally {
+      setBusy(false);
+    }
+  }, [current, busy, newFolderName, onMutated, advance]);
 
   const sortedFolders = useMemo(
     () => [...imageCollections].sort((a, b) => a.name.localeCompare(b.name)),
@@ -242,6 +279,47 @@ export default function ImageTriageOverlay({
                       <span className="it-folder-name">{c.name}</span>
                     </button>
                   ))
+                )}
+                {newFolderOpen ? (
+                  <form
+                    className="it-new-folder-form"
+                    onSubmit={(e) => {
+                      e.preventDefault();
+                      void createAndMove();
+                    }}
+                  >
+                    <input
+                      autoFocus
+                      className="it-new-folder-input"
+                      placeholder="New folder name"
+                      value={newFolderName}
+                      onChange={(e) => setNewFolderName(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setNewFolderOpen(false);
+                          setNewFolderName("");
+                        }
+                      }}
+                      disabled={busy}
+                    />
+                    <button
+                      type="submit"
+                      className="it-new-folder-create"
+                      disabled={busy || !newFolderName.trim()}
+                    >
+                      Create + move
+                    </button>
+                  </form>
+                ) : (
+                  <button
+                    type="button"
+                    className="it-folder-btn it-folder-new"
+                    onClick={() => setNewFolderOpen(true)}
+                    disabled={busy}
+                  >
+                    <span className="it-folder-icon" aria-hidden>+</span>
+                    <span className="it-folder-name">New folder</span>
+                  </button>
                 )}
               </div>
             </>
@@ -402,6 +480,44 @@ export default function ImageTriageOverlay({
           height: 14px;
         }
         .it-folder-btn:hover .it-folder-icon { color: var(--color-text); }
+        .it-folder-new .it-folder-icon {
+          font-size: 14px;
+          line-height: 1;
+        }
+        .it-new-folder-form {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          padding: 4px 6px 4px 10px;
+          border: 1px solid var(--color-border-strong);
+          border-radius: 999px;
+          background: var(--color-bg);
+        }
+        .it-new-folder-input {
+          border: none;
+          outline: none;
+          background: transparent;
+          color: var(--color-text);
+          font-size: 13px;
+          width: 180px;
+          padding: 0;
+        }
+        .it-new-folder-input::placeholder {
+          color: var(--color-text-muted);
+        }
+        .it-new-folder-create {
+          padding: 4px 10px;
+          font-size: 12px;
+          background: var(--color-text);
+          color: var(--color-bg);
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+        }
+        .it-new-folder-create:disabled {
+          opacity: 0.4;
+          cursor: not-allowed;
+        }
         .it-folder-name {
           white-space: nowrap;
           overflow: hidden;
