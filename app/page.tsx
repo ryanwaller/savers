@@ -2,7 +2,7 @@
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { List, MagnifyingGlass, Plus, SquaresFour } from "@phosphor-icons/react";
+import { Grid2x2, List, Plus, Search } from "lucide-react";
 import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
 import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
@@ -2703,7 +2703,7 @@ export default function Home() {
                       aria-label="Search"
                       onClick={() => setMobileSearchOpen(true)}
                     >
-                      <MagnifyingGlass size={14} />
+                      <Search size={14} strokeWidth={2} />
                     </button>
                     <div className="add-menu-wrap">
                       <button
@@ -2712,7 +2712,7 @@ export default function Home() {
                         aria-expanded={addMenuOpen}
                         onClick={() => setAddMenuOpen((v) => !v)}
                       >
-                        <Plus size={14} weight="bold" />
+                        <Plus size={14} strokeWidth={2.4} />
                       </button>
                       {addMenuOpen && (
                         <>
@@ -3164,7 +3164,7 @@ export default function Home() {
                 title="View and sort bookmarks"
                 aria-label="View and sort bookmarks"
               >
-                <List size={14} weight={showSortMenu ? "fill" : "regular"} />
+                <List size={14} strokeWidth={showSortMenu ? 2.4 : 2} />
               </button>
               <SortMenu
                 viewMode={viewMode}
@@ -3187,7 +3187,7 @@ export default function Home() {
               title={isEditMode ? "Exit edit mode" : "Edit mode"}
               aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
             >
-              <SquaresFour size={14} weight={isEditMode ? "fill" : "regular"} />
+              <Grid2x2 size={14} strokeWidth={isEditMode ? 2.4 : 2} />
             </button>
           </div>
         </div>

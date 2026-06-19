@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
-import { Funnel } from "@phosphor-icons/react";
+import { Funnel } from "lucide-react";
 import type { SmartCollection, FilterGroup, FilterCondition, FilterProperty, FilterOperator } from "@/lib/types";
 import { api } from "@/lib/api";
 import CollectionIcon from "./CollectionIcon";
@@ -339,7 +339,7 @@ export default function SmartCollectionBuilderModal({
       <div className="panel" onClick={(e) => e.stopPropagation()}>
         <div className="head">
           <div className="title">
-            <Funnel size={14} />
+            <Funnel size={14} strokeWidth={2} />
             <span>{isEdit ? "Edit smart collection" : "New smart collection"}</span>
           </div>
           <button className="icon-btn close" onClick={onClose} aria-label="Close">

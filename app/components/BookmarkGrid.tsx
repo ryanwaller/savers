@@ -3,7 +3,7 @@
 import type { CSSProperties } from "react";
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { PushPin } from "@phosphor-icons/react";
+import { Pin } from "lucide-react";
 import type { Bookmark } from "@/lib/types";
 import ShareModal from "./ShareModal";
 import { api,
@@ -1133,7 +1133,7 @@ function BookmarkCard({
           onClick={handleTogglePin}
           disabled={pinning}
         >
-          <PushPin size={14} weight={b.pinned ? "fill" : "regular"} />
+          <Pin size={14} strokeWidth={b.pinned ? 2.4 : 2} />
         </button>
         <button
           className="action-btn menu-trigger"

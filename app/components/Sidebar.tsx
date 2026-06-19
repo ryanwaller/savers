@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TagManagerModal from "./TagManagerModal";
-import { Funnel, LinkBreak, PushPin, SignOut } from "@phosphor-icons/react";
+import { Funnel, Pin, Unlink } from "lucide-react";
 import type { Bookmark, Collection, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
@@ -366,7 +366,7 @@ export default function Sidebar({
           {totals.pinned > 0 && (
             <SidebarItem
               label="Pinned"
-              leading={<PushPin size={14} weight="fill" />}
+              leading={<Pin size={14} strokeWidth={2.4} />}
               count={totals.pinned}
               active={selection.kind === "pinned"}
               onClick={() => onSelect({ kind: "pinned" })}
@@ -407,7 +407,7 @@ export default function Sidebar({
           {totals.broken > 0 && (
             <SidebarItem
               label="Broken links"
-              leading={<LinkBreak size={14} />}
+              leading={<Unlink size={14} strokeWidth={2} />}
               count={totals.broken}
               active={selection.kind === "broken"}
               onClick={() => onSelect({ kind: "broken" })}
