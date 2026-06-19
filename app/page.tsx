@@ -58,6 +58,7 @@ type Selection =
   | { kind: "feed"; id: string }
   // Images surface (parallel taxonomy from Links)
   | { kind: "images_all" }
+  | { kind: "images_unsorted" }
   | { kind: "image_collection"; id: string };
 
 type EditableImageRow = ImageRow & {
@@ -187,7 +188,7 @@ export default function Home() {
   // If selection drifts into the other mode's territory, follow it so
   // the toggle pill always reflects the current view.
   useEffect(() => {
-    const isImageSel = selection.kind === "images_all" || selection.kind === "image_collection";
+    const isImageSel = selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted";
     if (isImageSel && sidebarMode !== "images") setSidebarMode("images");
     if (!isImageSel && sidebarMode === "images") setSidebarMode("links");
   }, [selection, sidebarMode]);
@@ -470,6 +471,7 @@ export default function Home() {
     label: string;
   } | null>(null);
   const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
+  const [unsortedImageCount, setUnsortedImageCount] = useState(0);
 
   // Load the image-collection folder list (flat). Called on auth-ready and
   // after a successful create/delete so the sidebar refreshes.
@@ -480,6 +482,9 @@ export default function Home() {
       const body = await res.json();
       setImageCollections(
         (body.collections as ImageCollection[]) || [],
+      );
+      setUnsortedImageCount(
+        typeof body.unsorted_count === "number" ? body.unsorted_count : 0,
       );
     } catch (err) {
       console.error("[image-collections] load failed", err);
@@ -1150,7 +1155,7 @@ export default function Home() {
   // every entry — pagination + incremental fetch is a later concern.
   useEffect(() => {
     if (authLoading || !user) return;
-    if (selection.kind !== "images_all" && selection.kind !== "image_collection") return;
+    if (selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted") return;
 
     let cancelled = false;
     setLoadingImages(true);
@@ -1160,6 +1165,8 @@ export default function Home() {
         const url = new URL("/api/images", window.location.origin);
         if (selection.kind === "image_collection") {
           url.searchParams.set("collection_id", selection.id);
+        } else if (selection.kind === "images_unsorted") {
+          url.searchParams.set("unsorted", "1");
         }
         // Map the bookmark sort dropdown's values into the image API's
         // `sort` query param. "collection" sort is bookmark-only for
@@ -1495,6 +1502,12 @@ export default function Home() {
       return [
         { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
         { label: folder?.name ?? "Folder", icon: null, isCollection: false, selection: { kind: "image_collection", id: selection.id } as Selection },
+      ];
+    }
+    if (selection.kind === "images_unsorted") {
+      return [
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+        { label: "Unsorted", icon: null, isCollection: false, selection: { kind: "images_unsorted" } as Selection },
       ];
     }
 
@@ -2381,7 +2394,7 @@ export default function Home() {
           if (body.images?.length) {
             // If already viewing an image collection, stay there; otherwise
             // switch to All Images so the uploads are visible.
-            if (selection.kind === "images_all" || selection.kind === "image_collection") {
+            if (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") {
               refreshImages();
             } else {
               setSelection({ kind: "images_all" });
@@ -2481,6 +2494,7 @@ export default function Home() {
           } catch { /* best-effort refresh */ }
         }}
         imageCollections={imageCollections}
+        unsortedImageCount={unsortedImageCount}
         onUpdateImageCollection={async (id, updates) => {
           try {
             const res = await fetch(`/api/image-collections/${id}`, {
@@ -2845,7 +2859,7 @@ export default function Home() {
                 });
               }}
             />
-          ) : (selection.kind === "images_all" || selection.kind === "image_collection") ? (
+          ) : (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") ? (
             <ImageGrid
               images={images}
               loading={loadingImages}
@@ -3007,7 +3021,7 @@ export default function Home() {
             </div>
           )}
           {isEditMode &&
-            (selection.kind === "images_all" || selection.kind === "image_collection") &&
+            (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") &&
             selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="bulk-count">
@@ -3056,7 +3070,7 @@ export default function Home() {
             </div>
           )}
           {isEditMode && selection.kind !== "feed" &&
-            selection.kind !== "images_all" && selection.kind !== "image_collection" &&
+            selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted" &&
             selectedIds.size > 0 && (
             <div className="bulk-actions">
               <span className="bulk-count">{selectedIds.size} selected</span>

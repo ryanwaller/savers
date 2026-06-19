@@ -42,6 +42,7 @@ type Selection =
   | { kind: "feed"; id: string }
   // Images surface — kept in sync with the same union in app/page.tsx.
   | { kind: "images_all" }
+  | { kind: "images_unsorted" }
   | { kind: "image_collection"; id: string };
 
 type Props = {
@@ -89,6 +90,7 @@ type Props = {
   onDeleteFeed?: (id: string) => Promise<void>;
   // Image collections (folders under the Images supergroup).
   imageCollections?: ImageCollection[];
+  unsortedImageCount?: number;
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
   /** Mode toggle: which tree to render below the toggle pill. */
@@ -133,6 +135,7 @@ export default function Sidebar({
   onDeleteFeed,
   onTagsChanged,
   imageCollections = [],
+  unsortedImageCount = 0,
   onUpdateImageCollection,
   onDeleteImageCollection,
   sidebarMode = "links",
@@ -626,70 +629,78 @@ export default function Sidebar({
         </>)}
 
         {sidebarMode === "images" && (<>
-        {/* Images mode — the supergroup label/caret was here but the
-            top mode toggle replaces it. The "+" new-folder button moves
-            inline with the All images row below. */}
+        {/* Images mode — mirrors the link first-section + Collections
+            sub-section markup so the two modes read identically. */}
+        <div className="sidebar-section">
+          <SidebarItem
+            label="All images"
+            count={
+              imageCollections.reduce((sum, c) => sum + (c.image_count ?? 0), 0) +
+              unsortedImageCount
+            }
+            active={selection.kind === "images_all"}
+            onClick={() => onSelect({ kind: "images_all" })}
+          />
+          <div className={`unsorted-row ${unsortedImageCount > 0 ? "has-pending" : ""}`}>
+            <button
+              className={`unsorted-item ${selection.kind === "images_unsorted" ? "active" : ""}`}
+              onClick={() => onSelect({ kind: "images_unsorted" })}
+              title="Unsorted"
+            >
+              <span className="unsorted-label">Unsorted</span>
+              <span className="unsorted-tail">
+                <span className="unsorted-count">{unsortedImageCount}</span>
+                {unsortedImageCount > 0 && (
+                  <button
+                    className="unsorted-sort"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      window.dispatchEvent(new CustomEvent("savers:open-image-triage"));
+                      onCloseMobile?.();
+                    }}
+                  >
+                    Sort
+                  </button>
+                )}
+              </span>
+            </button>
+          </div>
+        </div>
+
         <div className="sidebar-section sidebar-section-group">
-          <div className="sidebar-section-spacer" />
-          {true && (
-            <>
-              <div className="sidebar-images-all-row">
-                <button
-                  className={`sidebar-images-all ${selection.kind === "images_all" ? "active" : ""}`}
-                  onClick={() => {
-                    // Match link-folder behaviour — don't dismiss the sidebar.
-                    onSelect({ kind: "images_all" });
-                  }}
-                >
-                  All images
-                </button>
-                <button
-                  className="sidebar-images-sort"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    window.dispatchEvent(new CustomEvent("savers:open-image-triage"));
-                    onCloseMobile?.();
-                  }}
-                  title="Triage unsorted images one by one"
-                >
-                  Sort
-                </button>
-              </div>
-              <div className="sidebar-divider" />
-              <div className="section-header-row">
-                <span className="sidebar-label flex-1">Folders</span>
-                <button
-                  className="sidebar-new-smart"
-                  onClick={() => {
-                    const event = new CustomEvent("savers:new-image-collection");
-                    window.dispatchEvent(event);
-                  }}
-                  title="New image folder"
-                >
-                  +
-                </button>
-              </div>
-              {imageCollections.map((c) => (
-                <ImageCollectionRow
-                  key={c.id}
-                  collection={c}
-                  active={selection.kind === "image_collection" && selection.id === c.id}
-                  onSelect={() => onSelect({ kind: "image_collection", id: c.id })}
-                  onUpdate={
-                    onUpdateImageCollection
-                      ? (updates) => onUpdateImageCollection(c.id, updates)
-                      : undefined
-                  }
-                  onDelete={
-                    onDeleteImageCollection ? () => onDeleteImageCollection(c.id) : undefined
-                  }
-                  onShare={
-                    onShareImageCollection ? () => onShareImageCollection(c) : undefined
-                  }
-                />
-              ))}
-            </>
-          )}
+          <div className="sidebar-divider" />
+          <div className="section-header-row">
+            <span className="sidebar-label flex-1">Collections</span>
+            <button
+              className="sidebar-new-smart"
+              onClick={() => {
+                const event = new CustomEvent("savers:new-image-collection");
+                window.dispatchEvent(event);
+              }}
+              title="New image collection"
+            >
+              +
+            </button>
+          </div>
+          {imageCollections.map((c) => (
+            <ImageCollectionRow
+              key={c.id}
+              collection={c}
+              active={selection.kind === "image_collection" && selection.id === c.id}
+              onSelect={() => onSelect({ kind: "image_collection", id: c.id })}
+              onUpdate={
+                onUpdateImageCollection
+                  ? (updates) => onUpdateImageCollection(c.id, updates)
+                  : undefined
+              }
+              onDelete={
+                onDeleteImageCollection ? () => onDeleteImageCollection(c.id) : undefined
+              }
+              onShare={
+                onShareImageCollection ? () => onShareImageCollection(c) : undefined
+              }
+            />
+          ))}
         </div>
         </>)}
 

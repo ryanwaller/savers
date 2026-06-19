@@ -38,8 +38,12 @@ export async function GET() {
     if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
 
     const counts = new Map<string, number>();
+    let unsortedCount = 0;
     for (const row of (countRows ?? []) as Array<{ collection_id: string | null }>) {
-      if (!row.collection_id) continue;
+      if (!row.collection_id) {
+        unsortedCount++;
+        continue;
+      }
       counts.set(row.collection_id, (counts.get(row.collection_id) ?? 0) + 1);
     }
 
@@ -48,7 +52,10 @@ export async function GET() {
       image_count: counts.get(c.id) ?? 0,
     }));
 
-    return NextResponse.json({ collections: enriched });
+    return NextResponse.json({
+      collections: enriched,
+      unsorted_count: unsortedCount,
+    });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });
