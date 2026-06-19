@@ -118,6 +118,21 @@ export default function Home() {
   const [globalTagCounts, setGlobalTagCounts] = useState<Record<string, number>>({});
   const [smartCollectionCounts, setSmartCollectionCounts] = useState<Record<string, number>>({});
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  type SidebarMode = "links" | "images";
+  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
+    if (typeof window === "undefined") return "links";
+    try {
+      const raw = window.localStorage.getItem("savers.sidebar.mode");
+      if (raw === "images") return "images";
+    } catch { /* ignore */ }
+    return "links";
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("savers.sidebar.mode", sidebarMode);
+    } catch { /* ignore */ }
+  }, [sidebarMode]);
   const [selection, setSelection] = useState<Selection>(() => {
     // Restore the last-active selection across page reloads. Saved as JSON
     // in localStorage by the useEffect below. If the saved value is for a
@@ -158,6 +173,25 @@ export default function Home() {
       /* quota or denied — ignore */
     }
   }, [selection]);
+
+  const switchSidebarMode = useCallback((next: SidebarMode) => {
+    setSidebarMode(next);
+    // Bounce the selection into the new mode's home view so the user
+    // never sees a blank/irrelevant grid right after flipping modes.
+    if (next === "images") {
+      setSelection({ kind: "images_all" });
+    } else {
+      setSelection({ kind: "all" });
+    }
+  }, []);
+  // If selection drifts into the other mode's territory, follow it so
+  // the toggle pill always reflects the current view.
+  useEffect(() => {
+    const isImageSel = selection.kind === "images_all" || selection.kind === "image_collection";
+    if (isImageSel && sidebarMode !== "images") setSidebarMode("images");
+    if (!isImageSel && sidebarMode === "images") setSidebarMode("links");
+  }, [selection, sidebarMode]);
+
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Tags in the sidebar are scoped to the current selection: in a specific
@@ -2393,6 +2427,8 @@ export default function Home() {
         allBookmarks={allBookmarks}
         totals={totals}
         allTags={allTags}
+        sidebarMode={sidebarMode}
+        onSwitchSidebarMode={switchSidebarMode}
         tagCounts={tagCounts}
         activeTag={activeTag}
         userEmail={user.email}

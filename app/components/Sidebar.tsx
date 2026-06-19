@@ -91,6 +91,9 @@ type Props = {
   imageCollections?: ImageCollection[];
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
+  /** Mode toggle: which tree to render below the toggle pill. */
+  sidebarMode?: "links" | "images";
+  onSwitchSidebarMode?: (next: "links" | "images") => void;
 };
 
 export default function Sidebar({
@@ -132,6 +135,8 @@ export default function Sidebar({
   imageCollections = [],
   onUpdateImageCollection,
   onDeleteImageCollection,
+  sidebarMode = "links",
+  onSwitchSidebarMode,
 }: Props) {
   const [draggedId, setDraggedId] = useState<string | null>(null);
   const [collectionsExpanded, setCollectionsExpanded] = useState(() => {
@@ -362,6 +367,28 @@ export default function Sidebar({
       </div>
 
       <div className="sidebar-scroll">
+        <div className="sidebar-mode-bar">
+          <div className="sidebar-mode-toggle" role="tablist" aria-label="Sidebar mode">
+            <button
+              role="tab"
+              aria-selected={sidebarMode === "links"}
+              className={`sidebar-mode-btn ${sidebarMode === "links" ? "on" : ""}`}
+              onClick={() => onSwitchSidebarMode?.("links")}
+            >
+              Links
+            </button>
+            <button
+              role="tab"
+              aria-selected={sidebarMode === "images"}
+              className={`sidebar-mode-btn ${sidebarMode === "images" ? "on" : ""}`}
+              onClick={() => onSwitchSidebarMode?.("images")}
+            >
+              Images
+            </button>
+          </div>
+        </div>
+
+        {sidebarMode === "links" && (<>
         <div className="sidebar-section">
           {totals.pinned > 0 && (
             <SidebarItem
@@ -415,23 +442,10 @@ export default function Sidebar({
           )}
         </div>
 
-        {/* Links supergroup — wraps Feeds, Collections, and Smart
-            Collections. The user has a parallel Images supergroup below;
-            Smart Collections and Feeds are intentionally link-only for now. */}
-        <div className="sidebar-section sidebar-section-group">
-          <div className="sidebar-divider" />
-          <div className="section-header-row">
-            <button
-              className="sidebar-label sidebar-supergroup-label collapsible flex-1"
-              onClick={() => setLinksExpanded(!linksExpanded)}
-            >
-              <span className="caret">{linksExpanded ? "▾" : "▸"}</span>
-              Links
-            </button>
-          </div>
-        </div>
-
-        {linksExpanded && (<>
+        {/* Links/Images supergroup headers were here. With the top
+            mode toggle, they were redundant — removed. The internal
+            sections (Feeds, Collections, etc.) stay as-is. */}
+        {true && (<>
         {/* Feeds */}
         {(feedSubscriptions && feedSubscriptions.length > 0) && (
           <div className="sidebar-section sidebar-section-group">
@@ -609,31 +623,15 @@ export default function Sidebar({
           </div>
         )}
         </>)}
+        </>)}
 
-        {/* Images supergroup — parallel to Links. Folder CRUD lands in a
-            follow-up step; for now this just shows the empty state. */}
+        {sidebarMode === "images" && (<>
+        {/* Images mode — the supergroup label/caret was here but the
+            top mode toggle replaces it. The "+" new-folder button moves
+            inline with the All images row below. */}
         <div className="sidebar-section sidebar-section-group">
-          <div className="sidebar-divider" />
-          <div className="section-header-row">
-            <button
-              className="sidebar-label sidebar-supergroup-label collapsible flex-1"
-              onClick={() => setImagesExpanded(!imagesExpanded)}
-            >
-              <span className="caret">{imagesExpanded ? "▾" : "▸"}</span>
-              Images
-            </button>
-            <button
-              className="sidebar-new-smart"
-              onClick={() => {
-                const event = new CustomEvent("savers:new-image-collection");
-                window.dispatchEvent(event);
-              }}
-              title="New image collection"
-            >
-              +
-            </button>
-          </div>
-          {imagesExpanded && (
+          <div className="sidebar-section-spacer" />
+          {true && (
             <>
               <div className="sidebar-images-all-row">
                 <button
@@ -655,6 +653,20 @@ export default function Sidebar({
                   title="Triage unsorted images one by one"
                 >
                   Sort
+                </button>
+              </div>
+              <div className="sidebar-divider" />
+              <div className="section-header-row">
+                <span className="sidebar-label flex-1">Folders</span>
+                <button
+                  className="sidebar-new-smart"
+                  onClick={() => {
+                    const event = new CustomEvent("savers:new-image-collection");
+                    window.dispatchEvent(event);
+                  }}
+                  title="New image folder"
+                >
+                  +
                 </button>
               </div>
               {imageCollections.map((c) => (
@@ -679,8 +691,9 @@ export default function Sidebar({
             </>
           )}
         </div>
+        </>)}
 
-        {allTags.length > 0 && (
+        {sidebarMode === "links" && allTags.length > 0 && (
           <div className="sidebar-section sidebar-section-group">
             <div className="sidebar-divider" />
             <div className="section-header-row section-header-row-tags">
@@ -891,6 +904,40 @@ export default function Sidebar({
         .tag-pill.active .tag-pill-count {
           color: var(--color-bg-secondary);
         }
+        /* Top-of-sidebar mode toggle — segmented pill that swaps between
+           the Links tree and the Images tree. Same shape on both sides
+           reads as a context switch rather than two competing sections. */
+        .sidebar-mode-bar {
+          padding: 6px 10px 4px;
+        }
+        .sidebar-mode-toggle {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 2px;
+          padding: 3px;
+          background: var(--color-bg-hover);
+          border-radius: 999px;
+        }
+        .sidebar-mode-btn {
+          padding: 6px 8px;
+          font-size: 12px;
+          font-weight: 500;
+          color: var(--color-text-muted);
+          background: transparent;
+          border: none;
+          border-radius: 999px;
+          cursor: pointer;
+          transition: background 140ms ease, color 140ms ease;
+        }
+        .sidebar-mode-btn:hover { color: var(--color-text); }
+        .sidebar-mode-btn.on {
+          background: var(--color-bg);
+          color: var(--color-text);
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+        }
+        .sidebar-section-spacer {
+          height: 6px;
+        }
         .sidebar-section {
           padding: 4px 6px;
           overflow-x: hidden;
@@ -978,10 +1025,11 @@ export default function Sidebar({
           border: 0;
           cursor: pointer;
           white-space: nowrap;
-          /* Same direction as the link side's .unsorted-sort: the
-             visible area starts at the LEFTmost 34px of the pill and
-             grows rightward toward the row's right edge on hover. */
-          clip-path: inset(0 calc(100% - 34px) 0 0);
+          /* Nub stays at the right edge of the row; the pill expands
+             leftward to reveal the "Sort" text on hover. Reads better
+             than the link-side direction because the right edge is the
+             anchor point your eye lands on. */
+          clip-path: inset(0 0 0 calc(100% - 34px));
           transition: opacity 140ms ease, clip-path 180ms ease;
         }
         @media (prefers-color-scheme: dark) {
