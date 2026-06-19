@@ -49,6 +49,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
   const [undo, setUndo] = useState<UndoState>(null);
   const undoTimerRef = useRef<number | null>(null);
   const [previewStage, setPreviewStage] = useState<"stored" | "og_image" | "favicon" | "fail">("stored");
+  const [tagsOpen, setTagsOpen] = useState(false);
+  const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
 
   const current = queue[0] ?? null;
 
@@ -87,6 +89,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     setSuggestion(null);
     setSuggestedTags([]);
     setSelectedCollection(null);
+    setTagsOpen(false);
+    setCollectionPickerOpen(false);
     const ss = storedPreviewUrl(current?.preview_path ?? null, {
       previewVersion: current?.preview_version,
     });
@@ -375,10 +379,6 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
       : previewStage === "favicon" ? current.favicon
       : null;
 
-    const isAiSuggestion =
-      suggestion?.collection_id != null &&
-      selectedCollection?.id === suggestion.collection_id;
-
     body = (
       <main className="triage-main">
         <a
@@ -411,6 +411,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         </a>
 
         <div className="triage-info">
+          <div className="triage-card-title">{trimTitle(current)}</div>
           <div className="triage-host muted">
             {current.favicon && (
               // eslint-disable-next-line @next/next/no-img-element
@@ -423,55 +424,36 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           )}
         </div>
 
-        <div className="triage-columns">
-          <div className="triage-col">
-            <div className="label">Collection</div>
-            {suggestion?.collection_id && (
-              <div className="triage-ai-card">
-                <div className="triage-ai-card-label">
-                  ✦ Suggestion
-                </div>
+        <div className="triage-section">
+          <div className="triage-section-label">Move to collection</div>
+          <div className="triage-folder-grid">
+            {choiceCollections.slice(0, 6).map((c) => {
+              const isSelected = selectedCollection?.id === c.id;
+              const isSuggested = suggestion?.collection_id === c.id;
+              return (
                 <button
-                  className={`triage-col-opt ${isAiSuggestion ? "on" : ""}`}
-                  onClick={() => {
-                    const c = collectionsById.get(suggestion.collection_id!);
-                    if (c) setSelectedCollection(c);
-                  }}
+                  key={c.id}
+                  className={`triage-folder-btn ${isSelected ? "on" : ""}`}
+                  onClick={() => setSelectedCollection(isSelected ? null : c)}
+                  title={pathFor(c.id) ?? c.name}
                 >
-                  <span className="triage-col-opt-icon">
-                    <CollectionIcon
-                      name={collectionsById.get(suggestion.collection_id)?.icon ?? null}
-                      size={13}
-                    />
+                  <span className="triage-folder-icon" aria-hidden>
+                    <CollectionIcon name={c.icon} size={14} />
                   </span>
-                  <span className="triage-col-opt-label">
-                    {pathFor(suggestion.collection_id) ?? suggestion.collection_id}
-                  </span>
+                  <span className="triage-folder-name">{c.name}</span>
+                  {isSuggested && <span className="triage-folder-badge">Suggested</span>}
                 </button>
-              </div>
-            )}
-            {choiceCollections
-              .filter((c) => c.id !== suggestion?.collection_id)
-              .slice(0, 6)
-              .map((c) => {
-                const isSelected = selectedCollection?.id === c.id;
-                return (
-                  <button
-                    key={c.id}
-                    className={`triage-col-opt ${isSelected ? "on" : ""}`}
-                    onClick={() => setSelectedCollection(isSelected ? null : c)}
-                    title={pathFor(c.id) ?? c.name}
-                  >
-                    <span className="triage-col-opt-icon">
-                      <CollectionIcon name={c.icon} size={13} />
-                    </span>
-                    <span className="triage-col-opt-label">
-                      {c.name}
-                    </span>
-                    {isSelected && <span className="triage-col-opt-check">✓</span>}
-                  </button>
-                );
-              })}
+              );
+            })}
+            <button
+              type="button"
+              className={`triage-folder-btn triage-folder-more ${collectionPickerOpen ? "on" : ""}`}
+              onClick={() => setCollectionPickerOpen((v) => !v)}
+            >
+              More collections…
+            </button>
+          </div>
+          {collectionPickerOpen && (
             <div className="triage-col-picker">
               <CollectionPicker
                 flat={flat}
@@ -489,77 +471,91 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
                 openDirection="up"
               />
             </div>
-          </div>
+          )}
+        </div>
 
-          <div className="triage-col">
-            <div className="label">Tags</div>
-            <div className="triage-tag-editor">
-              {tags.map((tag) => (
-                <span key={tag} className="chip tag-pill">
-                  <span>{tag}</span>
-                  <button
-                    className="chip-remove tag-pill-remove"
-                    onClick={() => removeTag(tag)}
-                    aria-label={`Remove tag ${tag}`}
-                  >
-                    ×
-                  </button>
-                </span>
-              ))}
-              <input
-                className="tag-input"
-                placeholder={tags.length ? "Add tag" : "Add a tag"}
-                value={tagInput}
-                onChange={(e) => {
-                  tagInputRef.current = e.target.value;
-                  setTagInput(e.target.value);
-                }}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    commitTagInput();
-                  }
-                }}
-                onBlur={() => commitTagInput()}
-              />
-            </div>
-            {tagSuggestions.length > 0 && (
-              <div className="triage-tag-suggestions">
-                {tagSuggestions.map((tag) => (
-                  <button
-                    key={`auto-${tag}`}
-                    className="triage-tag-suggestion"
-                    onMouseDown={(e) => {
-                      e.preventDefault();
-                      commitTagInput(tag);
-                    }}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            )}
-            {suggestedTags.filter((t) => !tags.includes(t)).length > 0 && (
-              <div className="triage-tag-proposals">
-                {suggestedTags
-                  .filter((t) => !tags.includes(t))
-                  .slice(0, 8)
-                  .map((tag) => (
+        <div className="triage-section triage-tags-section">
+          <button
+            type="button"
+            className="triage-section-toggle"
+            onClick={() => setTagsOpen((v) => !v)}
+          >
+            <span>Tags</span>
+            <span className="triage-section-toggle-meta">
+              {tags.length > 0 ? `${tags.length}` : ""}
+              <span className="triage-section-toggle-caret">{tagsOpen ? "▾" : "▸"}</span>
+            </span>
+          </button>
+          {tagsOpen && (
+            <div className="triage-tags-body">
+              <div className="triage-tag-editor">
+                {tags.map((tag) => (
+                  <span key={tag} className="chip tag-pill">
+                    <span>{tag}</span>
                     <button
-                      key={`suggest-${tag}`}
-                      className="chip chip-dashed"
-                      onClick={() => {
-                        setTags((prev) =>
-                          prev.includes(tag) ? prev : [...prev, tag]
-                        );
+                      className="chip-remove tag-pill-remove"
+                      onClick={() => removeTag(tag)}
+                      aria-label={`Remove tag ${tag}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+                <input
+                  className="tag-input"
+                  placeholder={tags.length ? "Add tag" : "Add a tag"}
+                  value={tagInput}
+                  onChange={(e) => {
+                    tagInputRef.current = e.target.value;
+                    setTagInput(e.target.value);
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === ",") {
+                      e.preventDefault();
+                      commitTagInput();
+                    }
+                  }}
+                  onBlur={() => commitTagInput()}
+                />
+              </div>
+              {tagSuggestions.length > 0 && (
+                <div className="triage-tag-suggestions">
+                  {tagSuggestions.map((tag) => (
+                    <button
+                      key={`auto-${tag}`}
+                      className="triage-tag-suggestion"
+                      onMouseDown={(e) => {
+                        e.preventDefault();
+                        commitTagInput(tag);
                       }}
                     >
-                      + {tag}
+                      {tag}
                     </button>
                   ))}
-              </div>
-            )}
-          </div>
+                </div>
+              )}
+              {suggestedTags.filter((t) => !tags.includes(t)).length > 0 && (
+                <div className="triage-tag-proposals">
+                  {suggestedTags
+                    .filter((t) => !tags.includes(t))
+                    .slice(0, 8)
+                    .map((tag) => (
+                      <button
+                        key={`suggest-${tag}`}
+                        className="chip chip-dashed"
+                        onClick={() => {
+                          setTags((prev) =>
+                            prev.includes(tag) ? prev : [...prev, tag]
+                          );
+                        }}
+                      >
+                        + {tag}
+                      </button>
+                    ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="triage-actions">
@@ -749,6 +745,11 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           gap: 4px;
           margin-top: 2px;
         }
+        .triage-card-title {
+          font-size: 14px;
+          font-weight: 500;
+          color: var(--color-text);
+        }
         .triage-host {
           display: inline-flex;
           align-items: center;
@@ -766,78 +767,104 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           color: var(--color-text-muted);
           margin: 0;
         }
-        .triage-columns {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 24px;
-        }
-        .triage-col {
+        .triage-section {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
           min-width: 0;
         }
-        .label {
+        .triage-section-label {
           font-size: 12px;
           color: var(--color-text-muted);
         }
-        .triage-ai-card {
-          padding: 8px;
-          border: 1px solid var(--color-border);
-          border-radius: var(--radius-sm);
-          background: var(--color-bg-secondary);
+        .triage-folder-grid {
           display: flex;
-          flex-direction: column;
-          gap: 4px;
+          flex-wrap: wrap;
+          gap: 6px;
         }
-        .triage-ai-card-label {
-          font-size: 12px;
-          color: var(--color-text-muted);
-        }
-        .triage-col-opt {
-          display: flex;
+        .triage-folder-btn {
+          display: inline-flex;
           align-items: center;
-          gap: 8px;
-          width: 100%;
-          text-align: left;
-          padding: 6px 8px;
-          border-radius: var(--radius-sm);
-          font-size: 12px;
-          line-height: 17px;
+          gap: 6px;
+          padding: 6px 12px 6px 8px;
           border: 1px solid var(--color-border);
+          border-radius: 999px;
           background: var(--color-bg);
           color: var(--color-text);
+          font-size: 12px;
+          line-height: 17px;
           cursor: pointer;
+          max-width: 100%;
         }
-        .triage-col-opt:hover {
+        .triage-folder-btn:hover {
           background: var(--color-bg-hover);
+          border-color: var(--color-border-strong);
         }
-        .triage-col-opt.on {
+        .triage-folder-btn.on {
           border-color: var(--color-text);
           background: var(--color-bg-active);
         }
-        .triage-col-opt-icon {
+        .triage-folder-icon {
           display: inline-flex;
           align-items: center;
           color: var(--color-text-muted);
           flex-shrink: 0;
         }
-        .triage-col-opt.on .triage-col-opt-icon {
+        .triage-folder-btn:hover .triage-folder-icon,
+        .triage-folder-btn.on .triage-folder-icon {
           color: var(--color-text);
         }
-        .triage-col-opt-label {
+        .triage-folder-name {
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
-          flex: 1;
+          max-width: 220px;
         }
-        .triage-col-opt-check {
-          font-size: 12px;
-          color: var(--color-text);
+        .triage-folder-badge {
+          display: inline-flex;
+          align-items: center;
+          height: 18px;
+          padding: 0 7px;
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-muted);
+          font-size: 11px;
           flex-shrink: 0;
         }
         .triage-col-picker {
           margin-top: 2px;
+        }
+        .triage-tags-section {
+          gap: 10px;
+        }
+        .triage-section-toggle {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
+          width: 100%;
+          padding: 0;
+          border: 0;
+          background: transparent;
+          color: var(--color-text-muted);
+          font: inherit;
+          font-size: 12px;
+          cursor: pointer;
+          text-align: left;
+        }
+        .triage-section-toggle-meta {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .triage-section-toggle-caret {
+          width: 12px;
+          text-align: center;
+        }
+        .triage-tags-body {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
         }
         .triage-tag-editor {
           display: flex;
@@ -1024,9 +1051,8 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
             max-height: calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px) - 32px);
             overflow-y: auto;
           }
-          .triage-columns {
-            grid-template-columns: 1fr;
-            gap: 16px;
+          .triage-folder-name {
+            max-width: 160px;
           }
         }
       `}</style>
