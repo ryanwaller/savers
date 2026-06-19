@@ -91,6 +91,7 @@ type Props = {
   // Image collections (folders under the Images supergroup).
   imageCollections?: ImageCollection[];
   unsortedImageCount?: number;
+  imageTagCounts?: Record<string, number>;
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
   /** Mode toggle: which tree to render below the toggle pill. */
@@ -136,6 +137,7 @@ export default function Sidebar({
   onTagsChanged,
   imageCollections = [],
   unsortedImageCount = 0,
+  imageTagCounts = {},
   onUpdateImageCollection,
   onDeleteImageCollection,
   sidebarMode = "links",
@@ -670,7 +672,10 @@ export default function Sidebar({
         <div className="sidebar-section sidebar-section-group">
           <div className="sidebar-divider" />
           <div className="section-header-row">
-            <span className="sidebar-label flex-1">Collections</span>
+            {/* 8px left inset so "Collections" aligns with the
+                "Unsorted" / "All images" text above instead of sitting
+                flush against the row's left edge. */}
+            <span className="sidebar-label flex-1" style={{ paddingLeft: "8px" }}>Collections</span>
             <button
               className="sidebar-new-smart"
               onClick={() => {
@@ -2890,11 +2895,8 @@ function ImageCollectionRow({
   }
 
   return (
-    <div ref={rowRef} className="img-node">
+      <div ref={rowRef} className="img-node">
       <div className={`img-row ${active ? "active" : ""} ${menuOpen ? "menu-open" : ""}`}>
-        {/* Chev placeholder — kept hidden but reserves the same horizontal
-            slot as link folders so the leading icon aligns exactly. */}
-        <span className="img-chev" aria-hidden>▸</span>
         <button
           type="button"
           className="img-leading-icon"
@@ -3041,7 +3043,7 @@ function ImageCollectionRow({
           display: flex;
           align-items: center;
           gap: 4px;
-          padding: 3px 8px 3px 4px;
+          padding: 3px 8px;
           border-radius: var(--radius-sm);
           position: relative;
           transition: background 140ms ease, transform 180ms ease;
@@ -3054,19 +3056,6 @@ function ImageCollectionRow({
           background: var(--color-bg-active);
         }
         .img-row.active:hover { transform: none; }
-
-        .img-chev {
-          width: 18px;
-          height: 22px;
-          font-size: 12px;
-          line-height: 17px;
-          color: var(--color-text-muted);
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
-          visibility: hidden;
-          flex-shrink: 0;
-        }
         .img-leading-icon {
           width: 18px;
           height: 18px;
