@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ICONS, ICON_CATEGORIES, type IconCategory } from "@/lib/icons";
+import { ICONS, ICON_CATEGORIES, resolveIconName, type IconCategory } from "@/lib/icons";
 
 type Props = {
   /** Currently-selected icon name (or null for default). */
@@ -20,6 +20,7 @@ type Props = {
 export default function IconPicker({ value, onPick, onClose }: Props) {
   const [query, setQuery] = useState("");
   const ref = useRef<HTMLDivElement>(null);
+  const normalizedValue = useMemo(() => resolveIconName(value), [value]);
 
   // Dismiss on outside click / escape.
   useEffect(() => {
@@ -94,11 +95,11 @@ export default function IconPicker({ value, onPick, onClose }: Props) {
                 <button
                   key={name}
                   type="button"
-                  className={`cell ${value === name ? "on" : ""}`}
+                  className={`cell ${normalizedValue === name ? "on" : ""}`}
                   title={name}
                   onClick={() => onPick(name)}
                 >
-                  <Component size={18} weight="regular" />
+                  <Component size={18} strokeWidth={1.9} />
                 </button>
               ))}
             </div>
