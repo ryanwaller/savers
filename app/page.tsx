@@ -171,6 +171,8 @@ export default function Home() {
     }
     return { kind: "all" };
   });
+  const [renderSelection, setRenderSelection] = useState<Selection>(selection);
+  const [contentTransitioning, setContentTransitioning] = useState(false);
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
@@ -279,8 +281,8 @@ export default function Home() {
     });
   }, [bookmarks, sortBy, collectionNameMap]);
 
-  const isGroupedView = sortBy === "collection" && selection.kind === "all";
-  const isGroupedImageView = sortBy === "collection" && selection.kind === "images_all";
+  const isGroupedView = sortBy === "collection" && renderSelection.kind === "all";
+  const isGroupedImageView = sortBy === "collection" && renderSelection.kind === "images_all";
 
   const groupedBookmarks = useMemo(() => {
     if (!isGroupedView) return null;
@@ -469,6 +471,7 @@ export default function Home() {
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [images, setImages] = useState<ImageRow[]>([]);
   const imageViewCacheRef = useRef<Map<string, ImageRow[]>>(new Map());
+  const [loadedImageViewKey, setLoadedImageViewKey] = useState<string | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
   const [imagesReloadKey, setImagesReloadKey] = useState(0);
   const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
@@ -548,6 +551,18 @@ export default function Home() {
     if (target.kind === "image_collection") return `image_collection:${target.id}`;
     if (target.kind === "images_unsorted") return "images_unsorted";
     return null;
+  }, []);
+
+  const getSelectionKey = useCallback((target: Selection): string => {
+    switch (target.kind) {
+      case "collection":
+      case "smart_collection":
+      case "feed":
+      case "image_collection":
+        return `${target.kind}:${target.id}`;
+      default:
+        return target.kind;
+    }
   }, []);
 
   const deriveCachedImagesForSelection = useCallback(
@@ -1046,11 +1061,14 @@ export default function Home() {
     setFeedCounts({});
     setFeedItems([]);
     setLoadedFeedId(null);
+    setLoadedImageViewKey(null);
     setFeedItemsError(null);
     setDetail(null);
     setToast(null);
     setLoadError(null);
     setInitialDataLoaded(false);
+    setRenderSelection({ kind: "all" });
+    setContentTransitioning(false);
     feedItemsCacheRef.current = new Map();
     imageViewCacheRef.current = new Map();
   }, [user]);
@@ -1390,9 +1408,11 @@ export default function Home() {
     if (selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted") return;
 
     let cancelled = false;
+    const targetImageViewKey = getImageViewCacheKey(selection);
     const cached = deriveCachedImagesForSelection(selection);
     if (cached) {
       setImages(cached);
+      setLoadedImageViewKey(targetImageViewKey);
       setLoadingImages(false);
     } else {
       setLoadingImages(true);
@@ -1421,7 +1441,10 @@ export default function Home() {
           writeImageViewCache(selection, nextImages);
         }
       } finally {
-        if (!cancelled) setLoadingImages(false);
+        if (!cancelled) {
+          setLoadedImageViewKey(targetImageViewKey);
+          setLoadingImages(false);
+        }
       }
     })();
 
@@ -1521,6 +1544,74 @@ export default function Home() {
     if (loadedFeedId === selection.id) return;
     void loadFeedItems(selection.id);
   }, [authLoading, user, initialDataLoaded, selection, loadFeedItems, loadedFeedId]);
+
+  const renderSelectionKey = useMemo(
+    () => getSelectionKey(renderSelection),
+    [getSelectionKey, renderSelection]
+  );
+  const selectionKey = useMemo(() => getSelectionKey(selection), [getSelectionKey, selection]);
+  const renderSelectionReady = useCallback(
+    (target: Selection) => {
+      if (target.kind === "feed") {
+        return (
+          feedItemsCacheRef.current.has(target.id) ||
+          (loadedFeedId === target.id && !loadingFeedItems)
+        );
+      }
+      const imageViewKey = getImageViewCacheKey(target);
+      if (imageViewKey) {
+        return (
+          deriveCachedImagesForSelection(target) !== null ||
+          (loadedImageViewKey === imageViewKey && !loadingImages)
+        );
+      }
+      return true;
+    },
+    [
+      deriveCachedImagesForSelection,
+      getImageViewCacheKey,
+      loadedFeedId,
+      loadedImageViewKey,
+      loadingFeedItems,
+      loadingImages,
+    ]
+  );
+
+  useEffect(() => {
+    if (selectionKey === renderSelectionKey) {
+      if (contentTransitioning && renderSelectionReady(selection)) {
+        setContentTransitioning(false);
+      }
+      return;
+    }
+
+    const deferredSelection =
+      selection.kind === "feed" ||
+      selection.kind === "images_all" ||
+      selection.kind === "image_collection" ||
+      selection.kind === "images_unsorted";
+
+    if (!deferredSelection || renderSelectionReady(selection)) {
+      setRenderSelection(selection);
+      setContentTransitioning(false);
+      return;
+    }
+
+    setContentTransitioning(true);
+  }, [
+    contentTransitioning,
+    renderSelectionKey,
+    renderSelectionReady,
+    selection,
+    selectionKey,
+  ]);
+
+  useEffect(() => {
+    if (!contentTransitioning) return;
+    if (!renderSelectionReady(selection)) return;
+    setRenderSelection(selection);
+    setContentTransitioning(false);
+  }, [contentTransitioning, renderSelectionReady, selection]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
@@ -1686,10 +1777,10 @@ export default function Home() {
   }, [flat]);
 
   const subCollections = useMemo<Collection[]>(() => {
-    if (selection.kind !== "collection") return [];
-    const node = findNode(tree, selection.id);
+    if (renderSelection.kind !== "collection") return [];
+    const node = findNode(tree, renderSelection.id);
     return node?.children ?? [];
-  }, [selection, tree]);
+  }, [renderSelection, tree]);
 
   const breadcrumbItems = useMemo(() => {
     if (selection.kind === "all") {
@@ -3103,229 +3194,232 @@ export default function Home() {
               </button>
             </div>
           )}
-          {subCollections.length > 0 && (
-            <SubcollectionRow
-              subs={subCollections}
-              activeId={selection.kind === "collection" ? selection.id : null}
-              onSelect={(id) => setSelection({ kind: "collection", id })}
-            />
-          )}
-          {selection.kind === "feed" ? (
-            <FeedInbox
-              feed={feeds.find((item) => item.id === selection.id) ?? null}
-              items={visibleFeedItems}
-              loading={loadingFeedItems}
-              error={feedItemsError}
-              search={search}
-              isEditMode={isEditMode}
-              selectedIds={selectedFeedItemIds}
-              busyItemIds={busyFeedItemIds}
-              bulkBusy={busyFeedBulkAction}
-              onOpen={(item) => {
-                if (!item.url) return;
-                window.open(item.url, "_blank", "noopener,noreferrer");
-              }}
-              onKeep={handleKeepFeedItem}
-              onDismiss={handleDismissFeedItem}
-              onToggleSelect={(id, shiftKey) => {
-                setSelectedFeedItemIds((prev) => {
-                  const next = new Set(prev);
-                  if (shiftKey && lastClickedFeedItemIdRef.current) {
-                    const fromIdx = visibleFeedItems.findIndex((item) => item.id === lastClickedFeedItemIdRef.current);
-                    const toIdx = visibleFeedItems.findIndex((item) => item.id === id);
-                    if (fromIdx !== -1 && toIdx !== -1) {
-                      const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
-                      for (let i = start; i <= end; i++) {
-                        next.add(visibleFeedItems[i].id);
+          {contentTransitioning && <div className="content-transition-badge">Loading…</div>}
+          <div className={`content-body${contentTransitioning ? " is-transitioning" : ""}`}>
+            {subCollections.length > 0 && (
+              <SubcollectionRow
+                subs={subCollections}
+                activeId={renderSelection.kind === "collection" ? renderSelection.id : null}
+                onSelect={(id) => setSelection({ kind: "collection", id })}
+              />
+            )}
+            {renderSelection.kind === "feed" ? (
+              <FeedInbox
+                feed={feeds.find((item) => item.id === renderSelection.id) ?? null}
+                items={visibleFeedItems}
+                loading={loadingFeedItems && !contentTransitioning}
+                error={feedItemsError}
+                search={search}
+                isEditMode={isEditMode}
+                selectedIds={selectedFeedItemIds}
+                busyItemIds={busyFeedItemIds}
+                bulkBusy={busyFeedBulkAction}
+                onOpen={(item) => {
+                  if (!item.url) return;
+                  window.open(item.url, "_blank", "noopener,noreferrer");
+                }}
+                onKeep={handleKeepFeedItem}
+                onDismiss={handleDismissFeedItem}
+                onToggleSelect={(id, shiftKey) => {
+                  setSelectedFeedItemIds((prev) => {
+                    const next = new Set(prev);
+                    if (shiftKey && lastClickedFeedItemIdRef.current) {
+                      const fromIdx = visibleFeedItems.findIndex((item) => item.id === lastClickedFeedItemIdRef.current);
+                      const toIdx = visibleFeedItems.findIndex((item) => item.id === id);
+                      if (fromIdx !== -1 && toIdx !== -1) {
+                        const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                        for (let i = start; i <= end; i++) {
+                          next.add(visibleFeedItems[i].id);
+                        }
                       }
-                    }
-                  } else {
-                    if (next.has(id)) next.delete(id);
-                    else next.add(id);
-                  }
-                  lastClickedFeedItemIdRef.current = id;
-                  return next;
-                });
-              }}
-            />
-          ) : (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") && isGroupedImageView && groupedImages ? (
-            groupedImages.map((group) => (
-              <section
-                key={group.collectionId}
-                className="collection-group-section"
-                data-collection={group.collectionId}
-              >
-                <div className="collection-group-header">{group.collectionName}</div>
-                <ImageGrid
-                  images={group.images}
-                  loading={false}
-                  emptyLabel=""
-                  cardMinWidth={cardMinWidth}
-                  desktopCols={imageDesktopCols}
-                  mobileCols={imageMobileCols}
-                  viewMode={viewMode}
-                  isEditMode={isEditMode}
-                  selectedIds={selectedIds}
-                  onToggleSelect={(id) => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
+                    } else {
                       if (next.has(id)) next.delete(id);
                       else next.add(id);
-                      return next;
-                    });
-                  }}
-                  onOpen={(img) => {
-                    const idx = images.findIndex((i) => i.id === img.id);
-                    if (idx >= 0) setSlideshowIndex(idx);
-                  }}
-                  onEdit={(img) => setImageDetailId(img.id)}
-                  onDelete={async (img) => {
-                    try {
-                      const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
-                      if (!res.ok) return;
-                      handleImageDeleted(img.id);
-                    } catch {}
-                  }}
-                />
-              </section>
-            ))
-          ) : (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") ? (
-            <ImageGrid
-              images={images}
-              loading={loadingImages}
-              emptyLabel={loadingImages ? "Loading images…" : "No images yet."}
-              cardMinWidth={cardMinWidth}
-              desktopCols={imageDesktopCols}
-              mobileCols={imageMobileCols}
-              viewMode={viewMode}
-              isEditMode={isEditMode}
-              selectedIds={selectedIds}
-              onToggleSelect={(id) => {
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  if (next.has(id)) next.delete(id);
-                  else next.add(id);
-                  return next;
-                });
-              }}
-              onOpen={(img) => {
-                const idx = images.findIndex((i) => i.id === img.id);
-                if (idx >= 0) setSlideshowIndex(idx);
-              }}
-              onEdit={(img) => setImageDetailId(img.id)}
-              onDelete={async (img) => {
-                try {
-                  const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
-                  if (!res.ok) {
-                    console.error("[image-grid] delete failed", await res.text().catch(() => ""));
-                    return;
-                  }
-                  handleImageDeleted(img.id);
-                } catch (err) {
-                  console.error("[image-grid] delete error", err);
-                }
-              }}
-            />
-          ) : isGroupedView && groupedBookmarks ? (
-            groupedBookmarks.map((group) => (
-              <section
-                key={group.collectionId}
-                className="collection-group-section"
-                data-collection={group.collectionId}
-                data-collection-path={group.path}
-              >
-                <div className="collection-group-header">{group.collectionName}</div>
-                <BookmarkGrid
-                  bookmarks={group.bookmarks}
-                  onOpenBookmark={(b) => setDetail(b)}
-                  onDeleteBookmark={handleDeleteBookmark}
-                  onPatchBookmark={handleBookmarkPatched}
-                  onPinBookmark={handlePinBookmark}
-                  onRefreshPreview={handleRefreshPreview}
-                  onUploadCustomPreview={handleUploadCustomPreview}
-                  onClearCustomPreview={handleClearCustomPreview}
-                  onTagClick={handleCardTagClick}
-                  cardMinWidth={cardMinWidth}
-                  desktopCols={effectiveDesktopCols}
-                  mobileCols={mobileCols}
-                  viewMode={viewMode}
-                  loading={loadingBookmarks}
-                  isEditMode={isEditMode}
-                  selectedIds={selectedIds}
-                  onToggleSelect={(id, shiftKey) => {
-                    setSelectedIds((prev) => {
-                      const next = new Set(prev);
-                      if (shiftKey && lastClickedIdRef.current) {
-                        const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
-                        const toIdx = bookmarks.findIndex((b) => b.id === id);
-                        if (fromIdx !== -1 && toIdx !== -1) {
-                          const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
-                          for (let i = start; i <= end; i++) {
-                            next.add(bookmarks[i].id);
-                          }
-                        }
-                      } else {
+                    }
+                    lastClickedFeedItemIdRef.current = id;
+                    return next;
+                  });
+                }}
+              />
+            ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") && isGroupedImageView && groupedImages ? (
+              groupedImages.map((group) => (
+                <section
+                  key={group.collectionId}
+                  className="collection-group-section"
+                  data-collection={group.collectionId}
+                >
+                  <div className="collection-group-header">{group.collectionName}</div>
+                  <ImageGrid
+                    images={group.images}
+                    loading={false}
+                    emptyLabel=""
+                    cardMinWidth={cardMinWidth}
+                    desktopCols={imageDesktopCols}
+                    mobileCols={imageMobileCols}
+                    viewMode={viewMode}
+                    isEditMode={isEditMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
                         if (next.has(id)) next.delete(id);
                         else next.add(id);
-                      }
-                      lastClickedIdRef.current = id;
-                      return next;
-                    });
-                  }}
-                />
-              </section>
-            ))
-          ) : (
-            <BookmarkGrid
-              bookmarks={sortedBookmarks}
-              onOpenBookmark={(b) => setDetail(b)}
-              onDeleteBookmark={handleDeleteBookmark}
-              onPatchBookmark={handleBookmarkPatched}
-              onPinBookmark={handlePinBookmark}
-              onRefreshPreview={handleRefreshPreview}
-              onUploadCustomPreview={handleUploadCustomPreview}
-              onClearCustomPreview={handleClearCustomPreview}
-              onTagClick={handleCardTagClick}
-              cardMinWidth={cardMinWidth}
-              desktopCols={effectiveDesktopCols}
-              mobileCols={mobileCols}
-              viewMode={viewMode}
-              loading={loadingBookmarks}
-              isEditMode={isEditMode}
-              selectedIds={selectedIds}
-              onToggleSelect={(id, shiftKey) => {
-                setSelectedIds((prev) => {
-                  const next = new Set(prev);
-                  if (shiftKey && lastClickedIdRef.current) {
-                    const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
-                    const toIdx = bookmarks.findIndex((b) => b.id === id);
-                    if (fromIdx !== -1 && toIdx !== -1) {
-                      const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
-                      for (let i = start; i <= end; i++) {
-                        next.add(bookmarks[i].id);
-                      }
-                    }
-                  } else {
+                        return next;
+                      });
+                    }}
+                    onOpen={(img) => {
+                      const idx = images.findIndex((i) => i.id === img.id);
+                      if (idx >= 0) setSlideshowIndex(idx);
+                    }}
+                    onEdit={(img) => setImageDetailId(img.id)}
+                    onDelete={async (img) => {
+                      try {
+                        const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                        if (!res.ok) return;
+                        handleImageDeleted(img.id);
+                      } catch {}
+                    }}
+                  />
+                </section>
+              ))
+            ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") ? (
+              <ImageGrid
+                images={images}
+                loading={loadingImages && !contentTransitioning}
+                emptyLabel={loadingImages && !contentTransitioning ? "Loading images…" : "No images yet."}
+                cardMinWidth={cardMinWidth}
+                desktopCols={imageDesktopCols}
+                mobileCols={imageMobileCols}
+                viewMode={viewMode}
+                isEditMode={isEditMode}
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
                     if (next.has(id)) next.delete(id);
                     else next.add(id);
+                    return next;
+                  });
+                }}
+                onOpen={(img) => {
+                  const idx = images.findIndex((i) => i.id === img.id);
+                  if (idx >= 0) setSlideshowIndex(idx);
+                }}
+                onEdit={(img) => setImageDetailId(img.id)}
+                onDelete={async (img) => {
+                  try {
+                    const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                    if (!res.ok) {
+                      console.error("[image-grid] delete failed", await res.text().catch(() => ""));
+                      return;
+                    }
+                    handleImageDeleted(img.id);
+                  } catch (err) {
+                    console.error("[image-grid] delete error", err);
                   }
-                  lastClickedIdRef.current = id;
-                  return next;
-                });
-              }}
-              emptyLabel={
-                search || activeTag
-                  ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
-                      .filter(Boolean)
-                      .join(" + ")}.`
-                  : selection.kind === "unsorted"
-                  ? "Nothing unsorted — nice."
-                  : selection.kind === "pinned"
-                  ? "No pinned bookmarks yet."
-                  : "No bookmarks here yet."
-              }
-            />
-          )}
+                }}
+              />
+            ) : isGroupedView && groupedBookmarks ? (
+              groupedBookmarks.map((group) => (
+                <section
+                  key={group.collectionId}
+                  className="collection-group-section"
+                  data-collection={group.collectionId}
+                  data-collection-path={group.path}
+                >
+                  <div className="collection-group-header">{group.collectionName}</div>
+                  <BookmarkGrid
+                    bookmarks={group.bookmarks}
+                    onOpenBookmark={(b) => setDetail(b)}
+                    onDeleteBookmark={handleDeleteBookmark}
+                    onPatchBookmark={handleBookmarkPatched}
+                    onPinBookmark={handlePinBookmark}
+                    onRefreshPreview={handleRefreshPreview}
+                    onUploadCustomPreview={handleUploadCustomPreview}
+                    onClearCustomPreview={handleClearCustomPreview}
+                    onTagClick={handleCardTagClick}
+                    cardMinWidth={cardMinWidth}
+                    desktopCols={effectiveDesktopCols}
+                    mobileCols={mobileCols}
+                    viewMode={viewMode}
+                    loading={loadingBookmarks}
+                    isEditMode={isEditMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id, shiftKey) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (shiftKey && lastClickedIdRef.current) {
+                          const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                          const toIdx = bookmarks.findIndex((b) => b.id === id);
+                          if (fromIdx !== -1 && toIdx !== -1) {
+                            const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                            for (let i = start; i <= end; i++) {
+                              next.add(bookmarks[i].id);
+                            }
+                          }
+                        } else {
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                        }
+                        lastClickedIdRef.current = id;
+                        return next;
+                      });
+                    }}
+                  />
+                </section>
+              ))
+            ) : (
+              <BookmarkGrid
+                bookmarks={sortedBookmarks}
+                onOpenBookmark={(b) => setDetail(b)}
+                onDeleteBookmark={handleDeleteBookmark}
+                onPatchBookmark={handleBookmarkPatched}
+                onPinBookmark={handlePinBookmark}
+                onRefreshPreview={handleRefreshPreview}
+                onUploadCustomPreview={handleUploadCustomPreview}
+                onClearCustomPreview={handleClearCustomPreview}
+                onTagClick={handleCardTagClick}
+                cardMinWidth={cardMinWidth}
+                desktopCols={effectiveDesktopCols}
+                mobileCols={mobileCols}
+                viewMode={viewMode}
+                loading={loadingBookmarks}
+                isEditMode={isEditMode}
+                selectedIds={selectedIds}
+                onToggleSelect={(id, shiftKey) => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (shiftKey && lastClickedIdRef.current) {
+                      const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                      const toIdx = bookmarks.findIndex((b) => b.id === id);
+                      if (fromIdx !== -1 && toIdx !== -1) {
+                        const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                        for (let i = start; i <= end; i++) {
+                          next.add(bookmarks[i].id);
+                        }
+                      }
+                    } else {
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                    }
+                    lastClickedIdRef.current = id;
+                    return next;
+                  });
+                }}
+                emptyLabel={
+                  search || activeTag
+                    ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
+                        .filter(Boolean)
+                        .join(" + ")}.`
+                    : renderSelection.kind === "unsorted"
+                    ? "Nothing unsorted — nice."
+                    : renderSelection.kind === "pinned"
+                    ? "No pinned bookmarks yet."
+                    : "No bookmarks here yet."
+                }
+              />
+            )}
+          </div>
         </section>
         <div className="bottom-bar">
           {isEditMode && selection.kind === "feed" && selectedFeedItemIds.size > 0 && (
@@ -4510,6 +4604,35 @@ export default function Home() {
           -webkit-overflow-scrolling: touch;
           min-height: 0;
           padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+          position: relative;
+        }
+        .content-transition-badge {
+          position: sticky;
+          top: 10px;
+          right: 16px;
+          z-index: 2;
+          margin: 10px 16px 0 auto;
+          width: fit-content;
+          padding: 6px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+          color: var(--color-text-muted);
+          font-size: 12px;
+          line-height: 17px;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .content-body {
+          transition:
+            opacity 160ms ease,
+            filter 160ms ease,
+            transform 160ms ease;
+        }
+        .content-body.is-transitioning {
+          opacity: 0.58;
+          filter: saturate(0.9);
+          pointer-events: none;
         }
         @media (max-width: 768px) {
           .collection-group-section :global(.grid) {
@@ -4528,6 +4651,10 @@ export default function Home() {
             flex: 0 0 auto;
             min-height: 0;
             padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+          }
+          .content-transition-badge {
+            top: calc(env(safe-area-inset-top, 0px) + 64px);
+            margin-right: 12px;
           }
           .top {
             position: sticky;
