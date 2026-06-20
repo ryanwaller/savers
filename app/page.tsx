@@ -463,6 +463,7 @@ export default function Home() {
   const [showAddImages, setShowAddImages] = useState(false);
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [images, setImages] = useState<ImageRow[]>([]);
+  const imageViewCacheRef = useRef<Map<string, ImageRow[]>>(new Map());
   const [loadingImages, setLoadingImages] = useState(false);
   const [imagesReloadKey, setImagesReloadKey] = useState(0);
   const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
@@ -527,8 +528,54 @@ export default function Home() {
   }, []);
 
   const refreshImages = useCallback(() => {
+    if (selection.kind === "images_all") {
+      imageViewCacheRef.current.delete("images_all");
+    } else if (selection.kind === "image_collection") {
+      imageViewCacheRef.current.delete(`image_collection:${selection.id}`);
+    } else if (selection.kind === "images_unsorted") {
+      imageViewCacheRef.current.delete("images_unsorted");
+    }
     setImagesReloadKey((v) => v + 1);
+  }, [selection]);
+
+  const getImageViewCacheKey = useCallback((target: Selection): string | null => {
+    if (target.kind === "images_all") return "images_all";
+    if (target.kind === "image_collection") return `image_collection:${target.id}`;
+    if (target.kind === "images_unsorted") return "images_unsorted";
+    return null;
   }, []);
+
+  const deriveCachedImagesForSelection = useCallback(
+    (target: Selection): ImageRow[] | null => {
+      const exactKey = getImageViewCacheKey(target);
+      if (exactKey) {
+        const exact = imageViewCacheRef.current.get(exactKey);
+        if (exact) return exact;
+      }
+
+      const all = imageViewCacheRef.current.get("images_all");
+      if (!all) return null;
+
+      if (target.kind === "images_all") return all;
+      if (target.kind === "image_collection") {
+        return all.filter((image) => image.collection_id === target.id);
+      }
+      if (target.kind === "images_unsorted") {
+        return all.filter((image) => image.collection_id === null);
+      }
+      return null;
+    },
+    [getImageViewCacheKey],
+  );
+
+  const writeImageViewCache = useCallback((target: Selection, nextImages: ImageRow[]) => {
+    const key = getImageViewCacheKey(target);
+    if (!key) return;
+    imageViewCacheRef.current.set(key, nextImages);
+    if (target.kind === "images_all") {
+      imageViewCacheRef.current.set("images_unsorted", nextImages.filter((image) => image.collection_id === null));
+    }
+  }, [getImageViewCacheKey]);
 
   const selectedImageDetail = useMemo(
     () => (imageDetailId ? images.find((image) => image.id === imageDetailId) ?? null : null),
@@ -1193,7 +1240,13 @@ export default function Home() {
     if (selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted") return;
 
     let cancelled = false;
-    setLoadingImages(true);
+    const cached = deriveCachedImagesForSelection(selection);
+    if (cached) {
+      setImages(cached);
+      setLoadingImages(false);
+    } else {
+      setLoadingImages(true);
+    }
 
     (async () => {
       try {
@@ -1213,7 +1266,9 @@ export default function Home() {
           console.error("[images] load failed", body);
           setImages([]);
         } else {
-          setImages((body.images as ImageRow[]) || []);
+          const nextImages = (body.images as ImageRow[]) || [];
+          setImages(nextImages);
+          writeImageViewCache(selection, nextImages);
         }
       } finally {
         if (!cancelled) setLoadingImages(false);
@@ -1221,7 +1276,7 @@ export default function Home() {
     })();
 
     return () => { cancelled = true; };
-  }, [authLoading, user, selection, imagesReloadKey, sortBy]);
+  }, [authLoading, user, selection, imagesReloadKey, sortBy, deriveCachedImagesForSelection, writeImageViewCache]);
 
   useEffect(() => {
     if (imageDetailId && !images.some((image) => image.id === imageDetailId)) {
@@ -1945,7 +2000,11 @@ export default function Home() {
         failed++;
       }
     }
-    setImages((prev) => prev.filter((img) => !selectedIds.has(img.id)));
+    setImages((prev) => {
+      const next = prev.filter((img) => !selectedIds.has(img.id));
+      writeImageViewCache(selection, next);
+      return next;
+    });
     setSelectedIds(new Set());
     setIsEditMode(false);
     void loadImageCollections();
@@ -1973,6 +2032,17 @@ export default function Home() {
         failed++;
       }
     }
+    const movedIds = new Set(ids);
+    setImages((prev) => {
+      const next =
+        selection.kind === "image_collection" || selection.kind === "images_unsorted"
+          ? prev.filter((img) => !movedIds.has(img.id))
+          : prev.map((img) =>
+              movedIds.has(img.id) ? ({ ...img, collection_id: collectionId } as ImageRow) : img
+            );
+      writeImageViewCache(selection, next);
+      return next;
+    });
     setImagesReloadKey((v) => v + 1);
     setSelectedIds(new Set());
     setIsEditMode(false);
@@ -2125,16 +2195,26 @@ export default function Home() {
 
   function handleImagePatched(updated: EditableImageRow) {
     setImages((prev) => {
+      let next: ImageRow[];
       if (selection.kind === "image_collection" && updated.collection_id !== selection.id) {
-        return prev.filter((image) => image.id !== updated.id);
+        next = prev.filter((image) => image.id !== updated.id);
+      } else if (selection.kind === "images_unsorted" && updated.collection_id !== null) {
+        next = prev.filter((image) => image.id !== updated.id);
+      } else {
+        next = prev.map((image) => (image.id === updated.id ? ({ ...image, ...updated } as ImageRow) : image));
       }
-      return prev.map((image) => (image.id === updated.id ? ({ ...image, ...updated } as ImageRow) : image));
+      writeImageViewCache(selection, next);
+      return next;
     });
     void loadImageCollections();
   }
 
   function handleImageDeleted(id: string) {
-    setImages((prev) => prev.filter((image) => image.id !== id));
+    setImages((prev) => {
+      const next = prev.filter((image) => image.id !== id);
+      writeImageViewCache(selection, next);
+      return next;
+    });
     setImageDetailId(null);
     setSlideshowIndex(null);
     void loadImageCollections();
