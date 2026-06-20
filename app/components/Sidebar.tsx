@@ -1004,7 +1004,7 @@ export default function Sidebar({
         }
         .sidebar-section {
           padding: 4px 6px;
-          overflow-x: hidden;
+          overflow: visible;
         }
         .sidebar-section-group {
           padding-top: 0;
@@ -3086,7 +3086,14 @@ function ImageCollectionRow({
            CollectionNode renders its .node directly without any inset,
            so adding 6px here pushed both the leading icon and the count
            pill inward relative to link folders. */
-        .img-node { position: relative; }
+        .img-node {
+          position: relative;
+          z-index: 0;
+        }
+        .img-node:has(.img-tail.open),
+        .img-node:has(.img-menu) {
+          z-index: 45;
+        }
         .img-row {
           display: flex;
           align-items: center;
@@ -3219,7 +3226,7 @@ function ImageCollectionRow({
           position: absolute;
           right: 6px;
           top: 100%;
-          z-index: 40;
+          z-index: 60;
           margin-top: 2px;
           background: var(--color-bg);
           border: 1px solid var(--color-border);
