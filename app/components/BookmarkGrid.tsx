@@ -33,6 +33,7 @@ type Props = {
   onClearCustomPreview: (id: string) => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
+  cardSize?: "s" | "m" | "l" | "xl";
   desktopCols?: number;
   mobileCols?: number;
   viewMode?: "grid" | "list";
@@ -54,6 +55,7 @@ export default function BookmarkGrid({
   onClearCustomPreview,
   onTagClick,
   cardMinWidth,
+  cardSize = "m",
   desktopCols,
   mobileCols,
   viewMode = "grid",
@@ -106,6 +108,7 @@ export default function BookmarkGrid({
               onClearCustomPreview={() => onClearCustomPreview(b.id)}
               onTagClick={onTagClick}
               cardMinWidth={cardMinWidth}
+              cardSize={cardSize}
               mobileCols={mobileCols}
               desktopCols={desktopCols}
               viewMode={viewMode}
@@ -132,6 +135,7 @@ export default function BookmarkGrid({
               onClearCustomPreview={() => onClearCustomPreview(b.id)}
               onTagClick={onTagClick}
               cardMinWidth={cardMinWidth}
+              cardSize={cardSize}
               mobileCols={mobileCols}
               desktopCols={desktopCols}
               viewMode={viewMode}
@@ -198,6 +202,7 @@ function BookmarkCard({
   onClearCustomPreview,
   onTagClick,
   cardMinWidth,
+  cardSize,
   mobileCols,
   desktopCols,
   viewMode,
@@ -215,6 +220,7 @@ function BookmarkCard({
   onClearCustomPreview: () => Promise<Bookmark> | Bookmark;
   onTagClick: (tag: string) => void;
   cardMinWidth?: number;
+  cardSize?: "s" | "m" | "l" | "xl";
   mobileCols?: number;
   desktopCols?: number;
   viewMode?: "grid" | "list";
@@ -234,6 +240,8 @@ function BookmarkCard({
   const largeThumbActions = w >= 520 && !isCompact;
   const maxTags = w <= 220 ? 2 : w <= 300 ? 3 : w <= 380 ? 4 : 5;
   const listMode = viewMode === "list";
+  const shellRadius =
+    cardSize === "s" ? 12 : cardSize === "m" ? 16 : cardSize === "l" ? 22 : 28;
   const [isDark, setIsDark] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -690,6 +698,7 @@ function BookmarkCard({
       <div
         ref={cardRef}
         className="card-shell"
+        style={{ ["--card-shell-radius" as string]: `${shellRadius}px` }}
         onMouseEnter={() => clearBrokenDismissTimer()}
         onMouseLeave={() => {
           if (brokenActionOpen) scheduleBrokenDismiss();
@@ -1207,7 +1216,7 @@ function BookmarkCard({
           display: flex;
           flex-direction: column;
           border: 1px solid var(--color-border);
-          border-radius: var(--radius);
+          border-radius: var(--card-shell-radius, var(--radius));
           overflow: hidden;
           background: var(--color-bg);
           height: auto;
@@ -1218,7 +1227,7 @@ function BookmarkCard({
           transition: border-color 200ms ease, transform 250ms cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 250ms ease;
         }
         .card-list {
-          border-radius: 20px;
+          border-radius: var(--card-shell-radius, 20px);
         }
         .card:hover {
           border-color: var(--color-border-strong);

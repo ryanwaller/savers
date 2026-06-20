@@ -1,5 +1,6 @@
 "use client";
 
+import type { CSSProperties } from "react";
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 
 export type ImageRow = {
@@ -30,6 +31,7 @@ type Props = {
    * as BookmarkGrid's cardMinWidth.
    */
   cardMinWidth?: number;
+  cardSize?: "s" | "m" | "l" | "xl";
   /** Fixed column count override. If set, ignores cardMinWidth. */
   desktopCols?: number;
   mobileCols?: number;
@@ -80,6 +82,7 @@ export default function ImageGrid({
   loading,
   emptyLabel = "No images yet.",
   cardMinWidth = DEFAULT_MIN_WIDTH,
+  cardSize = "m",
   desktopCols,
   mobileCols,
   viewMode = "grid",
@@ -94,6 +97,9 @@ export default function ImageGrid({
   const [containerWidth, setContainerWidth] = useState(0);
   const [isMobile, setIsMobile] = useState(false);
   const [openMenuId, setOpenMenuId] = useState<string | null>(null);
+  const shellRadius =
+    cardSize === "s" ? 12 : cardSize === "m" ? 16 : cardSize === "l" ? 22 : 28;
+  const innerRadius = Math.max(8, shellRadius - 6);
 
   // Close the open menu on outside click or Escape.
   useEffect(() => {
@@ -202,7 +208,15 @@ export default function ImageGrid({
       ) : !loading && images.length === 0 ? (
         <div className="image-grid-empty">{emptyLabel}</div>
       ) : viewMode === "list" ? (
-        <div className="image-list">
+        <div
+          className="image-list"
+          style={
+            {
+              ["--image-card-radius" as string]: `${shellRadius}px`,
+              ["--image-inner-radius" as string]: `${innerRadius}px`,
+            } as CSSProperties
+          }
+        >
           {images.map((image) => {
             const selected = selectedIds?.has(image.id) ?? false;
             return (
@@ -261,7 +275,14 @@ export default function ImageGrid({
       ) : (
         <div
           className="image-grid"
-          style={{ height: totalHeight, position: "relative" }}
+          style={
+            {
+              height: totalHeight,
+              position: "relative",
+              ["--image-card-radius" as string]: `${shellRadius}px`,
+              ["--image-inner-radius" as string]: `${innerRadius}px`,
+            } as CSSProperties
+          }
         >
           {placements.map(({ image, left, top, width, height, frameHeight }) => {
             const menuOpen = openMenuId === image.id;
@@ -429,7 +450,7 @@ export default function ImageGrid({
              a gray edge around the photo. The placeholder div below
              keeps its own background for PDF/EPS/processing states. */
           background: transparent;
-          border-radius: 8px;
+          border-radius: var(--image-inner-radius, 8px);
           overflow: hidden;
           box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
           /* Hover: scale image down + lose the shadow so the card
@@ -502,7 +523,7 @@ export default function ImageGrid({
           padding: 8px 10px;
           background: transparent;
           border: 1px solid transparent;
-          border-radius: 8px;
+          border-radius: var(--image-card-radius, 8px);
           cursor: pointer;
           text-align: left;
           color: inherit;
@@ -540,7 +561,7 @@ export default function ImageGrid({
           width: 56px;
           height: 56px;
           flex-shrink: 0;
-          border-radius: 6px;
+          border-radius: var(--image-inner-radius, 6px);
           overflow: hidden;
           background: var(--color-bg-secondary);
           display: flex;

@@ -3284,13 +3284,14 @@ export default function Home() {
                   data-collection={group.collectionId}
                 >
                   <div className="collection-group-header">{group.collectionName}</div>
-                  <ImageGrid
-                    images={group.images}
-                    loading={false}
-                    emptyLabel=""
-                    cardMinWidth={cardMinWidth}
-                    desktopCols={imageDesktopCols}
-                    mobileCols={imageMobileCols}
+                <ImageGrid
+                  images={group.images}
+                  loading={false}
+                  emptyLabel=""
+                  cardMinWidth={cardMinWidth}
+                  cardSize={cardSize}
+                  desktopCols={imageDesktopCols}
+                  mobileCols={imageMobileCols}
                     viewMode={viewMode}
                     isEditMode={isEditMode}
                     selectedIds={selectedIds}
@@ -3318,19 +3319,20 @@ export default function Home() {
                 </section>
               ))
             ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") ? (
-              <ImageGrid
-                images={visibleImages}
-                loading={loadingImages && !contentTransitioning}
-                emptyLabel={
-                  loadingImages && !contentTransitioning
-                    ? "Loading images…"
-                    : activeTag
-                    ? `No images match #${activeTag}.`
-                    : "No images yet."
-                }
-                cardMinWidth={cardMinWidth}
-                desktopCols={imageDesktopCols}
-                mobileCols={imageMobileCols}
+            <ImageGrid
+              images={visibleImages}
+              loading={loadingImages && !contentTransitioning}
+              emptyLabel={
+                loadingImages && !contentTransitioning
+                  ? "Loading images…"
+                  : activeTag
+                  ? `No images match #${activeTag}.`
+                  : "No images yet."
+              }
+              cardMinWidth={cardMinWidth}
+              cardSize={cardSize}
+              desktopCols={imageDesktopCols}
+              mobileCols={imageMobileCols}
                 viewMode={viewMode}
                 isEditMode={isEditMode}
                 selectedIds={selectedIds}
@@ -3378,10 +3380,11 @@ export default function Home() {
                     onRefreshPreview={handleRefreshPreview}
                     onUploadCustomPreview={handleUploadCustomPreview}
                     onClearCustomPreview={handleClearCustomPreview}
-                    onTagClick={handleCardTagClick}
-                    cardMinWidth={cardMinWidth}
-                    desktopCols={effectiveDesktopCols}
-                    mobileCols={mobileCols}
+                  onTagClick={handleCardTagClick}
+                  cardMinWidth={cardMinWidth}
+                  cardSize={cardSize}
+                  desktopCols={effectiveDesktopCols}
+                  mobileCols={mobileCols}
                     viewMode={viewMode}
                     loading={loadingBookmarks}
                     isEditMode={isEditMode}
@@ -3421,6 +3424,7 @@ export default function Home() {
                 onClearCustomPreview={handleClearCustomPreview}
                 onTagClick={handleCardTagClick}
                 cardMinWidth={cardMinWidth}
+                cardSize={cardSize}
                 desktopCols={effectiveDesktopCols}
                 mobileCols={mobileCols}
                 viewMode={viewMode}
