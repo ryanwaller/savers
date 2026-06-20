@@ -105,6 +105,7 @@ export default function Home() {
   const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
   const [feedCounts, setFeedCounts] = useState<Record<string, number>>({});
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const feedItemsCacheRef = useRef<Map<string, FeedItem[]>>(new Map());
   const [loadedFeedId, setLoadedFeedId] = useState<string | null>(null);
   const [loadingFeedItems, setLoadingFeedItems] = useState(false);
   const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
@@ -567,6 +568,33 @@ export default function Home() {
     },
     [getImageViewCacheKey],
   );
+
+  const prefetchImageSelection = useCallback(async (target: Selection) => {
+    const cacheKey = getImageViewCacheKey(target);
+    if (!cacheKey || imageViewCacheRef.current.has(cacheKey)) return;
+    try {
+      const url = new URL("/api/images", window.location.origin);
+      if (target.kind === "image_collection") {
+        url.searchParams.set("collection_id", target.id);
+      } else if (target.kind === "images_unsorted") {
+        url.searchParams.set("unsorted", "1");
+      }
+      url.searchParams.set("sort", "newest");
+      const res = await fetch(url.toString(), { cache: "no-store" });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) return;
+      const nextImages = (body.images as ImageRow[]) || [];
+      imageViewCacheRef.current.set(cacheKey, nextImages);
+      if (target.kind === "images_all") {
+        imageViewCacheRef.current.set(
+          "images_unsorted",
+          nextImages.filter((image) => image.collection_id === null),
+        );
+      }
+    } catch {
+      // Best-effort warm cache only.
+    }
+  }, [getImageViewCacheKey]);
 
   const writeImageViewCache = useCallback((target: Selection, nextImages: ImageRow[]) => {
     const key = getImageViewCacheKey(target);
@@ -1168,9 +1196,18 @@ export default function Home() {
   }, []);
 
   const loadFeedItems = useCallback(async (feedId: string) => {
-    setLoadingFeedItems(true);
+    const cached = feedItemsCacheRef.current.get(feedId);
+    if (cached) {
+      setFeedItems(cached);
+      setLoadedFeedId(feedId);
+      setFeedItemsError(null);
+      setLoadingFeedItems(false);
+    } else {
+      setLoadingFeedItems(true);
+    }
     try {
       const data = await api.listFeedItems(feedId);
+      feedItemsCacheRef.current.set(feedId, data.items);
       setFeedItems(data.items);
       setLoadedFeedId(feedId);
       setFeedItemsError(null);
@@ -1183,6 +1220,20 @@ export default function Home() {
     } finally {
       setLoadingFeedItems(false);
     }
+  }, []);
+
+  const prefetchFeedItems = useCallback(async (feedId: string) => {
+    if (feedItemsCacheRef.current.has(feedId)) return;
+    try {
+      const data = await api.listFeedItems(feedId);
+      feedItemsCacheRef.current.set(feedId, data.items);
+    } catch {
+      // Best-effort warm cache only.
+    }
+  }, []);
+
+  const writeFeedItemsCache = useCallback((feedId: string, nextItems: FeedItem[]) => {
+    feedItemsCacheRef.current.set(feedId, nextItems);
   }, []);
 
   useEffect(() => {
@@ -1716,7 +1767,11 @@ export default function Home() {
           ? prev.map((existing) => (existing.id === bookmark.id ? bookmark : existing))
           : [bookmark, ...prev]
       );
-      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") writeFeedItemsCache(selection.id, next);
+        return next;
+      });
       void loadFeeds();
     } catch (e) {
       notify(e instanceof Error ? e.message : "Failed to keep feed item");
@@ -1734,7 +1789,11 @@ export default function Home() {
     setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
     try {
       await api.dismissFeedItem(item.id);
-      setFeedItems((prev) => prev.filter((candidate) => candidate.id !== item.id));
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") writeFeedItemsCache(selection.id, next);
+        return next;
+      });
       void loadFeeds();
     } catch (e) {
       notify(e instanceof Error ? e.message : "Failed to dismiss feed item");
@@ -1755,7 +1814,11 @@ export default function Home() {
     try {
       const { dismissed } = await api.dismissAllFeedItems(selection.id, ids);
       const dismissSet = new Set(ids);
-      setFeedItems((prev) => prev.filter((item) => !dismissSet.has(item.id)));
+      setFeedItems((prev) => {
+        const next = prev.filter((item) => !dismissSet.has(item.id));
+        writeFeedItemsCache(selection.id, next);
+        return next;
+      });
       setSelectedFeedItemIds(new Set());
       lastClickedFeedItemIdRef.current = null;
       void loadFeeds();
@@ -2601,6 +2664,9 @@ export default function Home() {
         onChangeFeedIcon={handleChangeFeedIcon}
         onRenameFeed={handleRenameFeed}
         onDeleteFeed={handleDeleteFeed}
+        onPrefetchFeed={(id) => {
+          void prefetchFeedItems(id);
+        }}
         onTagsChanged={async () => {
           try {
             const data = await api.bootstrap();
@@ -2610,6 +2676,15 @@ export default function Home() {
         imageCollections={imageCollections}
         unsortedImageCount={unsortedImageCount}
         imageTagCounts={imageTagCounts}
+        onPrefetchImagesAll={() => {
+          void prefetchImageSelection({ kind: "images_all" });
+        }}
+        onPrefetchImagesUnsorted={() => {
+          void prefetchImageSelection({ kind: "images_unsorted" });
+        }}
+        onPrefetchImageCollection={(id) => {
+          void prefetchImageSelection({ kind: "image_collection", id });
+        }}
         onUpdateImageCollection={async (id, updates) => {
           try {
             const res = await fetch(`/api/image-collections/${id}`, {

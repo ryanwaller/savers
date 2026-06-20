@@ -88,10 +88,14 @@ type Props = {
   onChangeFeedIcon?: (id: string, icon: string | null) => Promise<void>;
   onRenameFeed?: (id: string, name: string) => Promise<void>;
   onDeleteFeed?: (id: string) => Promise<void>;
+  onPrefetchFeed?: (id: string) => void;
   // Image collections (folders under the Images supergroup).
   imageCollections?: ImageCollection[];
   unsortedImageCount?: number;
   imageTagCounts?: Record<string, number>;
+  onPrefetchImagesAll?: () => void;
+  onPrefetchImagesUnsorted?: () => void;
+  onPrefetchImageCollection?: (id: string) => void;
   onUpdateImageCollection?: (id: string, updates: { name?: string; icon?: string | null }) => Promise<void> | void;
   onDeleteImageCollection?: (id: string) => Promise<void> | void;
   /** Mode toggle: which tree to render below the toggle pill. */
@@ -134,10 +138,14 @@ export default function Sidebar({
   onChangeFeedIcon,
   onRenameFeed,
   onDeleteFeed,
+  onPrefetchFeed,
   onTagsChanged,
   imageCollections = [],
   unsortedImageCount = 0,
   imageTagCounts = {},
+  onPrefetchImagesAll,
+  onPrefetchImagesUnsorted,
+  onPrefetchImageCollection,
   onUpdateImageCollection,
   onDeleteImageCollection,
   sidebarMode = "links",
@@ -487,6 +495,7 @@ export default function Sidebar({
                       count={count}
                       isActive={isActive}
                       onSelect={onSelect}
+                      onPrefetch={onPrefetchFeed}
                       onChangeIcon={onChangeFeedIcon}
                       onRename={onRenameFeed}
                       onDelete={onDeleteFeed}
@@ -642,11 +651,13 @@ export default function Sidebar({
             }
             active={selection.kind === "images_all"}
             onClick={() => onSelect({ kind: "images_all" })}
+            onHover={onPrefetchImagesAll}
           />
           <div className={`unsorted-row ${unsortedImageCount > 0 ? "has-pending" : ""}`}>
             <button
               className={`unsorted-item ${selection.kind === "images_unsorted" ? "active" : ""}`}
               onClick={() => onSelect({ kind: "images_unsorted" })}
+              onMouseEnter={() => onPrefetchImagesUnsorted?.()}
               title="Unsorted"
             >
               <span className="unsorted-label">Unsorted</span>
@@ -693,6 +704,7 @@ export default function Sidebar({
               collection={c}
               active={selection.kind === "image_collection" && selection.id === c.id}
               onSelect={() => onSelect({ kind: "image_collection", id: c.id })}
+              onPrefetch={() => onPrefetchImageCollection?.(c.id)}
               onUpdate={
                 onUpdateImageCollection
                   ? (updates) => onUpdateImageCollection(c.id, updates)
@@ -1779,6 +1791,7 @@ function FeedItem({
   count,
   isActive,
   onSelect,
+  onPrefetch,
   onChangeIcon,
   onRename,
   onDelete,
@@ -1787,6 +1800,7 @@ function FeedItem({
   count: number;
   isActive: boolean;
   onSelect: (s: Selection) => void;
+  onPrefetch?: (id: string) => void;
   onChangeIcon?: (id: string, icon: string | null) => Promise<void>;
   onRename?: (id: string, name: string) => Promise<void>;
   onDelete?: (id: string) => Promise<void>;
@@ -1851,7 +1865,10 @@ function FeedItem({
   }
 
   return (
-    <div className={`row ${isActive ? "active" : ""}`}>
+    <div
+      className={`row ${isActive ? "active" : ""}`}
+      onMouseEnter={() => onPrefetch?.(feed.id)}
+    >
       <div className="chev" style={{ visibility: "hidden" }}>▸</div>
       <button
         ref={iconBtnRef}
@@ -2188,6 +2205,7 @@ function SidebarItem({
   count,
   active,
   onClick,
+  onHover,
   leading,
   indent = 0,
 }: {
@@ -2195,6 +2213,7 @@ function SidebarItem({
   count?: number;
   active?: boolean;
   onClick: () => void;
+  onHover?: () => void;
   leading?: ReactNode;
   indent?: number;
 }) {
@@ -2202,6 +2221,7 @@ function SidebarItem({
     <button
       className={`item ${active ? "active" : ""}`}
       onClick={onClick}
+      onMouseEnter={() => onHover?.()}
       title={label}
       style={{ paddingLeft: indent ? `${8 + indent}px` : undefined }}
     >
@@ -2902,6 +2922,7 @@ type ImageCollectionRowProps = {
   collection: ImageCollection;
   active: boolean;
   onSelect: () => void;
+  onPrefetch?: () => void;
   onUpdate?: (updates: { name?: string; icon?: string | null }) => void | Promise<void>;
   onDelete?: () => void | Promise<void>;
   onShare?: () => void;
@@ -2911,6 +2932,7 @@ function ImageCollectionRow({
   collection,
   active,
   onSelect,
+  onPrefetch,
   onUpdate,
   onDelete,
   onShare,
@@ -2943,7 +2965,7 @@ function ImageCollectionRow({
   }
 
   return (
-      <div ref={rowRef} className="img-node">
+      <div ref={rowRef} className="img-node" onMouseEnter={() => onPrefetch?.()}>
       <div className={`img-row ${active ? "active" : ""} ${menuOpen ? "menu-open" : ""}`}>
         <button
           type="button"
