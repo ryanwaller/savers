@@ -709,6 +709,54 @@ export default function Sidebar({
         </div>
         </>)}
 
+        {sidebarMode === "images" && Object.keys(imageTagCounts).length > 0 && (
+          <div className="sidebar-section sidebar-section-group">
+            <div className="sidebar-divider" />
+            <div className="section-header-row section-header-row-tags">
+              <button
+                className="sidebar-label collapsible flex-1"
+                onClick={() => setTagsExpanded(!tagsExpanded)}
+              >
+                <span className="caret">{tagsExpanded ? "▾" : "▸"}</span>
+                Tags
+              </button>
+              <button
+                className="tag-sort-btn muted"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setTagSortOrder(prev => prev === 'alphabetical' ? 'count' : 'alphabetical');
+                }}
+                title={`Sort by ${tagSortOrder === 'alphabetical' ? 'count' : 'name'}`}
+              >
+                {tagSortOrder === 'alphabetical' ? 'A→Z' : '#→'}
+              </button>
+            </div>
+            {tagsExpanded && (
+              <div className="tag-pills">
+                {Object.entries(imageTagCounts)
+                  .sort((a, b) => {
+                    if (tagSortOrder === 'alphabetical') return a[0].localeCompare(b[0]);
+                    return b[1] - a[1] || a[0].localeCompare(b[0]);
+                  })
+                  .map(([tag, count]) => {
+                    const isActive = activeTag === tag;
+                    return (
+                      <button
+                        key={tag}
+                        type="button"
+                        className={`pill-btn tag-pill ${isActive ? "active" : ""}`}
+                        onClick={() => onTagClick(tag === activeTag ? null : tag)}
+                      >
+                        <span className="tag-pill-name">{tag}</span>
+                        <span className="tag-pill-count">{count}</span>
+                      </button>
+                    );
+                  })}
+              </div>
+            )}
+          </div>
+        )}
+
         {sidebarMode === "links" && allTags.length > 0 && (
           <div className="sidebar-section sidebar-section-group">
             <div className="sidebar-divider" />

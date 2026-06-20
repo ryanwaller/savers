@@ -24,13 +24,13 @@ export async function GET() {
         .eq("user_id", user.id)
         .order("parent_id", { ascending: true, nullsFirst: true })
         .order("position", { ascending: true }),
-      // Pull just the collection_id column for every image we own. Grouping
-      // in JS is cheaper than a per-folder COUNT roundtrip and the typical
+      // Pull collection_id + tags for every image we own. Grouping in JS
+      // is cheaper than a per-folder COUNT roundtrip and the typical
       // user has hundreds of images, not millions.
       supabaseAdmin
         .schema("savers")
         .from("images")
-        .select("collection_id")
+        .select("collection_id, tags")
         .eq("user_id", user.id),
     ]);
 
@@ -38,13 +38,21 @@ export async function GET() {
     if (countErr) return NextResponse.json({ error: countErr.message }, { status: 500 });
 
     const counts = new Map<string, number>();
+    const tagCounts = new Map<string, number>();
     let unsortedCount = 0;
-    for (const row of (countRows ?? []) as Array<{ collection_id: string | null }>) {
+    for (const row of (countRows ?? []) as Array<{ collection_id: string | null; tags: string[] | null }>) {
       if (!row.collection_id) {
         unsortedCount++;
-        continue;
+      } else {
+        counts.set(row.collection_id, (counts.get(row.collection_id) ?? 0) + 1);
       }
-      counts.set(row.collection_id, (counts.get(row.collection_id) ?? 0) + 1);
+      if (Array.isArray(row.tags)) {
+        for (const t of row.tags) {
+          if (typeof t === "string" && t) {
+            tagCounts.set(t, (tagCounts.get(t) ?? 0) + 1);
+          }
+        }
+      }
     }
 
     const enriched = (collections ?? []).map((c) => ({
@@ -52,9 +60,13 @@ export async function GET() {
       image_count: counts.get(c.id) ?? 0,
     }));
 
+    const tags: Record<string, number> = {};
+    for (const [t, n] of tagCounts) tags[t] = n;
+
     return NextResponse.json({
       collections: enriched,
       unsorted_count: unsortedCount,
+      tags,
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

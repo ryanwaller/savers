@@ -275,6 +275,7 @@ export default function Home() {
   }, [bookmarks, sortBy, collectionNameMap]);
 
   const isGroupedView = sortBy === "collection" && selection.kind === "all";
+  const isGroupedImageView = sortBy === "collection" && selection.kind === "images_all";
 
   const groupedBookmarks = useMemo(() => {
     if (!isGroupedView) return null;
@@ -472,6 +473,37 @@ export default function Home() {
   } | null>(null);
   const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
   const [unsortedImageCount, setUnsortedImageCount] = useState(0);
+  const [imageTagCounts, setImageTagCounts] = useState<Record<string, number>>({});
+
+  // Same grouping pattern for the image grid when sortBy="collection" and
+  // we're looking at All images.
+  const groupedImages = useMemo(() => {
+    if (!isGroupedImageView) return null;
+    type ImgGroup = { collectionId: string; collectionName: string; images: ImageRow[] };
+    const groups: ImgGroup[] = [];
+    const seen = new Map<string, number>();
+    const folderName = (id: string | null) => {
+      if (!id) return "Unsorted";
+      return imageCollections.find((c) => c.id === id)?.name ?? "Folder";
+    };
+    for (const img of images) {
+      const cid = img.collection_id || "__uncategorized__";
+      const name = folderName(img.collection_id ?? null);
+      if (seen.has(cid)) {
+        groups[seen.get(cid)!].images.push(img);
+      } else {
+        seen.set(cid, groups.length);
+        groups.push({ collectionId: cid, collectionName: name, images: [img] });
+      }
+    }
+    // Folders alphabetically; Unsorted at the end.
+    groups.sort((a, b) => {
+      if (a.collectionId === "__uncategorized__") return 1;
+      if (b.collectionId === "__uncategorized__") return -1;
+      return a.collectionName.localeCompare(b.collectionName);
+    });
+    return groups;
+  }, [isGroupedImageView, images, imageCollections]);
 
   // Load the image-collection folder list (flat). Called on auth-ready and
   // after a successful create/delete so the sidebar refreshes.
@@ -485,6 +517,9 @@ export default function Home() {
       );
       setUnsortedImageCount(
         typeof body.unsorted_count === "number" ? body.unsorted_count : 0,
+      );
+      setImageTagCounts(
+        (body.tags && typeof body.tags === "object") ? body.tags : {},
       );
     } catch (err) {
       console.error("[image-collections] load failed", err);
@@ -1168,10 +1203,9 @@ export default function Home() {
         } else if (selection.kind === "images_unsorted") {
           url.searchParams.set("unsorted", "1");
         }
-        // Map the bookmark sort dropdown's values into the image API's
-        // `sort` query param. "collection" sort is bookmark-only for
-        // now — fall back to newest in that case.
-        url.searchParams.set("sort", sortBy === "date" ? "newest" : "newest");
+        // Always pull newest; client-side groups by collection when the
+        // sort dropdown asks for that view (mirrors the bookmark grid).
+        url.searchParams.set("sort", "newest");
         const res = await fetch(url.toString(), { cache: "no-store" });
         const body = await res.json().catch(() => ({}));
         if (cancelled) return;
@@ -2495,6 +2529,7 @@ export default function Home() {
         }}
         imageCollections={imageCollections}
         unsortedImageCount={unsortedImageCount}
+        imageTagCounts={imageTagCounts}
         onUpdateImageCollection={async (id, updates) => {
           try {
             const res = await fetch(`/api/image-collections/${id}`, {
@@ -2859,6 +2894,47 @@ export default function Home() {
                 });
               }}
             />
+          ) : (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") && isGroupedImageView && groupedImages ? (
+            groupedImages.map((group) => (
+              <section
+                key={group.collectionId}
+                className="collection-group-section"
+                data-collection={group.collectionId}
+              >
+                <div className="collection-group-header">{group.collectionName}</div>
+                <ImageGrid
+                  images={group.images}
+                  loading={false}
+                  emptyLabel=""
+                  cardMinWidth={cardMinWidth}
+                  desktopCols={imageDesktopCols}
+                  mobileCols={imageMobileCols}
+                  viewMode={viewMode}
+                  isEditMode={isEditMode}
+                  selectedIds={selectedIds}
+                  onToggleSelect={(id) => {
+                    setSelectedIds((prev) => {
+                      const next = new Set(prev);
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                      return next;
+                    });
+                  }}
+                  onOpen={(img) => {
+                    const idx = images.findIndex((i) => i.id === img.id);
+                    if (idx >= 0) setSlideshowIndex(idx);
+                  }}
+                  onEdit={(img) => setImageDetailId(img.id)}
+                  onDelete={async (img) => {
+                    try {
+                      const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                      if (!res.ok) return;
+                      handleImageDeleted(img.id);
+                    } catch {}
+                  }}
+                />
+              </section>
+            ))
           ) : (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") ? (
             <ImageGrid
               images={images}

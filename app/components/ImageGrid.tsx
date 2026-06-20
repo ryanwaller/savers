@@ -15,6 +15,8 @@ export type ImageRow = {
   ai_processed_at?: string | null;
   ai_failed_at?: string | null;
   source_url: string | null;
+  collection_id?: string | null;
+  tags?: string[];
   created_at: string;
 };
 

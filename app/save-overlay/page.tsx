@@ -125,20 +125,24 @@ export default function SaveOverlayPage() {
       {error && <div className="overlay-error">{error}</div>}
 
       {ready && (
-        <div className="overlay-card">
-          <div className="overlay-toggle">
-            <button
-              className={`toggle-btn ${kind === "bookmark" ? "on" : ""}`}
-              onClick={() => setKind("bookmark")}
-            >
-              Bookmark
-            </button>
-            <button
-              className={`toggle-btn ${kind === "image" ? "on" : ""}`}
-              onClick={() => setKind("image")}
-            >
-              Image
-            </button>
+        <>
+          {/* Pinned toggle floats above AddBookmarkModal's fixed backdrop
+              so it stays visible no matter what we render below. */}
+          <div className="overlay-toggle-bar">
+            <div className="overlay-toggle">
+              <button
+                className={`toggle-btn ${kind === "bookmark" ? "on" : ""}`}
+                onClick={() => setKind("bookmark")}
+              >
+                Bookmark
+              </button>
+              <button
+                className={`toggle-btn ${kind === "image" ? "on" : ""}`}
+                onClick={() => setKind("image")}
+              >
+                Image
+              </button>
+            </div>
           </div>
 
           {kind === "bookmark" ? (
@@ -201,7 +205,7 @@ export default function SaveOverlayPage() {
               </div>
             </div>
           )}
-        </div>
+        </>
       )}
 
       <style jsx global>{`
@@ -221,41 +225,49 @@ export default function SaveOverlayPage() {
           font-size: 12px;
           padding: 24px;
         }
-        .overlay-card {
-          width: 100%;
-          max-width: 540px;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 14px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+        /* Pinned to the top of the popup, sits above AddBookmarkModal's
+           backdrop (z-index 50) so the kind toggle is always reachable. */
+        .overlay-toggle-bar {
+          position: fixed;
+          top: 12px;
+          left: 50%;
+          transform: translateX(-50%);
+          z-index: 100;
         }
         .overlay-toggle {
-          display: flex;
+          display: inline-flex;
           gap: 4px;
-          padding: 10px 12px;
-          border-bottom: 1px solid var(--color-border);
+          padding: 4px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
         }
         .toggle-btn {
-          flex: 1 1 auto;
-          padding: 8px 12px;
-          font-size: 13px;
+          padding: 6px 14px;
+          font-size: 12px;
           background: transparent;
           color: var(--color-text-muted);
-          border: 1px solid var(--color-border);
+          border: none;
           border-radius: 999px;
           cursor: pointer;
         }
         .toggle-btn.on {
           background: var(--color-text);
           color: var(--color-bg);
-          border-color: var(--color-text);
         }
 
         .image-save {
+          width: 100%;
+          max-width: 440px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 14px;
           padding: 16px;
           display: flex;
           flex-direction: column;
           gap: 12px;
+          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
         }
         .image-save-thumb {
           width: 100%;
