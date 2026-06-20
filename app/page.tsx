@@ -483,6 +483,13 @@ export default function Home() {
   const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
   const [unsortedImageCount, setUnsortedImageCount] = useState(0);
   const [imageTagCounts, setImageTagCounts] = useState<Record<string, number>>({});
+  const visibleImages = useMemo(() => {
+    const normalizedTag = activeTag?.trim().toLowerCase() ?? "";
+    if (!normalizedTag) return images;
+    return images.filter((image) =>
+      (image.tags ?? []).some((tag) => tag.trim().toLowerCase() === normalizedTag)
+    );
+  }, [activeTag, images]);
 
   // Same grouping pattern for the image grid when sortBy="collection" and
   // we're looking at All images.
@@ -495,7 +502,7 @@ export default function Home() {
       if (!id) return "Unsorted";
       return imageCollections.find((c) => c.id === id)?.name ?? "Folder";
     };
-    for (const img of images) {
+    for (const img of visibleImages) {
       const cid = img.collection_id || "__uncategorized__";
       const name = folderName(img.collection_id ?? null);
       if (seen.has(cid)) {
@@ -512,7 +519,16 @@ export default function Home() {
       return a.collectionName.localeCompare(b.collectionName);
     });
     return groups;
-  }, [isGroupedImageView, images, imageCollections]);
+  }, [isGroupedImageView, visibleImages, imageCollections]);
+  const slideshowImages = useMemo(
+    () =>
+      selection.kind === "images_all" ||
+      selection.kind === "image_collection" ||
+      selection.kind === "images_unsorted"
+        ? visibleImages
+        : images,
+    [images, selection.kind, visibleImages]
+  );
 
   // Load the image-collection folder list (flat). Called on auth-ready and
   // after a successful create/delete so the sidebar refreshes.
@@ -1863,7 +1879,17 @@ export default function Home() {
     if (tag === null) {
       setActiveTag(null);
     } else {
-      setSelection({ kind: "all" });
+      if (sidebarMode === "images") {
+        if (
+          selection.kind !== "images_all" &&
+          selection.kind !== "image_collection" &&
+          selection.kind !== "images_unsorted"
+        ) {
+          setSelection({ kind: "images_all" });
+        }
+      } else {
+        setSelection({ kind: "all" });
+      }
       setActiveTag(tag);
     }
   }
@@ -3017,13 +3043,22 @@ export default function Home() {
                     >
                       ×
                     </button>
-                    {selection.kind !== "all" && (
+                    {((sidebarMode === "images" && selection.kind !== "images_all") ||
+                      (sidebarMode === "links" && selection.kind !== "all")) && (
                       <>
                         <span className="tag-filter-sep" />
                         <button
                           className="tag-filter-scope"
-                          onClick={() => setSelection({ kind: "all" })}
-                          title={`Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag}`}
+                          onClick={() =>
+                            setSelection(
+                              sidebarMode === "images" ? { kind: "images_all" } : { kind: "all" }
+                            )
+                          }
+                          title={
+                            sidebarMode === "images"
+                              ? `Show all ${imageTagCounts[activeTag] ?? 0} images tagged #${activeTag}`
+                              : `Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag}`
+                          }
                         >
                           all
                         </button>
@@ -3268,7 +3303,7 @@ export default function Home() {
                       });
                     }}
                     onOpen={(img) => {
-                      const idx = images.findIndex((i) => i.id === img.id);
+                      const idx = slideshowImages.findIndex((i) => i.id === img.id);
                       if (idx >= 0) setSlideshowIndex(idx);
                     }}
                     onEdit={(img) => setImageDetailId(img.id)}
@@ -3284,9 +3319,15 @@ export default function Home() {
               ))
             ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") ? (
               <ImageGrid
-                images={images}
+                images={visibleImages}
                 loading={loadingImages && !contentTransitioning}
-                emptyLabel={loadingImages && !contentTransitioning ? "Loading images…" : "No images yet."}
+                emptyLabel={
+                  loadingImages && !contentTransitioning
+                    ? "Loading images…"
+                    : activeTag
+                    ? `No images match #${activeTag}.`
+                    : "No images yet."
+                }
                 cardMinWidth={cardMinWidth}
                 desktopCols={imageDesktopCols}
                 mobileCols={imageMobileCols}
@@ -3302,7 +3343,7 @@ export default function Home() {
                   });
                 }}
                 onOpen={(img) => {
-                  const idx = images.findIndex((i) => i.id === img.id);
+                  const idx = slideshowImages.findIndex((i) => i.id === img.id);
                   if (idx >= 0) setSlideshowIndex(idx);
                 }}
                 onEdit={(img) => setImageDetailId(img.id)}
@@ -3796,7 +3837,7 @@ export default function Home() {
 
       <ImageSlideshow
         open={slideshowIndex !== null}
-        images={images}
+        images={slideshowImages}
         initialIndex={slideshowIndex ?? 0}
         onClose={() => setSlideshowIndex(null)}
         onEdit={(image) => setImageDetailId(image.id)}
