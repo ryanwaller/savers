@@ -74,6 +74,10 @@ type EditableImageRow = ImageRow & {
   collection_id?: string | null;
 };
 
+const SIDEBAR_SNAPSHOT_STORAGE_KEY = "savers.sidebar.snapshot.v1";
+const FEED_ITEMS_CACHE_STORAGE_KEY = "savers.feedItemsCache.v1";
+const IMAGE_VIEW_CACHE_STORAGE_KEY = "savers.imageViewCache.v1";
+
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
   const MAX_SIDEBAR_WIDTH = 420;
@@ -596,6 +600,30 @@ export default function Home() {
     }
   }, [getImageViewCacheKey]);
 
+  const persistFeedItemsCache = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        FEED_ITEMS_CACHE_STORAGE_KEY,
+        JSON.stringify(Array.from(feedItemsCacheRef.current.entries())),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, []);
+
+  const persistImageViewCache = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        IMAGE_VIEW_CACHE_STORAGE_KEY,
+        JSON.stringify(Array.from(imageViewCacheRef.current.entries())),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, []);
+
   const writeImageViewCache = useCallback((target: Selection, nextImages: ImageRow[]) => {
     const key = getImageViewCacheKey(target);
     if (!key) return;
@@ -603,7 +631,8 @@ export default function Home() {
     if (target.kind === "images_all") {
       imageViewCacheRef.current.set("images_unsorted", nextImages.filter((image) => image.collection_id === null));
     }
-  }, [getImageViewCacheKey]);
+    persistImageViewCache();
+  }, [getImageViewCacheKey, persistImageViewCache]);
 
   const selectedImageDetail = useMemo(
     () => (imageDetailId ? images.find((image) => image.id === imageDetailId) ?? null : null),
@@ -1022,6 +1051,53 @@ export default function Home() {
     setToast(null);
     setLoadError(null);
     setInitialDataLoaded(false);
+    feedItemsCacheRef.current = new Map();
+    imageViewCacheRef.current = new Map();
+  }, [user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    try {
+      const rawSidebar = window.localStorage.getItem(SIDEBAR_SNAPSHOT_STORAGE_KEY);
+      if (rawSidebar) {
+        const snapshot = JSON.parse(rawSidebar) as {
+          collections?: Collection[];
+          flat?: Collection[];
+          smartCollections?: SmartCollection[];
+          feeds?: FeedSubscription[];
+          totals?: BookmarkTotals;
+          collectionBookmarkCounts?: Record<string, number>;
+          feedCounts?: Record<string, number>;
+        };
+        if (snapshot.collections) setTreeRaw(snapshot.collections);
+        if (snapshot.flat) setFlat(snapshot.flat);
+        if (snapshot.smartCollections) {
+          smartCollectionsRef.current = snapshot.smartCollections;
+          setSmartCollections(snapshot.smartCollections);
+        }
+        if (snapshot.feeds) setFeeds(snapshot.feeds);
+        if (snapshot.totals) setTotals(snapshot.totals);
+        if (snapshot.collectionBookmarkCounts) {
+          setBookmarkCountsHydrated(true);
+          setCollectionBookmarkCounts(snapshot.collectionBookmarkCounts);
+        }
+        if (snapshot.feedCounts) setFeedCounts(snapshot.feedCounts);
+      }
+
+      const rawFeedCache = window.localStorage.getItem(FEED_ITEMS_CACHE_STORAGE_KEY);
+      if (rawFeedCache) {
+        const entries = JSON.parse(rawFeedCache) as [string, FeedItem[]][];
+        feedItemsCacheRef.current = new Map(entries);
+      }
+
+      const rawImageCache = window.localStorage.getItem(IMAGE_VIEW_CACHE_STORAGE_KEY);
+      if (rawImageCache) {
+        const entries = JSON.parse(rawImageCache) as [string, ImageRow[]][];
+        imageViewCacheRef.current = new Map(entries);
+      }
+    } catch {
+      // Ignore corrupted local snapshots.
+    }
   }, [user]);
 
   // Load preference on mount
@@ -1185,6 +1261,26 @@ export default function Home() {
     }
   }, []);
 
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_SNAPSHOT_STORAGE_KEY,
+        JSON.stringify({
+          collections: treeRaw,
+          flat,
+          smartCollections,
+          feeds,
+          totals,
+          collectionBookmarkCounts,
+          feedCounts,
+        }),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, [user, treeRaw, flat, smartCollections, feeds, totals, collectionBookmarkCounts, feedCounts]);
+
   const loadFeeds = useCallback(async () => {
     try {
       const data = await api.listFeeds();
@@ -1208,6 +1304,7 @@ export default function Home() {
     try {
       const data = await api.listFeedItems(feedId);
       feedItemsCacheRef.current.set(feedId, data.items);
+      persistFeedItemsCache();
       setFeedItems(data.items);
       setLoadedFeedId(feedId);
       setFeedItemsError(null);
@@ -1227,6 +1324,7 @@ export default function Home() {
     try {
       const data = await api.listFeedItems(feedId);
       feedItemsCacheRef.current.set(feedId, data.items);
+      persistFeedItemsCache();
     } catch {
       // Best-effort warm cache only.
     }
@@ -1234,7 +1332,8 @@ export default function Home() {
 
   const writeFeedItemsCache = useCallback((feedId: string, nextItems: FeedItem[]) => {
     feedItemsCacheRef.current.set(feedId, nextItems);
-  }, []);
+    persistFeedItemsCache();
+  }, [persistFeedItemsCache]);
 
   useEffect(() => {
     if (typeof window === "undefined" || !user) return;
