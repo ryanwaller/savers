@@ -109,7 +109,16 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
         collections,
       })
       .then((res) => {
-        if (!cancelled) setSuggestion(res.suggestion ?? null);
+        if (cancelled) return;
+        const nextSuggestion = res.suggestion ?? null;
+        setSuggestion(nextSuggestion);
+        if (nextSuggestion?.collection_id) {
+          const suggestedCollection =
+            flat.find((collection) => collection.id === nextSuggestion.collection_id) ?? null;
+          if (suggestedCollection) {
+            setSelectedCollection((prev) => prev ?? suggestedCollection);
+          }
+        }
       })
       .catch(() => {})
       .finally(() => {
@@ -129,7 +138,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     return () => {
       cancelled = true;
     };
-  }, [current?.id, collections, open]);
+  }, [current?.id, collections, flat, open]);
 
   const collectionsById = useMemo(() => {
     const map = new Map<string, Collection>();
