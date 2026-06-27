@@ -548,10 +548,22 @@ const BY_NAME = new Map<string, LucideIcon>(ICONS.map((i) => [i.name, i.Componen
 
 export const DefaultCollectionIcon: LucideIcon = Folder;
 
+/**
+ * Returns the canonical curated icon name (PascalCase) for a stored value, or
+ * null if no curated match exists. The IconPicker also supports picking from
+ * the full Lucide catalog — those icons are stored as kebab-case names and
+ * resolved by `isCuratedIconName` returning false + `lucide-all-icons` taking
+ * over rendering.
+ */
 export function resolveIconName(name: string | null | undefined): string | null {
   if (!name) return null;
   if (BY_NAME.has(name)) return name;
   return ALIASES[name] ?? null;
+}
+
+/** True if `name` is in the curated catalog (or one of its legacy aliases). */
+export function isCuratedIconName(name: string | null | undefined): boolean {
+  return resolveIconName(name) !== null;
 }
 
 export function iconComponentByName(name: string | null | undefined): LucideIcon {
