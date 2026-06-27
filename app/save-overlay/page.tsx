@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { Bookmark, Collection } from "@/lib/types";
+import type { Bookmark, Collection, ImageCollection } from "@/lib/types";
 import { api } from "@/lib/api";
 import AddBookmarkModal from "@/app/components/AddBookmarkModal";
+import CollectionPicker from "@/app/components/CollectionPicker";
 
 function dismiss(type: "close" | "saved" = "close") {
   // Popup (opened by script) — window.close() works
@@ -50,9 +51,9 @@ export default function SaveOverlayPage() {
   const [flat, setFlat] = useState<Collection[]>([]);
   const [tree, setTree] = useState<Collection[]>([]);
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
-  const [imageCollections, setImageCollections] = useState<
-    Array<{ id: string; name: string }>
-  >([]);
+  // We hold the full `ImageCollection` shape so `CollectionPicker` can render
+  // parent/child hierarchy and icons identically to the link-side picker.
+  const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   // Image save form state
@@ -83,7 +84,7 @@ export default function SaveOverlayPage() {
         setTree(data.collections);
         setBookmarks(data.bookmarks);
         setImageCollections(
-          ((imgData?.collections ?? []) as Array<{ id: string; name: string }>) || [],
+          ((imgData?.collections ?? []) as ImageCollection[]) || [],
         );
         setReady(true);
       })
@@ -91,6 +92,31 @@ export default function SaveOverlayPage() {
         setError(e instanceof Error ? e.message : "Failed to load");
       });
   }, [url, token]);
+
+  // POSTs to /api/image-collections with the bearer token so the bookmarklet
+  // popup (which usually has no session cookie on the third-party origin)
+  // can still create folders. Mirrors the bookmark-side onCreateCollection
+  // contract — returns the new collection so `CollectionPicker` can select
+  // it immediately.
+  async function createImageCollection(
+    name: string,
+    parentId: string | null,
+  ): Promise<ImageCollection> {
+    const headers: Record<string, string> = { "Content-Type": "application/json" };
+    if (token) headers.Authorization = `Bearer ${token}`;
+    const res = await fetch("/api/image-collections", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ name, parent_id: parentId }),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(body?.error || `Create failed (${res.status})`);
+    }
+    const collection = body.collection as ImageCollection;
+    setImageCollections((prev) => [...prev, collection]);
+    return collection;
+  }
 
   async function saveImage() {
     if (!url || imgSaving) return;
@@ -172,43 +198,64 @@ export default function SaveOverlayPage() {
               onFeedCreated={() => dismiss()}
             />
           ) : (
-            <div className="image-save">
-              <div className="image-save-thumb">
-                {looksLikeImage(url) ? (
-                  <img src={url} alt="" />
-                ) : (
-                  <div className="image-save-placeholder">
-                    Will fetch hero image from this page
+            // Image save — same slide-in panel chrome as AddBookmarkModal so
+            // the bookmarklet feels like one app regardless of save type.
+            <div className="image-backdrop" onClick={() => dismiss()}>
+              <div className="image-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="image-head">
+                  <div className="image-title">Add image</div>
+                  <button
+                    className="image-close"
+                    onClick={() => dismiss()}
+                    aria-label="Close"
+                  >
+                    ×
+                  </button>
+                </div>
+
+                <div className="image-body">
+                  <div className="image-thumb">
+                    {looksLikeImage(url) ? (
+                      <img src={url} alt="" />
+                    ) : (
+                      <div className="image-placeholder">
+                        Will fetch hero image from this page
+                      </div>
+                    )}
                   </div>
-                )}
-              </div>
-              <div className="image-save-meta">
-                <div className="image-save-url" title={url}>{url}</div>
-              </div>
-              <label className="image-save-field">
-                <span>Folder</span>
-                <select
-                  value={imgCollectionId ?? ""}
-                  onChange={(e) => setImgCollectionId(e.target.value || null)}
-                >
-                  <option value="">Unsorted</option>
-                  {imageCollections.map((c) => (
-                    <option key={c.id} value={c.id}>{c.name}</option>
-                  ))}
-                </select>
-              </label>
-              {imgSaveError && <div className="image-save-error">{imgSaveError}</div>}
-              <div className="image-save-actions">
-                <button className="btn ghost" onClick={() => dismiss()} disabled={imgSaving}>
-                  Cancel
-                </button>
-                <button
-                  className="btn primary"
-                  onClick={() => void saveImage()}
-                  disabled={imgSaving}
-                >
-                  {imgSaving ? "Saving…" : "Save image"}
-                </button>
+
+                  <div className="image-url" title={url}>{url}</div>
+
+                  <div className="image-field">
+                    <div className="image-label">Folder</div>
+                    <CollectionPicker
+                      flat={imageCollections}
+                      value={imgCollectionId}
+                      onChange={setImgCollectionId}
+                      onCreateCollection={createImageCollection}
+                      placeholder="Choose a folder"
+                    />
+                  </div>
+
+                  {imgSaveError && <div className="image-error">{imgSaveError}</div>}
+                </div>
+
+                <div className="image-foot">
+                  <button
+                    className="btn"
+                    onClick={() => dismiss()}
+                    disabled={imgSaving}
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => void saveImage()}
+                    disabled={imgSaving}
+                  >
+                    {imgSaving ? "Saving…" : "Save image"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -264,93 +311,174 @@ export default function SaveOverlayPage() {
           color: var(--color-bg);
         }
 
-        .image-save {
-          width: 100%;
-          max-width: 440px;
+        /* ------------------------------------------------------------------
+           Image save panel — visually identical to AddBookmarkModal so the
+           bookmarklet feels like a single app. We duplicate the modal
+           chrome locally (instead of importing AddBookmarkModal) because
+           the image flow has its own fields and save target.
+           ------------------------------------------------------------------ */
+        .image-backdrop {
+          position: fixed;
+          inset: 0;
+          background: rgba(0, 0, 0, 0.28);
+          display: flex;
+          justify-content: flex-end;
+          z-index: 50;
+        }
+        .image-modal {
+          width: 440px;
+          max-width: 100%;
+          height: 100%;
           background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 14px;
-          padding: 16px;
+          border-left: 1px solid var(--color-border);
+          display: flex;
+          flex-direction: column;
+          overflow: hidden;
+          animation: imageSlideIn 200ms ease;
+          font-family: inherit;
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 500;
+        }
+        @keyframes imageSlideIn {
+          from { transform: translateX(30px); opacity: 0; }
+          to   { transform: translateX(0); opacity: 1; }
+        }
+        .image-head {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          min-height: 54px;
+          padding: 0 16px;
+          gap: 12px;
+          border-bottom: 1px solid var(--color-border);
+          box-sizing: border-box;
+        }
+        .image-title {
+          font-size: 12px;
+          color: var(--color-text-muted);
+        }
+        .image-close {
+          background: transparent;
+          border: none;
+          color: var(--color-text);
+          font-size: 20px;
+          line-height: 1;
+          padding: 4px 6px;
+          cursor: pointer;
+          flex-shrink: 0;
+        }
+        .image-body {
+          padding: 14px 16px;
           display: flex;
           flex-direction: column;
           gap: 12px;
-          box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+          overflow-y: auto;
+          overflow-x: hidden;
+          flex: 1;
         }
-        .image-save-thumb {
+        .image-thumb {
           width: 100%;
           background: var(--color-bg-secondary);
           border: 1px solid var(--color-border);
-          border-radius: 8px;
+          border-radius: var(--radius-sm);
           overflow: hidden;
           display: flex;
           align-items: center;
           justify-content: center;
           max-height: 240px;
         }
-        .image-save-thumb img {
+        .image-thumb img {
           max-width: 100%;
           max-height: 240px;
           object-fit: contain;
         }
-        .image-save-placeholder {
+        .image-placeholder {
           padding: 32px;
           color: var(--color-text-muted);
-          font-size: 13px;
+          font-size: 12px;
         }
-        .image-save-url {
+        .image-url {
           font-size: 11px;
           color: var(--color-text-muted);
           white-space: nowrap;
           overflow: hidden;
           text-overflow: ellipsis;
         }
-        .image-save-field {
+        .image-field {
           display: flex;
           flex-direction: column;
-          gap: 4px;
+          gap: 5px;
+        }
+        .image-label {
           font-size: 12px;
+          line-height: 17px;
+          font-weight: 500;
           color: var(--color-text-muted);
         }
-        .image-save-field select {
-          padding: 8px 10px;
-          border: 1px solid var(--color-border);
-          border-radius: 8px;
-          background: var(--color-bg);
-          color: var(--color-text);
-          font-size: 13px;
-        }
-        .image-save-error {
+        .image-error {
           padding: 8px 10px;
           background: rgba(220, 80, 80, 0.12);
           color: #d96a6a;
-          border-radius: 6px;
+          border-radius: var(--radius-sm);
           font-size: 12px;
         }
-        .image-save-actions {
+        .image-foot {
           display: flex;
           justify-content: flex-end;
           gap: 8px;
+          padding: 10px 14px;
+          border-top: 1px solid var(--color-border);
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
         }
-        .image-save-actions .btn {
-          padding: 8px 16px;
-          border-radius: 8px;
-          font-size: 13px;
+        .image-foot .btn {
+          padding: 6px 14px;
+          border-radius: var(--radius-sm);
           border: 1px solid var(--color-border);
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-size: 12px;
+          line-height: 17px;
+          font-weight: 500;
           cursor: pointer;
         }
-        .image-save-actions .btn.ghost {
-          background: transparent;
-          color: var(--color-text);
+        .image-foot .btn:hover:not(:disabled) {
+          background: var(--color-bg-hover);
         }
-        .image-save-actions .btn.ghost:hover { background: var(--color-bg-hover); }
-        .image-save-actions .btn.primary {
+        .image-foot .btn.btn-primary {
           background: var(--color-text);
           color: var(--color-bg);
           border-color: var(--color-text);
         }
-        .image-save-actions .btn:disabled {
+        .image-foot .btn:disabled {
           opacity: 0.5;
           cursor: not-allowed;
+        }
+        @media (max-width: 768px) {
+          .image-backdrop {
+            padding: 0;
+            background: transparent;
+          }
+          .image-modal {
+            width: 100%;
+            max-width: 100%;
+            height: 100dvh;
+            max-height: 100dvh;
+            border: 0;
+            border-radius: 0;
+          }
+          .image-head {
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
+            box-sizing: border-box;
+          }
+          .image-foot {
+            flex-wrap: wrap;
+          }
+          .image-foot .btn {
+            flex: 1 1 140px;
+            height: 40px;
+          }
         }
       `}</style>
     </div>

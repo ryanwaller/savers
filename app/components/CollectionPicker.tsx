@@ -1,21 +1,33 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Collection } from "@/lib/types";
 import CollectionIcon from "./CollectionIcon";
 
-type Props = {
-  flat: Collection[];
+/**
+ * The picker only reads the four fields below — declaring a structural type
+ * (instead of the full `Collection` shape) lets us reuse the picker for
+ * `ImageCollection` and any future folder-like resource without copying
+ * markup.
+ */
+export type PickerCollection = {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  icon?: string | null;
+};
+
+type Props<C extends PickerCollection = PickerCollection> = {
+  flat: C[];
   value: string | null;
   onChange: (id: string | null) => void;
-  onCreateCollection?: (name: string, parentId: string | null) => Promise<Collection>;
+  onCreateCollection?: (name: string, parentId: string | null) => Promise<C>;
   allowUnsorted?: boolean;
   placeholder?: string;
   openDirection?: "down" | "up";
 };
 
 // Builds a "Parent / Child / Grandchild" path string for each collection
-function pathMap(flat: Collection[]): Map<string, string> {
+function pathMap(flat: PickerCollection[]): Map<string, string> {
   const byId = new Map(flat.map((c) => [c.id, c]));
   const cache = new Map<string, string>();
   function resolve(id: string): string {
@@ -30,7 +42,7 @@ function pathMap(flat: Collection[]): Map<string, string> {
   return cache;
 }
 
-export default function CollectionPicker({
+export default function CollectionPicker<C extends PickerCollection = PickerCollection>({
   flat,
   value,
   onChange,
@@ -38,7 +50,7 @@ export default function CollectionPicker({
   allowUnsorted = true,
   placeholder = "Choose a collection",
   openDirection = "down",
-}: Props) {
+}: Props<C>) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
@@ -53,7 +65,7 @@ export default function CollectionPicker({
     const depths = new Map<string, number>();
     for (const c of flat) {
       let depth = 0;
-      let cur: Collection | undefined = c;
+      let cur: C | undefined = c;
       while (cur?.parent_id) {
         depth++;
         cur = byId.get(cur.parent_id);
