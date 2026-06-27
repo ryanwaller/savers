@@ -65,9 +65,16 @@ export default function SaveOverlayPage() {
       dismiss();
       return;
     }
+    // Bookmarklet popups load from a third-party origin, so cookie-based
+    // auth may not be present — pass the same bearer token we use for the
+    // bootstrap and upload calls so /api/image-collections can identify the
+    // user and return their folder list. Without this header the endpoint
+    // 401s and the dropdown silently falls back to "Unsorted" only.
+    const imgHeaders: Record<string, string> = {};
+    if (token) imgHeaders.Authorization = `Bearer ${token}`;
     Promise.all([
       api.bootstrap(token),
-      fetch("/api/image-collections", { cache: "no-store" })
+      fetch("/api/image-collections", { cache: "no-store", headers: imgHeaders })
         .then((r) => (r.ok ? r.json() : { collections: [] }))
         .catch(() => ({ collections: [] })),
     ])
