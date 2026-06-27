@@ -2939,9 +2939,11 @@ function ImageCollectionRow({
 }: ImageCollectionRowProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [iconPickerOpen, setIconPickerOpen] = useState(false);
+  const [pickerPos, setPickerPos] = useState<{ top: number; left: number } | null>(null);
   const [renaming, setRenaming] = useState(false);
   const [renameValue, setRenameValue] = useState(collection.name);
   const rowRef = useRef<HTMLDivElement | null>(null);
+  const iconBtnRef = useRef<HTMLButtonElement | null>(null);
 
   useEffect(() => {
     setRenameValue(collection.name);
@@ -2956,6 +2958,29 @@ function ImageCollectionRow({
     return () => document.removeEventListener("mousedown", handleClickAway);
   }, [menuOpen]);
 
+  function openIconPicker() {
+    const rect = iconBtnRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    setPickerPos(placePicker(rect));
+    setIconPickerOpen(true);
+  }
+
+  // Reposition the picker on scroll / resize while it's open — matches the
+  // behavior on the link-side CollectionNode picker.
+  useEffect(() => {
+    if (!iconPickerOpen) return;
+    const reflow = () => {
+      const rect = iconBtnRef.current?.getBoundingClientRect();
+      if (rect) setPickerPos(placePicker(rect));
+    };
+    window.addEventListener("resize", reflow);
+    window.addEventListener("scroll", reflow, true);
+    return () => {
+      window.removeEventListener("resize", reflow);
+      window.removeEventListener("scroll", reflow, true);
+    };
+  }, [iconPickerOpen]);
+
   async function commitRename() {
     const next = renameValue.trim();
     if (next && next !== collection.name && onUpdate) {
@@ -2968,13 +2993,18 @@ function ImageCollectionRow({
       <div ref={rowRef} className="img-node" onMouseEnter={() => onPrefetch?.()}>
       <div className={`img-row ${active ? "active" : ""} ${menuOpen ? "menu-open" : ""}`}>
         <button
+          ref={iconBtnRef}
           type="button"
           className="img-leading-icon"
           aria-label={`Change icon for ${collection.name}`}
           title="Change icon"
           onClick={(e) => {
             e.stopPropagation();
-            setIconPickerOpen((v) => !v);
+            if (iconPickerOpen) {
+              setIconPickerOpen(false);
+            } else {
+              openIconPicker();
+            }
           }}
         >
           <CollectionIcon name={collection.icon ?? null} size={14} />
@@ -3038,7 +3068,7 @@ function ImageCollectionRow({
             <button
               onClick={() => {
                 setMenuOpen(false);
-                setIconPickerOpen(true);
+                openIconPicker();
               }}
             >
               Change icon
@@ -3082,13 +3112,19 @@ function ImageCollectionRow({
         </div>
       )}
 
-      {iconPickerOpen && (
-        <div className="sidebar-image-collection-icon-popup">
+      {iconPickerOpen && pickerPos &&
+        createPortal(
           <div
-            className="sidebar-image-collection-icon-backdrop"
-            onClick={() => setIconPickerOpen(false)}
-          />
-          <div className="sidebar-image-collection-icon-card">
+            className="sb-icon-picker-portal"
+            style={{
+              position: "fixed",
+              top: pickerPos.top,
+              left: pickerPos.left,
+              zIndex: 1000,
+              border: "1px solid var(--color-border)",
+              borderRadius: "var(--radius-sm)",
+            }}
+          >
             <IconPicker
               value={collection.icon ?? null}
               onPick={async (name) => {
@@ -3097,9 +3133,9 @@ function ImageCollectionRow({
               }}
               onClose={() => setIconPickerOpen(false)}
             />
-          </div>
-        </div>
-      )}
+          </div>,
+          document.body
+        )}
 
       <style jsx>{`
         /* Match the link-folder visual treatment exactly — see the
@@ -3272,27 +3308,6 @@ function ImageCollectionRow({
         .img-menu button:hover { background: var(--color-bg-hover); }
         .img-menu button.danger { color: #d96a6a; }
 
-        .sidebar-image-collection-icon-popup {
-          position: fixed;
-          inset: 0;
-          z-index: 50;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .sidebar-image-collection-icon-backdrop {
-          position: absolute;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.4);
-        }
-        .sidebar-image-collection-icon-card {
-          position: relative;
-          background: var(--color-bg);
-          border: 1px solid var(--color-border);
-          border-radius: 12px;
-          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
-          padding: 12px;
-        }
       `}</style>
     </div>
   );
