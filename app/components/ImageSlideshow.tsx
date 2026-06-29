@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
 import type { ImageRow } from "./ImageGrid";
 
 type Props = {
@@ -84,13 +85,24 @@ export default function ImageSlideshow({
     <div className="ss-backdrop" onClick={onClose}>
       <div className="ss-topbar" onClick={(e) => e.stopPropagation()}>
         <div className="ss-counter">{counter}</div>
-        <button
-          className="ss-btn close"
-          onClick={onClose}
-          aria-label="Close"
-        >
-          ×
-        </button>
+        <div className="ss-topbar-actions">
+          <button
+            className="ss-circle"
+            onClick={downloadOriginal}
+            aria-label="Download original"
+            title="Download the full-resolution original"
+          >
+            <Download size={20} strokeWidth={2} />
+          </button>
+          <button
+            className="ss-circle"
+            onClick={onClose}
+            aria-label="Close"
+            title="Close"
+          >
+            <X size={22} strokeWidth={2} />
+          </button>
+        </div>
       </div>
 
       <div className="ss-stage" onClick={onClose}>
@@ -130,38 +142,33 @@ export default function ImageSlideshow({
               Go to source
             </a>
           )}
-          <button
-            className="ss-btn"
-            onClick={downloadOriginal}
-            title="Download the full-resolution original"
-          >
-            Download Original
-          </button>
         </div>
       </div>
 
       {index > 0 && (
         <button
-          className="ss-nav prev"
+          className="ss-circle ss-nav prev"
           onClick={(e) => {
             e.stopPropagation();
             prev();
           }}
           aria-label="Previous"
+          title="Previous"
         >
-          ‹
+          <ChevronLeft size={22} strokeWidth={2} />
         </button>
       )}
       {index < images.length - 1 && (
         <button
-          className="ss-nav next"
+          className="ss-circle ss-nav next"
           onClick={(e) => {
             e.stopPropagation();
             next();
           }}
           aria-label="Next"
+          title="Next"
         >
-          ›
+          <ChevronRight size={22} strokeWidth={2} />
         </button>
       )}
 
@@ -213,24 +220,38 @@ export default function ImageSlideshow({
           background: #f0f0f0;
           border-color: #f0f0f0;
         }
-        .ss-btn.close {
-          /* Circular glass button — matches the kebab + sidebar icon-button
-             pattern used elsewhere (32–44px circle, 999px radius). The X
-             sits on the dark backdrop alone, so we keep the dark/glass
-             treatment instead of the bright white the bottom buttons use. */
+
+        /* One shared style for every icon-only slideshow button — close,
+           download, prev, next. Same size, same glass-on-dark color.
+           lucide-react's SVGs are square + balanced around their viewBox
+           center, so flex centering puts them exactly mid-circle (the old
+           Unicode ‹ › / × glyphs were vertically biased per-font, which is
+           what made them look low). */
+        .ss-topbar-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .ss-circle {
           width: 44px;
           height: 44px;
           padding: 0;
-          font-size: 22px;
           border-radius: 999px;
-          background: rgba(0, 0, 0, 0.55);
+          background: rgba(255, 255, 255, 0.08);
           color: #fff;
-          border-color: rgba(255, 255, 255, 0.22);
+          border: 1px solid rgba(255, 255, 255, 0.22);
+          cursor: pointer;
+          font-family: inherit;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          line-height: 1;
           backdrop-filter: blur(6px);
           -webkit-backdrop-filter: blur(6px);
+          transition: background 140ms ease, border-color 140ms ease;
         }
-        .ss-btn.close:hover {
-          background: rgba(0, 0, 0, 0.78);
+        .ss-circle:hover {
+          background: rgba(255, 255, 255, 0.18);
           border-color: rgba(255, 255, 255, 0.4);
         }
 
@@ -283,47 +304,22 @@ export default function ImageSlideshow({
           align-items: center;
         }
 
+        /* Position-only — visual treatment lives on .ss-circle so all four
+           icon buttons match. */
         .ss-nav {
-          /* Circular nav buttons — same glass-on-dark style as the close X
-             so the three slideshow controls feel like one set. Sized at
-             56px on desktop / 48px on mobile for an easy tap target without
-             dwarfing the photo. */
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 56px;
-          height: 56px;
-          background: rgba(255, 255, 255, 0.08);
-          border: 1px solid rgba(255, 255, 255, 0.18);
-          color: #fff;
-          font-size: 32px;
-          line-height: 1;
-          cursor: pointer;
-          border-radius: 999px;
-          display: inline-flex;
-          align-items: center;
-          justify-content: center;
           z-index: 2;
-          backdrop-filter: blur(6px);
-          -webkit-backdrop-filter: blur(6px);
-          /* Pull the chevron glyph up a hair — most fonts render ‹ / ›
-             slightly below visual center inside their box. */
-          padding-bottom: 2px;
-          box-sizing: border-box;
-        }
-        .ss-nav:hover {
-          background: rgba(255, 255, 255, 0.18);
-          border-color: rgba(255, 255, 255, 0.32);
         }
         .ss-nav.prev { left: 24px; }
         .ss-nav.next { right: 24px; }
 
         @media (max-width: 768px) {
           .ss-stage { padding: 80px 24px 100px; }
-          .ss-nav { width: 48px; height: 48px; font-size: 26px; }
+          .ss-circle { width: 40px; height: 40px; }
           .ss-nav.prev { left: 12px; }
           .ss-nav.next { right: 12px; }
-          .ss-btn.close { width: 40px; height: 40px; font-size: 20px; }
         }
       `}</style>
     </div>
