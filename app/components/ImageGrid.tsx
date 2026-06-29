@@ -55,6 +55,9 @@ const GAP = 20;
 const PADDING_X = 20;
 const DEFAULT_MIN_WIDTH = 240;
 const FALLBACK_ASPECT = 1; // square for images without dimensions yet
+// Panoramic / banner-ish images (≥2× wider than tall) span two columns so
+// they don't get squeezed into a thin sliver next to portrait shots.
+const WIDE_SPAN_THRESHOLD = 2;
 
 type Placement = {
   image: ImageRow;
@@ -167,34 +170,69 @@ export default function ImageGrid({
     const colWidth = (containerWidth - GAP * (cols - 1)) / cols;
     const colHeights = new Array<number>(cols).fill(0);
     const placed: Placement[] = [];
+    const titleH = 28; // single-line title + margin (constant across cards)
 
     for (const img of images) {
-      // Title row is consistent height; image height comes from aspect.
+      // If we know the real dimensions, we can decide whether this image is
+      // panoramic enough to deserve two columns. Fall back to "not wide" when
+      // dimensions are missing — better to under-span than to grant a fat
+      // card to an aspect we can't verify yet.
+      const w = img.width ?? 0;
+      const h = img.height ?? 0;
+      const isWide =
+        cols >= 2 && w > 0 && h > 0 && w / h >= WIDE_SPAN_THRESHOLD;
+      const span = isWide ? 2 : 1;
+
+      const cardWidth = colWidth * span + GAP * (span - 1);
+
+      // Frame height is derived from the real aspect when known; otherwise
+      // we square the slot so the card has a sensible footprint.
       const aspect = img.width && img.height
         ? img.height / img.width
         : FALLBACK_ASPECT;
-      const imageH = colWidth * aspect;
-      const titleH = 28; // single-line title + margin
+      const imageH = cardWidth * aspect;
 
-      // Choose the column with the smallest running height.
+      // Single-column: pick the shortest column.
+      // Two-column span: pick the adjacent pair whose taller side is
+      // shortest, so the spanning card doesn't drop a deep gap under the
+      // shorter column. Ties break leftmost.
       let targetCol = 0;
-      for (let i = 1; i < cols; i++) {
-        if (colHeights[i] < colHeights[targetCol]) targetCol = i;
+      if (span === 1) {
+        for (let i = 1; i < cols; i++) {
+          if (colHeights[i] < colHeights[targetCol]) targetCol = i;
+        }
+      } else {
+        let bestPairMax = Math.max(colHeights[0], colHeights[1]);
+        for (let i = 1; i <= cols - 2; i++) {
+          const pairMax = Math.max(colHeights[i], colHeights[i + 1]);
+          if (pairMax < bestPairMax) {
+            bestPairMax = pairMax;
+            targetCol = i;
+          }
+        }
       }
 
       const left = targetCol * (colWidth + GAP);
-      const top = colHeights[targetCol];
+      const top =
+        span === 1
+          ? colHeights[targetCol]
+          : Math.max(colHeights[targetCol], colHeights[targetCol + 1]);
 
       placed.push({
         image: img,
         left,
         top,
-        width: colWidth,
+        width: cardWidth,
         height: imageH + titleH,
         frameHeight: imageH,
       });
 
-      colHeights[targetCol] = top + imageH + titleH + GAP;
+      // Bump every spanned column to the new bottom so subsequent cards
+      // start below the entire wide block, not just the originating column.
+      const newHeight = top + imageH + titleH + GAP;
+      for (let i = 0; i < span; i++) {
+        colHeights[targetCol + i] = newHeight;
+      }
     }
 
     const totalH = Math.max(...colHeights) - GAP;
