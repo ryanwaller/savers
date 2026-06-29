@@ -214,19 +214,23 @@ export default function ImageSlideshow({
           border-color: #f0f0f0;
         }
         .ss-btn.close {
-          width: 32px;
-          height: 32px;
+          /* Circular glass button — matches the kebab + sidebar icon-button
+             pattern used elsewhere (32–44px circle, 999px radius). The X
+             sits on the dark backdrop alone, so we keep the dark/glass
+             treatment instead of the bright white the bottom buttons use. */
+          width: 44px;
+          height: 44px;
           padding: 0;
-          font-size: 20px;
-          /* The close X sits on the dark backdrop alone — keep it
-             dark/glass instead of the bright white the bottom buttons
-             use. */
-          background: rgba(0, 0, 0, 0.6);
+          font-size: 22px;
+          border-radius: 999px;
+          background: rgba(0, 0, 0, 0.55);
           color: #fff;
-          border-color: rgba(255, 255, 255, 0.25);
+          border-color: rgba(255, 255, 255, 0.22);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
         }
         .ss-btn.close:hover {
-          background: rgba(0, 0, 0, 0.8);
+          background: rgba(0, 0, 0, 0.78);
           border-color: rgba(255, 255, 255, 0.4);
         }
 
@@ -280,34 +284,46 @@ export default function ImageSlideshow({
         }
 
         .ss-nav {
+          /* Circular nav buttons — same glass-on-dark style as the close X
+             so the three slideshow controls feel like one set. Sized at
+             56px on desktop / 48px on mobile for an easy tap target without
+             dwarfing the photo. */
           position: absolute;
           top: 50%;
           transform: translateY(-50%);
-          width: 44px;
-          height: 64px;
+          width: 56px;
+          height: 56px;
           background: rgba(255, 255, 255, 0.08);
           border: 1px solid rgba(255, 255, 255, 0.18);
           color: #fff;
           font-size: 32px;
           line-height: 1;
           cursor: pointer;
-          border-radius: 8px;
+          border-radius: 999px;
           display: inline-flex;
           align-items: center;
           justify-content: center;
           z-index: 2;
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          /* Pull the chevron glyph up a hair — most fonts render ‹ / ›
+             slightly below visual center inside their box. */
+          padding-bottom: 2px;
+          box-sizing: border-box;
         }
         .ss-nav:hover {
-          background: rgba(255, 255, 255, 0.16);
+          background: rgba(255, 255, 255, 0.18);
+          border-color: rgba(255, 255, 255, 0.32);
         }
         .ss-nav.prev { left: 24px; }
         .ss-nav.next { right: 24px; }
 
         @media (max-width: 768px) {
           .ss-stage { padding: 80px 24px 100px; }
-          .ss-nav { width: 40px; height: 56px; font-size: 26px; }
+          .ss-nav { width: 48px; height: 48px; font-size: 26px; }
           .ss-nav.prev { left: 12px; }
           .ss-nav.next { right: 12px; }
+          .ss-btn.close { width: 40px; height: 40px; font-size: 20px; }
         }
       `}</style>
     </div>
