@@ -169,6 +169,7 @@ export default function FeedInbox({
           flex-direction: column;
           gap: 14px;
           padding: 16px 20px 20px;
+          container-type: inline-size;
         }
         .feed-inbox-list {
           display: grid;
@@ -188,9 +189,10 @@ export default function FeedInbox({
           display: grid;
           gap: 14px;
           align-items: stretch;
+          min-width: 0;
         }
         .feed-inbox-item.has-preview .feed-inbox-item-main {
-          grid-template-columns: minmax(0, 240px) minmax(0, 1fr);
+          grid-template-columns: minmax(0, clamp(180px, 18vw, 220px)) minmax(0, 1fr);
         }
         .feed-inbox-item.is-edit-mode .feed-inbox-item-main {
           grid-template-columns: auto minmax(0, 1fr);
@@ -224,6 +226,9 @@ export default function FeedInbox({
           background: var(--color-bg);
         }
         .feed-inbox-item-thumb {
+          width: 100%;
+          min-width: 0;
+          max-width: 100%;
           aspect-ratio: 16 / 10;
           border-radius: 10px;
           overflow: hidden;
@@ -238,6 +243,7 @@ export default function FeedInbox({
         .feed-inbox-item-thumb img {
           width: 100%;
           height: 100%;
+          max-width: 100%;
           object-fit: cover;
           display: block;
         }
@@ -323,6 +329,14 @@ export default function FeedInbox({
           }
           .feed-inbox-item-actions {
             justify-content: flex-start;
+          }
+        }
+        @container (max-width: 700px) {
+          .feed-inbox-item.has-preview .feed-inbox-item-main {
+            grid-template-columns: 1fr;
+          }
+          .feed-inbox-item-thumb {
+            aspect-ratio: 16 / 9;
           }
         }
       `}</style>
