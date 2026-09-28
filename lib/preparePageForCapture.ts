@@ -136,6 +136,26 @@ export interface PreparePageOptions {
   skipNavigation?: boolean;
 }
 
+/**
+ * Wait for web fonts to finish loading before taking a screenshot. The
+ * browser's Font Loading API resolves after successful loads and failures,
+ * but a defensive timeout keeps a broken font host from blocking captures.
+ */
+async function waitForWebFonts(page: Page, timeoutMs = 6000): Promise<void> {
+  try {
+    await page.evaluate(async (limit: number) => {
+      if (!document.fonts) return;
+
+      await Promise.race([
+        document.fonts.ready,
+        new Promise<void>((resolve) => window.setTimeout(resolve, limit)),
+      ]);
+    }, timeoutMs);
+  } catch {
+    // Font loading is best-effort; the screenshot should still be captured.
+  }
+}
+
 let interceptionSetup = new WeakMap<Page, boolean>();
 
 /**
@@ -166,7 +186,9 @@ export async function preparePageForCapture(
 
     const requestHandler = (req: any) => {
       const type = req.resourceType();
-      if (["font", "media", "websocket"].includes(type)) {
+      // Keep font requests enabled so captures use the site's actual type.
+      // Media and sockets add noise without improving a static preview.
+      if (["media", "websocket"].includes(type)) {
         void req.abort();
         return;
       }
@@ -360,6 +382,10 @@ export async function preparePageForCapture(
     }
     await new Promise((r) => setTimeout(r, 300));
   }
+
+  // Wait after lazy-load work as well: sites often inject their stylesheet
+  // and font faces only after the initial page has rendered.
+  await waitForWebFonts(page);
 
   if (blockedCmp > 0) {
     console.log(`[preparePage] Blocked ${blockedCmp} CMP request(s) for ${url}`);
