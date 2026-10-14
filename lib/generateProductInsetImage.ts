@@ -1,3 +1,4 @@
+import { safePublicFetch } from "./safe-fetch";
 import sharp from "sharp";
 
 const CANVAS_WIDTH = 1280;
@@ -256,9 +257,10 @@ export async function generateProductInsetImage(
         headers.Referer = pageUrl;
       }
 
-      const res = await fetch(productImageUrl, {
+      const res = await safePublicFetch(productImageUrl, {
         headers,
         signal: AbortSignal.timeout(IMAGE_FETCH_TIMEOUT_MS),
+        maxBytes: 10 * 1024 * 1024,
       });
 
       if (!res.ok)

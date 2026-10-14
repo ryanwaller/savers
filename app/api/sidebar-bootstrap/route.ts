@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import type { Collection, FeedSubscription, SmartCollection } from "@/lib/types";
+import { readAllPages } from "@/lib/read-all-pages";
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) return error.message;
@@ -46,40 +47,43 @@ export async function GET() {
     const supabaseAdmin = getSupabaseAdmin();
     const { user } = await requireUser();
 
-    const [collectionsResult, bookmarkSummaryResult, smartCollectionsResult, feedSubscriptionsResult] =
+    const [collectionsResult, bookmarkRows, smartCollectionsResult, feedSubscriptionsResult] =
       await Promise.all([
-        supabaseAdmin
+        readAllPages<Collection>((from, to) => supabaseAdmin
           .from("collections")
           .select("*")
           .eq("user_id", user.id)
-          .order("position"),
-        supabaseAdmin
+          .order("position")
+          .order("id")
+          .range(from, to)
+          .returns<Collection[]>()),
+        readAllPages((from, to) => supabaseAdmin
           .from("bookmarks")
           .select("collection_id, pinned, link_status")
-          .eq("user_id", user.id),
-        supabaseAdmin
+          .eq("user_id", user.id)
+          .order("id")
+          .range(from, to)),
+        readAllPages<SmartCollection>((from, to) => supabaseAdmin
           .from("smart_collections")
           .select("*")
           .eq("user_id", user.id)
           .order("position")
-          .returns<SmartCollection[]>(),
-        supabaseAdmin
+          .order("id")
+          .range(from, to)
+          .returns<SmartCollection[]>()),
+        readAllPages<FeedSubscription>((from, to) => supabaseAdmin
           .from("feed_subscriptions")
           .select("*")
           .eq("user_id", user.id)
           .order("created_at", { ascending: true })
-          .returns<FeedSubscription[]>(),
+          .order("id")
+          .range(from, to)
+          .returns<FeedSubscription[]>()),
       ]);
 
-    if (collectionsResult.error) throw collectionsResult.error;
-    if (bookmarkSummaryResult.error) throw bookmarkSummaryResult.error;
-    if (smartCollectionsResult.error) throw smartCollectionsResult.error;
-    if (feedSubscriptionsResult.error) throw feedSubscriptionsResult.error;
-
-    const collections = (collectionsResult.data as Collection[]) ?? [];
-    const bookmarkRows = bookmarkSummaryResult.data ?? [];
-    const smartCollections = smartCollectionsResult.data ?? [];
-    const feedSubscriptions = feedSubscriptionsResult.data ?? [];
+    const collections = collectionsResult;
+    const smartCollections = smartCollectionsResult;
+    const feedSubscriptions = feedSubscriptionsResult;
 
     const collectionBookmarkCounts: Record<string, number> = {};
     let pinned = 0;
@@ -108,16 +112,16 @@ export async function GET() {
       .filter((id): id is string => typeof id === "string" && id.length > 0);
 
     if (feedIds.length > 0) {
-      const { data: feedRows, error: feedRowsError } = await supabaseAdmin
+      const feedRows = await readAllPages((from, to) => supabaseAdmin
         .from("feed_items")
         .select("subscription_id")
         .in("subscription_id", feedIds)
         .eq("imported", false)
-        .eq("dismissed", false);
+        .eq("dismissed", false)
+        .order("id")
+        .range(from, to));
 
-      if (feedRowsError) throw feedRowsError;
-
-      for (const row of feedRows ?? []) {
+      for (const row of feedRows) {
         const subscriptionId = row.subscription_id;
         if (!subscriptionId || typeof subscriptionId !== "string") continue;
         feedCounts[subscriptionId] = (feedCounts[subscriptionId] ?? 0) + 1;

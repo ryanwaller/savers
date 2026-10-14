@@ -65,6 +65,7 @@ export async function GET(
         'id, url, title, description, og_image, favicon, tags, position, pinned, created_at, preview_path, preview_version'
       )
       .eq('collection_id', collection.id)
+      .eq('user_id', collection.user_id)
       .order('pinned', { ascending: false })
       .order('position', { ascending: true })
       .order('created_at', { ascending: false })

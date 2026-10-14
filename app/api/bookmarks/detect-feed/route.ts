@@ -1,3 +1,4 @@
+import { safePublicFetch } from "@/lib/safe-fetch";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser } from "@/lib/auth-server";
 
@@ -37,7 +38,7 @@ async function discoverFeedUrl(html: string, baseUrl: string): Promise<string | 
   for (const path of commonPaths) {
     try {
       const candidate = new URL(path, baseUrl).href;
-      const probe = await fetch(candidate, {
+      const probe = await safePublicFetch(candidate, {
         headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
         signal: AbortSignal.timeout(8000),
       });
@@ -68,18 +69,17 @@ export async function GET(req: NextRequest) {
 
   try {
     // Step 1: HEAD to check Content-Type
-    const headRes = await fetch(url, {
+    const headRes = await safePublicFetch(url, {
       method: "HEAD",
       headers: { "User-Agent": ua },
       signal: AbortSignal.timeout(10000),
-      redirect: "follow",
     });
 
     const ct = headRes.headers.get("content-type");
 
     // Step 2: If Content-Type is feed-like, fetch the feed for its title
     if (isFeedContentType(ct)) {
-      const feedRes = await fetch(url, {
+      const feedRes = await safePublicFetch(url, {
         headers: { "User-Agent": ua },
         signal: AbortSignal.timeout(10000),
       });
@@ -90,7 +90,7 @@ export async function GET(req: NextRequest) {
 
     // Step 3: If HTML, try auto-discovery
     if (ct && ct.includes("text/html")) {
-      const htmlRes = await fetch(url, {
+      const htmlRes = await safePublicFetch(url, {
         headers: { "User-Agent": ua },
         signal: AbortSignal.timeout(10000),
       });
@@ -99,7 +99,7 @@ export async function GET(req: NextRequest) {
       if (discovered) {
         // Fetch the discovered feed for its title
         try {
-          const feedRes = await fetch(discovered, {
+          const feedRes = await safePublicFetch(discovered, {
             headers: { "User-Agent": ua },
             signal: AbortSignal.timeout(10000),
           });
@@ -115,7 +115,7 @@ export async function GET(req: NextRequest) {
     // Step 4: If Content-Type wasn't clear, do a partial GET to peek at the body
     if (!ct || (!ct.includes("text/html") && !isFeedContentType(ct))) {
       try {
-        const peekRes = await fetch(url, {
+        const peekRes = await safePublicFetch(url, {
           headers: { "User-Agent": ua, Range: "bytes=0-2048" },
           signal: AbortSignal.timeout(10000),
         });

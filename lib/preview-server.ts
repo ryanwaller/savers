@@ -1,5 +1,6 @@
 import "server-only";
 
+import { safePublicFetch } from "./safe-fetch";
 import { isPublicUrl, normalizeUrl, screenshotPreviewUrl } from "@/lib/api";
 import { isShoppingContext, looksLikeProductDetailUrl } from "@/lib/assetTypeRules";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
@@ -277,7 +278,7 @@ async function buildCandidates(
 }
 
 async function fetchImage(candidate: ImageCandidate) {
-  const response = await fetch(candidate.url, {
+  const response = await safePublicFetch(candidate.url, {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       "User-Agent": USER_AGENT,
@@ -285,7 +286,7 @@ async function fetchImage(candidate: ImageCandidate) {
     },
     redirect: "follow",
     signal: AbortSignal.timeout(candidate.kind === "microlink" ? 15000 : 12000),
-    cache: "no-store",
+    maxBytes: 10 * 1024 * 1024,
   });
 
   if (!response.ok) {

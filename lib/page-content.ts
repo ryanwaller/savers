@@ -5,6 +5,7 @@
 // designer location, client list, content tone, etc).
 
 import * as cheerio from "cheerio";
+import { safePublicFetch } from "./safe-fetch";
 
 export type PageContent = {
   title: string | null;
@@ -118,7 +119,7 @@ export async function fetchPageContent(url: string): Promise<PageContent | null>
 
   let res: Response;
   try {
-    res = await fetch(fetchUrl, {
+    res = await safePublicFetch(fetchUrl, {
       headers: {
         // Use a browser-ish UA so social sites that gate scrapers don't
         // immediately bounce us. Instagram /embed/ in particular returns
@@ -128,7 +129,8 @@ export async function fetchPageContent(url: string): Promise<PageContent | null>
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
       },
-      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS),
+      timeoutMs: FETCH_TIMEOUT_MS,
+      maxBytes: 3 * 1024 * 1024,
     });
   } catch {
     return null;

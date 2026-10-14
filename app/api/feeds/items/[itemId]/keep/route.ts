@@ -36,6 +36,17 @@ export async function POST(
       return NextResponse.json({ error: "Feed item not found" }, { status: 404 });
     }
 
+    if (subscription.collection_id) {
+      const { data: collection, error: collectionError } = await supabase
+        .from("collections")
+        .select("id")
+        .eq("id", subscription.collection_id)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (collectionError) throw collectionError;
+      if (!collection) return NextResponse.json({ error: "Feed collection not found" }, { status: 400 });
+    }
+
     if (!item.url) {
       return NextResponse.json({ error: "This feed item cannot be saved yet." }, { status: 400 });
     }

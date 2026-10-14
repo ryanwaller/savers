@@ -11,7 +11,8 @@ export const runtime = "nodejs";
  *   ?collection_id=<uuid>     scope to a single collection
  *   ?unsorted=1               only rows with collection_id IS NULL
  *   ?sort=newest|oldest|name  default: newest
- *   ?limit=<n>                default 500, max 2000
+ *   ?limit=<n>                default 500, max 500
+ *   ?offset=<n>               zero-based page offset
  *
  * Includes a publicly-accessible preview URL when preview_path is set.
  * Originals are served via a separate signed-URL endpoint when the user
@@ -27,8 +28,9 @@ export async function GET(req: NextRequest) {
     const sort = url.searchParams.get("sort") || "newest";
     const limit = Math.min(
       Math.max(parseInt(url.searchParams.get("limit") || "500", 10) || 500, 1),
-      2000,
+      500,
     );
+    const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
 
     const supabaseAdmin = getSupabaseAdmin();
 
@@ -39,7 +41,7 @@ export async function GET(req: NextRequest) {
         "id, user_id, collection_id, title, description, tags, notes, source_url, source_kind, file_kind, mime_type, width, height, preview_path, original_path, original_filename, original_size_bytes, processing_status, taken_at, camera_make, camera_model, ai_processed_at, ai_failed_at, position, created_at",
       )
       .eq("user_id", user.id)
-      .limit(limit);
+      .range(offset, offset + limit - 1);
 
     if (collectionId) {
       query = query.eq("collection_id", collectionId);
@@ -54,6 +56,7 @@ export async function GET(req: NextRequest) {
     } else {
       query = query.order("created_at", { ascending: false });
     }
+    query = query.order("id");
 
     const { data, error } = await query;
 
@@ -72,7 +75,7 @@ export async function GET(req: NextRequest) {
         : null,
     }));
 
-    return NextResponse.json({ images });
+    return NextResponse.json({ images, has_more: images.length === limit, next_offset: offset + images.length });
   } catch (err) {
     if (err instanceof UnauthorizedError) {
       return NextResponse.json({ error: err.message }, { status: 401 });

@@ -1,4 +1,5 @@
 import type { Page } from "puppeteer";
+import { safePublicFetch } from "./safe-fetch";
 import sharp from "sharp";
 import { getSaversUserAgent } from "./site-url";
 
@@ -54,7 +55,7 @@ export async function findRecipeHeroImageUrl(
         if (img.naturalWidth < minW || img.naturalHeight < minH) continue;
 
         // Resolve the best src
-        let src =
+        const src =
           img.dataset.src ||
           img.dataset.lazySrc ||
           img.dataset.original ||
@@ -136,11 +137,12 @@ export async function findRecipeHeroImageUrl(
  * Fetch a hero image URL and process it through sharp to a 1280x800 cover-crop JPEG.
  */
 export async function fetchAndProcessRecipeHero(imageUrl: string): Promise<Buffer> {
-  const res = await fetch(imageUrl, {
+  const res = await safePublicFetch(imageUrl, {
     headers: {
       "User-Agent": getSaversUserAgent(),
     },
     signal: AbortSignal.timeout(HERO_IMAGE_FETCH_TIMEOUT_MS),
+    maxBytes: 10 * 1024 * 1024,
   });
 
   if (!res.ok) throw new Error(`Image fetch failed: HTTP ${res.status}`);

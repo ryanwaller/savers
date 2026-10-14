@@ -78,6 +78,19 @@ const SIDEBAR_SNAPSHOT_STORAGE_KEY = "savers.sidebar.snapshot.v1";
 const FEED_ITEMS_CACHE_STORAGE_KEY = "savers.feedItemsCache.v1";
 const IMAGE_VIEW_CACHE_STORAGE_KEY = "savers.imageViewCache.v1";
 
+async function fetchAllImages(url: URL): Promise<ImageRow[]> {
+  const images: ImageRow[] = [];
+  for (;;) {
+    url.searchParams.set("offset", String(images.length));
+    url.searchParams.set("limit", "500");
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Failed to load images");
+    images.push(...((body.images as ImageRow[]) || []));
+    if (!body.has_more) return images;
+  }
+}
+
 export default function Home() {
   const MIN_SIDEBAR_WIDTH = 180;
   const MAX_SIDEBAR_WIDTH = 420;
@@ -615,10 +628,7 @@ export default function Home() {
         url.searchParams.set("unsorted", "1");
       }
       url.searchParams.set("sort", "newest");
-      const res = await fetch(url.toString(), { cache: "no-store" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) return;
-      const nextImages = (body.images as ImageRow[]) || [];
+      const nextImages = await fetchAllImages(url);
       imageViewCacheRef.current.set(cacheKey, nextImages);
       if (target.kind === "images_all") {
         imageViewCacheRef.current.set(
@@ -1417,8 +1427,7 @@ export default function Home() {
   );
 
   // Load images for the current view. Runs whenever the user switches
-  // into an image-related selection. Fast enough that we re-fetch on
-  // every entry — pagination + incremental fetch is a later concern.
+  // into an image-related selection. Re-fetch the available pages on entry.
   useEffect(() => {
     if (authLoading || !user) return;
     if (selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted") return;
@@ -1445,16 +1454,14 @@ export default function Home() {
         // Always pull newest; client-side groups by collection when the
         // sort dropdown asks for that view (mirrors the bookmark grid).
         url.searchParams.set("sort", "newest");
-        const res = await fetch(url.toString(), { cache: "no-store" });
-        const body = await res.json().catch(() => ({}));
+        const nextImages = await fetchAllImages(url);
         if (cancelled) return;
-        if (!res.ok) {
-          console.error("[images] load failed", body);
+        setImages(nextImages);
+        writeImageViewCache(selection, nextImages);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[images] load failed", error);
           setImages([]);
-        } else {
-          const nextImages = (body.images as ImageRow[]) || [];
-          setImages(nextImages);
-          writeImageViewCache(selection, nextImages);
         }
       } finally {
         if (!cancelled) {

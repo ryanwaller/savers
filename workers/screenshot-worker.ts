@@ -219,9 +219,10 @@ async function processJob(job: Job<ScreenshotJobData>) {
       try {
         await recipePage.setUserAgent(USER_AGENT);
         await recipePage.setExtraHTTPHeaders(BROWSER_HEADERS);
-        await recipePage.goto(normalizeUrl(url), {
-          waitUntil: "domcontentloaded",
+        await preparePageForCapture(recipePage, normalizeUrl(url), {
           timeout: 25000,
+          settleMs: 0,
+          scrollForLazy: false,
         });
         // Wait for lazy images to load
         await new Promise((r) => setTimeout(r, 3000));

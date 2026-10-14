@@ -3,6 +3,8 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import sharp from "sharp";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { safePublicFetch } from "@/lib/safe-fetch";
+import { isPublicUrl } from "@/lib/public-url";
 import { describeImage } from "@/lib/image-ai";
 import { fetchPageContent } from "@/lib/page-content";
 import { normalizeUrl } from "@/lib/normalizeUrl";
@@ -133,46 +135,6 @@ function titleFromFilename(fileName: string): string {
   return base.replace(/[._-]+/g, " ").replace(/\s+/g, " ").trim() || "Untitled";
 }
 
-function isPublicUrl(url: string): boolean {
-  try {
-    const parsed = new URL(normalizeUrl(url));
-    const host = parsed.hostname.toLowerCase();
-
-    if (
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "[::1]" ||
-      host === "0.0.0.0"
-    ) {
-      return false;
-    }
-
-    if (
-      host.startsWith("10.") ||
-      host.startsWith("192.168.") ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
-    ) {
-      return false;
-    }
-
-    if (
-      host.endsWith(".local") ||
-      host.endsWith(".internal") ||
-      host.endsWith(".test") ||
-      host.endsWith(".invalid") ||
-      host.endsWith(".example") ||
-      host === "metadata.google.internal" ||
-      host === "169.254.169.254"
-    ) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
 function filenameFromUrl(url: string, fallback: string): string {
   try {
     const parsed = new URL(url);
@@ -189,7 +151,7 @@ async function fetchRemoteBinary(url: string): Promise<{
   contentType: string;
   fileName: string;
 }> {
-  const response = await fetch(url, {
+  const response = await safePublicFetch(url, {
     headers: {
       "User-Agent":
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15",
@@ -197,7 +159,8 @@ async function fetchRemoteBinary(url: string): Promise<{
         "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
       "Accept-Language": "en-US,en;q=0.9",
     },
-    signal: AbortSignal.timeout(20_000),
+    timeoutMs: 20_000,
+    maxBytes: HARD_CAP_BYTES,
   });
 
   if (!response.ok) {
@@ -438,10 +401,9 @@ export async function processAndStoreRemoteImage(input: {
   let initialDescription: string | null = null;
 
   try {
-    const head = await fetch(normalizedUrl, {
+    const head = await safePublicFetch(normalizedUrl, {
       method: "HEAD",
-      redirect: "follow",
-      signal: AbortSignal.timeout(8_000),
+      timeoutMs: 8_000,
     });
     const hintedType = head.headers.get("content-type")?.split(";")[0]?.trim() || "";
     if (!hintedType.startsWith("image/") && !ACCEPTED_MIME_TYPES.has(hintedType)) {

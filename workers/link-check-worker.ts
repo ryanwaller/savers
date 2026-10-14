@@ -11,6 +11,7 @@
  * 4. Updates bookmark.link_status and last_link_check
  */
 
+import { safePublicFetch } from "../lib/safe-fetch";
 import { Worker, type Job } from "bullmq";
 import { createClient } from "@supabase/supabase-js";
 import { createRedisConnection } from "@/lib/redis";
@@ -55,7 +56,7 @@ async function checkUrl(url: string): Promise<CheckResult> {
 
   try {
     // Try HEAD first for efficiency
-    const headRes = await fetch(url, {
+    const headRes = await safePublicFetch(url, {
       method: "HEAD",
       signal: controller.signal,
       redirect: "manual",
@@ -70,7 +71,7 @@ async function checkUrl(url: string): Promise<CheckResult> {
         const location = headRes.headers.get("location");
         if (location) {
           // Follow one redirect to verify the target works
-          const followRes = await followRedirect(location);
+          const followRes = await followRedirect(new URL(location, url).href);
           if (followRes) return followRes;
         }
         return { status: "redirect", statusCode: headRes.status };
@@ -87,7 +88,7 @@ async function checkUrl(url: string): Promise<CheckResult> {
     );
 
     try {
-      const getRes = await fetch(url, {
+      const getRes = await safePublicFetch(url, {
         method: "GET",
         signal: getController.signal,
         redirect: "follow",
@@ -135,7 +136,7 @@ async function followRedirect(url: string): Promise<CheckResult | null> {
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
 
   try {
-    const res = await fetch(url, {
+      const res = await safePublicFetch(url, {
       method: "HEAD",
       signal: controller.signal,
       redirect: "follow",

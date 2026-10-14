@@ -1,6 +1,7 @@
 import type { Bookmark, Collection, OGData, AISuggestion, SmartCollection, FilterGroup, FeedItem } from "./types";
 import type { BookmarkSummaries } from "./bookmark-summaries";
 import { normalizeUrl } from "./normalizeUrl";
+import { isPublicUrl } from "./public-url";
 
 export type CustomPreviewSource =
   | File
@@ -122,8 +123,16 @@ export const api = {
     const sp = new URLSearchParams();
     if (params.collection_id) sp.set("collection_id", params.collection_id);
     if (params.q) sp.set("q", params.q);
-    const qs = sp.toString();
-    return j(await _fetch(`/api/bookmarks${qs ? `?${qs}` : ""}`, { cache: "no-store" }));
+    const bookmarks: Bookmark[] = [];
+    for (;;) {
+      sp.set("offset", String(bookmarks.length));
+      sp.set("limit", "500");
+      const page: { bookmarks: Bookmark[]; has_more: boolean } = await j(
+        await _fetch(`/api/bookmarks?${sp}`, { cache: "no-store" }),
+      );
+      bookmarks.push(...page.bookmarks);
+      if (!page.has_more) return { bookmarks };
+    }
   },
   async createBookmark(data: Partial<Bookmark> & { url: string }): Promise<{ bookmark: Bookmark }> {
     return j(
@@ -645,48 +654,7 @@ export function domainOf(url: string): string {
 
 export { normalizeUrl, canonicalBookmarkUrl } from "./normalizeUrl";
 
-export function isPublicUrl(url: string): boolean {
-  try {
-    const parsed = new URL(normalizeUrl(url));
-    const host = parsed.hostname.toLowerCase();
-
-    // Block localhost and standard internal ranges
-    if (
-      host === "localhost" ||
-      host === "127.0.0.1" ||
-      host === "[::1]" ||
-      host === "0.0.0.0"
-    ) {
-      return false;
-    }
-
-    // RFC1918 Private ranges
-    if (
-      host.startsWith("10.") ||
-      host.startsWith("192.168.") ||
-      /^172\.(1[6-9]|2\d|3[0-1])\./.test(host)
-    ) {
-      return false;
-    }
-
-    // Other reserved / internal patterns
-    if (
-      host.endsWith(".local") ||
-      host.endsWith(".internal") ||
-      host.endsWith(".test") ||
-      host.endsWith(".invalid") ||
-      host.endsWith(".example") ||
-      host === "metadata.google.internal" || // GCP
-      host === "169.254.169.254" // AWS/Azure/GCP metadata
-    ) {
-      return false;
-    }
-
-    return true;
-  } catch {
-    return false;
-  }
-}
+export { isPublicUrl };
 
 const CLEAN_URL_STRIP_PARAMS = new Set([
   "utm_source", "utm_medium", "utm_campaign", "utm_content", "utm_term",

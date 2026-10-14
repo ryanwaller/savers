@@ -1,4 +1,5 @@
-import type { Page } from "puppeteer";
+import type { HTTPRequest, Page } from "puppeteer";
+import { assertPublicDestination } from "./safe-fetch";
 
 // Domains known to serve cookie consent / GDPR / newsletter popup scripts.
 const CMP_DOMAINS = [
@@ -156,7 +157,8 @@ async function waitForWebFonts(page: Page, timeoutMs = 6000): Promise<void> {
   }
 }
 
-let interceptionSetup = new WeakMap<Page, boolean>();
+const interceptionSetup = new WeakMap<Page, boolean>();
+const interceptionHandlers = new WeakMap<Page, (request: HTTPRequest) => void>();
 
 /**
  * Shared page preparation: CMP blocking, navigation, popup dismissal,
@@ -184,7 +186,7 @@ export async function preparePageForCapture(
     await page.setRequestInterception(true);
     interceptionSetup.set(page, true);
 
-    const requestHandler = (req: any) => {
+    const requestHandler = (req: HTTPRequest) => {
       const type = req.resourceType();
       // Keep font requests enabled so captures use the site's actual type.
       // Media and sockets add noise without improving a static preview.
@@ -204,13 +206,20 @@ export async function preparePageForCapture(
           // malformed URL — let it through
         }
       }
-      void req.continue();
+      const requestUrl = req.url();
+      if (requestUrl.startsWith("data:") || requestUrl.startsWith("blob:")) {
+        void req.continue();
+        return;
+      }
+      void assertPublicDestination(requestUrl)
+        .then(() => req.continue())
+        .catch(() => req.abort());
     };
 
     page.on("request", requestHandler);
 
     // Store the handler reference for cleanup
-    (page as any).__saversRequestHandler = requestHandler;
+    interceptionHandlers.set(page, requestHandler);
   }
 
   // --- Step 2: Navigate (skip if page already loaded, e.g. after reload for retry) ---
@@ -393,10 +402,10 @@ export async function preparePageForCapture(
 
   // --- Cleanup ---
   const cleanup = async () => {
-    const handler = (page as any).__saversRequestHandler;
+    const handler = interceptionHandlers.get(page);
     if (handler) {
       page.off("request", handler);
-      delete (page as any).__saversRequestHandler;
+      interceptionHandlers.delete(page);
     }
     try {
       if (interceptionSetup.get(page)) {

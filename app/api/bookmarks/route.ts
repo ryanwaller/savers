@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { safePublicFetch } from "@/lib/safe-fetch";
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
@@ -163,7 +164,7 @@ export async function POST(req: NextRequest) {
     // Quick check: is this URL an RSS/Atom feed?
     let isFeed = false;
     try {
-      const head = await fetch(url, {
+      const head = await safePublicFetch(url, {
         method: "HEAD",
         headers: { "User-Agent": "Savers/1.0" },
         signal: AbortSignal.timeout(5000),
@@ -191,12 +192,15 @@ export async function GET(req: NextRequest) {
     const { user } = await requireUser()
     const collection_id = req.nextUrl.searchParams.get('collection_id')
     const q = req.nextUrl.searchParams.get('q')
+    const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '500', 10) || 500, 1), 500)
+    const offset = Math.max(parseInt(req.nextUrl.searchParams.get('offset') || '0', 10) || 0, 0)
 
     let query = supabaseAdmin
       .from('bookmarks')
       .select(BOOKMARK_LIST_SELECT)
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
+      .order('id')
 
     if (collection_id === 'unsorted') {
       query = query.is('collection_id', null)
@@ -208,12 +212,12 @@ export async function GET(req: NextRequest) {
       query = query.or(`title.ilike.%${q}%,url.ilike.%${q}%,description.ilike.%${q}%`)
     }
 
-    const { data, error } = await query
+    const { data, error } = await query.range(offset, offset + limit - 1)
     if (error) {
       logUnexpectedError('Load bookmarks error:', error)
       return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 })
     }
-    return NextResponse.json({ bookmarks: data })
+    return NextResponse.json({ bookmarks: data, has_more: (data?.length ?? 0) === limit, next_offset: offset + (data?.length ?? 0) })
   } catch (err) {
     logUnexpectedError('Load bookmarks catch error:', err)
     if (err instanceof UnauthorizedError) {

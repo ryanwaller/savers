@@ -1,3 +1,4 @@
+import { safePublicFetch } from "./safe-fetch";
 import { parseHTML } from "linkedom";
 import { Readability } from "@mozilla/readability";
 import { getSaversUserAgent } from "./site-url";
@@ -110,7 +111,7 @@ export async function extractExcerpt(
 ): Promise<string> {
   let html: string;
   try {
-    const res = await fetch(url, {
+    const res = await safePublicFetch(url, {
       headers: {
         "User-Agent": USER_AGENT,
         Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",

@@ -5,16 +5,15 @@ export function register() {
 
     async function checkAllFeeds() {
       try {
+        const secret = process.env.CRON_SECRET || process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (!secret) throw new Error("Missing cron secret");
         const port = process.env.PORT ?? "3000";
-        const res = await fetch(`http://localhost:${port}/api/feeds/check`, {
+        const response = await fetch(`http://localhost:${port}/api/feeds/check`, {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: { "Content-Type": "application/json", "x-cron-secret": secret },
         });
-        if (!res.ok) {
-          console.error(`[feed-cron] check failed: HTTP ${res.status}`);
-          return;
-        }
-        const data = await res.json();
+        if (!response.ok) throw new Error(`Feed check failed: HTTP ${response.status}`);
+        const data = await response.json();
         if (data.totalNew > 0) {
           console.log(`[feed-cron] ${data.totalNew} new bookmark(s) across ${data.results.length} feed(s)`);
         }

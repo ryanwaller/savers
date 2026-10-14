@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
       );
 
       // Remove the target tag
-      let restored = currentTags.filter(
+      const restored = currentTags.filter(
         (t) => t.toLowerCase() !== targetTag.toLowerCase(),
       );
 

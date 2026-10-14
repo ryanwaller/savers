@@ -1,6 +1,9 @@
+import { safePublicFetch } from "@/lib/safe-fetch";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { runFeedChecks } from "@/lib/feed-check";
+import { readAllPages } from "@/lib/read-all-pages";
 
 // GET /api/feeds — list subscriptions
 export async function GET() {
@@ -8,30 +11,28 @@ export async function GET() {
     const { user } = await requireUser();
     const supabase = getSupabaseAdmin();
 
-    const { data, error } = await supabase
+    const subscriptions = await readAllPages((from, to) => supabase
       .from("feed_subscriptions")
       .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: true });
-
-    if (error) throw error;
-
-    const subscriptions = data ?? [];
+      .order("created_at", { ascending: true })
+      .order("id")
+      .range(from, to));
     const ids = subscriptions.map((subscription) => subscription.id);
     let counts: Record<string, number> = {};
 
     if (ids.length > 0) {
-      const { data: pendingRows, error: pendingError } = await supabase
+      const pendingRows = await readAllPages((from, to) => supabase
         .from("feed_items")
         .select("subscription_id")
         .in("subscription_id", ids)
         .eq("imported", false)
-        .eq("dismissed", false);
-
-      if (pendingError) throw pendingError;
+        .eq("dismissed", false)
+        .order("id")
+        .range(from, to));
 
       counts = {};
-      for (const row of pendingRows ?? []) {
+      for (const row of pendingRows) {
         const subscriptionId = row.subscription_id;
         if (!subscriptionId || typeof subscriptionId !== "string") continue;
         counts[subscriptionId] = (counts[subscriptionId] ?? 0) + 1;
@@ -62,11 +63,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "feed_url and name are required" }, { status: 400 });
     }
 
+    if (collectionId) {
+      if (typeof collectionId !== "string") {
+        return NextResponse.json({ error: "Invalid collection_id" }, { status: 400 });
+      }
+      const { data: collection, error: collectionError } = await supabase
+        .from("collections")
+        .select("id")
+        .eq("id", collectionId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (collectionError) throw collectionError;
+      if (!collection) {
+        return NextResponse.json({ error: "Collection not found" }, { status: 404 });
+      }
+    }
+
     // Auto-discover feed URL from homepage if user pasted a website URL
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 8000);
-      const probe = await fetch(feedUrl, {
+      const probe = await safePublicFetch(feedUrl, {
         signal: controller.signal,
         headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
       });
@@ -102,7 +119,7 @@ export async function POST(req: NextRequest) {
           for (const path of commonPaths) {
             try {
               const candidate = new URL(path, feedUrl).href;
-              const probe = await fetch(candidate, {
+              const probe = await safePublicFetch(candidate, {
                 headers: { "User-Agent": "Savers/1.0 (FeedFetcher; +https://savers-production.up.railway.app)" },
               });
               if (probe.ok && probe.headers.get("content-type")?.includes("xml")) {
@@ -134,16 +151,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    // Kick off an immediate check for the new feed (fire-and-forget).
-    const newSubId = data.id;
-    fetch(
-      `${process.env.NEXT_PUBLIC_SITE_URL ?? `http://localhost:${process.env.PORT ?? "3000"}`}/api/feeds/check`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ subscription_id: newSubId }),
-      },
-    ).catch(() => {});
+    // Kick off an immediate check without exposing a privileged HTTP route.
+    void runFeedChecks({ userId: user.id, subscriptionId: data.id }).catch(() => {});
 
     return NextResponse.json({ subscription: data });
   } catch (err) {

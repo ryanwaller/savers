@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Privacy Policy | Savers",
@@ -62,12 +63,12 @@ export default function PrivacyPage() {
                 Privacy Policy
               </h1>
             </div>
-            <a
+            <Link
               href="/"
               className="btn"
             >
               Back to Savers
-            </a>
+            </Link>
           </div>
 
           <div className="space-y-2 text-[var(--color-text-muted)]">

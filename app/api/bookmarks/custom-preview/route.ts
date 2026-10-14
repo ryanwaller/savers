@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { removePreviewObjects, storeCustomPreview } from "@/lib/preview-server";
+import { safePublicFetch } from "@/lib/safe-fetch";
 
 const REMOTE_IMAGE_FETCH_TIMEOUT_MS = 15000;
 const REMOTE_IMAGE_HEADERS = {
@@ -51,7 +52,7 @@ function getErrorDetails(error: unknown) {
   return JSON.stringify(details);
 }
 
-async function resolveUploadPayload(req: NextRequest) {
+async function resolveUploadPayload(req: NextRequest, verifyBookmark: (id: string) => Promise<void>) {
   const contentType = req.headers.get("content-type") ?? "";
 
   if (contentType.includes("application/json")) {
@@ -63,6 +64,7 @@ async function resolveUploadPayload(req: NextRequest) {
     if (!body.bookmark_id || !body.image_url) {
       throw new Error("Missing bookmark id or image URL");
     }
+    await verifyBookmark(body.bookmark_id);
 
     let parsedUrl: URL;
     try {
@@ -75,9 +77,10 @@ async function resolveUploadPayload(req: NextRequest) {
       throw new Error("Image URL must use http or https");
     }
 
-    const response = await fetch(parsedUrl.href, {
+    const response = await safePublicFetch(parsedUrl.href, {
       headers: REMOTE_IMAGE_HEADERS,
-      signal: AbortSignal.timeout(REMOTE_IMAGE_FETCH_TIMEOUT_MS),
+      timeoutMs: REMOTE_IMAGE_FETCH_TIMEOUT_MS,
+      maxBytes: 10 * 1024 * 1024,
     });
 
     if (!response.ok) {
@@ -106,6 +109,7 @@ async function resolveUploadPayload(req: NextRequest) {
   if (typeof bookmarkId !== "string" || !bookmarkId) {
     throw new Error("Missing bookmark id");
   }
+  await verifyBookmark(bookmarkId);
 
   if (!(file instanceof File)) {
     throw new Error("Missing image file");
@@ -113,6 +117,10 @@ async function resolveUploadPayload(req: NextRequest) {
 
   if (!file.type.startsWith("image/")) {
     throw new Error("File must be an image");
+  }
+
+  if (file.size > 10 * 1024 * 1024) {
+    throw new Error("Image must be 10 MB or smaller");
   }
 
   return {
@@ -127,7 +135,16 @@ export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();
-    const upload = await resolveUploadPayload(req);
+    const upload = await resolveUploadPayload(req, async (bookmarkId) => {
+      const { data, error } = await supabaseAdmin
+        .from("bookmarks")
+        .select("id")
+        .eq("id", bookmarkId)
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error("Bookmark not found");
+    });
 
     const { data: bookmark, error: bookmarkError } = await supabaseAdmin
       .from("bookmarks")
@@ -160,6 +177,9 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     if (error instanceof UnauthorizedError) {
       return NextResponse.json({ error: error.message }, { status: 401 });
+    }
+    if (error instanceof Error && error.message === "Bookmark not found") {
+      return NextResponse.json({ error: error.message }, { status: 404 });
     }
 
     console.error(
