@@ -822,46 +822,41 @@ export default function Sidebar({
         )}
       </div>
 
-      <div className="sidebar-foot">
-        <div className="sidebar-foot-row">
-          <div className="sidebar-foot-primary">
-          </div>
-
-          {onSignOut && (
-            <div className="mobile-account-wrap">
-              <div className="mobile-session-chip" title={userEmail ?? "Signed in"}>
-                {userAvatarUrl ? (
-                  <img className="mobile-session-avatar" src={userAvatarUrl} alt={userEmail ?? ""} referrerPolicy="no-referrer" />
-                ) : (
-                  <span className="mobile-session-email">
-                    {userEmail ?? "Signed in"}
-                  </span>
-                )}
-                {onOpenSettings && (
-                  <button
-                    className="mobile-session-btn"
-                    onClick={() => {
-                      onOpenSettings();
-                      onCloseMobile?.();
-                    }}
-                  >
-                    Settings
-                  </button>
-                )}
+      {onSignOut && (
+        <div className="sidebar-foot">
+          <div className="mobile-account-wrap">
+            <div className="mobile-session-chip" title={userEmail ?? "Signed in"}>
+              {userAvatarUrl ? (
+                <img className="mobile-session-avatar" src={userAvatarUrl} alt={userEmail ?? ""} referrerPolicy="no-referrer" />
+              ) : (
+                <span className="mobile-session-email">
+                  {userEmail ?? "Signed in"}
+                </span>
+              )}
+              {onOpenSettings && (
                 <button
                   className="mobile-session-btn"
                   onClick={() => {
-                    void onSignOut();
+                    onOpenSettings();
                     onCloseMobile?.();
                   }}
                 >
-                  Sign out
+                  Settings
                 </button>
-              </div>
+              )}
+              <button
+                className="mobile-session-btn"
+                onClick={() => {
+                  void onSignOut();
+                  onCloseMobile?.();
+                }}
+              >
+                Sign out
+              </button>
             </div>
-          )}
+          </div>
         </div>
-      </div>
+      )}
 
       <style jsx>{`
         .sidebar {
@@ -879,7 +874,6 @@ export default function Sidebar({
           overflow-y: auto;
           overflow-x: hidden;
           min-height: 0;
-          padding-bottom: env(safe-area-inset-bottom, 0px);
         }
         .sidebar-head {
           min-height: 54px;
@@ -945,7 +939,7 @@ export default function Sidebar({
           display: flex;
           flex-wrap: wrap;
           gap: 6px;
-          padding: 4px 4px 8px;
+          padding: 4px 4px 0;
         }
         .tag-pill {
           gap: 6px;
@@ -1190,19 +1184,17 @@ export default function Sidebar({
           color: var(--color-text-muted);
         }
         .sidebar-foot {
+          display: none;
           padding: 8px 8px env(safe-area-inset-bottom, 0px);
           background: inherit;
-        }
-        .sidebar-foot-row {
-          display: block;
-        }
-        .sidebar-foot-primary {
-          min-width: 0;
         }
         .mobile-account-wrap {
           display: none;
         }
         @media (max-width: 768px) {
+          .sidebar-foot {
+            display: block;
+          }
           .mobile-account-wrap {
             display: flex;
             align-items: center;
@@ -1211,15 +1203,6 @@ export default function Sidebar({
             border-top: 1px solid var(--color-border);
           }
 
-          .sidebar-foot-row {
-            display: flex;
-            flex-direction: column;
-            align-items: stretch;
-            gap: 8px;
-          }
-          .sidebar-foot-primary {
-            min-width: 0;
-          }
           .mobile-session-chip {
             display: flex;
             align-items: center;
