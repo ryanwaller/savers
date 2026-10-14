@@ -77,6 +77,8 @@ test("token bookmarklet shows save status before its iframe loads", () => {
   });
 
   assert.equal(elements.find((element) => element.id === "savers-bm-root"), body.child);
+  assert.match(elements.find((element) => element.id === "savers-bm-root")?.style.cssText ?? "", /top:12px/);
+  assert.doesNotMatch(elements.find((element) => element.id === "savers-bm-root")?.style.cssText ?? "", /inset:0|background:/);
   assert.equal(elements.find((element) => element.textContent === "Saving to Unsorted…")?.textContent, "Saving to Unsorted…");
   const iframe = elements.find((element) => element.src?.includes("/quick-save.html?"));
   assert.ok(iframe);

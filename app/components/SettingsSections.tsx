@@ -528,7 +528,7 @@ export default function SettingsSections({
               <div>
                 <div className="feature-title">Quick save link</div>
                 <div className="feature-sub">
-                  Save from any bookmarks bar.
+                  Save to Unsorted without leaving the page.
                 </div>
               </div>
               <span className="status-chip status-ready">Ready</span>
@@ -552,7 +552,7 @@ export default function SettingsSections({
                 Open setup page
               </button>
             </div>
-            <p className="small muted">Saves straight to Unsorted. Recopy your bookmarklet to get the faster version.</p>
+            <p className="small muted">Copy this version for a small in-page status banner. Replace your existing bookmarklet code.</p>
             <details className="details">
               <summary>
                 <span>Manual setup</span>
