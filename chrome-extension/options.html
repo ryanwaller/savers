@@ -17,14 +17,16 @@
   </head>
   <body>
     <h1>Savers extension</h1>
-    <p>Click the Savers button in Chrome to save the current page to Unsorted. A small status message appears at the top of the page.</p>
+    <p>Click the Savers button in Chrome while viewing a normal website to save that page to Unsorted. A small status message appears at the top of the page.</p>
     <p>To connect, open <a href="https://savers-production.up.railway.app/" target="_blank" rel="noopener noreferrer">Savers</a>, then go to <strong>Settings → Browser extension → Create extension token</strong>. Copy the token and paste it below.</p>
     <form id="token-form">
       <label for="token">Extension token</label>
       <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="svr_…" />
       <button type="submit">Save token</button>
+      <button id="test-token" type="button">Test connection</button>
       <button id="clear-token" type="button">Remove token</button>
     </form>
+    <p id="saved-token"></p>
     <p id="status" role="status"></p>
     <script src="options.js"></script>
   </body>

@@ -54,11 +54,11 @@ function badgeFlashOk() {
   setTimeout(syncBadge, 2000);
 }
 
-function badgeFlashErr() {
+function badgeFlashErr(message = "Save failed") {
   chrome.action.setBadgeBackgroundColor({ color: "#8b1e1e" });
   chrome.action.setBadgeText({ text: "!" });
-  chrome.action.setTitle({ title: "Save failed" });
-  setTimeout(syncBadge, 2000);
+  chrome.action.setTitle({ title: message });
+  setTimeout(syncBadge, 10000);
 }
 
 /* ── Offline Queue ── */
@@ -329,7 +329,7 @@ async function showPageStatus(tabId, state, message) {
 async function quickSavePageFromTab(tab) {
   const url = tab?.url;
   if (!url || !/^https?:/i.test(url)) {
-    badgeFlashErr();
+    badgeFlashErr("Open a website to save it to Savers");
     return;
   }
 
@@ -340,7 +340,7 @@ async function quickSavePageFromTab(tab) {
     quick_save: true,
   };
   void badgeSaving("Saving to Unsorted…");
-  await showPageStatus(tab.id, "saving", "Saving to Unsorted…");
+  void showPageStatus(tab.id, "saving", "Saving to Unsorted…");
 
   try {
     const appUrl = await getStoredAppUrl();
@@ -363,7 +363,7 @@ async function quickSavePageFromTab(tab) {
         : error?.message || "Could not save this page.";
       await showPageStatus(tab.id, "error", message);
     }
-    badgeFlashErr();
+    badgeFlashErr(isNetworkError ? "Savers unavailable; page queued to retry" : "Save failed; open Savers extension Options to test connection");
   }
 }
 

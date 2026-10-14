@@ -24,7 +24,7 @@ for (const file of files) {
   });
 }
 
-const destination = path.join(root, "public", "downloads", "savers-chrome-extension-1.1.0.zip");
+const destination = path.join(root, "public", "downloads", "savers-chrome-extension-1.1.1.zip");
 await mkdir(path.dirname(destination), { recursive: true });
 await writeFile(destination, await archive.generateAsync({
   type: "nodebuffer",

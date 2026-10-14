@@ -15,7 +15,9 @@ If the extension was already loaded, click **Reload** on its card in `chrome://e
 
 1. In Savers, open **Settings → Browser extension → Create extension token**.
 2. Copy the token shown there. It is displayed only once.
-3. Right-click the Savers toolbar icon, choose **Options**, paste the token, and click **Save token**.
+3. Right-click the Savers toolbar icon, choose **Options**, paste the token, and click **Save token**. The page shows the final four characters of the saved token and checks the connection.
+
+To update an existing installation, replace the extracted files in the folder you loaded, then click **Reload** on the Savers card in `chrome://extensions`. Open Options and use **Test connection**. A newly loaded folder may have a different extension ID, in which case paste the token again.
 
 The token stays in Chrome's extension storage. The extension sends it only to the configured Savers server. Revoke it in Savers Settings if you stop using the extension.
 
