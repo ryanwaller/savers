@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { runInNewContext } from "node:vm";
 import {
   buildBookmarkletCode,
   buildSaveUrl,
@@ -43,8 +44,44 @@ test("resolveSaveSource falls back to legacy url and then referrer", () => {
 test("buildBookmarkletCode generates self-contained popup code", () => {
   const code = buildBookmarkletCode({ baseUrl: "https://example.com" });
   assert.ok(code.startsWith("javascript:(function(){var b="));
+  assert.ok(code.includes("/quick-save.html?url="));
   assert.ok(code.includes("window.open(u,'savers-save')"));
   assert.ok(code.includes("f.target='savers-save'"));
+  assert.ok(code.includes("f.action=b+'/quick-save.html'"));
+  assert.ok(code.includes("a.value=location.href"));
   assert.ok(code.includes("f.submit()"));
   assert.ok(code.endsWith("})()"));
+});
+
+test("token bookmarklet shows save status before its iframe loads", () => {
+  const code = buildBookmarkletCode({ baseUrl: "https://savers.example", token: "svr_test" });
+  const elements: Array<{ id?: string; src?: string; textContent?: string; children: unknown[]; appendChild: (child: unknown) => void; style: { cssText: string }; remove: () => void }> = [];
+  const createElement = () => {
+    const element = {
+      children: [] as unknown[],
+      style: { cssText: "" },
+      appendChild(child: unknown) { this.children.push(child); },
+      remove() {},
+    };
+    elements.push(element);
+    return element;
+  };
+  const body = { appendChild(child: unknown) { this.child = child; }, child: null as unknown };
+  runInNewContext(code.slice("javascript:".length), {
+    document: { getElementById: () => null, createElement, body, title: "Example title", addEventListener() {}, removeEventListener() {} },
+    location: { href: "https://page.example/story" },
+    window: { addEventListener() {}, removeEventListener() {} },
+    encodeURIComponent,
+    setTimeout: () => 1,
+    clearTimeout() {},
+  });
+
+  assert.equal(elements.find((element) => element.id === "savers-bm-root"), body.child);
+  assert.equal(elements.find((element) => element.textContent === "Saving to Unsorted…")?.textContent, "Saving to Unsorted…");
+  const iframe = elements.find((element) => element.src?.includes("/quick-save.html?"));
+  assert.ok(iframe);
+  const url = new URL(iframe.src!);
+  assert.equal(url.searchParams.get("url"), "https://page.example/story");
+  assert.equal(url.searchParams.get("title"), "Example title");
+  assert.equal(url.searchParams.get("token"), "svr_test");
 });

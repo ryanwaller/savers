@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { after, NextRequest, NextResponse } from 'next/server'
 import { safePublicFetch } from "@/lib/safe-fetch";
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
@@ -86,6 +86,7 @@ export async function POST(req: NextRequest) {
     const { user } = await requireUser()
     const body = await req.json()
     const { url, title, description, og_image, favicon, collection_id, tags, notes } = body
+    const quickSave = body.quick_save === true
 
     if (!url) return NextResponse.json({ error: 'Missing url' }, { status: 400 })
 
@@ -103,7 +104,7 @@ export async function POST(req: NextRequest) {
 
     const needsMetadata =
       !resolvedTitle || !resolvedDescription || !resolvedOgImage || !resolvedFavicon
-    if (needsMetadata) {
+    if (needsMetadata && !quickSave) {
       try {
         const fetched = await fetchPageContent(url)
         if (fetched) {
@@ -136,6 +137,30 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error
     const bookmark = data
+
+    if (quickSave) {
+      // The bookmark is durable now. Queue enrichment after responding so a
+      // quick save never waits for Redis or a remote page to answer.
+      after(async () => {
+        try {
+          await enqueueScreenshot({ bookmarkId: bookmark.id, userId: user.id, url: bookmark.url })
+        } catch (queueError) {
+          logUnexpectedError('Enqueue screenshot error:', queueError)
+        }
+        try {
+          await enqueueAutoTag({
+            bookmarkId: bookmark.id,
+            userId: user.id,
+            url: bookmark.url,
+            title: bookmark.title,
+            description: bookmark.description,
+          })
+        } catch (queueError) {
+          logUnexpectedError('Enqueue auto-tag error:', queueError)
+        }
+      })
+      return NextResponse.json({ bookmark })
+    }
 
     // Enqueue async screenshot capture (fire-and-forget)
     try {

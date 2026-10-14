@@ -410,7 +410,7 @@
           </span>
         </summary>
         <p class="detail-text">
-          Opens Savers in a new tab.
+          Saves the page to Unsorted in a small window. You can edit its title and tags later in Savers.
         </p>
       </details>
     </section>
@@ -427,7 +427,7 @@
       var bookmarkletCode =
         "javascript:(function(){var b=" +
         JSON.stringify(origin) +
-        ",u=b+'/save-overlay?url='+encodeURIComponent(location.href);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=u;f.target='savers-save';f.style.display='none';document.body.appendChild(f);f.submit();document.body.removeChild(f)})()";
+        ",u=b+'/quick-save.html?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=b+'/quick-save.html';f.target='savers-save';f.style.display='none';var a=document.createElement('input');a.name='url';a.value=location.href;f.appendChild(a);var t=document.createElement('input');t.name='title';t.value=document.title;f.appendChild(t);document.body.appendChild(f);f.submit();document.body.removeChild(f)})()";
 
       btn.addEventListener("click", function () {
         if (navigator.clipboard && navigator.clipboard.writeText) {

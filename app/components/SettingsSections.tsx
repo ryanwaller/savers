@@ -552,7 +552,7 @@ export default function SettingsSections({
                 Open setup page
               </button>
             </div>
-            <p className="small muted">Recopy if it ever stops working.</p>
+            <p className="small muted">Saves straight to Unsorted. Recopy your bookmarklet to get the faster version.</p>
             <details className="details">
               <summary>
                 <span>Manual setup</span>

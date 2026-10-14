@@ -29,16 +29,31 @@ type BuildBookmarkletCodeOptions = {
 export function buildBookmarkletCode(options: BuildBookmarkletCodeOptions = {}): string {
   const base = JSON.stringify((options.baseUrl || getPublicSiteUrl()).replace(/\/$/, ""));
 
-  // Token provided — build an iframe overlay using DOM methods.
-  // No innerHTML parsing, no cookie dependency, no popup blocker issues.
+  // Token provided: show feedback immediately, then save through a hidden
+  // first-party iframe so the request does not depend on third-party cookies.
   const token = options.token?.trim();
   if (token) {
     const t = JSON.stringify(token);
-    return `javascript:(function(){if(document.getElementById('savers-bm-root'))return;var b=${base},t=${t},u=b+'/save-overlay?url='+encodeURIComponent(location.href)+'&token='+encodeURIComponent(t),r=document.createElement('div');r.id='savers-bm-root';var d=document.createElement('div');d.id='savers-bm-backdrop';d.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,0.52);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;padding:24px';var i=document.createElement('iframe');i.id='savers-bm-iframe';i.src=u;i.style.cssText='border:0;width:min(540px,calc(100vw - 48px));height:min(680px,calc(100vh - 48px));border-radius:18px;box-shadow:0 24px 80px rgba(0,0,0,0.32)';i.allow='clipboard-write';i.title='Save to Savers';d.appendChild(i);r.appendChild(d);document.body.appendChild(r);d.addEventListener('click',function(e){if(e.target===e.currentTarget)r.remove()});window.addEventListener('message',function(e){if(e.origin!==b)return;if(e.data&&(e.data.type==='close'||e.data.type==='saved'))r.remove()});document.addEventListener('keydown',function(e){if(e.key==='Escape')r.remove()})})()`;
+    return [
+      "javascript:(function(){",
+      "if(document.getElementById('savers-bm-root'))return;",
+      `var b=${base},t=${t},u=b+'/quick-save.html?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title)+'&token='+encodeURIComponent(t);`,
+      "var r=document.createElement('div');r.id='savers-bm-root';r.style.cssText='position:fixed;inset:0;z-index:2147483647;background:rgba(0,0,0,.52);display:flex;align-items:center;justify-content:center;padding:16px';",
+      "var p=document.createElement('div');p.style.cssText='box-sizing:border-box;width:min(320px,100%);padding:22px;border-radius:12px;background:#fff;color:#111;box-shadow:0 20px 60px rgba(0,0,0,.25);font:14px/1.4 system-ui,sans-serif';",
+      "var s=document.createElement('div');s.textContent='Saving to Unsorted…';p.appendChild(s);",
+      "var c=document.createElement('button');c.type='button';c.textContent='Close';c.style.cssText='margin-top:16px;padding:5px 10px;border:1px solid #ccc;border-radius:5px;background:#fff;color:#111;cursor:pointer';p.appendChild(c);",
+      "var retry=document.createElement('button');retry.type='button';retry.textContent='Try again';retry.style.cssText=c.style.cssText+';margin-left:8px;display:none';p.appendChild(retry);",
+      "var i=document.createElement('iframe');i.title='Saving to Savers';i.style.display='none';r.appendChild(p);r.appendChild(i);(document.body||document.documentElement).appendChild(r);",
+      "var timeout,done=false;function close(){clearTimeout(timeout);window.removeEventListener('message',onMessage);document.removeEventListener('keydown',onKey);r.remove()}",
+      "function onKey(e){if(e.key==='Escape')close()}function onMessage(e){if(e.origin!==b||e.source!==i.contentWindow||!e.data||e.data.type!=='savers-quick-save')return;clearTimeout(timeout);done=true;s.textContent=e.data.message||'Could not save this page.';retry.style.display=e.data.state==='error'?'inline-block':'none';if(e.data.state==='saved')timeout=setTimeout(close,1200)}",
+      "function start(){done=false;retry.style.display='none';s.textContent='Saving to Unsorted…';i.src=u;timeout=setTimeout(function(){if(!done)s.textContent='Still saving. Savers is taking longer than usual.'},20000)}",
+      "c.onclick=close;retry.onclick=function(){clearTimeout(timeout);i.src='about:blank';setTimeout(start,0)};r.onclick=function(e){if(e.target===r)close()};window.addEventListener('message',onMessage);document.addEventListener('keydown',onKey);start()",
+      "})()",
+    ].join("");
   }
 
-  // No token — fall back to popup (cookie-based auth, works if signed in)
-  return `javascript:(function(){var b=${base},u=b+'/save-overlay?url='+encodeURIComponent(location.href);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=u;f.target='savers-save';f.style.display='none';document.body.appendChild(f);f.submit();document.body.removeChild(f)})()`;
+  // No token: open the quick-save page in a first-party popup for cookie auth.
+  return `javascript:(function(){var b=${base},u=b+'/quick-save.html?url='+encodeURIComponent(location.href)+'&title='+encodeURIComponent(document.title);var p=window.open(u,'savers-save');if(p){p.focus();return}var f=document.createElement('form');f.method='GET';f.action=b+'/quick-save.html';f.target='savers-save';f.style.display='none';var a=document.createElement('input');a.name='url';a.value=location.href;f.appendChild(a);var t=document.createElement('input');t.name='title';t.value=document.title;f.appendChild(t);document.body.appendChild(f);f.submit();document.body.removeChild(f)})()`;
 }
 
 export function resolveSaveSource(
