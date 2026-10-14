@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useEffect, useMemo, useState } from "react";
 import type { DuplicateGroup } from "@/lib/types";
@@ -24,9 +25,23 @@ function formatDate(iso: string): string {
   }
 }
 
-export default function DuplicateReviewModal({ open, onClose, groups, onDeleted }: Props) {
+function keptForStrategy(groups: DuplicateGroup[], strategy: "newest" | "oldest" | "manual") {
+  const next = new Map<string, Set<string>>();
+  for (const group of groups) {
+    const instances = [...group.instances];
+    if (strategy === "newest") {
+      instances.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    } else if (strategy === "oldest") {
+      instances.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+    }
+    if (strategy !== "manual" && instances.length) next.set(group.canonicalUrl, new Set([instances[0].id]));
+  }
+  return next;
+}
+
+function DuplicateReviewModalContent({ open, onClose, groups, onDeleted }: Props) {
   // keptByGroup: canonicalUrl -> Set of bookmark IDs to KEEP
-  const [keptByGroup, setKeptByGroup] = useState<Map<string, Set<string>>>(new Map());
+  const [keptByGroup, setKeptByGroup] = useState(() => keptForStrategy(groups, "newest"));
   const [strategy, setStrategy] = useState<"newest" | "oldest" | "manual">("newest");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState<{
@@ -35,14 +50,6 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
   } | null>(null);
   const [toastTimer, setToastTimer] = useState<ReturnType<typeof setTimeout> | null>(null);
 
-  // Reset state when modal opens or groups change.
-  useEffect(() => {
-    if (!open) return;
-    setToast(null);
-    applyStrategy("newest");
-    setStrategy("newest");
-  }, [open, groups]);
-
   // Clear toast timer on unmount.
   useEffect(() => {
     return () => {
@@ -50,30 +57,9 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
     };
   }, [toastTimer]);
 
-  function applyStrategy(s: "newest" | "oldest" | "manual") {
-    const next = new Map<string, Set<string>>();
-    for (const group of groups) {
-      const instances = [...group.instances];
-      if (s === "newest") {
-        instances.sort(
-          (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime(),
-        );
-      } else if (s === "oldest") {
-        instances.sort(
-          (a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime(),
-        );
-      }
-      // Manual: leave empty (no pre-selection) — keptByGroup entry won't exist
-      if (s !== "manual") {
-        next.set(group.canonicalUrl, new Set([instances[0].id]));
-      }
-    }
-    setKeptByGroup(next);
-  }
-
   function handleStrategyChange(s: "newest" | "oldest" | "manual") {
     setStrategy(s);
-    applyStrategy(s);
+    setKeptByGroup(keptForStrategy(groups, s));
   }
 
   function toggleInstance(canonicalUrl: string, id: string) {
@@ -538,4 +524,10 @@ export default function DuplicateReviewModal({ open, onClose, groups, onDeleted 
       `}</style>
     </div>
   );
+}
+
+export default function DuplicateReviewModal(props: Props) {
+  if (!props.open) return null;
+  const groupKey = props.groups.map((group) => `${group.canonicalUrl}:${group.instances.map((item) => `${item.id}:${item.created_at}`).join(",")}`).join("|");
+  return <DuplicateReviewModalContent key={groupKey} {...props} />;
 }

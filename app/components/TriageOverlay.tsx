@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { api, storedPreviewUrl } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import { notify } from "@/lib/notify";
@@ -33,14 +33,13 @@ type Props = {
   allTags?: string[];
 };
 
-export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }: Props) {
+function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props) {
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [queue, setQueue] = useState<Bookmark[]>([]);
   const [collections, setCollections] = useState<Collection[]>([]);
   const [flat, setFlat] = useState<Collection[]>([]);
   const [recentIds, setRecentIds] = useState<string[]>([]);
   const [suggestion, setSuggestion] = useState<AISuggestion | null>(null);
-  const [aiLoading, setAiLoading] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const tagInputRef = useRef("");
   const [tags, setTags] = useState<string[]>([]);
@@ -54,35 +53,27 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
 
   const current = queue[0] ?? null;
 
-  const loadAll = useCallback(async () => {
-    setStep({ kind: "loading" });
-    try {
-      const [{ collections: tree, flat: flatList }, { bookmarks }] =
-        await Promise.all([
-          api.listCollections(),
-          api.listBookmarks({ collection_id: null }),
-        ]);
-
-      setCollections(tree);
-      setFlat(flatList);
-      const unsorted = bookmarks.filter((b) => b.collection_id === null);
-      setQueue(unsorted);
-      setStep(unsorted.length === 0 ? { kind: "empty" } : { kind: "ready" });
-    } catch (e) {
-      setStep({
-        kind: "error",
-        message: e instanceof Error ? e.message : "Couldn't load triage queue.",
-      });
-    }
-  }, []);
-
-  // Reload whenever the overlay opens.
   useEffect(() => {
-    if (open) void loadAll();
-  }, [open, loadAll]);
+    if (!open) return;
+    let cancelled = false;
+    void Promise.all([api.listCollections(), api.listBookmarks({ collection_id: null })])
+      .then(([{ collections: tree, flat: flatList }, { bookmarks }]) => {
+        if (cancelled) return;
+        setCollections(tree);
+        setFlat(flatList);
+        const unsorted = bookmarks.filter((b) => b.collection_id === null);
+        setQueue(unsorted);
+        setStep(unsorted.length === 0 ? { kind: "empty" } : { kind: "ready" });
+      })
+      .catch((e) => {
+        if (!cancelled) setStep({ kind: "error", message: e instanceof Error ? e.message : "Couldn't load triage queue." });
+      });
+    return () => { cancelled = true; };
+  }, [open]);
 
   // Reset per-bookmark state and ask the AI when the head of the queue moves.
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The queue head changed; reset the editing form before requesting suggestions.
     setTags(current?.tags ?? []);
     setTagInput("");
     tagInputRef.current = "";
@@ -100,7 +91,6 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     else setPreviewStage("fail");
     if (!current || !open) return;
     let cancelled = false;
-    setAiLoading(true);
     void api
       .categorize({
         url: current.url,
@@ -120,10 +110,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
           }
         }
       })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setAiLoading(false);
-      });
+      .catch(() => {});
     void api
       .suggestTags({
         url: current.url,
@@ -138,7 +125,7 @@ export default function TriageOverlay({ open, onClose, onMutated, allTags = [] }
     return () => {
       cancelled = true;
     };
-  }, [current?.id, collections, flat, open]);
+  }, [current, collections, flat, open]);
 
   const collectionsById = useMemo(() => {
     const map = new Map<string, Collection>();
@@ -1080,4 +1067,9 @@ function domainOf(url: string): string {
   } catch {
     return url;
   }
+}
+
+export default function TriageOverlay(props: Props) {
+  if (!props.open) return null;
+  return <TriageOverlayContent {...props} />;
 }

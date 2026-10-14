@@ -132,7 +132,7 @@ async function downsizeAndEncode(rasterBuffer: Buffer): Promise<{ buffer: Buffer
 
 async function processJob(job: Job<ImagePreviewJobData>): Promise<void> {
   const supabase = getSupabaseAdmin();
-  const { imageId, userId, originalPath, fileKind, mimeType } = job.data;
+  const { imageId, userId, originalPath, fileKind } = job.data;
 
   console.log(`[${WORKER_NAME}] start ${imageId} kind=${fileKind} path=${originalPath}`);
 

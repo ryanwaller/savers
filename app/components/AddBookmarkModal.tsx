@@ -9,6 +9,7 @@ import {
 } from "@/lib/api";
 import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import CollectionPicker from "./CollectionPicker";
+import { useAutosuggestions } from "../hooks/useAutosuggestions";
 
 type Props = {
   existingBookmarks: Bookmark[];
@@ -33,7 +34,7 @@ export default function AddBookmarkModal({
   onCreated,
   onFeedCreated,
 }: Props) {
-  const [url, setUrl] = useState("");
+  const [url, setUrl] = useState(defaultUrl ?? "");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [ogImage, setOgImage] = useState<string | null>(null);
@@ -69,12 +70,6 @@ export default function AddBookmarkModal({
   const [tagProposals, setTagProposals] = useState<string[]>([]);
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
-
-  // Real-time autosuggest state
-  const [tagAutosuggestions, setTagAutosuggestions] = useState<string[]>([]);
-  const [collectionAutosuggestions, setCollectionAutosuggestions] = useState<Collection[]>([]);
-  const [activeTagIndex, setActiveTagIndex] = useState(-1);
-  const [activeCollectionIndex, setActiveCollectionIndex] = useState(-1);
 
   const allTags = useMemo(() => {
     const set = new Set<string>();
@@ -131,34 +126,30 @@ export default function AddBookmarkModal({
     return last.trimStart(); // keep trailing space for better UX but trim start for matching
   }, [tags]);
 
-  useEffect(() => {
+  const tagMatches = useMemo(() => {
     const trimmed = currentTagPart.trim().toLowerCase();
-    if (!trimmed) {
-      setTagAutosuggestions([]);
-      setActiveTagIndex(-1);
-      return;
-    }
+    if (!trimmed) return [];
     const existing = parseTags(tags);
-    const filtered = allTags.filter(
-      (t) => t.includes(trimmed) && !existing.includes(t)
-    ).slice(0, 8);
-    setTagAutosuggestions(filtered);
-    setActiveTagIndex(filtered.length > 0 ? 0 : -1);
+    return allTags.filter((tag) => tag.includes(trimmed) && !existing.includes(tag)).slice(0, 8);
   }, [currentTagPart, allTags, tags]);
-
-  useEffect(() => {
+  const collectionMatches = useMemo(() => {
     const trimmed = newCollectionName.trim().toLowerCase();
-    if (!trimmed) {
-      setCollectionAutosuggestions([]);
-      setActiveCollectionIndex(-1);
-      return;
-    }
-    const filtered = flat.filter(
-      (c) => c.name.toLowerCase().includes(trimmed)
-    ).slice(0, 8);
-    setCollectionAutosuggestions(filtered);
-    setActiveCollectionIndex(filtered.length > 0 ? 0 : -1);
+    return trimmed ? flat.filter((collection) => collection.name.toLowerCase().includes(trimmed)).slice(0, 8) : [];
   }, [newCollectionName, flat]);
+  const {
+    suggestions: tagAutosuggestions,
+    selectedIndex: activeTagIndex,
+    setSelectedIndex: setActiveTagIndex,
+    dismiss: dismissTagSuggestions,
+    reveal: revealTagSuggestions,
+  } = useAutosuggestions(currentTagPart, tagMatches, 0);
+  const {
+    suggestions: collectionAutosuggestions,
+    selectedIndex: activeCollectionIndex,
+    setSelectedIndex: setActiveCollectionIndex,
+    dismiss: dismissCollectionSuggestions,
+    reveal: revealCollectionSuggestions,
+  } = useAutosuggestions(newCollectionName, collectionMatches, 0);
 
   function parseTags(raw: string): string[] {
     return raw
@@ -180,7 +171,7 @@ export default function AddBookmarkModal({
     parts[parts.length - 1] = ` ${tag}`;
     const next = parts.join(",") + ", ";
     setTags(next.trimStart());
-    setTagAutosuggestions([]);
+    dismissTagSuggestions();
   }
 
   async function runTagSuggest() {
@@ -229,13 +220,6 @@ export default function AddBookmarkModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  // Pre-fill URL from the `defaultUrl` prop (used by extension redirect).
-  useEffect(() => {
-    if (defaultUrl) {
-      setUrl(defaultUrl);
-    }
-  }, [defaultUrl]);
 
   const fetchMetadata = useCallback(async (force = false) => {
     const u = normalizeUrl(url);
@@ -684,10 +668,10 @@ export default function AddBookmarkModal({
                     autoFocus
                     placeholder="Collection name"
                     value={newCollectionName}
-                    onChange={(e) => setNewCollectionName(e.target.value)}
+                    onChange={(e) => { setNewCollectionName(e.target.value); revealCollectionSuggestions(); }}
                     onBlur={() => {
                       setTimeout(() => {
-                        setCollectionAutosuggestions([]);
+                        dismissCollectionSuggestions();
                       }, 200);
                     }}
                     onKeyDown={(e) => {
@@ -705,13 +689,13 @@ export default function AddBookmarkModal({
                             setCollectionId(selected.id);
                             setShowCreateCollection(false);
                             setNewCollectionName("");
-                            setCollectionAutosuggestions([]);
+                            dismissCollectionSuggestions();
                           } else if (e.key === "Enter") {
                             e.preventDefault();
                             void createInlineCollection();
                           }
                         } else if (e.key === "Escape") {
-                          setCollectionAutosuggestions([]);
+                          dismissCollectionSuggestions();
                         }
                       } else {
                         if (e.key === "Enter") {
@@ -737,7 +721,7 @@ export default function AddBookmarkModal({
                             setCollectionId(suggestion.id);
                             setShowCreateCollection(false);
                             setNewCollectionName("");
-                            setCollectionAutosuggestions([]);
+                            dismissCollectionSuggestions();
                           }}
                           onMouseEnter={() => setActiveCollectionIndex(index)}
                         >
@@ -804,10 +788,10 @@ export default function AddBookmarkModal({
               <input
                 placeholder="design, inspiration"
                 value={tags}
-                onChange={(e) => setTags(e.target.value)}
+                onChange={(e) => { setTags(e.target.value); revealTagSuggestions(); }}
                 onBlur={() => {
                   setTimeout(() => {
-                    setTagAutosuggestions([]);
+                    dismissTagSuggestions();
                   }, 200);
                 }}
                 onKeyDown={(e) => {
@@ -825,7 +809,7 @@ export default function AddBookmarkModal({
                         appendTag(tagAutosuggestions[activeTagIndex]);
                       }
                     } else if (e.key === "Escape") {
-                      setTagAutosuggestions([]);
+                      dismissTagSuggestions();
                     }
                   }
                 }}

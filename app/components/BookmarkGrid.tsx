@@ -98,6 +98,7 @@ export default function BookmarkGrid({
         isMobile ? (
           <div key={b.id} className="grid-cell">
             <BookmarkCard
+              key={JSON.stringify([b.id, b.preview_path, b.custom_preview_path, b.og_image, b.favicon, b.preview_version, b.broken_status])}
               b={b}
               onEdit={() => onOpenBookmark(b)}
               onDelete={() => onDeleteBookmark(b.id)}
@@ -125,6 +126,7 @@ export default function BookmarkGrid({
             className="grid-cell"
           >
             <BookmarkCard
+              key={JSON.stringify([b.id, b.preview_path, b.custom_preview_path, b.og_image, b.favicon, b.preview_version, b.broken_status])}
               b={b}
               onEdit={() => onOpenBookmark(b)}
               onDelete={() => onDeleteBookmark(b.id)}
@@ -250,7 +252,11 @@ function BookmarkCard({
   const [previewNonce, setPreviewNonce] = useState<number | null>(null);
   const [previewFailed, setPreviewFailed] = useState(false);
   const [previewStage, setPreviewStage] = useState<"custom" | "stored" | "og_image" | "favicon" | "fail">(
-    "fail"
+    () => storedPreviewUrl(b.custom_preview_path, { previewVersion: b.preview_version })
+      ? "custom"
+      : storedPreviewUrl(b.preview_path, { previewVersion: b.preview_version })
+        ? "stored"
+        : b.og_image ? "og_image" : b.favicon ? "favicon" : "fail"
   );
   const [dropActive, setDropActive] = useState(false);
   const [uploadingPreview, setUploadingPreview] = useState(false);
@@ -272,10 +278,6 @@ function BookmarkCard({
   const brokenDismissTimerRef = useRef<number | null>(null);
   const coverPending =
     b.screenshot_status === "pending" || b.screenshot_status === "processing";
-
-  useEffect(() => {
-    setBrokenStatus(b.broken_status);
-  }, [b.broken_status]);
 
   function clearBrokenDismissTimer() {
     if (brokenDismissTimerRef.current !== null) {
@@ -375,21 +377,6 @@ function BookmarkCard({
         : previewStage === "favicon"
           ? b.favicon!
           : null;
-
-  useEffect(() => {
-    setPreviewFailed(false);
-    if (customSrc) setPreviewStage("custom");
-    else if (storedSrc) setPreviewStage("stored");
-    else if (b.og_image) setPreviewStage("og_image");
-    else if (b.favicon) setPreviewStage("favicon");
-    else setPreviewStage("fail");
-  }, [customSrc, storedSrc, b.og_image, b.favicon]);
-
-  useEffect(() => {
-    if (previewNonce !== null && b.preview_version === previewNonce) {
-      setPreviewNonce(null);
-    }
-  }, [b.preview_version, previewNonce]);
 
   async function handleDelete(event: { stopPropagation: () => void }) {
     event.stopPropagation();

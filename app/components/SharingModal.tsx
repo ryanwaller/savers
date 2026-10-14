@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 export type ShareableCollection = {
   id: string;
   name: string;
@@ -30,31 +30,20 @@ type VisibilityResponse = {
   error?: string;
 };
 
-export default function SharingModal({
+function SharingModalContent({
   collection,
   open,
   onClose,
   onUpdate,
 }: Props) {
-  const [isPublic, setIsPublic] = useState(false);
-  const [slug, setSlug] = useState("");
-  const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(Boolean(collection?.is_public));
+  const [slug, setSlug] = useState(collection?.public_slug ?? "");
+  const [description, setDescription] = useState(collection?.public_description ?? "");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [slugDirty, setSlugDirty] = useState(false);
   const [descDirty, setDescDirty] = useState(false);
-
-  useEffect(() => {
-    if (!open || !collection) return;
-    setIsPublic(Boolean(collection.is_public));
-    setSlug(collection.public_slug ?? "");
-    setDescription(collection.public_description ?? "");
-    setError(null);
-    setCopied(false);
-    setSlugDirty(false);
-    setDescDirty(false);
-  }, [open, collection]);
 
   if (!open || !collection) return null;
 
@@ -433,4 +422,11 @@ export default function SharingModal({
       `}</style>
     </div>
   );
+}
+
+export default function SharingModal(props: Props) {
+  if (!props.open || !props.collection) return null;
+  const collection = props.collection;
+  const key = [collection.id, collection.is_public, collection.public_slug, collection.public_description].join(":");
+  return <SharingModalContent key={key} {...props} />;
 }

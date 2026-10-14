@@ -227,7 +227,7 @@ async function processJob(job: Job<ScreenshotJobData>) {
         // Wait for lazy images to load
         await new Promise((r) => setTimeout(r, 3000));
 
-        const imageUrl = await findRecipeHeroImageUrl(recipePage, url);
+        const imageUrl = await findRecipeHeroImageUrl(recipePage);
 
         if (imageUrl) {
           console.log(`[${WORKER_NAME}] Recipe hero found: ${imageUrl}`);

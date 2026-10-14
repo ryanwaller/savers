@@ -48,7 +48,9 @@ export async function POST(req: NextRequest) {
     // Strip preview paths from snapshots — they reference R2 objects
     // that get cleaned up and can't be restored from the DB.
     const snapshots = bookmarks.map((b) => {
-      const { preview_path, custom_preview_path, ...rest } = b;
+      const rest = { ...b };
+      delete rest.preview_path;
+      delete rest.custom_preview_path;
       return rest;
     });
 

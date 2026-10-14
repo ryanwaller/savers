@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImageRow } from "./ImageGrid";
@@ -59,7 +60,7 @@ function filenameWithoutExt(name: string | null | undefined): string {
  * BookmarkDetail overlay so the muscle memory carries over: top region
  * shows the asset and its metadata, the form lives below.
  */
-export default function ImageDetail({
+function ImageDetailContent({
   image,
   imageCollections,
   onClose,
@@ -78,18 +79,6 @@ export default function ImageDetail({
   const [error, setError] = useState<string | null>(null);
   const [reenriching, setReenriching] = useState(false);
   const [regeneratingPreview, setRegeneratingPreview] = useState(false);
-
-  // When the user picks a different image in the slideshow, reset state.
-  useEffect(() => {
-    setTitle(image.title ?? "");
-    setDescription(image.description ?? "");
-    setNotes(image.notes ?? "");
-    setTags(image.tags ?? []);
-    setTagInput("");
-    setCollectionId(image.collection_id ?? null);
-    setError(null);
-    setConfirmDelete(false);
-  }, [image.id, image.title, image.description, image.notes, image.tags, image.collection_id]);
 
   // Close on Esc unless we're confirming a delete.
   useEffect(() => {
@@ -711,4 +700,10 @@ export default function ImageDetail({
       `}</style>
     </div>
   );
+}
+
+export default function ImageDetail(props: Props) {
+  const image = props.image;
+  const key = [image.id, image.title, image.description, image.notes, image.collection_id, JSON.stringify(image.tags)].join(":");
+  return <ImageDetailContent key={key} {...props} />;
 }

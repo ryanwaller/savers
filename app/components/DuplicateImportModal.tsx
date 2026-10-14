@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
+import { useClientMounted } from "../hooks/useClientMounted";
 
 type Props = {
   open: boolean;
@@ -15,12 +16,8 @@ type Props = {
 // whether to clean up the duplicates on the originating side — or
 // force-add them anyway if they know what they're doing.
 export default function DuplicateImportModal({ open, urls, onClose, onAddAnyway }: Props) {
-  const [mounted, setMounted] = useState(false);
+  const mounted = useClientMounted();
   const [adding, setAdding] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
 
   useEffect(() => {
     if (!open) return;

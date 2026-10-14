@@ -183,7 +183,8 @@ export async function PATCH(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
-    const { id, user_id: _ignoredUserId, ...updates } = await req.json()
+    const { id, ...updates } = await req.json()
+    delete updates.user_id
 
     if (updates.parent_id) {
       const { data: parent, error: parentError } = await supabaseAdmin

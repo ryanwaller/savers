@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, ImageCollection } from "@/lib/types";
@@ -32,10 +33,10 @@ function looksLikeImage(url: string): boolean {
 }
 
 export default function SaveOverlayPage() {
-  const searchParams =
+  const searchParams = useMemo(() =>
     typeof window !== "undefined"
       ? new URLSearchParams(window.location.search)
-      : new URLSearchParams();
+      : new URLSearchParams(), []);
   const url = searchParams.get("url") ?? "";
   const token = searchParams.get("token") ?? undefined;
   // Explicit override from the bookmarklet, e.g. `?kind=image`. Falls

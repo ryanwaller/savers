@@ -142,8 +142,6 @@ export function evaluateFilter(
   bookmark: Bookmark,
   filter: FilterGroup
 ): boolean {
-  const clauses: ((FilterCondition | FilterGroup) & { kind?: string })[] = [];
-
   if (filter.and) {
     return filter.and.every((clause) => {
       if ("property" in clause) {
@@ -191,7 +189,7 @@ const VALID_OPERATORS_BY_PROPERTY: Record<string, Set<string>> = {
   pinned: new Set(["equals"]),
 };
 
-function validateCondition(c: unknown, depth: number): string | null {
+function validateCondition(c: unknown): string | null {
   if (!c || typeof c !== "object") return "Condition must be an object.";
   const cond = c as Record<string, unknown>;
 
@@ -257,7 +255,7 @@ function validateGroup(
     const c = clause as Record<string, unknown>;
     if (c.property !== undefined) {
       // It's a condition.
-      const err = validateCondition(c, depth);
+      const err = validateCondition(c);
       if (err) return { valid: false, error: err };
     } else if (c.and !== undefined || c.or !== undefined) {
       // It's a nested group.

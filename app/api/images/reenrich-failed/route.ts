@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { describeImage, lastImageAiError } from "@/lib/image-ai";
@@ -21,7 +21,7 @@ export const maxDuration = 300; // 5 minutes — bulk over many rows can take a 
  *
  * Caller is expected to refresh the grid afterward to see the new titles.
  */
-export async function POST(_req: NextRequest) {
+export async function POST() {
   try {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();

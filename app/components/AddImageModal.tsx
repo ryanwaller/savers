@@ -50,7 +50,7 @@ function isAcceptableMime(type: string): boolean {
   return ACCEPTED_TYPES.includes(type) || type.startsWith("image/");
 }
 
-export default function AddImageModal({
+function AddImageModalContent({
   open,
   onClose,
   onUploaded,
@@ -62,17 +62,6 @@ export default function AddImageModal({
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
-
-  // Reset on open/close
-  useEffect(() => {
-    if (open) {
-      setQueue([]);
-      setUrlInput("");
-      setError(null);
-      setIsDragging(false);
-      setUploading(false);
-    }
-  }, [open]);
 
   const addFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
@@ -601,4 +590,9 @@ export default function AddImageModal({
       `}</style>
     </div>
   );
+}
+
+export default function AddImageModal(props: Props) {
+  if (!props.open) return null;
+  return <AddImageModalContent key={props.collectionId ?? "root"} {...props} />;
 }

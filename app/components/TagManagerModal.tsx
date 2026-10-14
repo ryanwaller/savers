@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { notify } from "@/lib/notify";
 
 interface TagWithCount {
@@ -24,7 +24,7 @@ type Props = {
   onMerged?: () => void;
 };
 
-export default function TagManagerModal({ open, onClose, allTags, onMerged }: Props) {
+function TagManagerModalContent({ open, onClose, allTags, onMerged }: Props) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [targetTag, setTargetTag] = useState<string | null>(null);
@@ -49,12 +49,6 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
   // Fetch similar groups when modal opens.
   useEffect(() => {
     if (!open) return;
-    setSearch("");
-    setSelected(new Set());
-    setTargetTag(null);
-    setNewTargetName("");
-    setShowNewTarget(false);
-    setToast(null);
     fetch("/api/tags/similar")
       .then((r) => r.json())
       .then((d) => setSimilarGroups(d.groups ?? []))
@@ -614,4 +608,9 @@ export default function TagManagerModal({ open, onClose, allTags, onMerged }: Pr
       `}</style>
     </div>
   );
+}
+
+export default function TagManagerModal(props: Props) {
+  if (!props.open) return null;
+  return <TagManagerModalContent {...props} />;
 }

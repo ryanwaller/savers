@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { enqueueScreenshot } from "@/lib/screenshot-queue";
@@ -20,7 +20,7 @@ function chunk<T>(items: T[], size: number) {
   return chunks;
 }
 
-export async function POST(_req: NextRequest) {
+export async function POST() {
   try {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();

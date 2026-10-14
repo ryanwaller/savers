@@ -87,7 +87,7 @@ export async function POST(req: NextRequest) {
  *
  * Returns counts of broken/redirect/unknown links for the user.
  */
-export async function GET(req: NextRequest) {
+export async function GET() {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     const { user } = await requireUser();

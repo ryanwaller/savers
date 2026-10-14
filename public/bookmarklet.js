@@ -18,7 +18,7 @@
       var origin = new URL(me.src).origin;
       if (origin) apiBase = origin;
     }
-  } catch (_) {}
+  } catch {}
 
   var pageUrl = encodeURIComponent(location.href);
   var width = Math.min(540, screen.width - 48);

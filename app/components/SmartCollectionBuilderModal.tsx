@@ -66,10 +66,6 @@ function defaultCondition(): ConditionRow {
   return { property: "tags", operator: "contains", value: [] };
 }
 
-function defaultFilter(): { groupOp: "and" | "or"; conditions: ConditionRow[] } {
-  return { groupOp: "and", conditions: [defaultCondition()] };
-}
-
 function toFilterGroup(state: { groupOp: "and" | "or"; conditions: ConditionRow[] }): FilterGroup {
   const clauses: (FilterCondition | FilterGroup)[] = state.conditions.map((c) => {
     // Type-safe value conversion
@@ -125,61 +121,33 @@ type Props = {
   editSmartCollection?: SmartCollection | null;
 };
 
-export default function SmartCollectionBuilderModal({
+function SmartCollectionBuilderModalContent({
   open,
   onClose,
   onCreated,
   onUpdated,
   editSmartCollection,
 }: Props) {
-  const [name, setName] = useState("");
-  const [icon, setIcon] = useState<string | null>(null);
+  const [name, setName] = useState(editSmartCollection?.name ?? "");
+  const [icon, setIcon] = useState<string | null>(editSmartCollection?.icon ?? null);
   const [showIconPicker, setShowIconPicker] = useState(false);
-  const [groupOp, setGroupOp] = useState<"and" | "or">("and");
-  const [conditions, setConditions] = useState<ConditionRow[]>([defaultCondition()]);
+  const [groupOp, setGroupOp] = useState<"and" | "or">(() => editSmartCollection ? fromFilterGroup(editSmartCollection.query_json)?.groupOp ?? "and" : "and");
+  const [conditions, setConditions] = useState<ConditionRow[]>(() => editSmartCollection ? fromFilterGroup(editSmartCollection.query_json)?.conditions ?? [defaultCondition()] : [defaultCondition()]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Live preview
   const [previewCount, setPreviewCount] = useState<number | null>(null);
-  const [previewSample, setPreviewSample] = useState<{ id: string; title: string | null; url: string; tags: string[] }[]>([]);
   const previewTimerRef = useRef<number | null>(null);
 
   const isEdit = editSmartCollection !== null && editSmartCollection !== undefined;
-
-  // Reset form when opened
-  useEffect(() => {
-    if (!open) return;
-    setError(null);
-    setPreviewCount(null);
-    setPreviewSample([]);
-
-    if (editSmartCollection) {
-      setName(editSmartCollection.name);
-      setIcon(editSmartCollection.icon);
-      const parsed = fromFilterGroup(editSmartCollection.query_json);
-      if (parsed) {
-        setGroupOp(parsed.groupOp);
-        setConditions(parsed.conditions);
-      } else {
-        setGroupOp("and");
-        setConditions([defaultCondition()]);
-      }
-    } else {
-      setName("");
-      setIcon(null);
-      setGroupOp("and");
-      setConditions([defaultCondition()]);
-    }
-  }, [open, editSmartCollection]);
 
   const runPreview = useCallback(() => {
     const filter = toFilterGroup({ groupOp, conditions });
     api
       .previewSmartCollection(filter)
-      .then(({ count, sample }) => {
+      .then(({ count }) => {
         setPreviewCount(count);
-        setPreviewSample(sample);
       })
       .catch(() => {
         // Silently ignore preview errors
@@ -876,4 +844,11 @@ function TagValueInput({
       `}</style>
     </div>
   );
+}
+
+export default function SmartCollectionBuilderModal(props: Props) {
+  if (!props.open) return null;
+  const collection = props.editSmartCollection;
+  const key = collection ? JSON.stringify([collection.id, collection.name, collection.icon, collection.query_json]) : "new";
+  return <SmartCollectionBuilderModalContent key={key} {...props} />;
 }

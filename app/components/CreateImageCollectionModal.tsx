@@ -11,7 +11,7 @@ type Props = {
   parentId?: string | null;
 };
 
-export default function CreateImageCollectionModal({
+function CreateImageCollectionModalContent({
   open,
   onClose,
   onCreated,
@@ -25,15 +25,9 @@ export default function CreateImageCollectionModal({
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
-    if (!open) return;
-    setName("");
-    setIcon(null);
-    setShowIconPicker(false);
-    setError(null);
-    setSaving(false);
-    // Focus the name input on open
-    setTimeout(() => inputRef.current?.focus(), 50);
-  }, [open]);
+    const timer = window.setTimeout(() => inputRef.current?.focus(), 50);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     if (!open) return;
@@ -273,4 +267,9 @@ export default function CreateImageCollectionModal({
       `}</style>
     </div>
   );
+}
+
+export default function CreateImageCollectionModal(props: Props) {
+  if (!props.open) return null;
+  return <CreateImageCollectionModalContent key={props.parentId ?? "root"} {...props} />;
 }

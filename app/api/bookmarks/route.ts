@@ -235,7 +235,8 @@ export async function PATCH(req: NextRequest) {
     const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
     const body = await req.json()
-    const { id, user_id: _ignoredUserId, ...updates } = body
+    const { id, ...updates } = body
+    delete updates.user_id
 
     if (!id) {
       return NextResponse.json({ error: 'Missing id' }, { status: 400 })

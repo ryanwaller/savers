@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ChevronLeft, ChevronRight, Download, X } from "lucide-react";
@@ -25,7 +26,7 @@ type Props = {
  *   • "Go to source" only appears when the image was imported from a URL
  *     (source_url populated).
  */
-export default function ImageSlideshow({
+function ImageSlideshowContent({
   images,
   initialIndex,
   open,
@@ -33,10 +34,6 @@ export default function ImageSlideshow({
   onEdit,
 }: Props) {
   const [index, setIndex] = useState(initialIndex);
-
-  useEffect(() => {
-    if (open) setIndex(initialIndex);
-  }, [open, initialIndex]);
 
   const current = images[index];
 
@@ -324,4 +321,9 @@ export default function ImageSlideshow({
       `}</style>
     </div>
   );
+}
+
+export default function ImageSlideshow(props: Props) {
+  if (!props.open) return null;
+  return <ImageSlideshowContent key={props.initialIndex} {...props} />;
 }

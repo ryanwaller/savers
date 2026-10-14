@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import JSZip from 'jszip';
 import type { Bookmark, Collection } from '@/lib/types';
 import { storedPreviewUrl, screenshotPreviewUrl, previewImageUrl } from '@/lib/api';
@@ -22,16 +22,6 @@ const escapeCSV = (field: string | undefined | null) => {
 export default function ExportBookmarksButton({ bookmarks, flatCollections, variant = "icon" }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isDark, setIsDark] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    setIsDark(mq.matches);
-    const h = (e: MediaQueryListEvent) => setIsDark(e.matches);
-    mq.addEventListener?.("change", h);
-    return () => mq.removeEventListener?.("change", h);
-  }, []);
 
   const handleExport = async () => {
     if (!bookmarks.length) return;

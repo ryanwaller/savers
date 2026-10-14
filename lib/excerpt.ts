@@ -1,6 +1,5 @@
 import { safePublicFetch } from "./safe-fetch";
 import { parseHTML } from "linkedom";
-import { Readability } from "@mozilla/readability";
 import { getSaversUserAgent } from "./site-url";
 
 const EXCERPT_MAX_CHARS = 380;

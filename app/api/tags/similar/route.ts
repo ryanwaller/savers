@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 
@@ -34,7 +34,7 @@ interface SimilarGroup {
  * Scans the user's tags and returns groups of similar/duplicate tags
  * that are good candidates for merging.
  */
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const { user } = await requireUser();
     const supabase = getSupabaseAdmin();

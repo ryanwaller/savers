@@ -7,7 +7,6 @@ import { deepseekJson } from '@/lib/ai-client'
 import { buildStructuredTaggingPrompt, flattenStructuredTags, MAX_AI_TAGS, TAGGING_SYSTEM_PROMPT } from '@/lib/structured-tagging'
 import { enrichWithCountries } from '@/lib/tag-aliases'
 
-const MIN_TAGS = 3
 const MAX_TAGS = MAX_AI_TAGS
 
 function logUnexpectedError(scope: string, error: unknown) {

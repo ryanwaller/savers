@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useClientMounted } from "@/app/hooks/useClientMounted";
 
 const STORAGE_KEY = "savers.sidebar.collapsedCollections";
 
@@ -33,21 +34,9 @@ function persistCollapsedIds(ids: Set<string>) {
  * Survives page reloads and browser restarts.
  */
 export function useCollectionExpansionState() {
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
-  const [ready, setReady] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(loadCollapsedIds);
+  const ready = useClientMounted();
   const initialLoadDone = useRef(false);
-
-  // Load persisted state after hydration (client-side only).
-  // SSR returns empty Set; the real localStorage read happens here once.
-  // Both setCollapsedIds and setReady are batched together so the persist
-  // effect below never fires with a stale empty Set.
-  useEffect(() => {
-    const saved = loadCollapsedIds();
-    if (saved.size > 0) {
-      setCollapsedIds(saved);
-    }
-    setReady(true);
-  }, []);
 
   // Persist to localStorage whenever state changes, but only after
   // the initial load completes to avoid overwriting saved state.
@@ -67,8 +56,8 @@ export function useCollectionExpansionState() {
   }, [ready, collapsedIds]);
 
   const isExpanded = useCallback(
-    (id: string) => !collapsedIds.has(id),
-    [collapsedIds],
+    (id: string) => !ready || !collapsedIds.has(id),
+    [ready, collapsedIds],
   );
 
   const toggle = useCallback((id: string) => {

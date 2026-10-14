@@ -358,7 +358,7 @@ async function suggestTags() {
     );
     tagSuggestStatus = tagProposals.length ? "Tap a tag to add it." : "No new tags to suggest.";
     renderTagProposals();
-  } catch (error) {
+  } catch {
     tagProposals = [];
     tagSuggestStatus = "Suggestions need a Savers token or sign-in.";
     renderTagProposals();
@@ -470,7 +470,7 @@ async function suggestCollection(force = false) {
       updateCollectionTriggerLabel();
     }
     setAiStatus("");
-  } catch (error) {
+  } catch {
     clearSuggestion();
     setAiStatus("Collection suggestions need a Savers token or sign-in.", "error");
   } finally {

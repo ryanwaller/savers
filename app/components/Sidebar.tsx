@@ -1,15 +1,15 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import TagManagerModal from "./TagManagerModal";
-import { Funnel, Pin, Unlink } from "lucide-react";
+import { Pin, Unlink } from "lucide-react";
 import type { Bookmark, Collection, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
 import { useCollectionExpansionState } from "@/hooks/useCollectionExpansionState";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
-import ExportBookmarksButton from "./ExportBookmarksButton";
 
 const ICON_PICKER_WIDTH = 280;
 const ICON_PICKER_HEIGHT = 360;
@@ -105,8 +105,6 @@ type Props = {
 
 export default function Sidebar({
   tree,
-  flatCollections,
-  allBookmarks,
   totals,
   allTags,
   tagCounts,
@@ -192,7 +190,7 @@ export default function Sidebar({
   // Collections trio inside a single "Links" toggle, and adds a parallel
   // "Images" toggle for the new image-collection tree (folder CRUD comes
   // online later in the build).
-  const [linksExpanded, setLinksExpanded] = useState(() => {
+  const [linksExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
       const raw = window.localStorage.getItem("savers.sidebar.linksExpanded");
@@ -204,7 +202,7 @@ export default function Sidebar({
     try { window.localStorage.setItem("savers.sidebar.linksExpanded", String(linksExpanded)); } catch { /* ignore */ }
   }, [linksExpanded]);
 
-  const [imagesExpanded, setImagesExpanded] = useState(() => {
+  const [imagesExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
     try {
       const raw = window.localStorage.getItem("savers.sidebar.imagesExpanded");
@@ -216,7 +214,6 @@ export default function Sidebar({
     try { window.localStorage.setItem("savers.sidebar.imagesExpanded", String(imagesExpanded)); } catch { /* ignore */ }
   }, [imagesExpanded]);
 
-  const [smartMenuOpen, setSmartMenuOpen] = useState<string | null>(null);
 
   const [tagsExpanded, setTagsExpanded] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -251,6 +248,7 @@ export default function Sidebar({
   useEffect(() => {
     if (!draggedId) {
       clearRootNestTimer();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear hover state when a drag ends outside this drop target.
       setRootNestHover(false);
     }
     return clearRootNestTimer;
@@ -490,7 +488,7 @@ export default function Sidebar({
                   const count = feedCounts?.[fs.id] ?? 0;
                   return (
                     <FeedItem
-                      key={fs.id}
+                      key={`${fs.id}:${fs.name}`}
                       feed={fs}
                       count={count}
                       isActive={isActive}
@@ -700,7 +698,7 @@ export default function Sidebar({
           </div>
           {imageCollections.map((c) => (
             <ImageCollectionRow
-              key={c.id}
+              key={`${c.id}:${c.name}`}
               collection={c}
               active={selection.kind === "image_collection" && selection.id === c.id}
               onSelect={() => onSelect({ kind: "image_collection", id: c.id })}
@@ -1823,10 +1821,6 @@ function FeedItem({
     };
   }, [pickingIcon]);
 
-  useEffect(() => {
-    setEditName(feed.name);
-  }, [feed.name]);
-
   const hasMenu = !!(onChangeIcon || onRename || onDelete);
 
   function openIconPicker() {
@@ -2343,6 +2337,7 @@ function CollectionNode({
   useEffect(() => {
     if (!draggedId) {
       clearNestTimer();
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear nested hover state when the parent drag ends.
       setNestHover(false);
     }
     return clearNestTimer;
@@ -2927,10 +2922,6 @@ function ImageCollectionRow({
   const [renameValue, setRenameValue] = useState(collection.name);
   const rowRef = useRef<HTMLDivElement | null>(null);
   const iconBtnRef = useRef<HTMLButtonElement | null>(null);
-
-  useEffect(() => {
-    setRenameValue(collection.name);
-  }, [collection.name]);
 
   useEffect(() => {
     if (!menuOpen) return;

@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import type { CSSProperties } from "react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -77,6 +78,8 @@ type EditableImageRow = ImageRow & {
 const SIDEBAR_SNAPSHOT_STORAGE_KEY = "savers.sidebar.snapshot.v1";
 const FEED_ITEMS_CACHE_STORAGE_KEY = "savers.feedItemsCache.v1";
 const IMAGE_VIEW_CACHE_STORAGE_KEY = "savers.imageViewCache.v1";
+const CARD_SIZES = ["s", "m", "l", "xl"] as const;
+type CardSize = (typeof CARD_SIZES)[number];
 
 async function fetchAllImages(url: URL): Promise<ImageRow[]> {
   const images: ImageRow[] = [];
@@ -138,20 +141,6 @@ export default function Home() {
   const [smartCollectionCounts, setSmartCollectionCounts] = useState<Record<string, number>>({});
   const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
   type SidebarMode = "links" | "images";
-  const [sidebarMode, setSidebarMode] = useState<SidebarMode>(() => {
-    if (typeof window === "undefined") return "links";
-    try {
-      const raw = window.localStorage.getItem("savers.sidebar.mode");
-      if (raw === "images") return "images";
-    } catch { /* ignore */ }
-    return "links";
-  });
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      window.localStorage.setItem("savers.sidebar.mode", sidebarMode);
-    } catch { /* ignore */ }
-  }, [sidebarMode]);
   const [selection, setSelection] = useState<Selection>(() => {
     // Restore the last-active selection across page reloads. Saved as JSON
     // in localStorage by the useEffect below. If the saved value is for a
@@ -184,6 +173,11 @@ export default function Home() {
     }
     return { kind: "all" };
   });
+  const sidebarMode: SidebarMode = selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted"
+    ? "images" : "links";
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.mode", sidebarMode); } catch { /* ignore */ }
+  }, [sidebarMode]);
   const [renderSelection, setRenderSelection] = useState<Selection>(selection);
   const [contentTransitioning, setContentTransitioning] = useState(false);
   useEffect(() => {
@@ -196,7 +190,6 @@ export default function Home() {
   }, [selection]);
 
   const switchSidebarMode = useCallback((next: SidebarMode) => {
-    setSidebarMode(next);
     // Bounce the selection into the new mode's home view so the user
     // never sees a blank/irrelevant grid right after flipping modes.
     if (next === "images") {
@@ -205,14 +198,6 @@ export default function Home() {
       setSelection({ kind: "all" });
     }
   }, []);
-  // If selection drifts into the other mode's territory, follow it so
-  // the toggle pill always reflects the current view.
-  useEffect(() => {
-    const isImageSel = selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted";
-    if (isImageSel && sidebarMode !== "images") setSidebarMode("images");
-    if (!isImageSel && sidebarMode === "images") setSidebarMode("links");
-  }, [selection, sidebarMode]);
-
   const [search, setSearch] = useState("");
   const [activeTag, setActiveTag] = useState<string | null>(null);
   // Tags in the sidebar are scoped to the current selection: in a specific
@@ -372,8 +357,6 @@ export default function Home() {
 
   const [sidebarWidth, setSidebarWidth] = useState(220);
   const [contentWidth, setContentWidth] = useState(0);
-  const CARD_SIZES = ["s", "m", "l", "xl"] as const;
-  type CardSize = (typeof CARD_SIZES)[number];
   type ViewMode = "grid" | "list";
   // Desktop: choose column count, let cards stretch with 1fr.
   const CARD_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
@@ -562,7 +545,7 @@ export default function Home() {
     } catch (err) {
       console.error("[image-collections] load failed", err);
     }
-  }, []);
+  }, [setImageCollections, setUnsortedImageCount, setImageTagCounts]);
 
   const refreshImages = useCallback(() => {
     if (selection.kind === "images_all") {
@@ -573,7 +556,7 @@ export default function Home() {
       imageViewCacheRef.current.delete("images_unsorted");
     }
     setImagesReloadKey((v) => v + 1);
-  }, [selection]);
+  }, [selection, setImagesReloadKey]);
 
   const getImageViewCacheKey = useCallback((target: Selection): string | null => {
     if (target.kind === "images_all") return "images_all";
@@ -682,6 +665,7 @@ export default function Home() {
 
   useEffect(() => {
     if (authLoading || !user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the authenticated image collection load when the session becomes ready.
     void loadImageCollections();
   }, [authLoading, user, loadImageCollections]);
   const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
@@ -696,6 +680,7 @@ export default function Home() {
     const bookmarkId = params.get("bookmark");
 
     if (addUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Apply an incoming deep link from the browser URL.
       setDefaultAddUrl(addUrl);
       setShowAdd(true);
     }
@@ -775,6 +760,7 @@ export default function Home() {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     if (params.get("triage") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Consume the triage deep link from the browser URL.
       setTriageOpen(true);
       params.delete("triage");
       const next = params.toString();
@@ -795,6 +781,7 @@ export default function Home() {
     if (coll) {
       suppressCollectionUrlWrite.current = true;
       if (coll === "unsorted") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the collection named by the browser URL.
         setSelection({ kind: "unsorted" });
       } else if (coll === "pinned") {
         setSelection({ kind: "pinned" });
@@ -810,6 +797,7 @@ export default function Home() {
     const tag = params.get("tag");
     if (tag) {
       suppressTagUrlWrite.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the tag named by the browser URL.
       setActiveTag(tag);
       // Only go global if a collection wasn't also requested
       if (!params.get("collection")) {
@@ -1064,6 +1052,7 @@ export default function Home() {
     if (typeof window === "undefined") return;
     const searchParams = new URLSearchParams(window.location.search);
     if (searchParams.get("auth") === "error") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Show the auth error reported by the browser callback URL.
       setAuthMessage("That sign-in link expired or was invalid. Please try again.");
       window.history.replaceState({}, "", window.location.pathname);
     }
@@ -1073,6 +1062,7 @@ export default function Home() {
     if (user) return;
     allBookmarksRef.current = [];
     smartCollectionsRef.current = [];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear account-specific state after sign-out.
     setBookmarkCountsHydrated(false);
     setAllBookmarks([]);
     setLibraryDataLoaded(false);
@@ -1113,6 +1103,7 @@ export default function Home() {
           collectionBookmarkCounts?: Record<string, number>;
           feedCounts?: Record<string, number>;
         };
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Hydrate the saved sidebar snapshot before the server refresh.
         if (snapshot.collections) setTreeRaw(snapshot.collections);
         if (snapshot.flat) setFlat(snapshot.flat);
         if (snapshot.smartCollections) {
@@ -1179,6 +1170,7 @@ export default function Home() {
     if (typeof window === "undefined") return;
     const raw = window.localStorage.getItem("savers.grid.viewMode");
     if (raw === "grid" || raw === "list") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the saved view preference after hydration.
       setViewMode(raw);
     }
   }, []);
@@ -1361,7 +1353,7 @@ export default function Home() {
     } finally {
       setLoadingFeedItems(false);
     }
-  }, []);
+  }, [persistFeedItemsCache]);
 
   const prefetchFeedItems = useCallback(async (feedId: string) => {
     if (feedItemsCacheRef.current.has(feedId)) return;
@@ -1372,7 +1364,7 @@ export default function Home() {
     } catch {
       // Best-effort warm cache only.
     }
-  }, []);
+  }, [persistFeedItemsCache]);
 
   const writeFeedItemsCache = useCallback((feedId: string, nextItems: FeedItem[]) => {
     feedItemsCacheRef.current.set(feedId, nextItems);
@@ -1436,6 +1428,7 @@ export default function Home() {
     const targetImageViewKey = getImageViewCacheKey(selection);
     const cached = deriveCachedImagesForSelection(selection);
     if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Show cached images while the current selection refreshes.
       setImages(cached);
       setLoadedImageViewKey(targetImageViewKey);
       setLoadingImages(false);
@@ -1472,13 +1465,7 @@ export default function Home() {
     })();
 
     return () => { cancelled = true; };
-  }, [authLoading, user, selection, imagesReloadKey, sortBy, deriveCachedImagesForSelection, writeImageViewCache]);
-
-  useEffect(() => {
-    if (imageDetailId && !images.some((image) => image.id === imageDetailId)) {
-      setImageDetailId(null);
-    }
-  }, [imageDetailId, images]);
+  }, [authLoading, user, selection, imagesReloadKey, sortBy, deriveCachedImagesForSelection, writeImageViewCache, getImageViewCacheKey]);
 
   // Initial load
   useEffect(() => {
@@ -1550,6 +1537,7 @@ export default function Home() {
       };
     }
 
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Show the loading state during the search debounce.
     setLoadingBookmarks(true);
     searchTimer.current = window.setTimeout(syncVisibleBookmarks, 180);
 
@@ -1561,6 +1549,7 @@ export default function Home() {
   useEffect(() => {
     if (authLoading || !user || !initialDataLoaded) return;
     if (selection.kind !== "feed") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear feed state when leaving the feed view.
       setFeedItemsError(null);
       return;
     }
@@ -1603,6 +1592,7 @@ export default function Home() {
   useEffect(() => {
     if (selectionKey === renderSelectionKey) {
       if (contentTransitioning && renderSelectionReady(selection)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the selection transition when its target changes.
         setContentTransitioning(false);
       }
       return;
@@ -1632,6 +1622,7 @@ export default function Home() {
   useEffect(() => {
     if (!contentTransitioning) return;
     if (!renderSelectionReady(selection)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Finish the selection transition once content is ready.
     setRenderSelection(selection);
     setContentTransitioning(false);
   }, [contentTransitioning, renderSelectionReady, selection]);
@@ -1664,6 +1655,7 @@ export default function Home() {
     if (!detail) return;
     const fresh = allBookmarks.find((bookmark) => bookmark.id === detail.id);
     if (!fresh) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync the open detail with a refreshed or removed bookmark.
       setDetail(null);
       return;
     }
@@ -2035,7 +2027,7 @@ export default function Home() {
     if (ids.length === 0) return;
     setBusyFeedBulkAction(true);
     try {
-      const { dismissed } = await api.dismissAllFeedItems(selection.id, ids);
+      await api.dismissAllFeedItems(selection.id, ids);
       const dismissSet = new Set(ids);
       setFeedItems((prev) => {
         const next = prev.filter((item) => !dismissSet.has(item.id));
@@ -3721,6 +3713,7 @@ export default function Home() {
 
       {showAdd && (
         <AddBookmarkModal
+          key={defaultAddUrl ?? "manual"}
           existingBookmarks={allBookmarks}
           flat={flat}
           tree={tree}

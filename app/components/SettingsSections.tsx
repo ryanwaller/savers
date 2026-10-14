@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useEffect, useMemo, useState } from "react";
 import type { Bookmark, Collection, DuplicateGroup, FeedSubscription } from "@/lib/types";

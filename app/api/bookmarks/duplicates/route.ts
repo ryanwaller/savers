@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
 import { canonicalBookmarkUrl } from "@/lib/normalizeUrl";
@@ -9,7 +9,7 @@ import { canonicalBookmarkUrl } from "@/lib/normalizeUrl";
  * Returns bookmarks grouped by canonical URL, showing only groups
  * with 2+ instances. Includes collection names for review UI.
  */
-export async function GET(_req: NextRequest) {
+export async function GET() {
   try {
     const { user } = await requireUser();
     const supabaseAdmin = getSupabaseAdmin();

@@ -142,7 +142,7 @@ export async function PATCH(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin();
     const { user } = await requireUser();
-    const { id, user_id: _ignoredUserId, created_at: _ignoredCreatedAt, ...rest } = await req.json();
+    const { id, ...rest } = await req.json();
 
     if (!id) {
       return NextResponse.json({ error: "Missing id." }, { status: 400 });

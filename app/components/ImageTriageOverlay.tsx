@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ImageRow } from "./ImageGrid";
@@ -42,7 +43,7 @@ type Step =
  * by the time you triage these the AI tags should be there. This is the
  * "where does this belong?" step, not "what is this?".
  */
-export default function ImageTriageOverlay({
+function ImageTriageOverlayContent({
   open,
   onClose,
   imageCollections,
@@ -57,26 +58,25 @@ export default function ImageTriageOverlay({
   const current = queue[0] ?? null;
   const remaining = queue.length;
 
-  const loadQueue = useCallback(async () => {
-    setStep({ kind: "loading" });
-    try {
-      const res = await fetch("/api/images?unsorted=1&sort=newest&limit=200", { cache: "no-store" });
-      const body = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setStep({ kind: "error", message: body?.error || "Couldn't load unsorted images." });
-        return;
-      }
-      const rows = (body.images as ImageRow[]) || [];
-      setQueue(rows);
-      setStep(rows.length === 0 ? { kind: "empty" } : { kind: "ready" });
-    } catch (err) {
-      setStep({ kind: "error", message: err instanceof Error ? err.message : "Network error." });
-    }
-  }, []);
-
   useEffect(() => {
-    if (open) void loadQueue();
-  }, [open, loadQueue]);
+    if (!open) return;
+    let cancelled = false;
+    void fetch("/api/images?unsorted=1&sort=newest&limit=200", { cache: "no-store" })
+      .then(async (res) => {
+        const body = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(body?.error || "Couldn't load unsorted images.");
+        return (body.images as ImageRow[]) || [];
+      })
+      .then((rows) => {
+        if (cancelled) return;
+        setQueue(rows);
+        setStep(rows.length === 0 ? { kind: "empty" } : { kind: "ready" });
+      })
+      .catch((err) => {
+        if (!cancelled) setStep({ kind: "error", message: err instanceof Error ? err.message : "Network error." });
+      });
+    return () => { cancelled = true; };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -527,4 +527,9 @@ export default function ImageTriageOverlay({
       `}</style>
     </div>
   );
+}
+
+export default function ImageTriageOverlay(props: Props) {
+  if (!props.open) return null;
+  return <ImageTriageOverlayContent {...props} />;
 }

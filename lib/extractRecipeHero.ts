@@ -37,14 +37,12 @@ const EXCLUDE_SELECTORS = [
 ];
 
 // Image alt text keywords that indicate a finished-dish photo
-const DISH_ALT_PATTERN = /\bdish\b|\bplate\b|\brecipe\b|\bfood\b|\bmeal\b|\bfinished\b|\bcooked\b|\bserved\b/i;
 
 /**
  * Find the best hero image URL from the recipe page using DOM heuristics.
  */
 export async function findRecipeHeroImageUrl(
   page: Page,
-  pageUrl: string,
 ): Promise<string | null> {
   return page.evaluate(
     (contentSel, excludeSel, minW, minH) => {

@@ -19,7 +19,6 @@ export function useScrollCollectionSpy({
 
   useEffect(() => {
     if (!enabled || collectionIds.length === 0) {
-      setActiveCollection(null);
       lastActiveRef.current = null;
       return;
     }
@@ -61,6 +60,7 @@ export function useScrollCollectionSpy({
       },
     );
 
+    const sections = sectionsRef.current;
     collectionIds.forEach((id) => {
       const section = document.querySelector(`[data-collection="${id}"]`);
       if (section) {
@@ -71,9 +71,9 @@ export function useScrollCollectionSpy({
 
     return () => {
       observerRef.current?.disconnect();
-      sectionsRef.current.clear();
+      sections.clear();
     };
   }, [enabled, collectionIds, scrollContainerRef]);
 
-  return activeCollection;
+  return enabled && collectionIds.length > 0 ? activeCollection : null;
 }

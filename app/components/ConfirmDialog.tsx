@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { useClientMounted } from "../hooks/useClientMounted";
 
 type Props = {
   open: boolean;
@@ -24,11 +25,7 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: Props) {
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useClientMounted();
 
   useEffect(() => {
     if (!open) return;

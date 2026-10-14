@@ -7,6 +7,7 @@ import { api, canonicalBookmarkUrl, domainOf } from "@/lib/api";
 import { ForceCoverButton } from "./ForceCoverButton";
 import CollectionPicker from "./CollectionPicker";
 import ConfirmDialog from "./ConfirmDialog";
+import { useAutosuggestions } from "../hooks/useAutosuggestions";
 
 type Props = {
   bookmark: Bookmark;
@@ -67,12 +68,6 @@ export default function BookmarkDetail({
   const [tagSuggestLoading, setTagSuggestLoading] = useState(false);
   const [tagSuggestStatus, setTagSuggestStatus] = useState<string | null>(null);
 
-  // Real-time autosuggest state
-  const [tagAutosuggestions, setTagAutosuggestions] = useState<string[]>([]);
-  const [collectionAutosuggestions, setCollectionAutosuggestions] = useState<Collection[]>([]);
-  const [activeTagIndex, setActiveTagIndex] = useState(-1);
-  const [activeCollectionIndex, setActiveCollectionIndex] = useState(-1);
-
   const allTags = useMemo(() => {
     const set = new Set<string>();
     for (const b of existingBookmarks) {
@@ -83,33 +78,28 @@ export default function BookmarkDetail({
     return Array.from(set).sort();
   }, [existingBookmarks]);
 
-  useEffect(() => {
+  const tagMatches = useMemo(() => {
     const trimmed = tagInput.trim().toLowerCase();
-    if (!trimmed) {
-      setTagAutosuggestions([]);
-      setActiveTagIndex(-1);
-      return;
-    }
-    const filtered = allTags.filter(
-      (t) => t.includes(trimmed) && !tags.some(existing => existing.toLowerCase() === t)
-    ).slice(0, 8);
-    setTagAutosuggestions(filtered);
-    setActiveTagIndex(-1);
+    return trimmed ? allTags.filter((tag) => tag.includes(trimmed) && !tags.some((existing) => existing.toLowerCase() === tag)).slice(0, 8) : [];
   }, [tagInput, allTags, tags]);
-
-  useEffect(() => {
+  const collectionMatches = useMemo(() => {
     const trimmed = newCollectionName.trim().toLowerCase();
-    if (!trimmed) {
-      setCollectionAutosuggestions([]);
-      setActiveCollectionIndex(-1);
-      return;
-    }
-    const filtered = flat.filter(
-      (c) => c.name.toLowerCase().includes(trimmed)
-    ).slice(0, 8);
-    setCollectionAutosuggestions(filtered);
-    setActiveCollectionIndex(filtered.length > 0 ? 0 : -1);
+    return trimmed ? flat.filter((collection) => collection.name.toLowerCase().includes(trimmed)).slice(0, 8) : [];
   }, [newCollectionName, flat]);
+  const {
+    suggestions: tagAutosuggestions,
+    selectedIndex: activeTagIndex,
+    setSelectedIndex: setActiveTagIndex,
+    dismiss: dismissTagSuggestions,
+    reveal: revealTagSuggestions,
+  } = useAutosuggestions(tagInput, tagMatches, -1);
+  const {
+    suggestions: collectionAutosuggestions,
+    selectedIndex: activeCollectionIndex,
+    setSelectedIndex: setActiveCollectionIndex,
+    dismiss: dismissCollectionSuggestions,
+    reveal: revealCollectionSuggestions,
+  } = useAutosuggestions(newCollectionName, collectionMatches, 0);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -118,19 +108,6 @@ export default function BookmarkDetail({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  useEffect(() => {
-    setAiSuggestion(null);
-    setAiDismissed(false);
-    setAiStatus(null);
-    setShowCreateCollection(false);
-    setNewCollectionName("");
-    setTagProposals([]);
-    setTagSuggestStatus(null);
-    setEditingUrl(false);
-    setUrlValue("");
-    setUrlSaving(false);
-  }, [bookmark.id]);
 
   const runSuggest = useCallback(async () => {
     if (!tree.length) return;
@@ -720,10 +697,10 @@ export default function BookmarkDetail({
                     style={{ width: "100%", boxSizing: "border-box" }}
                     placeholder="Collection name"
                     value={newCollectionName}
-                    onChange={(event) => setNewCollectionName(event.target.value)}
+                    onChange={(event) => { setNewCollectionName(event.target.value); revealCollectionSuggestions(); }}
                     onBlur={() => {
                       setTimeout(() => {
-                        setCollectionAutosuggestions([]);
+                        dismissCollectionSuggestions();
                       }, 200);
                     }}
                     onKeyDown={(event) => {
@@ -741,13 +718,13 @@ export default function BookmarkDetail({
                             setCollectionId(selected.id);
                             setShowCreateCollection(false);
                             setNewCollectionName("");
-                            setCollectionAutosuggestions([]);
+                            dismissCollectionSuggestions();
                           } else if (event.key === "Enter") {
                             event.preventDefault();
                             void createInlineCollection();
                           }
                         } else if (event.key === "Escape") {
-                          setCollectionAutosuggestions([]);
+                          dismissCollectionSuggestions();
                         }
                       } else {
                         if (event.key === "Enter") {
@@ -772,7 +749,7 @@ export default function BookmarkDetail({
                             setCollectionId(suggestion.id);
                             setShowCreateCollection(false);
                             setNewCollectionName("");
-                            setCollectionAutosuggestions([]);
+                            dismissCollectionSuggestions();
                           }}
                           onMouseEnter={() => setActiveCollectionIndex(index)}
                         >
@@ -857,11 +834,11 @@ export default function BookmarkDetail({
                   style={{ width: "100%", boxSizing: "border-box" }}
                   value={tagInput}
                   placeholder={tags.length ? "Add tag" : "Add a tag"}
-                  onChange={(e) => { setTagInput(e.target.value); setTagPendingDelete(null); }}
+                  onChange={(e) => { setTagInput(e.target.value); setTagPendingDelete(null); revealTagSuggestions(); }}
                   onBlur={() => {
                     setTimeout(() => {
                       if (tagInput.trim() && tagAutosuggestions.length === 0) void commitTag(tagInput);
-                      setTagAutosuggestions([]);
+                      dismissTagSuggestions();
                     }, 200);
                   }}
                   onKeyDown={(e) => {
@@ -881,7 +858,7 @@ export default function BookmarkDetail({
                           void commitTag(tagInput);
                         }
                       } else if (e.key === "Escape") {
-                        setTagAutosuggestions([]);
+                        dismissTagSuggestions();
                       }
                     } else {
                       if (e.key === "Enter" || e.key === ",") {

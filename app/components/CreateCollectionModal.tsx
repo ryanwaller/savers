@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { api } from "@/lib/api";
 import CollectionIcon from "./CollectionIcon";
 import IconPicker from "./IconPicker";
@@ -11,7 +11,7 @@ type Props = {
   onCreated: () => void;
 };
 
-export default function CreateCollectionModal({
+function CreateCollectionModalContent({
   open,
   onClose,
   onCreated,
@@ -21,14 +21,6 @@ export default function CreateCollectionModal({
   const [showIconPicker, setShowIconPicker] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    setName("");
-    setIcon(null);
-    setShowIconPicker(false);
-    setError(null);
-  }, [open]);
 
   if (!open) return null;
 
@@ -239,4 +231,9 @@ export default function CreateCollectionModal({
       `}</style>
     </div>
   );
+}
+
+export default function CreateCollectionModal(props: Props) {
+  if (!props.open) return null;
+  return <CreateCollectionModalContent {...props} />;
 }

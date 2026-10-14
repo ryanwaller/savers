@@ -45,7 +45,6 @@ function itemTitle(item: FeedItem) {
 }
 
 export default function FeedInbox({
-  feed,
   items,
   loading,
   error,

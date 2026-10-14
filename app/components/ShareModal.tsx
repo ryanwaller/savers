@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { createPortal } from "react-dom";
 
 type Props = {
@@ -11,16 +11,9 @@ type Props = {
   onClose: () => void;
 };
 
-export default function ShareModal({ open, shareUrl, title, description, onClose }: Props) {
+function ShareModalContent({ open, shareUrl, title, description, onClose }: Props) {
   const [copied, setCopied] = useState(false);
   const [shareError, setShareError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!open) {
-      setCopied(false);
-      setShareError(null);
-    }
-  }, [open]);
 
   async function handleCopy() {
     try {
@@ -181,4 +174,9 @@ export default function ShareModal({ open, shareUrl, title, description, onClose
     </div>,
     document.body,
   );
+}
+
+export default function ShareModal(props: Props) {
+  if (!props.open) return null;
+  return <ShareModalContent key={props.shareUrl} {...props} />;
 }
