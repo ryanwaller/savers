@@ -4,7 +4,7 @@ Click the Savers icon in Chrome's toolbar to save the current page to Unsorted. 
 
 ## Install the unpacked extension
 
-1. Download or clone this repository.
+1. Download the extension ZIP from Savers Settings and extract it.
 2. Open `chrome://extensions` and turn on **Developer mode**.
 3. Click **Load unpacked** and select this `chrome-extension` folder.
 4. Pin Savers from Chrome's Extensions menu.

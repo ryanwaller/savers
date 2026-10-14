@@ -528,6 +528,9 @@ export default function SettingsSections({
             >
               {creating ? "Creating…" : "Create extension token"}
             </button>
+            <a className="btn" href="/downloads/savers-chrome-extension-1.1.0.zip" download>
+              Download Chrome extension
+            </a>
             <p className="small muted">Copy the new token below, then paste it into the extension’s Options page.</p>
           </div>
 

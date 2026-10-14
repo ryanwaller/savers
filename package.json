@@ -15,6 +15,7 @@
     "link-worker": "tsx workers/link-check-worker.ts",
     "backfill-auto-tags": "tsx scripts/backfill-auto-tags.ts",
     "gen:icons": "node scripts/build-lucide-icon-list.mjs",
+    "package:chrome-extension": "node scripts/package-chrome-extension.mjs",
     "lint": "eslint"
   },
   "dependencies": {
