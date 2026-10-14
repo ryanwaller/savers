@@ -516,11 +516,19 @@ export default function SettingsSections({
               <div>
                 <div className="feature-title">Browser extension</div>
                 <div className="feature-sub">
-                  Save from the toolbar.
+                  One click to Unsorted from Chrome’s toolbar.
                 </div>
               </div>
               <span className="status-chip status-ready">Fastest</span>
             </div>
+            <button
+              className="btn btn-primary"
+              onClick={() => void createNamedToken("Chrome Extension")}
+              disabled={creating}
+            >
+              {creating ? "Creating…" : "Create extension token"}
+            </button>
+            <p className="small muted">Copy the new token below, then paste it into the extension’s Options page.</p>
           </div>
 
           <div className="settings-card feature-card">

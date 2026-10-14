@@ -310,12 +310,74 @@ async function savePageFromTab(tab) {
   }
 }
 
+async function showPageStatus(tabId, state, message) {
+  if (!tabId) return;
+  const payload = { type: "SHOW_SAVE_STATUS", state, message };
+  try {
+    await chrome.tabs.sendMessage(tabId, payload);
+  } catch {
+    // Tabs open before this extension was installed may lack the content script.
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      await chrome.tabs.sendMessage(tabId, payload);
+    } catch {
+      // Restricted pages still get the toolbar badge feedback.
+    }
+  }
+}
+
+async function quickSavePageFromTab(tab) {
+  const url = tab?.url;
+  if (!url || !/^https?:/i.test(url)) {
+    badgeFlashErr();
+    return;
+  }
+
+  const payload = {
+    url,
+    title: tab.title || new URL(url).hostname,
+    collection_id: null,
+    quick_save: true,
+  };
+  void badgeSaving("Saving to Unsorted…");
+  await showPageStatus(tab.id, "saving", "Saving to Unsorted…");
+
+  try {
+    const appUrl = await getStoredAppUrl();
+    await apiFetch(appUrl, "/api/bookmarks", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    badgeFlashOk();
+    await showPageStatus(tab.id, "saved", "Saved to Unsorted");
+  } catch (error) {
+    console.error("Quick save failed:", error);
+    const isNetworkError = error instanceof TypeError || /fetch|network/i.test(error?.message || "");
+    if (isNetworkError) {
+      await enqueueFailed(payload);
+      await showPageStatus(tab.id, "queued", "Could not reach Savers. Queued to retry.");
+    } else {
+      const message = /401|unauthorized/i.test(error?.message || "")
+        ? "Add an extension token in Savers and the extension Options."
+        : error?.message || "Could not save this page.";
+      await showPageStatus(tab.id, "error", message);
+    }
+    badgeFlashErr();
+  }
+}
+
 /* ── API Helpers ── */
 
 async function apiFetch(appUrl, path, options) {
+  const headers = new Headers(options?.headers);
+  const stored = await chrome.storage.local.get(["saversApiToken"]);
+  const token = String(stored.saversApiToken || "").trim();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
   const response = await fetch(`${appUrl}${path}`, {
     credentials: "include",
     ...options,
+    headers,
   });
   if (!response.ok) {
     let message = `${response.status} ${response.statusText}`;
@@ -352,6 +414,10 @@ async function ensureContextMenus() {
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   if (info.menuItemId !== SAVE_PAGE_MENU_ID) return;
   await savePageFromTab(tab);
+});
+
+chrome.action.onClicked.addListener((tab) => {
+  void quickSavePageFromTab(tab);
 });
 
 /* ── Alarms (periodic retry) ── */

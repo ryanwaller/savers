@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Savers extension settings</title>
+    <style>
+      :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+      body { max-width: 520px; margin: 48px auto; padding: 0 20px; line-height: 1.5; }
+      h1 { font-size: 20px; }
+      label { display: block; margin: 24px 0 6px; font-weight: 600; }
+      input { box-sizing: border-box; width: 100%; padding: 10px; font: inherit; }
+      button { margin: 12px 8px 0 0; padding: 8px 12px; font: inherit; cursor: pointer; }
+      a { color: inherit; }
+      #status { min-height: 24px; }
+    </style>
+  </head>
+  <body>
+    <h1>Savers extension</h1>
+    <p>Click the Savers button in Chrome to save the current page to Unsorted. A small status message appears at the top of the page.</p>
+    <p>To connect, open <a href="https://savers-production.up.railway.app/" target="_blank" rel="noopener noreferrer">Savers</a>, then go to <strong>Settings → Browser extension → Create extension token</strong>. Copy the token and paste it below.</p>
+    <form id="token-form">
+      <label for="token">Extension token</label>
+      <input id="token" type="password" autocomplete="off" spellcheck="false" placeholder="svr_…" />
+      <button type="submit">Save token</button>
+      <button id="clear-token" type="button">Remove token</button>
+    </form>
+    <p id="status" role="status"></p>
+    <script src="options.js"></script>
+  </body>
+</html>

@@ -1,36 +1,22 @@
-# Savers Chrome Extension
+# Savers Chrome extension
 
-Legacy extension implementation. Do not load this alongside `/Users/ryanwaller/Dev/savers/handoff/extension`, or you may trigger duplicate save requests.
+Click the Savers icon in Chrome's toolbar to save the current page to Unsorted. A small status message appears at the top of the page; the tab stays open. The toolbar badge also reports success or failure. The page's title is saved immediately, and Savers queues its preview and automatic tags afterward.
 
-This is a lightweight unpacked Chrome extension for quickly saving the current tab into the local Savers app.
+## Install the unpacked extension
 
-## Load it in Chrome
+1. Download or clone this repository.
+2. Open `chrome://extensions` and turn on **Developer mode**.
+3. Click **Load unpacked** and select this `chrome-extension` folder.
+4. Pin Savers from Chrome's Extensions menu.
 
-1. Open `chrome://extensions`
-2. Turn on `Developer mode`
-3. Click `Load unpacked`
-4. Select this folder:
+If the extension was already loaded, click **Reload** on its card in `chrome://extensions` after updating the files.
 
-`/Users/ryanwaller/Dev/savers/handoff/chrome-extension`
+## Connect Savers
 
-## How it works
+1. In Savers, open **Settings → Browser extension → Create extension token**.
+2. Copy the token shown there. It is displayed only once.
+3. Right-click the Savers toolbar icon, choose **Options**, paste the token, and click **Save token**.
 
-- Reads the active tab URL and title
-- Fetches metadata from your running Savers app
-- Lets you choose or create a collection
-- Saves straight into `/api/bookmarks`
+The token stays in Chrome's extension storage. The extension sends it only to the configured Savers server. Revoke it in Savers Settings if you stop using the extension.
 
-## Default app URL
-
-The popup defaults to:
-
-`http://localhost:3000`
-
-You can change it inside the popup, and it will be remembered in Chrome storage.
-
-## Notes
-
-- The Savers app needs to be running locally for the extension to work.
-- The manifest currently allows requests to:
-  - `http://localhost:3000/*`
-  - `http://127.0.0.1:3000/*`
+The extension can also use an existing Savers browser session, but the token makes saving reliable when Chrome limits cookies from extensions.
