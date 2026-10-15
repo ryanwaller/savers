@@ -551,12 +551,13 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
             type="button"
             className="triage-section-toggle"
             onClick={() => setTagsOpen((v) => !v)}
+            aria-expanded={tagsOpen}
           >
-            <span>Tags</span>
-            <span className="triage-section-toggle-meta">
-              {tags.length > 0 ? `${tags.length}` : ""}
+            <span className="triage-section-toggle-label">
               <span className="triage-section-toggle-caret">{tagsOpen ? "▾" : "▸"}</span>
+              Tags
             </span>
+            {tags.length > 0 && <span>{tags.length}</span>}
           </button>
           {tagsOpen && (
             <div className="triage-tags-body">
@@ -919,7 +920,7 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
           cursor: pointer;
           text-align: left;
         }
-        .triage-section-toggle-meta {
+        .triage-section-toggle-label {
           display: inline-flex;
           align-items: center;
           gap: 8px;
