@@ -6,6 +6,7 @@ import type { AISuggestion, Bookmark, Collection } from "@/lib/types";
 import { notify } from "@/lib/notify";
 import CollectionIcon from "./CollectionIcon";
 import CollectionPicker from "./CollectionPicker";
+import { X } from "lucide-react";
 
 type Step =
   | { kind: "loading" }
@@ -672,7 +673,7 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
           onClick={onClose}
           aria-label="Close"
         >
-          ×
+          <X size={14} strokeWidth={2} />
         </button>
         {body}
       </div>
@@ -727,25 +728,26 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
         .triage-close {
           appearance: none;
           position: absolute;
-          top: 16px;
-          right: 16px;
+          top: 8px;
+          right: 8px;
           z-index: 2;
-          display: flex;
+          display: inline-flex;
           align-items: center;
           justify-content: center;
           width: 32px;
           height: 32px;
-          border: 1px solid rgba(255, 255, 255, 0.35);
-          border-radius: 50%;
-          background: rgba(0, 0, 0, 0.72);
-          color: #fff;
-          font: inherit;
-          font-size: 20px;
-          line-height: 1;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 94%, transparent);
+          backdrop-filter: blur(6px);
+          -webkit-backdrop-filter: blur(6px);
+          color: var(--color-text-muted);
           cursor: pointer;
         }
         .triage-close:hover {
-          background: rgba(0, 0, 0, 0.9);
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg);
         }
         .triage-state {
           padding: 64px 24px;
@@ -772,17 +774,14 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
         }
         .triage-thumb {
           display: block;
-          max-height: 360px;
           margin: 0 -16px;
           background: var(--color-bg-secondary);
           border-bottom: 1px solid var(--color-border);
-          overflow: hidden;
         }
         .triage-thumb img {
+          display: block;
           width: 100%;
           height: auto;
-          max-height: 360px;
-          object-fit: contain;
         }
         .triage-thumb-fallback {
           display: flex;
