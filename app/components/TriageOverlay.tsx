@@ -50,6 +50,10 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
   const [previewStage, setPreviewStage] = useState<"stored" | "og_image" | "favicon" | "fail">("stored");
   const [tagsOpen, setTagsOpen] = useState(false);
   const [collectionPickerOpen, setCollectionPickerOpen] = useState(false);
+  const [newCollectionOpen, setNewCollectionOpen] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
+  const [creatingCollection, setCreatingCollection] = useState(false);
+  const createdCollectionRef = useRef<Collection | null>(null);
 
   const current = queue[0] ?? null;
 
@@ -71,9 +75,9 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
     return () => { cancelled = true; };
   }, [open]);
 
-  // Reset per-bookmark state and ask the AI when the head of the queue moves.
+  // Reset the form only when the bookmark changes, not when collections refresh.
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- The queue head changed; reset the editing form before requesting suggestions.
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- The queue head changed; reset the editing form.
     setTags(current?.tags ?? []);
     setTagInput("");
     tagInputRef.current = "";
@@ -82,6 +86,9 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
     setSelectedCollection(null);
     setTagsOpen(false);
     setCollectionPickerOpen(false);
+    setNewCollectionOpen(false);
+    setNewCollectionName("");
+    createdCollectionRef.current = null;
     const ss = storedPreviewUrl(current?.preview_path ?? null, {
       previewVersion: current?.preview_version,
     });
@@ -89,6 +96,9 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
     else if (current?.og_image) setPreviewStage("og_image");
     else if (current?.favicon) setPreviewStage("favicon");
     else setPreviewStage("fail");
+  }, [current, open]);
+
+  useEffect(() => {
     if (!current || !open) return;
     let cancelled = false;
     void api
@@ -127,6 +137,33 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
     };
   }, [current, collections, flat, open]);
 
+  async function createAndSelectCollection(name: string, parentId: string | null) {
+    const { collection } = await api.createCollection(name, parentId);
+    createdCollectionRef.current = collection;
+    setFlat((prev) => [...prev, collection]);
+    setSelectedCollection(collection);
+    void api.listCollections().then(({ collections: tree, flat: flatList }) => {
+      setCollections(tree);
+      setFlat(flatList);
+    }).catch(() => {});
+    return collection;
+  }
+
+  async function submitNewCollection() {
+    const name = newCollectionName.trim();
+    if (!name || creatingCollection) return;
+    setCreatingCollection(true);
+    try {
+      await createAndSelectCollection(name, null);
+      setNewCollectionName("");
+      setNewCollectionOpen(false);
+    } catch (error) {
+      notify(error instanceof Error ? error.message : "Could not create collection.");
+    } finally {
+      setCreatingCollection(false);
+    }
+  }
+
   const collectionsById = useMemo(() => {
     const map = new Map<string, Collection>();
     for (const c of flat) map.set(c.id, c);
@@ -156,6 +193,10 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
         out.push(c);
       }
     }
+    if (selectedCollection && !ids.has(selectedCollection.id)) {
+      ids.add(selectedCollection.id);
+      out.push(selectedCollection);
+    }
     for (const id of recentIds) {
       if (ids.has(id)) continue;
       const c = collectionsById.get(id);
@@ -173,7 +214,7 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
       }
     }
     return out;
-  }, [suggestion, recentIds, collectionsById, flat]);
+  }, [suggestion, selectedCollection, recentIds, collectionsById, flat]);
 
   function clearUndo() {
     if (undoTimerRef.current !== null) {
@@ -448,21 +489,55 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
             >
               More collections…
             </button>
+            <button
+              type="button"
+              className={`triage-folder-btn ${newCollectionOpen ? "on" : ""}`}
+              onClick={() => {
+                setNewCollectionOpen((value) => !value);
+                setCollectionPickerOpen(false);
+              }}
+            >
+              + New collection
+            </button>
           </div>
+          {newCollectionOpen && (
+            <form className="triage-new-collection" onSubmit={(event) => {
+              event.preventDefault();
+              void submitNewCollection();
+            }}>
+              <input
+                autoFocus
+                aria-label="New collection name"
+                placeholder="Collection name"
+                value={newCollectionName}
+                onChange={(event) => setNewCollectionName(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Escape") {
+                    setNewCollectionOpen(false);
+                    setNewCollectionName("");
+                  }
+                }}
+                disabled={creatingCollection}
+              />
+              <button type="submit" className="btn btn-primary" disabled={!newCollectionName.trim() || creatingCollection}>
+                {creatingCollection ? "Creating…" : "Create"}
+              </button>
+              <button type="button" className="btn" onClick={() => {
+                setNewCollectionOpen(false);
+                setNewCollectionName("");
+              }} disabled={creatingCollection}>Cancel</button>
+            </form>
+          )}
           {collectionPickerOpen && (
             <div className="triage-col-picker">
               <CollectionPicker
                 flat={flat}
                 value={selectedCollection?.id ?? null}
                 onChange={(id) => {
-                  const c = id ? collectionsById.get(id) ?? null : null;
+                  const c = id ? collectionsById.get(id) ?? (createdCollectionRef.current?.id === id ? createdCollectionRef.current : null) : null;
                   setSelectedCollection(c);
                 }}
-                onCreateCollection={async (name, parentId) => {
-                  const { collection } = await api.createCollection(name, parentId);
-                  setFlat((prev) => [...prev, collection]);
-                  return collection;
-                }}
+                onCreateCollection={createAndSelectCollection}
                 placeholder="Pick a collection…"
                 openDirection="up"
               />
@@ -829,6 +904,21 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
         }
         .triage-col-picker {
           margin-top: 2px;
+        }
+        .triage-new-collection {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+        }
+        .triage-new-collection input {
+          flex: 1 1 180px;
+          min-width: 0;
+          padding: 6px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 6px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font: inherit;
         }
         .triage-tags-section {
           gap: 10px;
