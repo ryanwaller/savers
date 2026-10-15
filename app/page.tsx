@@ -460,12 +460,31 @@ export default function Home() {
   const [sharingCollection, setSharingCollection] = useState<ShareableCollection | null>(null);
   const [triageOpen, setTriageOpen] = useState(false);
   const [imageTriageOpen, setImageTriageOpen] = useState(false);
+  const openLinkTriage = useCallback(() => {
+    const unsorted: Selection = { kind: "unsorted" };
+    setSelection(unsorted);
+    setRenderSelection(unsorted);
+    setContentTransitioning(false);
+    setActiveTag(null);
+    setSearch("");
+    setTriageOpen(true);
+  }, []);
   const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
   const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
   const [showCreateCollection, setShowCreateCollection] = useState(false);
   const [showAddImages, setShowAddImages] = useState(false);
   const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
   const [images, setImages] = useState<ImageRow[]>([]);
+  const openImageTriage = useCallback(() => {
+    const unsorted: Selection = { kind: "images_unsorted" };
+    setSelection(unsorted);
+    setRenderSelection(unsorted);
+    setImages([]);
+    setContentTransitioning(false);
+    setActiveTag(null);
+    setSearch("");
+    setImageTriageOpen(true);
+  }, []);
   const imageViewCacheRef = useRef<Map<string, ImageRow[]>>(new Map());
   const [loadedImageViewKey, setLoadedImageViewKey] = useState<string | null>(null);
   const [loadingImages, setLoadingImages] = useState(false);
@@ -735,7 +754,7 @@ export default function Home() {
     const onOpenSettings = () => setShowSettings(true);
     const onAddImages = () => setShowAddImages(true);
     const onNewImageCollection = () => setShowCreateImageFolder(true);
-    const onOpenImageTriage = () => setImageTriageOpen(true);
+    const onOpenImageTriage = () => openImageTriage();
     window.addEventListener("savers:open-smart-builder", onOpen);
     window.addEventListener("savers:edit-smart-collection", onEdit);
     window.addEventListener("savers:new-collection", onNewCollection);
@@ -752,7 +771,7 @@ export default function Home() {
       window.removeEventListener("savers:new-image-collection", onNewImageCollection);
       window.removeEventListener("savers:open-image-triage", onOpenImageTriage);
     };
-  }, []);
+  }, [openImageTriage]);
 
   // Honor the ?triage=1 query param (used by the legacy /triage URL
   // which now redirects here).
@@ -761,13 +780,15 @@ export default function Home() {
     const params = new URLSearchParams(window.location.search);
     if (params.get("triage") === "1") {
       // eslint-disable-next-line react-hooks/set-state-in-effect -- Consume the triage deep link from the browser URL.
-      setTriageOpen(true);
+      openLinkTriage();
       params.delete("triage");
+      params.delete("collection");
+      params.delete("tag");
       const next = params.toString();
       const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
       window.history.replaceState({}, "", newUrl);
     }
-  }, []);
+  }, [openLinkTriage]);
 
   // Reflect activeTag in the URL as ?tag=... for shareable links.
   const suppressTagUrlWrite = useRef(false);
@@ -2865,7 +2886,7 @@ export default function Home() {
             shareKind: "images",
           })
         }
-        onOpenTriage={() => setTriageOpen(true)}
+        onOpenTriage={openLinkTriage}
         onSignOut={handleSignOut}
         onOpenSettings={() => setShowSettings(true)}
         onCloseMobile={() => setSidebarOpen(false)}

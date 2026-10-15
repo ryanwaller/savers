@@ -776,8 +776,10 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
         .triage-thumb {
           display: block;
           margin: 0 -16px;
+          border-radius: 11px 11px 0 0;
           background: var(--color-bg-secondary);
           border-bottom: 1px solid var(--color-border);
+          overflow: hidden;
         }
         .triage-thumb img {
           display: block;
