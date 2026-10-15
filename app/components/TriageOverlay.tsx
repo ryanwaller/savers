@@ -638,6 +638,9 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
             Delete
           </button>
           <div className="triage-actions-right">
+            <span className="triage-action-progress muted">
+              {queue.length === 1 ? "1 left" : `${queue.length} left`}
+            </span>
             <button
               className="triage-action"
               onClick={() => void handleSkip()}
@@ -660,31 +663,17 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
     );
   }
 
-  const remaining = queue.length;
-  const showRemaining = step.kind === "ready" && current !== null;
-
   return (
     <div className="triage-backdrop" onClick={onClose}>
       <div className="triage-panel" onClick={(e) => e.stopPropagation()}>
-        <header className="triage-head">
-          <span className="triage-head-title">
-            {current ? trimTitle(current) : step.kind === "empty" ? "Inbox zero" : "Triage"}
-          </span>
-          <div className="triage-head-right">
-            {showRemaining && (
-              <span className="triage-head-progress muted">
-                {remaining === 1 ? "1 left" : `${remaining} left`}
-              </span>
-            )}
-            <button
-              className="icon-btn triage-close"
-              onClick={onClose}
-              aria-label="Close"
-            >
-              ×
-            </button>
-          </div>
-        </header>
+        <button
+          type="button"
+          className="triage-close"
+          onClick={onClose}
+          aria-label="Close"
+        >
+          ×
+        </button>
         {body}
       </div>
 
@@ -714,6 +703,7 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
           overflow-y: auto;
         }
         .triage-panel {
+          position: relative;
           width: 640px;
           max-width: 100%;
           background: var(--color-bg);
@@ -734,36 +724,28 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
             transform: translateY(0);
           }
         }
-        .triage-head {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 12px;
-          padding: 14px 16px;
-          border-bottom: 1px solid var(--color-border);
-        }
-        .triage-head-title {
-          font-size: 12px;
-          font-weight: 600;
-          color: var(--color-text);
-          overflow: hidden;
-          text-overflow: ellipsis;
-          white-space: nowrap;
-          min-width: 0;
-        }
-        .triage-head-right {
-          display: inline-flex;
-          align-items: center;
-          gap: 12px;
-        }
-        .triage-head-progress {
-          font-size: 12px;
-          font-feature-settings: "tnum" 1;
-        }
         .triage-close {
           appearance: none;
-          color: var(--color-text);
-          padding-bottom: 2px;
+          position: absolute;
+          top: 16px;
+          right: 16px;
+          z-index: 2;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 32px;
+          height: 32px;
+          border: 1px solid rgba(255, 255, 255, 0.35);
+          border-radius: 50%;
+          background: rgba(0, 0, 0, 0.72);
+          color: #fff;
+          font: inherit;
+          font-size: 20px;
+          line-height: 1;
+          cursor: pointer;
+        }
+        .triage-close:hover {
+          background: rgba(0, 0, 0, 0.9);
         }
         .triage-state {
           padding: 64px 24px;
@@ -1054,6 +1036,11 @@ function TriageOverlayContent({ open, onClose, onMutated, allTags = [] }: Props)
           display: inline-flex;
           align-items: center;
           gap: 8px;
+        }
+        .triage-action-progress {
+          font-size: 12px;
+          font-feature-settings: "tnum" 1;
+          white-space: nowrap;
         }
         .triage-action {
           appearance: none;
