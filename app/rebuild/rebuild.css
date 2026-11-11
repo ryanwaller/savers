@@ -3159,8 +3159,8 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-list-grid { gap: 10px; }
   .rb-list-grid .rb-card { min-height: 0; }
   .rb-list-grid .rb-card-primary { display: flex; align-items: stretch; height: auto; min-height: 0; }
-  .rb-list-grid .rb-card-image, .rb-list-grid .rb-file-art { flex: 0 0 44%; width: 44%; height: auto; min-height: 0; aspect-ratio: 4 / 3; }
-  .rb-list-grid .rb-card-image img, .rb-card-grid.rb-list-grid .rb-card-image img { display: block; width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; }
+  .rb-list-grid .rb-card-image, .rb-list-grid .rb-file-art { flex: 0 0 44%; width: 44%; height: auto; min-height: 0; aspect-ratio: 4 / 3; background: var(--rb-control-bg); }
+  .rb-list-grid .rb-card-image img, .rb-card-grid.rb-list-grid .rb-card-image img { display: block; width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: contain; }
   .rb-list-grid .rb-card-content, .rb-list-grid .rb-card:has(.rb-card-image) .rb-card-content, .rb-card-grid.rb-list-grid.rb-card-size-s .rb-card-content, .rb-card-grid.rb-list-grid.rb-card-size-xl .rb-card-content { flex: 1; min-width: 0; height: auto; overflow: hidden; padding: 10px 12px; }
   .rb-list-grid .rb-card:not(:has(.rb-card-image:not([data-failed]))) .rb-card-primary { min-height: 88px; }
   .rb-list-grid .rb-card:not(:has(.rb-card-image:not([data-failed]))) .rb-card-content { padding-right: 100px; }
