@@ -289,7 +289,10 @@ export default function RebuildPreview({
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
   const [formTags, setFormTags] = useState("");
+  const [formTagInput, setFormTagInput] = useState("");
   const [formCollection, setFormCollection] = useState("");
+  const [newCollectionOpen, setNewCollectionOpen] = useState(false);
+  const [newCollectionName, setNewCollectionName] = useState("");
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formPrivate, setFormPrivate] = useState(true);
   const [formError, setFormError] = useState("");
@@ -307,6 +310,18 @@ export default function RebuildPreview({
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sizeOpen && !sortOpen && !viewOpen) return;
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest(".rb-toolbar-menu-wrap")) return;
+      setSizeOpen(false);
+      setSortOpen(false);
+      setViewOpen(false);
+    };
+    document.addEventListener("pointerdown", closeOnOutsideClick);
+    return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
+  }, [sizeOpen, sortOpen, viewOpen]);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -671,9 +686,45 @@ export default function RebuildPreview({
     setFormTitle("");
     setFormNote("");
     setFormTags("");
+    setFormTagInput("");
     setFormCollection(selectedCollection || "");
+    setNewCollectionOpen(false);
+    setNewCollectionName("");
     setFormFile(null);
     setFormPrivate(true);
+    setFormError("");
+  }
+
+  function addComposerTag() {
+    const existing = formTags.split(",").map((tag) => tag.trim()).filter(Boolean);
+    const incoming = formTagInput.split(",").map((tag) => tag.trim()).filter(Boolean);
+    if (!incoming.length) return;
+    const seen = new Set<string>();
+    setFormTags([...existing, ...incoming].filter((tag) => {
+      const key = tag.toLocaleLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    }).join(", "));
+    setFormTagInput("");
+  }
+
+  function createComposerCollection() {
+    const name = newCollectionName.trim();
+    if (!name) { setFormError("Give your collection a name."); return; }
+    const id = `local-${crypto.randomUUID()}`;
+    const parent = allCollections.find((item) => item.id === selectedCollection);
+    setAllCollections((items) => [...items, {
+      id,
+      name,
+      count: 0,
+      parentId: parent?.id,
+      group: parent?.group || (composer === "image" ? "images" : "links"),
+      isPrivate: true,
+    }]);
+    setFormCollection(id);
+    setNewCollectionName("");
+    setNewCollectionOpen(false);
     setFormError("");
   }
 
@@ -694,7 +745,7 @@ export default function RebuildPreview({
   }
 
   async function saveComposer() {
-    const nextTags = [...new Set(formTags.split(",").map((tag) => tag.trim()).filter(Boolean))];
+    const nextTags = [...new Set(`${formTags},${formTagInput}`.split(",").map((tag) => tag.trim()).filter(Boolean))];
     if (composer === "collection") {
       if (!formTitle.trim()) {
         setFormError("Give your collection a name.");
@@ -1140,13 +1191,13 @@ export default function RebuildPreview({
                     ? `${collection ? displayCount(collection) ?? "—" : 815}`
                     : filteredCards.length}
                 </span>
-                <div className="rb-size-wrap">
+                <div className="rb-size-wrap rb-toolbar-menu-wrap">
                   <button className={`rb-small-icon rb-size-trigger ${sizeOpen ? "selected" : ""}`} onClick={() => { setSizeOpen((open) => !open); setSortOpen(false); setViewOpen(false); }} aria-label={`Thumbnail size: ${cardSize.toUpperCase()}`} aria-expanded={sizeOpen} title="Thumbnail size">{cardSize.toUpperCase()}</button>
-                  {sizeOpen && <div className="rb-size-menu" role="group" aria-label="Thumbnail size">
+                  {sizeOpen && <div className="rb-toolbar-menu" role="group" aria-label="Thumbnail size">
                     {(["s", "m", "l", "xl"] as const).map((size) => <button key={size} onClick={() => { setCardSize(size); setListMode(false); setSizeOpen(false); }}>{size.toUpperCase()}{cardSize === size && <Check size={17} aria-label="Selected" />}</button>)}
                   </div>}
                 </div>
-                <div className="rb-sort-wrap">
+                <div className="rb-sort-wrap rb-toolbar-menu-wrap">
                   <button
                     className={`rb-small-icon ${sortOpen ? "selected" : ""}`}
                     onClick={() => { setSortOpen(!sortOpen); setSizeOpen(false); setViewOpen(false); }}
@@ -1156,14 +1207,14 @@ export default function RebuildPreview({
                     <SlidersHorizontal size={17} />
                   </button>
                   {sortOpen && (
-                    <div className="rb-sort-menu">
+                    <div className="rb-toolbar-menu" role="group" aria-label="Card order">
                       <button
                         onClick={() => {
                           setSortNewest(true);
                           setSortOpen(false);
                         }}
                       >
-                        Export order {sortNewest && <Check size={14} />}
+                        Export order {sortNewest && <Check size={17} aria-label="Selected" />}
                       </button>
                       <button
                         onClick={() => {
@@ -1171,14 +1222,14 @@ export default function RebuildPreview({
                           setSortOpen(false);
                         }}
                       >
-                        Reverse order {!sortNewest && <Check size={14} />}
+                        Reverse order {!sortNewest && <Check size={17} aria-label="Selected" />}
                       </button>
                     </div>
                   )}
                 </div>
-                <div className="rb-view-wrap">
+                <div className="rb-view-wrap rb-toolbar-menu-wrap">
                   <button className={`rb-small-icon ${viewOpen ? "selected" : ""}`} onClick={() => { setViewOpen((open) => !open); setSizeOpen(false); setSortOpen(false); }} aria-label={`View: ${listMode ? "List" : "Grid"}`} aria-expanded={viewOpen} title="Card view">{listMode ? <List size={18} /> : <Grid2X2 size={18} />}</button>
-                  {viewOpen && <div className="rb-size-menu rb-view-menu" role="group" aria-label="Card view">
+                  {viewOpen && <div className="rb-toolbar-menu" role="group" aria-label="Card view">
                     <button onClick={() => { setListMode(false); setViewOpen(false); }}><span className="rb-view-option-label"><Grid2X2 size={18} /> Grid</span>{!listMode && <Check size={17} aria-label="Selected" />}</button>
                     <button onClick={() => { setListMode(true); setViewOpen(false); }}><span className="rb-view-option-label"><List size={18} /> List</span>{listMode && <Check size={17} aria-label="Selected" />}</button>
                   </div>}
@@ -1631,7 +1682,7 @@ export default function RebuildPreview({
       )}
 
       {tagEditorId && tagEditorCard && (
-        <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit tags for ${tagEditorCard.title}`}>
+        <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit tags for ${tagEditorCard.title}`} onMouseDown={(event) => { if (event.target === event.currentTarget) setTagEditorId(null); }}>
           <div className="rb-tag-editor" data-scroll-fade="y">
             <div className="rb-rule-head">
               <div><span>Tags</span><h2>{tagEditorCard.title}</h2></div>
@@ -1676,17 +1727,8 @@ export default function RebuildPreview({
           onMouseDown={(event) => { if (event.target === event.currentTarget) setComposer(null); }}
         >
           <div className="rb-composer">
-            <div className="rb-composer-header"><h2>
-              {composer === "link"
-                ? "Save a link"
-                : composer === "note"
-                  ? "Write a note"
-                  : composer === "collection"
-                    ? "New collection"
-                    : composer === "image"
-                      ? "Upload an image"
-                      : "Upload a file"}
-            </h2><button className="rb-composer-close" onClick={() => setComposer(null)} aria-label="Close"><X size={23} /></button></div>
+            <div className="rb-composer-header"><button className="rb-composer-close" onClick={() => setComposer(null)} aria-label="Close"><X size={23} /></button></div>
+            <div className="rb-composer-body" data-scroll-fade="y">
             {composer === "link" && (
               <label>
                 Link
@@ -1718,10 +1760,10 @@ export default function RebuildPreview({
             {composer === "image" && <label>Or use an image URL<input type="url" value={formUrl} onChange={(event) => setFormUrl(event.target.value)} placeholder="https://example.com/image.jpg" /></label>}
             <label>
               {composer === "note"
-                ? "Title (optional)"
+                ? "Title"
                 : composer === "collection"
                   ? "Name"
-                  : "Title (optional)"}
+                  : "Title"}
               <input
                 value={formTitle}
                 onChange={(e) => setFormTitle(e.target.value)}
@@ -1736,8 +1778,8 @@ export default function RebuildPreview({
             </label>
             <label>
               {composer === "collection"
-                ? "Description (optional)"
-                : "Note (optional)"}
+                ? "Description"
+                : "Note"}
               <textarea
                 value={formNote}
                 onChange={(e) => setFormNote(e.target.value)}
@@ -1750,51 +1792,39 @@ export default function RebuildPreview({
               />
             </label>
             {composer !== "collection" && (
-              <label>
-                Tags (optional)
-                <input value={formTags} onChange={(event) => setFormTags(event.target.value)} placeholder="Separate tags with commas" />
-              </label>
+              <div className="rb-composer-field">
+                <label htmlFor="rb-composer-tag-input">Tags</label>
+                {formTags && <div className="rb-composer-tag-chips">{formTags.split(",").map((tag) => tag.trim()).filter(Boolean).map((tag) => <button key={tag.toLocaleLowerCase()} onClick={() => setFormTags((current) => current.split(",").map((value) => value.trim()).filter((value) => value && value.toLocaleLowerCase() !== tag.toLocaleLowerCase()).join(", "))} aria-label={`Remove tag ${tag}`}>{tag}<X size={15} /></button>)}</div>}
+                <div className="rb-composer-inline-entry">
+                  <input id="rb-composer-tag-input" value={formTagInput} onChange={(event) => setFormTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addComposerTag(); } }} placeholder="New or existing tag" list="rb-composer-tag-suggestions" />
+                  <datalist id="rb-composer-tag-suggestions">{tagCounts.slice(0, 100).map((tag) => <option key={tag.name} value={tag.name} />)}</datalist>
+                  <button onClick={addComposerTag} aria-label="Add tag" title="Add tag"><Plus size={21} /></button>
+                </div>
+              </div>
             )}
-            {
-              <label>
-                {composer === "collection"
-                  ? "Inside (optional)"
-                  : "Collection (optional)"}
-                <select
-                  value={formCollection}
-                  onChange={(e) => setFormCollection(e.target.value)}
-                >
-                  <option value="">
-                    {composer === "collection"
-                      ? "Top level"
-                      : "Unsorted — decide later"}
-                  </option>
-                  {allCollections.map((item) => (
-                    <option value={item.id} key={item.id}>
-                      {item.parentId ? "↳ " : ""}
-                      {item.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            }
+            <div className="rb-composer-field">
+              <div className="rb-composer-field-head">
+                <label htmlFor="rb-composer-collection">{composer === "collection" ? "Inside" : "Collection"}</label>
+                {composer !== "collection" && <button onClick={() => setNewCollectionOpen((open) => !open)} aria-expanded={newCollectionOpen}><Plus size={17} /> New collection</button>}
+              </div>
+              <select id="rb-composer-collection" value={formCollection} onChange={(e) => setFormCollection(e.target.value)}>
+                <option value="">{composer === "collection" ? "Top level" : "Unsorted — decide later"}</option>
+                {allCollections.map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
+              </select>
+              {newCollectionOpen && <div className="rb-composer-inline-entry"><input autoFocus value={newCollectionName} onChange={(event) => setNewCollectionName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); createComposerCollection(); } }} placeholder="Collection name" aria-label="New collection name" /><button onClick={createComposerCollection}>Create</button></div>}
+            </div>
+            </div>
             {formError && (
-              <div className="rb-form-error" role="alert">
+              <div className="rb-form-error rb-composer-error" role="alert">
                 {formError}
               </div>
             )}
-            <div className="rb-composer-privacy">
-              <span>Visibility</span>
-              <button role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
+            <div className="rb-composer-footer">
+              <button className="rb-composer-privacy-toggle" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
                 {formPrivate ? <LockKeyhole size={19} /> : <Unlock size={19} />}
                 {formPrivate ? "Private" : "Public"}
               </button>
-            </div>
-            <div className="rb-composer-footer">
-              <span>
-                <LockKeyhole size={15} /> Preview only
-              </span>
-              <button onClick={saveComposer}>
+              <button className="rb-composer-submit" onClick={saveComposer}>
                 {composer === "collection"
                   ? "Create collection"
                   : "Save to library"}{" "}
