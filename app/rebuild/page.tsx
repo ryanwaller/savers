@@ -20,6 +20,11 @@ export const viewport: Viewport = {
 
 export const dynamic = "force-dynamic";
 
-export default function RebuildPage() {
-  return <RebuildPreview seedCollections={realCollections} seedCards={loadBookmarkSeed()} />;
+export default async function RebuildPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ item?: string | string[] }>;
+}) {
+  const item = (await searchParams).item;
+  return <RebuildPreview seedCollections={realCollections} seedCards={loadBookmarkSeed()} initialCardId={typeof item === "string" ? item : undefined} />;
 }

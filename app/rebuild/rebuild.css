@@ -2726,3 +2726,45 @@ body:has(.rebuild-app) {
   .rb-public-profile { gap: 12px; flex-wrap: wrap; }
   .rb-follow-button { margin-left: 0; }
 }
+
+/* Full-height reading surfaces reach the viewport edge. Only contained lists use masks. */
+.rb-detail-backdrop { position: fixed; z-index: 35; inset: 0; display: flex; justify-content: center; background: #0009; backdrop-filter: blur(8px); }
+.rb-detail-backdrop .rb-detail { position: relative; inset: auto; flex: 0 1 1400px; width: calc(100% - 80px); height: 100dvh; max-height: 100dvh; overflow-y: auto; box-shadow: 0 20px 70px #0003; }
+.rb-detail-direct { background: transparent; backdrop-filter: none; }
+.rb-detail-direct .rb-detail { flex-basis: 100%; width: 100%; box-shadow: none; }
+.rb-detail-content .rb-open-original { display: inline-flex; align-items: center; gap: 9px; min-height: var(--rb-control-size); margin: 20px 0 3px; padding: 0 18px; border-radius: 999px; background: var(--rb-control-active); color: #202820; }
+.rb-detail-content .rb-open-original:hover { background: #a4ee4d; }
+.rebuild-app .rb-detail-menu { top: calc(100% + 10px); width: 240px; }
+.rebuild-app .rb-detail-menu button { display: flex; align-items: center; justify-content: flex-start; gap: 10px; width: 100%; height: auto; min-height: var(--rb-control-size); padding: 0 14px; border-radius: 12px; background: transparent; color: var(--rb-control-ink); text-align: left; white-space: nowrap; }
+.rebuild-app .rb-detail-bar .rb-detail-menu button { display: flex; flex: none; width: 100%; }
+.rebuild-app .rb-detail-menu button:hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rebuild-app .rb-detail-menu button:last-child { color: #aa4444; }
+.rb-related-heading h2, .rb-theme-dark .rb-related-heading h2 { border: 0; background: transparent; }
+
+/* Save forms share the same modal pattern and color mode as the tag editor. */
+.rebuild-app { --rb-modal-surface: #fff; --rb-modal-field: #f5f5f5; --rb-modal-border: #dedede; --rb-modal-ink: #252525; --rb-modal-muted: #777; }
+.rb-theme-dark { --rb-modal-surface: #242424; --rb-modal-field: #303030; --rb-modal-border: #494949; --rb-modal-ink: #eee; --rb-modal-muted: #aaa; }
+.rb-composer-overlay { display: grid; place-items: center; overflow: hidden; padding: 24px; background: #0009; color: var(--rb-modal-ink); backdrop-filter: blur(8px); }
+.rb-composer { width: min(100%, 640px); max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; padding: 34px 38px 38px; border-radius: 28px; background: var(--rb-modal-surface); box-shadow: 0 22px 70px #0003; }
+.rb-composer-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 15px; }
+.rb-composer h2 { margin: 0 0 24px; color: var(--rb-modal-ink); }
+.rb-composer label { margin-top: 14px; }
+.rb-composer-footer { position: sticky; bottom: -38px; z-index: 1; margin: 20px -38px -38px; padding: 14px 38px 24px; background: var(--rb-modal-surface); }
+.rb-composer .rb-composer-close { position: static; display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 16px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-composer .rb-composer-close:hover { background: var(--rb-control-hover); }
+.rb-composer label, .rb-composer-privacy, .rb-composer-footer span { color: var(--rb-modal-muted); }
+.rb-composer input, .rb-composer textarea, .rb-composer select { border-color: var(--rb-modal-border); background: var(--rb-modal-field); color: var(--rb-modal-ink); }
+.rb-composer input::placeholder, .rb-composer textarea::placeholder { color: var(--rb-modal-muted); }
+.rb-composer .rb-upload-zone { border-color: var(--rb-modal-border); color: var(--rb-modal-muted); }
+.rb-composer-privacy button { min-height: var(--rb-control-size); padding: 0 18px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-composer-footer button { min-height: var(--rb-control-size); border-radius: 999px; }
+.rb-form-error { color: #b83225; }
+.rb-theme-dark .rb-form-error { color: #ffb9a9; }
+.rb-tag-editor-actions { justify-content: center; gap: 10px; }
+.rb-tag-editor-actions button { min-height: var(--rb-control-size); padding: 0 24px; border-radius: 999px; }
+@media (max-width: 700px) {
+  .rb-detail-backdrop .rb-detail { flex-basis: 100%; width: 100%; }
+  .rb-composer-overlay { display: grid; padding: 12px; }
+  .rb-composer { max-height: calc(100dvh - 24px); padding: 24px; border-radius: 22px; }
+  .rb-composer-footer { bottom: -24px; margin-right: -24px; margin-bottom: -24px; margin-left: -24px; padding: 14px 24px 24px; }
+}

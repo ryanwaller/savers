@@ -196,10 +196,12 @@ export default function RebuildPreview({
   seedCollections,
   seedCards,
   publicRelatedCards = [],
+  initialCardId,
 }: {
   seedCollections: PreviewCollection[];
   seedCards: PreviewCard[];
   publicRelatedCards?: PreviewCard[];
+  initialCardId?: string;
 }) {
   const [destination, setDestination] = useState<Destination>("library");
   const [cards, setCards] = useState<PreviewCard[]>(seedCards);
@@ -207,7 +209,7 @@ export default function RebuildPreview({
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null,
   );
-  const [activeCardId, setActiveCardId] = useState<string | null>(null);
+  const [activeCardId, setActiveCardId] = useState<string | null>(initialCardId || null);
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [listMode, setListMode] = useState(false);
@@ -382,6 +384,11 @@ export default function RebuildPreview({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        if (initialCardId) {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("item");
+          window.history.replaceState(null, "", url);
+        }
         setActiveCardId(null);
         setComposer(null);
         setCreateOpen(false);
@@ -404,7 +411,25 @@ export default function RebuildPreview({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [collectionGroup]);
+  }, [collectionGroup, initialCardId]);
+
+  useEffect(() => {
+    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen) return;
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = previous; };
+  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen]);
+
+  function closeDetail() {
+    setActiveCardId(null);
+    setDetailMenuOpen(false);
+    setRelatedFeedOpen(false);
+    if (initialCardId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("item");
+      window.history.replaceState(null, "", url);
+    }
+  }
 
   const activeCard = cards.find((card) => card.id === activeCardId) || publicRelatedCards.find((card) => card.id === activeCardId) || null;
   const activeCardIsOwn = activeCard ? !activeCard.owner : false;
@@ -1161,21 +1186,18 @@ export default function RebuildPreview({
       </div>
 
       {activeCard && (
+        <div className={`rb-detail-backdrop ${initialCardId === activeCard.id ? "rb-detail-direct" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetail(); }}>
         <div
           key={activeCard.id}
           className="rb-detail"
-          data-scroll-fade="y"
           role="dialog"
           aria-modal="true"
           aria-label={activeCard.title}
         >
           <div className="rb-detail-bar">
             <button
-              onClick={() => {
-                setActiveCardId(null);
-                setDetailMenuOpen(false);
-              }}
-              aria-label="Back to library"
+              onClick={closeDetail}
+              aria-label="Close item"
             >
               <ArrowLeft size={21} />
             </button>
@@ -1245,6 +1267,7 @@ export default function RebuildPreview({
           <div className="rb-detail-content">
             <span className="rb-detail-kind">{activeCard.isPrivate === false ? <Unlock size={16} aria-label="Public" /> : <LockKeyhole size={16} aria-label="Private" />}{typeLabels[activeCard.kind]}</span>
             <h1>{activeCard.title}</h1>
+            {activeCard.url && <a className="rb-open-original" href={activeCard.url} target="_blank" rel="noopener noreferrer">Visit saved link <ArrowUpRight size={19} /></a>}
             {activeCard.description && (
               <p className="rb-detail-description">{activeCard.description}</p>
             )}
@@ -1292,10 +1315,11 @@ export default function RebuildPreview({
             </section>
           )}
         </div>
+        </div>
       )}
 
       {activeCard && relatedFeedOpen && (
-        <div className="rb-related-feed" data-scroll-fade="y" role="dialog" aria-modal="true" aria-label="More related cards">
+        <div className="rb-related-feed" role="dialog" aria-modal="true" aria-label="More related cards">
           <div className="rb-related-feed-top">
             <button onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} aria-label="Back to card"><ArrowLeft size={23} /></button>
             <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
@@ -1386,20 +1410,13 @@ export default function RebuildPreview({
       {composer && (
         <div
           className="rb-composer-overlay"
-          data-scroll-fade="y"
           role="dialog"
           aria-modal="true"
           aria-label={`Create ${composer}`}
+          onMouseDown={(event) => { if (event.target === event.currentTarget) setComposer(null); }}
         >
-          <button
-            className="rb-composer-close"
-            onClick={() => setComposer(null)}
-            aria-label="Close"
-          >
-            <X size={23} />
-          </button>
           <div className="rb-composer">
-            <h2>
+            <div className="rb-composer-header"><h2>
               {composer === "link"
                 ? "Save a link"
                 : composer === "note"
@@ -1409,7 +1426,7 @@ export default function RebuildPreview({
                     : composer === "image"
                       ? "Upload an image"
                       : "Upload a file"}
-            </h2>
+            </h2><button className="rb-composer-close" onClick={() => setComposer(null)} aria-label="Close"><X size={23} /></button></div>
             {composer === "link" && (
               <label>
                 Link

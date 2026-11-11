@@ -50,7 +50,9 @@ export function proxy(req: NextRequest) {
       });
     }
     if (req.nextUrl.pathname === "/") {
-      return NextResponse.rewrite(new URL("/rebuild", req.url));
+      const previewUrl = req.nextUrl.clone();
+      previewUrl.pathname = "/rebuild";
+      return NextResponse.rewrite(previewUrl);
     }
     if (req.nextUrl.pathname.startsWith("/api/")) {
       return new NextResponse(null, { status: 404 });
