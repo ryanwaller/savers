@@ -26,6 +26,7 @@ import {
   Plus,
   Search,
   SlidersHorizontal,
+  Tag,
   Upload,
   UsersRound,
   X,
@@ -33,7 +34,7 @@ import {
 import { type CardKind, type PreviewCard } from "./fixtures";
 
 type Destination = "library" | "collections";
-type Filter = CardKind | "all" | "social" | "substack" | "youtube" | "x";
+type Filter = CardKind | "all" | "tags" | "favorites" | "social" | "substack" | "youtube" | "x";
 type Composer = CardKind | "collection" | null;
 type PreviewCollection = {
   id: string;
@@ -106,6 +107,7 @@ function CardTile({
   onOpen,
   onToggleFavorite,
   onTogglePrivacy,
+  onEditTags,
   favorite = false,
   list = false,
 }: {
@@ -113,6 +115,7 @@ function CardTile({
   onOpen: () => void;
   onToggleFavorite: () => void;
   onTogglePrivacy: () => void;
+  onEditTags: () => void;
   favorite?: boolean;
   list?: boolean;
 }) {
@@ -163,6 +166,7 @@ function CardTile({
         <button onClick={onToggleFavorite} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} title={favorite ? "Remove favorite" : "Add favorite"}>
           <Heart size={18} fill={favorite ? "currentColor" : "none"} />
         </button>
+        <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>
         {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>
     </article>
@@ -191,12 +195,22 @@ export default function RebuildPreview({
   const [accountOpen, setAccountOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [tagBrowserOpen, setTagBrowserOpen] = useState(false);
+  const [selectedTag, setSelectedTag] = useState<string | null>(null);
+  const [tagSearch, setTagSearch] = useState("");
+  const [tagEditorId, setTagEditorId] = useState<string | null>(null);
+  const [tagDraft, setTagDraft] = useState<string[]>([]);
+  const [tagInput, setTagInput] = useState("");
+  const [collectionView, setCollectionView] = useState<"tree" | "grid">("tree");
+  const [expandedCollections, setExpandedCollections] = useState<string[]>(["links-design"]);
   const [sortNewest, setSortNewest] = useState(true);
   const [visibleCount, setVisibleCount] = useState(48);
   const [relatedCanGoBack, setRelatedCanGoBack] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
+  const [formTags, setFormTags] = useState("");
   const [formCollection, setFormCollection] = useState("");
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formPrivate, setFormPrivate] = useState(true);
@@ -213,6 +227,7 @@ export default function RebuildPreview({
   const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart">("links");
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const tagBrowserRef = useRef<HTMLElement>(null);
   const relatedTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -268,6 +283,12 @@ export default function RebuildPreview({
   }, [toast]);
 
   useEffect(() => {
+    if (tagBrowserOpen && window.innerWidth <= 620) {
+      window.requestAnimationFrame(() => tagBrowserRef.current?.scrollIntoView({ block: "start" }));
+    }
+  }, [tagBrowserOpen]);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setActiveCardId(null);
@@ -277,12 +298,15 @@ export default function RebuildPreview({
         setDetailMenuOpen(false);
         setSortOpen(false);
         setSmartEditorId(null);
+        setSearchOpen(false);
+        setTagEditorId(null);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
         setDestination("library");
         setActiveCardId(null);
-        searchRef.current?.focus();
+        setSearchOpen(true);
+        window.setTimeout(() => searchRef.current?.focus(), 0);
       }
     }
     window.addEventListener("keydown", onKeyDown);
@@ -291,6 +315,21 @@ export default function RebuildPreview({
 
   const activeCard = cards.find((card) => card.id === activeCardId) || null;
   const smartEditorCollection = allCollections.find((item) => item.id === smartEditorId);
+  const tagEditorCard = cards.find((item) => item.id === tagEditorId);
+  const tagCounts = useMemo(() => {
+    const counts = new Map<string, { name: string; count: number }>();
+    for (const card of cards) {
+      const seen = new Set<string>();
+      for (const name of (card.tags || []).map((tag) => tag.trim()).filter(Boolean)) {
+        const key = name.toLocaleLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        const current = counts.get(key);
+        counts.set(key, { name: current?.name || name, count: (current?.count || 0) + 1 });
+      }
+    }
+    return [...counts.values()].sort((a, b) => b.count - a.count || a.name.localeCompare(b.name));
+  }, [cards]);
   const smartPreviewCount = cards.filter((card) => matchesSmart(card, smartDraft)).length;
   const relatedCards = activeCard
     ? cards
@@ -319,15 +358,40 @@ export default function RebuildPreview({
         } else if (card.collection !== selectedCollection) return false;
       }
       if (filter === "social" && !socialSource(card)) return false;
+      if (filter === "favorites" && !favorites.includes(card.id)) return false;
       if (["substack", "youtube", "x"].includes(filter) && socialSource(card) !== filter) return false;
       if (["link", "image", "note", "file"].includes(filter) && card.kind !== filter) return false;
+      if (selectedTag && !card.tags?.some((tag) => tag.toLocaleLowerCase() === selectedTag.toLocaleLowerCase())) return false;
       if (!query.trim()) return true;
       const text =
         `${card.title} ${card.description || ""} ${card.source || ""} ${card.note || ""} ${card.tags?.join(" ") || ""}`.toLowerCase();
       return text.includes(query.trim().toLowerCase());
     });
     return sortNewest ? match : [...match].reverse();
-  }, [cards, allCollections, smartRules, selectedCollection, filter, query, sortNewest]);
+  }, [cards, allCollections, smartRules, favorites, selectedCollection, filter, selectedTag, query, sortNewest]);
+
+  function openTagEditor(card: PreviewCard) {
+    setTagEditorId(card.id);
+    setTagDraft(card.tags || []);
+    setTagInput("");
+  }
+
+  function addDraftTag() {
+    const name = tagInput.trim();
+    if (!name) return;
+    setTagDraft((tags) => tags.some((tag) => tag.toLocaleLowerCase() === name.toLocaleLowerCase()) ? tags : [...tags, name]);
+    setTagInput("");
+  }
+
+  function applyTags() {
+    if (!tagEditorId) return;
+    const extra = tagInput.trim();
+    const next = extra && !tagDraft.some((tag) => tag.toLocaleLowerCase() === extra.toLocaleLowerCase()) ? [...tagDraft, extra] : tagDraft;
+    setCards((items) => items.map((item) => item.id === tagEditorId ? { ...item, tags: next } : item));
+    setTagEditorId(null);
+    setTagInput("");
+    setToast("Tags updated in this preview");
+  }
 
   function displayCount(item: PreviewCollection): number | null {
     const definition = smartRules[item.id];
@@ -352,6 +416,9 @@ export default function RebuildPreview({
     setAccountOpen(false);
     setQuery("");
     setFilter("all");
+    setSelectedTag(null);
+    setTagBrowserOpen(false);
+    window.scrollTo(0, 0);
   }
 
   function openComposer(kind: Composer) {
@@ -360,6 +427,7 @@ export default function RebuildPreview({
     setFormUrl("");
     setFormTitle("");
     setFormNote("");
+    setFormTags("");
     setFormCollection(selectedCollection || "");
     setFormFile(null);
     setFormPrivate(true);
@@ -367,6 +435,7 @@ export default function RebuildPreview({
   }
 
   async function saveComposer() {
+    const nextTags = [...new Set(formTags.split(",").map((tag) => tag.trim()).filter(Boolean))];
     if (composer === "collection") {
       if (!formTitle.trim()) {
         setFormError("Give your collection a name.");
@@ -411,6 +480,7 @@ export default function RebuildPreview({
         collection: formCollection || undefined,
         date: "Just now",
         isPrivate: formPrivate,
+        tags: nextTags,
         tone: "cream",
       };
       setCards((prev) => [newCard, ...prev]);
@@ -428,6 +498,7 @@ export default function RebuildPreview({
           collection: formCollection || undefined,
           date: "Just now",
           isPrivate: formPrivate,
+          tags: nextTags,
           tone: "sage",
         },
         ...prev,
@@ -461,6 +532,7 @@ export default function RebuildPreview({
           collection: formCollection || undefined,
           date: "Just now",
           isPrivate: formPrivate,
+          tags: nextTags,
           tone: "stone",
         },
         ...prev,
@@ -490,6 +562,28 @@ export default function RebuildPreview({
     setToast("Visibility updated in this preview");
   }
 
+  function renderCollectionTree(item: PreviewCollection, depth = 0): React.ReactNode {
+    const children = allCollections.filter((child) => child.parentId === item.id);
+    const expanded = expandedCollections.includes(item.id);
+    return (
+      <div key={item.id}>
+        <div className="rb-tree-row" style={{ marginLeft: depth * 26 }}>
+          {children.length ? (
+            <button className="rb-tree-toggle" onClick={() => setExpandedCollections((ids) => expanded ? ids.filter((id) => id !== item.id) : [...ids, item.id])} aria-label={`${expanded ? "Collapse" : "Expand"} ${item.name}`} aria-expanded={expanded}>
+              <ChevronRight className={expanded ? "expanded" : ""} size={21} />
+            </button>
+          ) : <span className="rb-tree-spacer" />}
+          <button className="rb-tree-name" onClick={() => { setSelectedCollection(item.id); setDestination("library"); }}>
+            <Folder size={22} /> <span>{item.name}</span>{item.isPrivate !== false && <LockKeyhole size={17} aria-label="Private" />}
+          </button>
+          {item.group === "smart" && <button className="rb-tree-rules" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
+          <span className="rb-tree-count">{displayCount(item) ?? ""}</span>
+        </div>
+        {expanded && children.map((child) => renderCollectionTree(child, depth + 1))}
+      </div>
+    );
+  }
+
   return (
     <div
       className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""}`}
@@ -510,16 +604,6 @@ export default function RebuildPreview({
           <span>savers</span>
         </button>
         <div className="rb-top-actions">
-          <button
-            className="rb-icon-button"
-            onClick={() => {
-              navigate("library");
-              setTimeout(() => searchRef.current?.focus(), 0);
-            }}
-            aria-label="Search library"
-          >
-            <Search size={19} />
-          </button>
           <div className="rb-account-wrap">
             <button
               className="rb-avatar"
@@ -599,17 +683,6 @@ export default function RebuildPreview({
               {collection?.description && <p>{collection.description}</p>}
               {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}
             </div>
-            <div className="rb-search-wrap">
-              <Search size={20} />
-              <input
-                ref={searchRef}
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder="Search anything you’ve saved"
-                aria-label="Search saved cards"
-              />
-              <span className="rb-keycap">⌘ K</span>
-            </div>
             {(!collection || subcollections.length > 0) && (
               <div className="rb-collection-rail">
                 <div className="rb-section-intro">
@@ -645,16 +718,16 @@ export default function RebuildPreview({
             )}
             <div className="rb-library-toolbar">
               <div className="rb-filter-group">
-                {(["all", "link", "social", "image", "note", "file"] as Filter[]).map(
+                {(["all", "tags", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
                     <div className="rb-filter-entry" key={kind}>
                       <button
-                        className={filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
-                        onClick={() => setFilter(kind)}
-                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : undefined}
+                        className={kind === "tags" ? (selectedTag || tagBrowserOpen ? "active" : "") : filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
+                        onClick={() => kind === "tags" ? setTagBrowserOpen((open) => !open) : setFilter(kind)}
+                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : kind === "tags" ? tagBrowserOpen : undefined}
                       >
-                        {kind === "all" ? <Grid2X2 size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
-                        {kind === "all" ? "All" : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
+                        {kind === "all" ? <Grid2X2 size={18} /> : kind === "tags" ? <Tag size={18} /> : kind === "favorites" ? <Heart size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
+                        {kind === "all" ? "All" : kind === "tags" ? selectedTag || "Tags" : kind === "favorites" ? "Favorites" : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
                         {kind === "social" && <ChevronRight className="rb-filter-chevron" size={18} />}
                       </button>
                       {kind === "social" && ["social", "substack", "youtube", "x"].includes(filter) && (
@@ -668,7 +741,7 @@ export default function RebuildPreview({
               </div>
               <div className="rb-toolbar-end">
                 <span>
-                  {seedCards.length === 0 && !query && filter === "all"
+                  {seedCards.length === 0 && !query && !selectedTag && filter === "all"
                     ? `${collection ? displayCount(collection) ?? "—" : 815}`
                     : filteredCards.length}
                 </span>
@@ -718,6 +791,22 @@ export default function RebuildPreview({
                 </button>
               </div>
             </div>
+            {tagBrowserOpen && (
+              <section className="rb-tag-browser" ref={tagBrowserRef} aria-label="Browse tags">
+                <div className="rb-tag-browser-head">
+                  <span>Tags</span>
+                  <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Find a tag" aria-label="Find a tag" />
+                  {selectedTag && <button onClick={() => setSelectedTag(null)}>Clear</button>}
+                </div>
+                <div className="rb-tag-browser-list">
+                  {tagCounts.filter((tag) => tag.name.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())).map((tag) => (
+                    <button key={tag.name.toLocaleLowerCase()} className={selectedTag?.toLocaleLowerCase() === tag.name.toLocaleLowerCase() ? "active" : ""} onClick={() => setSelectedTag(tag.name)}>
+                      {tag.name} <span>{tag.count}</span>
+                    </button>
+                  ))}
+                </div>
+              </section>
+            )}
             {filteredCards.length ? (
               <div className={`rb-card-grid ${listMode ? "rb-list-grid" : ""}`}>
                 {filteredCards.slice(0, visibleCount).map((card) => (
@@ -727,6 +816,7 @@ export default function RebuildPreview({
                     onOpen={() => setActiveCardId(card.id)}
                     onToggleFavorite={() => toggleFavorite(card.id)}
                     onTogglePrivacy={() => togglePrivacy(card.id)}
+                    onEditTags={() => openTagEditor(card)}
                     favorite={favorites.includes(card.id)}
                     list={listMode}
                   />
@@ -765,11 +855,19 @@ export default function RebuildPreview({
             </div>
             <div className="rb-collections-head">
               <span>{allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
-              <button onClick={() => openComposer("collection")}>
-                <FolderPlus size={16} /> New collection
-              </button>
+              <div className="rb-collections-actions">
+                <div className="rb-collection-view" role="group" aria-label="Collection view">
+                  <button className={collectionView === "tree" ? "active" : ""} onClick={() => setCollectionView("tree")}><List size={19} /> Tree</button>
+                  <button className={collectionView === "grid" ? "active" : ""} onClick={() => setCollectionView("grid")}><Grid2X2 size={19} /> Grid</button>
+                </div>
+                <button onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>
+              </div>
             </div>
-            <div className="rb-collection-grid">
+            {collectionView === "tree" ? (
+              <div className="rb-collection-tree">
+                {allCollections.filter((item) => !item.parentId && (item.group || "links") === collectionGroup).map((item) => renderCollectionTree(item))}
+              </div>
+            ) : <div className="rb-collection-grid">
               {allCollections
                 .filter((item) => !item.parentId && (item.group || "links") === collectionGroup)
                 .map((item) => (
@@ -795,38 +893,15 @@ export default function RebuildPreview({
                       </div>
                     </button>
                     {item.group === "smart" && <button className="rb-collection-rule-action" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
-                    {allCollections.some(
-                      (child) => child.parentId === item.id,
-                    ) && (
-                      <div className="rb-collection-children">
-                        {allCollections
-                          .filter((child) => child.parentId === item.id)
-                          .map((child) => (
-                            <button
-                              key={child.id}
-                              onClick={() => {
-                                setSelectedCollection(child.id);
-                                setDestination("library");
-                              }}
-                            >
-                              <Folder size={13} />
-                              {child.name}
-                              {child.isPrivate !== false && <LockKeyhole size={14} aria-label="Private" />}
-                              <span className="rb-child-count">{child.count ?? ""}</span>
-                              <ArrowRight size={13} />
-                            </button>
-                          ))}
-                      </div>
-                    )}
                   </div>
                 ))}
-            </div>
+            </div>}
           </>
         )}
 
       </main>
 
-      <nav className="rb-dock" aria-label="Main navigation">
+      <nav className={`rb-dock ${searchOpen ? "rb-dock-expanded" : ""}`} aria-label="Main navigation">
         <button
           className={destination === "library" ? "active" : ""}
           onClick={() => navigate("library")}
@@ -844,6 +919,34 @@ export default function RebuildPreview({
           <Grid2X2 size={20} />
           <span>Collections</span>
         </button>
+        <div className="rb-dock-search">
+          <button
+            className={query ? "rb-dock-search-trigger has-query" : "rb-dock-search-trigger"}
+            onClick={() => {
+              if (searchOpen) {
+                setSearchOpen(false);
+              } else {
+                setDestination("library");
+                setSearchOpen(true);
+                window.setTimeout(() => searchRef.current?.focus(), 0);
+              }
+            }}
+            aria-label={searchOpen ? "Close search" : "Search library"}
+            aria-expanded={searchOpen}
+          >
+            {searchOpen ? <X size={23} /> : <Search size={23} />}
+          </button>
+          {searchOpen && (
+            <input
+              ref={searchRef}
+              autoFocus
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search library"
+              aria-label="Search library"
+            />
+          )}
+        </div>
       </nav>
       <div className="rb-create-anchor">
         {createOpen && (
@@ -997,11 +1100,10 @@ export default function RebuildPreview({
                 <p>{activeCard.note}</p>
               </div>
             )}
-            {!!activeCard.tags?.length && (
-              <div className="rb-detail-tags">
-                {activeCard.tags.map((tag) => <span key={tag}>{tag}</span>)}
-              </div>
-            )}
+            <div className="rb-detail-tags">
+              {activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setTagBrowserOpen(true); setDestination("library"); setActiveCardId(null); }}>{tag}</button>)}
+              <button className="rb-detail-edit-tags" onClick={() => openTagEditor(activeCard)}><Tag size={17} /> Edit tags</button>
+            </div>
           </div>
           {relatedCards.length > 0 && (
             <section className="rb-related" aria-label="Related cards">
@@ -1010,7 +1112,7 @@ export default function RebuildPreview({
                 {relatedCanGoBack && <button className="rb-related-arrow rb-related-prev" onClick={() => relatedTrackRef.current?.scrollBy({ left: -relatedTrackRef.current.clientWidth * 0.8, behavior: "smooth" })} aria-label="Previous related cards"><ArrowLeft size={19} /></button>}
                 <div className="rb-related-track" ref={relatedTrackRef} onScroll={(event) => setRelatedCanGoBack(event.currentTarget.scrollLeft > 5)}>
                   {relatedCards.map((item) => (
-                    <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onTogglePrivacy={() => togglePrivacy(item.id)} favorite={favorites.includes(item.id)} onOpen={() => {
+                    <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onTogglePrivacy={() => togglePrivacy(item.id)} onEditTags={() => openTagEditor(item)} favorite={favorites.includes(item.id)} onOpen={() => {
                       setActiveCardId(item.id);
                       setDetailMenuOpen(false);
                       setRelatedCanGoBack(false);
@@ -1032,7 +1134,7 @@ export default function RebuildPreview({
               <div><span>Smart collection</span><h2>{smartEditorCollection?.name}</h2></div>
               <button onClick={() => setSmartEditorId(null)} aria-label="Close rule editor"><X size={21} /></button>
             </div>
-            {!smartRules[smartEditorId] && <p className="rb-rule-note">The original rules were not included in the export. Try rules here without changing current Savers.</p>}
+            {!smartRules[smartEditorId] && <p className="rb-rule-note">Original rules aren’t in the export. Changes here stay in this preview.</p>}
             <div className="rb-rule-match">
               <span>Match</span>
               <div role="group" aria-label="Rule matching">
@@ -1056,9 +1158,28 @@ export default function RebuildPreview({
             </div>
             <button className="rb-rule-add" onClick={() => setSmartDraft((draft) => ({ ...draft, rules: [...draft.rules, { field: "tags", operator: "contains", value: "" }] }))}><Plus size={18} /> Add rule</button>
             <div className="rb-rule-footer">
-              <span>{smartDraft.rules.some((rule) => rule.value.trim()) ? smartPreviewCount : "—"}</span>
+              <span>{smartDraft.rules.some((rule) => rule.value.trim()) ? `${smartPreviewCount} matches` : ""}</span>
               <div><button onClick={() => setSmartEditorId(null)}>Cancel</button><button className="rb-rule-apply" disabled={!smartDraft.rules.some((rule) => rule.value.trim())} onClick={() => { setSmartRules((rules) => ({ ...rules, [smartEditorId]: smartDraft })); setSmartEditorId(null); setToast("Rules updated in this preview"); }}>Apply</button></div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {tagEditorId && tagEditorCard && (
+        <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit tags for ${tagEditorCard.title}`}>
+          <div className="rb-tag-editor">
+            <div className="rb-rule-head">
+              <div><span>Tags</span><h2>{tagEditorCard.title}</h2></div>
+              <button onClick={() => setTagEditorId(null)} aria-label="Close tag editor"><X size={21} /></button>
+            </div>
+            <div className="rb-tag-editor-chips">
+              {tagDraft.map((tag) => <button key={tag} onClick={() => setTagDraft((tags) => tags.filter((item) => item !== tag))} aria-label={`Remove tag ${tag}`}>{tag} <X size={16} /></button>)}
+            </div>
+            <div className="rb-tag-editor-add">
+              <input value={tagInput} onChange={(event) => setTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); addDraftTag(); } }} placeholder="Add a tag" aria-label="Add a tag" />
+              <button onClick={addDraftTag} aria-label="Add tag"><Plus size={20} /></button>
+            </div>
+            <div className="rb-tag-editor-actions"><button onClick={() => setTagEditorId(null)}>Cancel</button><button onClick={applyTags}>Done</button></div>
           </div>
         </div>
       )}
@@ -1150,6 +1271,12 @@ export default function RebuildPreview({
                 rows={composer === "note" ? 6 : 3}
               />
             </label>
+            {composer !== "collection" && (
+              <label>
+                Tags (optional)
+                <input value={formTags} onChange={(event) => setFormTags(event.target.value)} placeholder="Separate tags with commas" />
+              </label>
+            )}
             {
               <label>
                 {composer === "collection"

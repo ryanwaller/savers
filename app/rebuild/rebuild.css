@@ -2347,3 +2347,121 @@ body:has(.rebuild-app) {
 .rb-theme-dark .rb-filter-suboptions button { color: #d5efc4; }
 .rb-theme-dark .rb-filter-suboptions button.active { color: #172211; }
 @media (max-width: 620px) { .rb-filter-group { width: 100%; flex: none; } }
+
+/* One book weight and three predictable sizes throughout the preview. */
+.rebuild-app { --rb-type-body: 18px; --rb-type-title: 24px; --rb-type-display: 48px; }
+.rebuild-app, .rebuild-app.rebuild-app * {
+  font-family: "OM Bauer Folio", Arial, sans-serif !important;
+  font-weight: 400 !important;
+  font-size: var(--rb-type-body) !important;
+}
+.rebuild-app :is(.rb-page-heading h1, .rb-collections-title h1, .rb-detail-content h1, .rb-composer h2) {
+  font-size: var(--rb-type-display) !important;
+}
+.rebuild-app :is(.rb-card h3, .rb-collection-info h2, .rb-empty h2, .rb-rule-head h2) {
+  font-size: var(--rb-type-title) !important;
+}
+.rebuild-app :is(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid #828782;
+  outline-offset: 2px;
+}
+.rebuild-app :is(.rb-composer input, .rb-composer textarea, .rb-composer select):focus {
+  border-color: #777;
+  box-shadow: none;
+}
+
+/* Search grows from the fixed navigation dock. */
+.rb-dock { transition: width 180ms ease; }
+.rb-dock-expanded { width: min(620px, calc(100vw - 60px)); }
+.rb-dock-search { display: flex; align-items: center; min-width: 0; }
+.rb-dock-expanded .rb-dock-search { flex: 1; }
+.rb-dock > button { width: 108px; }
+.rb-dock .rb-dock-search-trigger { width: 70px; }
+.rb-dock .rb-dock-search-trigger.has-query { color: #456a2d; }
+.rb-dock-expanded .rb-dock-search-trigger { width: 58px; flex: 0 0 58px; }
+.rb-dock-search input {
+  flex: 1;
+  min-width: 0;
+  height: 50px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 13px;
+  background: #ededed;
+  color: #222;
+}
+.rb-dock-search input::placeholder { color: #888; }
+.rb-dock-search input:focus-visible { outline: none !important; }
+.rb-theme-dark .rb-dock-search input { background: #353535; color: #f3f3f3; }
+.rb-theme-dark .rb-dock-search input::placeholder { color: #aaa; }
+.rb-dock-expanded:focus-within { border-color: #999; }
+
+/* The rule editor ends with actions, without a dividing stroke. */
+.rb-rule-footer { margin-top: 30px; padding-top: 0; border-top: 0; }
+.rb-rule-footer > span { color: #888; }
+
+@media (max-width: 620px) {
+  .rebuild-app { --rb-type-display: 40px; }
+  .rb-dock-expanded { width: auto; }
+  .rb-dock > button { width: 95px; }
+  .rb-dock-expanded > button { display: none; }
+  .rb-dock-expanded .rb-dock-search { width: 100%; }
+  .rb-dock-expanded .rb-dock-search-trigger { width: 52px; flex-basis: 52px; }
+}
+
+/* Tags are a library filter and a quick action on every card. */
+.rb-tag-browser { margin: -8px 0 30px; padding: 24px; border-radius: 22px; background: #f3f3f3; }
+.rb-tag-browser { scroll-margin-top: 24px; }
+.rb-tag-browser-head { display: flex; align-items: center; gap: 14px; margin-bottom: 17px; }
+.rb-tag-browser-head > span { flex: 0 0 auto; }
+.rb-tag-browser-head input { flex: 1; min-width: 0; min-height: 46px; padding: 8px 14px; border: 1px solid #e1e1e1; border-radius: 13px; background: #fff; color: #222; }
+.rb-tag-browser-head > button { padding: 8px 13px; border-radius: 11px; background: #e3e3e3; }
+.rb-tag-browser-list { display: flex; flex-wrap: wrap; gap: 8px; max-height: 270px; overflow-y: auto; }
+.rb-tag-browser-list button, .rb-detail-tags button, .rb-tag-editor-chips button { display: inline-flex; align-items: center; gap: 10px; min-height: 42px; padding: 7px 13px; border: 1px solid #dedede; border-radius: 999px; background: #fff; color: #444; }
+.rb-tag-browser-list button.active { border-color: #b9ff69; background: #b9ff69; color: #172211; }
+.rb-tag-browser-list button span { color: #888; }
+.rb-detail-tags .rb-detail-edit-tags { border-style: dashed; }
+.rb-tag-editor { width: min(620px, 100%); max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 24px; background: #fff; color: #222; }
+.rb-tag-editor-chips { display: flex; flex-wrap: wrap; gap: 8px; min-height: 45px; margin: 25px 0 14px; }
+.rb-tag-editor-add { display: flex; gap: 8px; }
+.rb-tag-editor-add input { flex: 1; min-width: 0; height: 48px; padding: 9px 13px; border: 1px solid #ddd; border-radius: 12px; background: #f7f7f7; color: #222; }
+.rb-tag-editor-add button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 12px; background: #e8e8e8; }
+.rb-tag-editor-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 28px; }
+.rb-tag-editor-actions button { min-height: 46px; padding: 9px 18px; border-radius: 11px; background: #eee; }
+.rb-tag-editor-actions button:last-child { background: #b9ff69; color: #172211; }
+.rb-theme-dark .rb-tag-browser, .rb-theme-dark .rb-tag-editor { background: #242424; color: #eee; }
+.rb-theme-dark .rb-tag-browser-head input, .rb-theme-dark .rb-tag-editor-add input { border-color: #444; background: #303030; color: #eee; }
+.rb-theme-dark .rb-tag-browser-list button, .rb-theme-dark .rb-detail-tags button, .rb-theme-dark .rb-tag-editor-chips button { border-color: #454545; background: #303030; color: #eee; }
+.rb-theme-dark .rb-tag-browser-list button.active { border-color: #b9ff69; background: #b9ff69; color: #172211; }
+.rb-theme-dark .rb-tag-browser-head > button, .rb-theme-dark .rb-tag-editor-add button, .rb-theme-dark .rb-tag-editor-actions button { background: #383838; color: #eee; }
+.rb-theme-dark .rb-tag-editor-actions button:last-child { background: #b9ff69; color: #172211; }
+
+/* The collection tree makes nested folders visible without crowding cards. */
+.rb-collections-actions, .rb-collection-view { display: flex; align-items: center; gap: 8px; }
+.rb-collections-head { border-bottom: 0; padding-bottom: 0; }
+.rb-collection-view { padding: 4px; border-radius: 13px; background: #eee; }
+.rb-collection-view button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 10px; color: #777; }
+.rb-collection-view button.active { background: #fff; color: #222; }
+.rb-collection-tree { display: grid; gap: 7px; margin-bottom: 110px; }
+.rb-tree-row { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 6px 14px; border-radius: 14px; background: #f2f2f2; }
+.rb-tree-toggle, .rb-tree-spacer { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; }
+.rb-tree-toggle svg { transition: transform 150ms ease; }
+.rb-tree-toggle svg.expanded { transform: rotate(90deg); }
+.rb-tree-name { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; text-align: left; }
+.rb-tree-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-tree-name > svg { flex: 0 0 auto; }
+.rb-tree-name > svg:last-child { color: #999; }
+.rb-tree-count { min-width: 30px; text-align: right; color: #888; }
+.rb-tree-rules { flex: 0 0 auto; padding: 7px 10px; border-radius: 9px; background: #e4e4e4; }
+.rb-theme-dark .rb-collection-view, .rb-theme-dark .rb-tree-row { background: #242424; }
+.rb-theme-dark .rb-collection-view button { color: #a8a8a8; }
+.rb-theme-dark .rb-collection-view button.active, .rb-theme-dark .rb-tree-rules { background: #383838; color: #eee; }
+.rb-theme-dark .rb-tree-name { color: #eee; }
+@media (max-width: 620px) {
+  .rb-tag-browser { padding: 16px; }
+  .rb-tag-editor { padding: 22px; }
+  .rb-collections-head { align-items: flex-start; }
+  .rb-collections-actions { flex-wrap: wrap; justify-content: flex-end; }
+  .rb-collection-view button { padding: 8px; }
+  .rb-tree-row { padding: 6px 10px; }
+  .rb-tree-toggle, .rb-tree-spacer { flex-basis: 30px; width: 30px; }
+}
