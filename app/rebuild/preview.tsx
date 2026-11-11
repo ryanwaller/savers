@@ -101,6 +101,30 @@ function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
 
 const storageKey = "savers.rebuild.preview.v3";
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
+const imageFilePattern = /\.(?:avif|bmp|gif|heic|jpe?g|png|svg|tiff?|webp)$/i;
+
+function acceptsPageDrop(transfer: DataTransfer): boolean {
+  return ["Files", "text/uri-list", "text/plain", "text/html"].some((type) => Array.from(transfer.types).includes(type));
+}
+
+function droppedUrl(transfer: DataTransfer): { url: URL; image: boolean } | null {
+  const html = new DOMParser().parseFromString(transfer.getData("text/html"), "text/html");
+  const imageSource = html.querySelector("img[src]")?.getAttribute("src") || "";
+  const linkSource = html.querySelector("a[href]")?.getAttribute("href") || "";
+  const uri = transfer.getData("text/uri-list").split(/\r?\n/).find((line) => line && !line.startsWith("#")) || "";
+  const plain = transfer.getData("text/plain").trim().split(/\r?\n/)[0] || "";
+  for (const candidate of [imageSource, uri, linkSource, plain]) {
+    if (!candidate) continue;
+    try {
+      const url = new URL(candidate);
+      if (url.protocol === "https:" || url.protocol === "http:") {
+        return { url, image: candidate === imageSource || imageFilePattern.test(url.pathname) };
+      }
+    } catch { /* Another dropped representation may contain the URL. */ }
+  }
+  return null;
+}
+
 const typeLabels: Record<CardKind, string> = {
   link: "Link",
   image: "Image",
@@ -114,7 +138,6 @@ function CardTile({
   onToggleFavorite,
   onEditTags,
   onAddToCollection,
-  onDropImage,
   onOpenOwner,
   favorite = false,
   pinned = false,
@@ -128,7 +151,6 @@ function CardTile({
   onToggleFavorite?: () => void;
   onEditTags?: () => void;
   onAddToCollection?: () => void;
-  onDropImage?: (file: File) => void;
   onOpenOwner?: () => void;
   favorite?: boolean;
   pinned?: boolean;
@@ -139,7 +161,6 @@ function CardTile({
 }) {
   const KindIcon = icons[card.kind];
   const externalOwner = card.owner || card.savedFrom;
-  const [dragOver, setDragOver] = useState(false);
   const content = (
     <>
       {card.image && (
@@ -169,10 +190,7 @@ function CardTile({
   );
   return (
     <article
-      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""} ${dragOver ? "rb-card-drag-over" : ""} ${onToggleFavorite ? "rb-card-has-favorite" : ""} ${favorite ? "rb-card-favorited" : ""}`}
-      onDragOver={(event) => { if (onDropImage && event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragOver(true); } }}
-      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }}
-      onDrop={(event) => { if (!onDropImage) return; event.preventDefault(); setDragOver(false); const file = event.dataTransfer.files[0]; if (file) onDropImage(file); }}
+      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""} ${onToggleFavorite ? "rb-card-has-favorite" : ""} ${favorite ? "rb-card-favorited" : ""}`}
     >
       {selecting ? (
         <button className="rb-card-primary" onClick={onSelect} aria-label={`${selected ? "Deselect" : "Select"} ${card.title}`} aria-pressed={selected}>
@@ -195,7 +213,6 @@ function CardTile({
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
         {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>}
-      {dragOver && <span className="rb-card-drop-hint">Drop image to replace preview</span>}
     </article>
   );
 }
@@ -275,6 +292,7 @@ export default function RebuildPreview({
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formPrivate, setFormPrivate] = useState(true);
   const [formError, setFormError] = useState("");
+  const [pageDragActive, setPageDragActive] = useState(false);
   const [toast, setToast] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
   const [smartRules, setSmartRules] = useState<Record<string, SmartDefinition>>({});
@@ -416,6 +434,7 @@ export default function RebuildPreview({
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
+        setPageDragActive(false);
         if (initialCardId) {
           const url = new URL(window.location.href);
           url.searchParams.delete("item");
@@ -654,6 +673,22 @@ export default function RebuildPreview({
     setFormError("");
   }
 
+  function handlePageDrop(transfer: DataTransfer) {
+    setPageDragActive(false);
+    const file = transfer.files[0];
+    if (file) {
+      openComposer(file.type.startsWith("image/") || imageFilePattern.test(file.name) ? "image" : "file");
+      setFormFile(file);
+      setFormTitle(file.name.replace(/\.[^.]+$/, ""));
+      if (transfer.files.length > 1) setFormError("Save one file at a time. The first file is ready.");
+      return;
+    }
+    const dropped = droppedUrl(transfer);
+    if (!dropped) { setToast("Drop a web link, image, or file to save it."); return; }
+    openComposer(dropped.image ? "image" : "link");
+    setFormUrl(dropped.url.href);
+  }
+
   async function saveComposer() {
     const nextTags = [...new Set(formTags.split(",").map((tag) => tag.trim()).filter(Boolean))];
     if (composer === "collection") {
@@ -724,30 +759,41 @@ export default function RebuildPreview({
         ...prev,
       ]);
     } else if (composer === "image" || composer === "file") {
-      if (!formFile) {
-        setFormError("Choose a file first.");
+      let remoteImage: URL | null = null;
+      if (composer === "image" && formUrl.trim() && !formFile) {
+        try {
+          remoteImage = new URL(formUrl.trim());
+          if (!/^https?:$/.test(remoteImage.protocol)) throw new Error("protocol");
+        } catch {
+          setFormError("Enter a full image URL beginning with https:// or http://.");
+          return;
+        }
+      }
+      if (!formFile && !remoteImage) {
+        setFormError(composer === "image" ? "Choose an image or enter its URL." : "Choose a file first.");
         return;
       }
-      if (formFile.size > 1_500_000) {
+      if (formFile && formFile.size > 1_500_000) {
         setFormError(
           "For this browser-local preview, choose a file under 1.5 MB.",
         );
         return;
       }
-      const fileData = await new Promise<string>((resolve, reject) => {
+      const fileData = formFile ? await new Promise<string>((resolve, reject) => {
         const reader = new FileReader();
         reader.onload = () => resolve(String(reader.result));
         reader.onerror = reject;
         reader.readAsDataURL(formFile);
-      });
+      }) : undefined;
       setCards((prev) => [
         {
           id: `local-${Date.now()}`,
           kind: composer,
-          title: formTitle.trim() || formFile.name,
+          title: formTitle.trim() || formFile?.name || remoteImage?.pathname.split("/").filter(Boolean).pop() || remoteImage?.hostname || "Untitled image",
           description: formNote.trim() || undefined,
-          source: formFile.name,
-          image: composer === "image" ? fileData : undefined,
+          source: formFile?.name || remoteImage?.hostname,
+          url: remoteImage?.href,
+          image: composer === "image" ? fileData || remoteImage?.href : undefined,
           fileData,
           collection: formCollection || undefined,
           date: "Just now",
@@ -808,16 +854,6 @@ export default function RebuildPreview({
     if (file.size > 1_500_000) { setToast("Choose an image under 1.5 MB for browser storage"); return; }
     const reader = new FileReader();
     reader.onload = () => setEditImage(String(reader.result || ""));
-    reader.readAsDataURL(file);
-  }
-
-  function dropCardImage(cardId: string, file: File) {
-    if (!file.type.startsWith("image/") || file.size > 1_500_000) { setToast("Drop an image under 1.5 MB"); return; }
-    const reader = new FileReader();
-    reader.onload = () => {
-      setCards((items) => items.map((item) => item.id === cardId ? { ...item, image: String(reader.result || "") } : item));
-      setToast("Preview image replaced in this browser");
-    };
     reader.readAsDataURL(file);
   }
 
@@ -945,7 +981,13 @@ export default function RebuildPreview({
     <div
       className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""} ${librarySelecting && destination === "library" ? "rb-library-selection-active" : ""}`}
       data-rebuild-root
+      onDragEnterCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) setPageDragActive(true); }}
+      onDragOverCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setPageDragActive(true); } }}
+      onDragLeaveCapture={(event) => { if (event.clientX <= 0 || event.clientX >= window.innerWidth || event.clientY <= 0 || event.clientY >= window.innerHeight) setPageDragActive(false); }}
+      onDragEndCapture={() => setPageDragActive(false)}
+      onDropCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.stopPropagation(); handlePageDrop(event.dataTransfer); } }}
     >
+      {pageDragActive && <div className="rb-page-drop-cue" aria-hidden="true"><div><Upload size={28} /><strong>Drop to save</strong><span>Link, image, or file</span></div></div>}
       <div className="rb-preview-flag">
         <span className="rb-pulse" /> Preview
         <span className="rb-flag-note">Saves stay in this browser</span>
@@ -1143,7 +1185,6 @@ export default function RebuildPreview({
                     onToggleFavorite={() => toggleFavorite(card.id)}
                     onEditTags={() => openTagEditor(card)}
                     onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(card.id); }}
-                    onDropImage={(file) => dropCardImage(card.id, file)}
                     favorite={favorites.includes(card.id)}
                     pinned={pinnedIds.includes(card.id)}
                     list={listMode}
@@ -1243,7 +1284,6 @@ export default function RebuildPreview({
 
         {destination === "inbox" && (
           <section className="rb-inbox-page">
-            <div className="rb-page-heading rb-inbox-heading"><h1>Inbox</h1></div>
             <div className="rb-inbox-tabs" role="group" aria-label="Inbox view">
               {(["activity", "following", "subscriptions", "review"] as const).map((tab) => <button key={tab} className={inboxTab === tab ? "active" : ""} onClick={() => setInboxTab(tab)}>{tab === "activity" ? "Activity" : tab === "following" ? "Following" : tab === "subscriptions" ? "Subscriptions" : "Review"}{tab === "review" && <span>{unsortedCards.length}</span>}</button>)}
             </div>
@@ -1663,6 +1703,7 @@ export default function RebuildPreview({
                 />
               </label>
             )}
+            {composer === "image" && <label>Or use an image URL<input type="url" value={formUrl} onChange={(event) => setFormUrl(event.target.value)} placeholder="https://example.com/image.jpg" /></label>}
             <label>
               {composer === "note"
                 ? "Title (optional)"
