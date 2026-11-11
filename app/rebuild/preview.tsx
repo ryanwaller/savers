@@ -10,6 +10,7 @@ import {
   Check,
   CheckCircle2,
   ChevronRight,
+  Compass,
   Copy,
   ExternalLink,
   FileText,
@@ -18,6 +19,7 @@ import {
   Grid2X2,
   Heart,
   Image as ImageIcon,
+  Inbox as InboxIcon,
   Link2,
   List,
   LockKeyhole,
@@ -33,7 +35,7 @@ import {
 } from "lucide-react";
 import { type CardKind, type PreviewCard } from "./fixtures";
 
-type Destination = "library" | "collections";
+type Destination = "library" | "collections" | "discover" | "inbox";
 type Filter = CardKind | "all" | "favorites" | "social" | "substack" | "youtube" | "x";
 type Composer = CardKind | "collection" | null;
 type PreviewCollection = {
@@ -109,6 +111,7 @@ function CardTile({
   onToggleFavorite,
   onTogglePrivacy,
   onEditTags,
+  onOpenOwner,
   favorite = false,
   list = false,
   selecting = false,
@@ -120,6 +123,7 @@ function CardTile({
   onToggleFavorite?: () => void;
   onTogglePrivacy?: () => void;
   onEditTags?: () => void;
+  onOpenOwner?: () => void;
   favorite?: boolean;
   list?: boolean;
   selecting?: boolean;
@@ -181,6 +185,7 @@ function CardTile({
           <Heart size={18} fill={favorite ? "currentColor" : "none"} />
         </button>}
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
+        {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
         {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>}
     </article>
@@ -226,6 +231,14 @@ export default function RebuildPreview({
   const [selectedRelatedIds, setSelectedRelatedIds] = useState<string[]>([]);
   const [relatedCollectionPickerOpen, setRelatedCollectionPickerOpen] = useState(false);
   const [relatedCollectionQuery, setRelatedCollectionQuery] = useState("");
+  const [discoverTab, setDiscoverTab] = useState<"discover" | "following">("discover");
+  const [discoverSource, setDiscoverSource] = useState<"all" | "yours" | "others">("all");
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [followedAccountIds, setFollowedAccountIds] = useState<string[]>([]);
+  const [inboxTab, setInboxTab] = useState<"activity" | "following" | "subscriptions" | "review">("activity");
+  const [subscriptions, setSubscriptions] = useState<string[]>([]);
+  const [subscriptionInput, setSubscriptionInput] = useState("");
+  const [subscriptionError, setSubscriptionError] = useState("");
   const [formUrl, setFormUrl] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
@@ -257,6 +270,8 @@ export default function RebuildPreview({
             cards?: PreviewCard[];
             collections?: PreviewCollection[];
             favorites?: string[];
+            followedAccountIds?: string[];
+            subscriptions?: string[];
             theme?: "light" | "dark";
             smartRules?: Record<string, SmartDefinition>;
           };
@@ -264,6 +279,8 @@ export default function RebuildPreview({
           if (Array.isArray(parsed.collections))
             setAllCollections(parsed.collections);
           if (Array.isArray(parsed.favorites)) setFavorites(parsed.favorites);
+          if (Array.isArray(parsed.followedAccountIds)) setFollowedAccountIds(parsed.followedAccountIds);
+          if (Array.isArray(parsed.subscriptions)) setSubscriptions(parsed.subscriptions);
           if (parsed.smartRules && typeof parsed.smartRules === "object") setSmartRules(parsed.smartRules);
           if (parsed.theme === "light" || parsed.theme === "dark")
             setTheme(parsed.theme);
@@ -285,6 +302,8 @@ export default function RebuildPreview({
           cards,
           collections: allCollections,
           favorites,
+          followedAccountIds,
+          subscriptions,
           theme,
           smartRules,
         }),
@@ -292,7 +311,7 @@ export default function RebuildPreview({
     } catch {
       /* A full browser storage quota only affects persistence of the preview. */
     }
-  }, [cards, allCollections, favorites, theme, smartRules, ready]);
+  }, [cards, allCollections, favorites, followedAccountIds, subscriptions, theme, smartRules, ready]);
 
   useEffect(() => {
     if (!toast) return;
@@ -312,6 +331,55 @@ export default function RebuildPreview({
   }, [destination, selectedCollection, filter, favorites.length]);
 
   useEffect(() => {
+    const root = document.querySelector<HTMLElement>("[data-rebuild-root]");
+    if (!root) return;
+    const tracked = new Set<HTMLElement>();
+    const update = (element: HTMLElement) => {
+      const horizontal = element.dataset.scrollFade === "x";
+      const start = horizontal ? element.scrollLeft > 2 : element.scrollTop > 2;
+      const remaining = horizontal
+        ? element.scrollWidth - element.clientWidth - element.scrollLeft
+        : element.scrollHeight - element.clientHeight - element.scrollTop;
+      element.dataset.fadeStart = String(start);
+      element.dataset.fadeEnd = String(remaining > 2);
+    };
+    const resizeObserver = new ResizeObserver(() => tracked.forEach(update));
+    let frame = 0;
+    const scan = () => {
+      root.querySelectorAll<HTMLElement>("[data-scroll-fade]").forEach((element) => {
+        if (!tracked.has(element)) {
+          tracked.add(element);
+          resizeObserver.observe(element);
+        }
+        update(element);
+      });
+      for (const element of tracked) {
+        if (!element.isConnected) {
+          resizeObserver.unobserve(element);
+          tracked.delete(element);
+        }
+      }
+    };
+    const mutationObserver = new MutationObserver(() => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(scan);
+    });
+    const onScroll = (event: Event) => {
+      const element = event.target;
+      if (element instanceof HTMLElement && element.dataset.scrollFade) update(element);
+    };
+    scan();
+    mutationObserver.observe(root, { childList: true, subtree: true });
+    root.addEventListener("scroll", onScroll, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      mutationObserver.disconnect();
+      resizeObserver.disconnect();
+      root.removeEventListener("scroll", onScroll, true);
+    };
+  }, []);
+
+  useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
         setActiveCardId(null);
@@ -328,7 +396,7 @@ export default function RebuildPreview({
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setDestination((current) => current === "collections" && collectionGroup === "tags" ? current : "library");
+        setDestination((current) => current === "collections" && collectionGroup !== "tags" ? "library" : current);
         setActiveCardId(null);
         setSearchOpen(true);
         window.setTimeout(() => searchRef.current?.focus(), 0);
@@ -365,7 +433,21 @@ export default function RebuildPreview({
         .map(({ item }) => item)
         .slice(0, 60)
     : [];
-  const selectedRelatedCards = relatedCards.filter((item) => selectedRelatedIds.includes(item.id));
+  const publicCards = [...cards.filter((item) => item.isPrivate === false), ...publicRelatedCards.filter((item) => item.isPrivate === false && item.owner)];
+  const publicAccounts = [...new Map(publicRelatedCards.filter((item) => item.isPrivate === false && item.owner).map((item) => [item.owner!.id, item.owner!])).values()];
+  const activeProfile = publicAccounts.find((account) => account.id === profileId);
+  const discoverCards = publicCards.filter((item) => {
+    if (profileId && item.owner?.id !== profileId) return false;
+    if (discoverTab === "following" && (!item.owner || !followedAccountIds.includes(item.owner.id))) return false;
+    if (discoverSource === "yours" && item.owner) return false;
+    if (discoverSource === "others" && !item.owner) return false;
+    const text = `${item.title} ${item.source || ""} ${item.description || ""} ${item.owner?.name || ""}`.toLocaleLowerCase();
+    return text.includes(query.trim().toLocaleLowerCase());
+  });
+  const followingCards = publicCards.filter((item) => item.owner && followedAccountIds.includes(item.owner.id));
+  const unsortedCards = cards.filter((item) => !item.collection && `${item.title} ${item.source || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()));
+  const selectionPool = relatedFeedOpen ? relatedCards : destination === "discover" ? discoverCards : [];
+  const selectedRelatedCards = selectionPool.filter((item) => selectedRelatedIds.includes(item.id));
   const collection = allCollections.find(
     (item) => item.id === selectedCollection,
   );
@@ -445,7 +527,33 @@ export default function RebuildPreview({
     setFilter("all");
     setSelectedTag(null);
     setSearchOpen(false);
+    setProfileId(null);
+    setRelatedSelecting(false);
+    setSelectedRelatedIds([]);
     window.scrollTo(0, 0);
+  }
+
+  function toggleFollow(id: string) {
+    setFollowedAccountIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
+  }
+
+  function addSubscription() {
+    const value = subscriptionInput.trim();
+    try {
+      const url = new URL(value);
+      if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid protocol");
+      const source = url.toString();
+      if (subscriptions.includes(source)) {
+        setSubscriptionError("This source is already added.");
+        return;
+      }
+      setSubscriptions((items) => [...items, source]);
+      setSubscriptionInput("");
+      setSubscriptionError("");
+      setToast("Source added in this browser preview");
+    } catch {
+      setSubscriptionError("Enter a site or feed URL.");
+    }
   }
 
   function openComposer(kind: Composer) {
@@ -665,6 +773,10 @@ export default function RebuildPreview({
           <span className="rb-mark-glyph">✳</span>
           <span>savers</span>
         </button>
+        <nav className="rb-social-nav" aria-label="Social navigation">
+          <button className={destination === "discover" ? "active" : ""} onClick={() => navigate("discover")} aria-label="Discover"><Compass size={21} /><span>Discover</span></button>
+          <button className={destination === "inbox" ? "active" : ""} onClick={() => navigate("inbox")} aria-label="Inbox"><InboxIcon size={21} /><span>Inbox</span></button>
+        </nav>
         <div className="rb-top-actions">
           <div className="rb-account-wrap">
             <button
@@ -704,6 +816,8 @@ export default function RebuildPreview({
                     setCards(seedCards);
                     setAllCollections(seedCollections);
                     setFavorites([]);
+                    setFollowedAccountIds([]);
+                    setSubscriptions([]);
                     setSmartRules({});
                     setAccountOpen(false);
                     setToast("Preview reset");
@@ -771,7 +885,7 @@ export default function RebuildPreview({
             )}
             {collection && subcollections.length > 0 && <section className="rb-subfolder-section"><h2>Subfolders</h2><div className="rb-collection-preview-list">{subcollections.map(renderCollectionPreview)}</div></section>}
             <div className="rb-library-toolbar">
-              <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef}>
+              <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef} data-scroll-fade="x">
                 {(["all", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
                     <div className="rb-filter-entry" key={kind}>
@@ -916,6 +1030,54 @@ export default function RebuildPreview({
           </>
         )}
 
+        {destination === "discover" && (
+          <section className="rb-discover-page">
+            {activeProfile ? (
+              <div className="rb-public-profile">
+                <button className="rb-profile-back" onClick={() => setProfileId(null)} aria-label="Back to Discover"><ArrowLeft size={22} /></button>
+                <div className="rb-profile-identity">
+                  {activeProfile.avatar ? <img src={activeProfile.avatar} alt="" /> : <span>{activeProfile.name.slice(0, 1)}</span>}
+                  <div><h1>{activeProfile.name}</h1><span>{publicCards.filter((item) => item.owner?.id === activeProfile.id).length} public cards</span></div>
+                </div>
+                <button className={followedAccountIds.includes(activeProfile.id) ? "rb-follow-button following" : "rb-follow-button"} onClick={() => toggleFollow(activeProfile.id)}>{followedAccountIds.includes(activeProfile.id) ? "Following" : "Follow"}</button>
+              </div>
+            ) : (
+              <div className="rb-discover-top">
+                <div className="rb-discover-tabs" role="group" aria-label="Discover view">
+                  <button className={discoverTab === "discover" ? "active" : ""} onClick={() => setDiscoverTab("discover")}>Discover</button>
+                  <button className={discoverTab === "following" ? "active" : ""} onClick={() => setDiscoverTab("following")}>Following</button>
+                </div>
+                <button className="rb-feed-select" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
+              </div>
+            )}
+            <div className="rb-discover-source" role="group" aria-label="Card source">
+              {(["all", "yours", "others"] as const).map((source) => <button key={source} className={discoverSource === source ? "active" : ""} onClick={() => setDiscoverSource(source)}>{source === "all" ? "All" : source === "yours" ? "Yours" : "Others"}</button>)}
+            </div>
+            {discoverCards.length > 0 ? <div className="rb-discover-grid">
+              {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onTogglePrivacy={item.owner ? undefined : () => togglePrivacy(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
+            </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{activeProfile ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards here yet"}</h2>{discoverSource !== "others" && !activeProfile && <button onClick={() => navigate("library")}>Open Library <ArrowRight size={18} /></button>}</div>}
+            {discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
+          </section>
+        )}
+
+        {destination === "inbox" && (
+          <section className="rb-inbox-page">
+            <div className="rb-page-heading rb-inbox-heading"><h1>Inbox</h1></div>
+            <div className="rb-inbox-tabs" role="group" aria-label="Inbox view">
+              {(["activity", "following", "subscriptions", "review"] as const).map((tab) => <button key={tab} className={inboxTab === tab ? "active" : ""} onClick={() => setInboxTab(tab)}>{tab === "activity" ? "Activity" : tab === "following" ? "Following" : tab === "subscriptions" ? "Subscriptions" : "Review"}{tab === "review" && <span>{unsortedCards.length}</span>}</button>)}
+            </div>
+            {inboxTab === "activity" && <div className="rb-empty rb-inbox-empty"><InboxIcon size={28} /><h2>No follower activity yet</h2></div>}
+            {inboxTab === "following" && (followingCards.length ? <div className="rb-discover-grid">{followingCards.filter((item) => `${item.title} ${item.owner?.name || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onOpenOwner={() => { setDestination("discover"); setProfileId(item.owner!.id); }} onOpen={() => setActiveCardId(item.id)} />)}</div> : <div className="rb-empty rb-inbox-empty"><UsersRound size={28} /><h2>No cards from followed accounts yet</h2><button onClick={() => navigate("discover")}>Open Discover <ArrowRight size={18} /></button></div>)}
+            {inboxTab === "subscriptions" && <div className="rb-subscriptions">
+              <form onSubmit={(event) => { event.preventDefault(); addSubscription(); }}><input value={subscriptionInput} onChange={(event) => { setSubscriptionInput(event.target.value); setSubscriptionError(""); }} placeholder="Site or feed URL" aria-label="Site or feed URL" /><button type="submit"><Plus size={19} /> Add source</button></form>
+              {subscriptionError && <p role="alert">{subscriptionError}</p>}
+              {subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
+              {subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
+            </div>}
+            {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onTogglePrivacy={() => togglePrivacy(item.id)} onEditTags={() => openTagEditor(item)} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
+          </section>
+        )}
+
       </main>
 
       <nav className={`rb-dock ${searchOpen ? "rb-dock-expanded" : ""}`} aria-label="Main navigation">
@@ -943,8 +1105,8 @@ export default function RebuildPreview({
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
-              aria-label={destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
+              placeholder={destination === "collections" && collectionGroup === "tags" ? "Search tags" : destination === "discover" ? "Search Discover" : destination === "inbox" ? "Search Inbox" : "Search library"}
+              aria-label={destination === "collections" && collectionGroup === "tags" ? "Search tags" : destination === "discover" ? "Search Discover" : destination === "inbox" ? "Search Inbox" : "Search library"}
             />
           )}
           <button
@@ -954,12 +1116,12 @@ export default function RebuildPreview({
                 setQuery("");
                 setSearchOpen(false);
               } else {
-                if (!(destination === "collections" && collectionGroup === "tags")) setDestination("library");
+                if (destination === "collections" && collectionGroup !== "tags") setDestination("library");
                 setSearchOpen(true);
                 window.setTimeout(() => searchRef.current?.focus(), 0);
               }
             }}
-            aria-label={searchOpen ? "Clear and close search" : destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
+            aria-label={searchOpen ? "Clear and close search" : destination === "collections" && collectionGroup === "tags" ? "Search tags" : destination === "discover" ? "Search Discover" : destination === "inbox" ? "Search Inbox" : "Search library"}
             aria-expanded={searchOpen}
           >
             {searchOpen ? <X size={23} /> : <Search size={23} />}
@@ -1000,7 +1162,9 @@ export default function RebuildPreview({
 
       {activeCard && (
         <div
+          key={activeCard.id}
           className="rb-detail"
+          data-scroll-fade="y"
           role="dialog"
           aria-modal="true"
           aria-label={activeCard.title}
@@ -1131,14 +1295,13 @@ export default function RebuildPreview({
       )}
 
       {activeCard && relatedFeedOpen && (
-        <div className="rb-related-feed" role="dialog" aria-modal="true" aria-label="More related cards">
+        <div className="rb-related-feed" data-scroll-fade="y" role="dialog" aria-modal="true" aria-label="More related cards">
           <div className="rb-related-feed-top">
             <button onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} aria-label="Back to card"><ArrowLeft size={23} /></button>
-            <h1>{relatedSelecting ? `${selectedRelatedIds.length} selected` : "Related"}</h1>
+            <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
+              {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => setRelatedScope(scope)}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
+            </div>
             <button className="rb-related-select-toggle" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
-          </div>
-          <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
-            {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => setRelatedScope(scope)}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
           </div>
           <div className="rb-related-feed-grid">
             {relatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
@@ -1146,26 +1309,26 @@ export default function RebuildPreview({
             ))}
           </div>
           {relatedScope === "others" && !relatedCards.some((item) => item.owner) && <p className="rb-related-feed-empty">No public cards from other accounts yet.</p>}
-          {relatedSelecting && selectedRelatedIds.length > 0 && <div className="rb-related-selection-bar">
-            <span>{selectedRelatedIds.length} selected</span>
-            {selectedRelatedCards.some((item) => item.owner) && <button onClick={() => saveRelatedSelection()}><Plus size={19} /> Save</button>}
-            <button onClick={() => { setRelatedCollectionQuery(""); setRelatedCollectionPickerOpen(true); }}><Folder size={19} /> Add to collection</button>
-          </div>}
-          {relatedCollectionPickerOpen && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection">
-            <div className="rb-related-picker">
-              <div><h2>Add to collection</h2><button onClick={() => setRelatedCollectionPickerOpen(false)} aria-label="Close collection picker"><X size={21} /></button></div>
-              <input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus />
-              <div className="rb-related-picker-list">
-                {allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).map((item) => <button key={item.id} onClick={() => saveRelatedSelection(item.id)}><Folder size={18} /><span>{item.name}</span>{item.isPrivate !== false && <LockKeyhole size={16} />}</button>)}
-              </div>
-            </div>
-          </div>}
         </div>
       )}
 
+      {relatedSelecting && selectedRelatedIds.length > 0 && (relatedFeedOpen || destination === "discover") && <div className="rb-related-selection-bar">
+        <span>{selectedRelatedIds.length} selected</span>
+        {selectedRelatedCards.some((item) => item.owner) && <button onClick={() => saveRelatedSelection()}><Plus size={19} /> Save</button>}
+        <button onClick={() => { setRelatedCollectionQuery(""); setRelatedCollectionPickerOpen(true); }}><Folder size={19} /> Add to collection</button>
+      </div>}
+      {relatedCollectionPickerOpen && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection">
+            <div className="rb-related-picker">
+              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={() => setRelatedCollectionPickerOpen(false)} aria-label="Close collection picker"><X size={23} /></button></div>
+              <div className="rb-related-picker-list" data-scroll-fade="y">
+                {allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).map((item) => <button key={item.id} onClick={() => saveRelatedSelection(item.id)}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span><Plus className="rb-picker-plus" size={21} /></button>)}
+              </div>
+            </div>
+      </div>}
+
       {smartEditorId && (
         <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit rules for ${smartEditorCollection?.name || "smart collection"}`}>
-          <div className="rb-rule-panel">
+          <div className="rb-rule-panel" data-scroll-fade="y">
             <div className="rb-rule-head">
               <div><span>Smart collection</span><h2>{smartEditorCollection?.name}</h2></div>
               <button onClick={() => setSmartEditorId(null)} aria-label="Close rule editor"><X size={21} /></button>
@@ -1203,7 +1366,7 @@ export default function RebuildPreview({
 
       {tagEditorId && tagEditorCard && (
         <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit tags for ${tagEditorCard.title}`}>
-          <div className="rb-tag-editor">
+          <div className="rb-tag-editor" data-scroll-fade="y">
             <div className="rb-rule-head">
               <div><span>Tags</span><h2>{tagEditorCard.title}</h2></div>
               <button onClick={() => setTagEditorId(null)} aria-label="Close tag editor"><X size={21} /></button>
@@ -1223,6 +1386,7 @@ export default function RebuildPreview({
       {composer && (
         <div
           className="rb-composer-overlay"
+          data-scroll-fade="y"
           role="dialog"
           aria-modal="true"
           aria-label={`Create ${composer}`}

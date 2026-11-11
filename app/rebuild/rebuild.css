@@ -2612,3 +2612,117 @@ body:has(.rebuild-app) {
   .rb-related-selection-bar > span { display: none; }
   .rb-related-selection-bar button { flex: 1; min-width: 0; padding: 8px 10px; }
 }
+
+/* Edge fades follow actual scroll position in every contained scroller. */
+.rebuild-app [data-scroll-fade="y"][data-fade-start="true"][data-fade-end="true"] { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 27px, #000 calc(100% - 27px), transparent); mask-image: linear-gradient(to bottom, transparent, #000 27px, #000 calc(100% - 27px), transparent); }
+.rebuild-app [data-scroll-fade="y"][data-fade-start="true"][data-fade-end="false"] { -webkit-mask-image: linear-gradient(to bottom, transparent, #000 27px); mask-image: linear-gradient(to bottom, transparent, #000 27px); }
+.rebuild-app [data-scroll-fade="y"][data-fade-start="false"][data-fade-end="true"] { -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 27px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 27px), transparent); }
+.rebuild-app [data-scroll-fade="x"][data-fade-start="true"][data-fade-end="true"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 45px, #000 calc(100% - 45px), transparent); mask-image: linear-gradient(to right, transparent, #000 45px, #000 calc(100% - 45px), transparent); }
+.rebuild-app [data-scroll-fade="x"][data-fade-start="true"][data-fade-end="false"] { -webkit-mask-image: linear-gradient(to right, transparent, #000 45px); mask-image: linear-gradient(to right, transparent, #000 45px); }
+.rebuild-app [data-scroll-fade="x"][data-fade-start="false"][data-fade-end="true"] { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 45px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 45px), transparent); }
+.rb-detail-image { object-position: top; }
+
+/* The picker keeps the search and close control on one measured row. */
+.rb-related-picker { gap: 14px; }
+.rb-related-picker-head { display: flex; align-items: center; gap: 10px; }
+.rb-related-picker-head input { flex: 1; min-width: 0; height: 58px; }
+.rb-related-picker-head > button { display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 50%; background: #eee; }
+.rb-related-picker-head > button:hover { background: #e1e1e1; }
+.rb-related-picker-list { padding: 0 2px; }
+.rb-related-picker-list button { min-height: 58px; padding: 9px 14px; border-radius: 16px; }
+.rb-related-picker-list button > span { display: flex; align-items: center; gap: 8px; }
+.rb-related-picker-list button > span svg { color: #999; }
+.rb-picker-plus { opacity: 0; transform: scale(.7); transition: opacity 180ms ease, transform 180ms ease; }
+.rb-related-picker-list button:hover .rb-picker-plus, .rb-related-picker-list button:focus-visible .rb-picker-plus { opacity: 1; transform: scale(1); }
+.rb-theme-dark .rb-related-picker-head > button { background: #393939; color: #eee; }
+@media (hover: none) { .rb-picker-plus { opacity: 1; transform: none; } }
+
+/* Source choices occupy the center of the feed toolbar. */
+.rb-related-feed-top { display: grid; grid-template-columns: 1fr auto 1fr; gap: 12px; margin-bottom: 33px; }
+.rb-related-feed-top > button:first-child { justify-self: start; }
+.rb-related-feed-top .rb-related-select-toggle { justify-self: end; margin-left: 0; }
+.rb-related-feed-tabs { margin: 0; }
+@media (max-width: 620px) {
+  .rb-related-feed-top { gap: 5px; }
+  .rb-related-feed-tabs { gap: 3px; }
+  .rb-related-feed-tabs button { min-height: 44px; padding: 7px 10px; }
+  .rb-related-feed-top > button:first-child { width: 44px; height: 44px; }
+  .rb-related-feed-top .rb-related-select-toggle { min-height: 44px; height: 44px; padding: 7px 12px; }
+}
+
+/* Shared control scale and colors: 52px controls, 76px dock destinations. */
+.rebuild-app { --rb-control-compact-size: 40px; --rb-control-size: 52px; --rb-control-dock-size: 76px; --rb-control-gap: 8px; --rb-control-bg: #f1f1f1; --rb-control-hover: #e8ffd4; --rb-control-active: #b9ff69; --rb-control-ink: #252525; --rb-control-muted: #777; }
+.rb-theme-dark { --rb-control-bg: #303030; --rb-control-hover: #34452d; --rb-control-ink: #eee; --rb-control-muted: #aaa; }
+.rb-topbar { justify-content: flex-start; gap: 30px; }
+.rb-top-actions { margin-left: auto; }
+.rb-social-nav { display: flex; align-items: center; gap: 8px; }
+.rb-social-nav button { display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-height: var(--rb-control-size); padding: 0 17px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-muted); transition: background-color 220ms ease, color 220ms ease; }
+.rb-social-nav button:hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rb-social-nav button.active { background: var(--rb-control-active); color: #202820; }
+.rebuild-app :is(.rb-toolbar-end .rb-small-icon, .rb-detail-bar button, .rb-detail-bar a, .rb-related-feed-top > button:first-child, .rb-related-picker-head > button) { display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 15px; background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rebuild-app :is(.rb-toolbar-end .rb-small-icon, .rb-detail-bar button, .rb-detail-bar a, .rb-related-feed-top > button:first-child, .rb-related-picker-head > button):hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rebuild-app .rb-toolbar-end .rb-small-icon.selected { background: var(--rb-control-active); color: #202820; }
+.rebuild-app .rb-card-actions { gap: calc(var(--rb-control-gap) / 2); }
+.rebuild-app .rb-card-actions button { width: var(--rb-control-compact-size); height: var(--rb-control-compact-size); background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rebuild-app .rb-card-actions button:hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rebuild-app .rb-dock > button, .rebuild-app .rb-dock .rb-dock-search-trigger { height: var(--rb-control-dock-size); }
+.rebuild-app .rb-dock { gap: var(--rb-control-gap); padding: var(--rb-control-gap); }
+.rebuild-app :is(.rb-filter-entry > button, .rb-collection-groups button, .rb-related-feed-tabs button, .rb-discover-tabs button, .rb-discover-source button, .rb-inbox-tabs button, .rb-feed-select, .rb-related-feed-top .rb-related-select-toggle) { display: inline-flex; align-items: center; justify-content: center; min-height: var(--rb-control-size); padding: 0 18px; border: 0; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-muted); white-space: nowrap; }
+.rebuild-app :is(.rb-filter-entry > button, .rb-collection-groups button, .rb-related-feed-tabs button, .rb-discover-tabs button, .rb-discover-source button, .rb-inbox-tabs button, .rb-feed-select, .rb-related-feed-top .rb-related-select-toggle):hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rebuild-app :is(.rb-filter-entry > button, .rb-collection-groups button, .rb-related-feed-tabs button, .rb-discover-tabs button, .rb-discover-source button, .rb-inbox-tabs button).active { background: var(--rb-control-active); color: #202820; }
+.rb-collection-groups { gap: 8px; padding: 0; background: transparent; }
+.rb-theme-dark .rb-collection-groups { background: transparent; }
+.rb-detail-tags .rb-detail-edit-tags { min-height: var(--rb-control-size); padding: 0 18px; border: 0; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rb-detail-tags .rb-detail-edit-tags:hover { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rb-related-picker-head input { height: var(--rb-control-size); min-height: var(--rb-control-size); }
+.rb-related-feed-top .rb-related-select-toggle { height: var(--rb-control-size); }
+
+.rb-discover-page, .rb-inbox-page { min-height: 65vh; padding-bottom: 120px; }
+.rb-discover-top { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin: 44px 0 24px; }
+.rb-discover-tabs, .rb-discover-source { display: flex; align-items: center; gap: 8px; }
+.rb-discover-source { margin-bottom: 40px; }
+.rb-discover-grid { columns: 3 280px; column-gap: 19px; }
+.rb-discover-empty { margin-top: 50px; }
+.rb-public-profile { display: flex; align-items: center; gap: 24px; margin: 52px 0 40px; }
+.rb-profile-back { display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 15px; background: var(--rb-control-bg); }
+.rb-profile-identity { display: flex; align-items: center; gap: 16px; min-width: 0; }
+.rb-profile-identity > span, .rb-profile-identity > img { display: grid; place-items: center; width: 64px; height: 64px; flex: 0 0 64px; border-radius: 50%; background: #333; color: #b9ff69; object-fit: cover; }
+.rb-profile-identity h1 { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-profile-identity div > span { color: #888; }
+.rb-follow-button { min-height: var(--rb-control-size); margin-left: auto; padding: 0 22px; border-radius: 999px; background: var(--rb-control-active); color: #202820; }
+.rb-follow-button.following { background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-inbox-heading { margin: 58px 0 32px; text-align: left; }
+.rb-inbox-heading h1 { margin: 0; }
+.rb-inbox-tabs { display: flex; gap: 8px; margin: 0 0 38px; padding: 0; border: 0; overflow-x: auto; scrollbar-width: none; }
+.rb-inbox-tabs::-webkit-scrollbar { display: none; }
+.rb-inbox-tabs button.active { border: 0; }
+.rb-inbox-tabs button span { padding: 0; background: transparent; }
+.rb-inbox-empty { min-height: 330px; }
+.rb-subscriptions { max-width: 840px; }
+.rb-subscriptions form { display: flex; gap: 10px; }
+.rb-subscriptions input { flex: 1; min-width: 0; min-height: var(--rb-control-size); padding: 0 16px; border: 1px solid #ddd; border-radius: 16px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-subscriptions form button { display: inline-flex; align-items: center; gap: 8px; min-height: var(--rb-control-size); padding: 0 18px; border-radius: 16px; background: var(--rb-control-active); color: #202820; }
+.rb-subscriptions > p { margin: 15px 0; color: #888; }
+.rb-subscription-list { display: grid; gap: 9px; margin-top: 25px; }
+.rb-subscription-list > div { display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 10px 15px; border-radius: 16px; background: var(--rb-control-bg); }
+.rb-subscription-list a { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-subscription-list button { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 12px; }
+.rb-subscription-list button:hover { background: var(--rb-control-hover); }
+.rb-theme-dark .rb-subscriptions input { border-color: #484848; }
+@media (max-width: 700px) {
+  .rebuild-app { --rb-control-dock-size: 66px; }
+  .rb-topbar { gap: 8px; }
+  .rb-social-nav { gap: 5px; }
+  .rb-social-nav button { width: 44px; min-height: 44px; padding: 0; }
+  .rb-social-nav button span { display: none; }
+  .rb-discover-grid { columns: 1; }
+  .rb-discover-top { margin-top: 26px; }
+  .rb-discover-source { margin-bottom: 26px; }
+  .rb-inbox-heading { margin-top: 34px; }
+  .rb-inbox-tabs { gap: 6px; }
+  .rb-inbox-tabs button { padding: 0 13px; }
+  .rb-subscriptions form { flex-wrap: wrap; }
+  .rb-subscriptions form input { flex-basis: 100%; }
+  .rb-public-profile { gap: 12px; flex-wrap: wrap; }
+  .rb-follow-button { margin-left: 0; }
+}

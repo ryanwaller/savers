@@ -1,6 +1,6 @@
 # Savers rebuild: product, design, and delivery plan
 
-**Status:** Research and planning completed 11 November 2026. The first fixture-backed preview is being deployed as a separate Railway service on the `rebuild` branch. The current Savers service and data have not been changed.
+**Status:** Research and planning completed 11 November 2026. The isolated Railway preview runs from the `rebuild` branch with exported bookmark data and browser-local edits. The current Savers service and data have not been changed.
 
 **Goal:** Build a calmer, more coherent Savers alongside the live app, using the supplied Sublime screenshots as a close visual and interaction reference while improving clarity, accessibility, and support for Savers' deeper workflows.
 
@@ -93,13 +93,13 @@ This map deliberately separates a **new presentation** from a **new capability**
 | **Library**       | All saved cards, recent first, mixed link/image/note/file types     | Search, type filters, sort, view switch, bulk select                |
 | **Collections**   | Pinned/recent collections and accessible hierarchy                  | New collection, nested navigation, smart collections as saved views |
 | **Inbox**         | Activity, Following, user-added Subscriptions, and Review queues     | New followers, public activity, feed sources, keep/dismiss, retry   |
-| **Explore**       | Discover public cards and accounts; related from my library and others | Staff picks/Discover/Following, Yours/Others, select, save        |
+| **Discover**      | Public cards and accounts; related from my library and others          | Discover/Following, Yours/Others, select, save                    |
 | **Create**        | Link, note, image/file upload, collection; later highlight/canvas   | Current context prefilled, collection optional                      |
 | **Account/Tools** | Settings, integrations, imports/exports, health, duplicate review   | Progressive disclosure from profile menu                            |
 
 Desktop: a small floating bottom-left destination dock and a separate bottom-right create button, as in the screenshots. The dock must retain labels or tooltips and clear active state; a keyboard user can reach everything. Mobile: a bottom bar for Library, Collections, Inbox, Explore, plus a prominent Create control. On narrow screens, hide fixed overlays when the keyboard is open and preserve safe-area spacing. Search is reachable from any content destination, not buried in a modal.
 
-Keep outer and inner dock insets equal and give each labeled destination enough width. Use short eased transitions when changing destinations, expanding search, opening details, or entering selection; respect reduced-motion preferences. On Explore, place Staff picks, Discover, and Following as page-scoped choices in the upper-left corner, with shuffle/filter/more on the upper right. Use consistent page-edge gutters for those corner controls while the card grid stays centered, as in the reference. Search remains in the bottom-left dock as requested, and its scope follows the current destination.
+Keep outer and inner dock insets equal and give each labeled destination enough width. Use short eased transitions when changing destinations, expanding search, opening details, or entering selection; respect reduced-motion preferences. On Discover, place Discover and Following as page-scoped choices in the upper-left corner, with Select on the right. Use consistent page-edge gutters for those corner controls while the card grid stays centered, as in the reference. Search remains in the bottom-left dock as requested, and its scope follows the current destination. Use a shared control scale: 52 px ordinary pills and icon buttons, 76 px dock destinations on desktop, one neutral surface, one hover tint, and green for the active or primary action. Keep a consistent icon size and horizontal inset within each tier. Contained scroll areas should fade only at edges with hidden content, including horizontal type strips and vertical picker lists.
 
 Avoid copying Sublime's transient empty-account landing as the permanent home for an established Savers library. Existing users should land on content or their last valid view. Onboarding is a separate, intentionally sparse state.
 
