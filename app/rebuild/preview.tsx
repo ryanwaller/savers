@@ -517,7 +517,7 @@ export default function RebuildPreview({
   const publicAccounts = [...new Map(publicRelatedCards.filter((item) => item.isPrivate === false && item.owner).map((item) => [item.owner!.id, item.owner!])).values()];
   const activeProfile = publicAccounts.find((account) => account.id === profileId);
   const isOwnProfile = profileId === "self";
-  const profileName = isOwnProfile ? "Your profile" : activeProfile?.name || "";
+  const profileName = isOwnProfile ? "Ryan Waller" : activeProfile?.name || "";
   const profileCards = publicCards.filter((item) => isOwnProfile ? !item.owner : item.owner?.id === profileId);
   const profileCollections = isOwnProfile ? allCollections.filter((item) => !item.parentId && item.isPrivate === false) : [];
   const discoverCards = publicCards.filter((item) => {
@@ -965,7 +965,7 @@ export default function RebuildPreview({
           <span>savers</span>
         </button>
         <nav className="rb-social-nav" aria-label="Social navigation">
-          <button className={destination === "discover" ? "active" : ""} onClick={() => navigate("discover")} aria-label="Discover"><Compass size={21} /><span>Discover</span></button>
+          <button className={destination === "discover" ? "active" : ""} onClick={() => navigate("discover")} aria-label={profileId ? "Back to Discover" : "Discover"}>{profileId ? <ArrowLeft size={21} /> : <Compass size={21} />}<span>Discover</span></button>
           <button className={destination === "inbox" ? "active" : ""} onClick={() => navigate("inbox")} aria-label="Inbox"><InboxIcon size={21} /><span>Inbox</span></button>
         </nav>
         <div className="rb-top-actions">
@@ -1045,40 +1045,16 @@ export default function RebuildPreview({
                 <ArrowLeft size={17} /> {parentCollection?.name || "All cards"}
               </button>
             )}
-            <div className="rb-page-heading">
+            {collection && <div className="rb-page-heading">
               <div className="rb-heading-line">
-                <h1>{collection ? collection.name : "Library"}</h1>
-                {collection && <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private" : "Make public"}: ${collection.name}`} title={collection.isPrivate === false ? "Public in this preview" : "Private in this preview"}>{collection.isPrivate === false ? <Unlock size={20} /> : <LockKeyhole size={20} />}</button>}
+                <h1>{collection.name}</h1>
+                <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private" : "Make public"}: ${collection.name}`} title={collection.isPrivate === false ? "Public in this preview" : "Private in this preview"}>{collection.isPrivate === false ? <Unlock size={20} /> : <LockKeyhole size={20} />}</button>
               </div>
               {collection?.description && <p>{collection.description}</p>}
               {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}
-            </div>
-            {!collection && (
-              <div className="rb-collection-rail">
-                <div className="rb-section-intro">
-                  <span>Collections</span>
-                  <button onClick={() => navigate("collections")}>View all <ArrowRight size={14} /></button>
-                </div>
-                <div className="rb-rail-items">
-                  {allCollections.filter((item) => !item.parentId && (item.group || "links") === "links").slice(0, 4).map((item) => (
-                    <button
-                      key={item.id}
-                      className="rb-rail-item"
-                      onClick={() => setSelectedCollection(item.id)}
-                    >
-                      {item.image ? <img src={item.image} alt="" /> : <Folder size={20} />}
-                      <span>{item.name}</span>
-                      {item.isPrivate !== false && <LockKeyhole className="rb-folder-lock" size={16} aria-label="Private" />}
-                      <span className="rb-rail-count">
-                        {displayCount(item) ?? ""}
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
+            </div>}
             {collection && subcollections.length > 0 && <section className="rb-subfolder-section"><h2>Subfolders</h2><div className="rb-collection-preview-list">{subcollections.map(renderCollectionPreview)}</div></section>}
-            <div className="rb-library-toolbar">
+            <div className={`rb-library-toolbar ${collection ? "" : "rb-root-controls"}`}>
               <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef} data-scroll-fade="x">
                 {(["all", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
@@ -1199,11 +1175,7 @@ export default function RebuildPreview({
 
         {destination === "collections" && (
           <>
-            <div className="rb-page-heading rb-collections-heading">
-              <h1>{collectionGroup === "tags" ? "Tags" : "Collections"}</h1>
-              <span>{collectionGroup === "tags" ? tagCounts.length : allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
-            </div>
-            <div className="rb-collections-controls">
+            <div className="rb-collections-controls rb-root-controls">
               <div className="rb-collection-groups" role="group" aria-label="Collection type">
                 {(["links", "images", "smart", "tags"] as const).map((group) => (
                   <button
@@ -1216,6 +1188,7 @@ export default function RebuildPreview({
                 ))}
               </div>
               <div className="rb-collections-head">
+                <span className="rb-collections-count">{collectionGroup === "tags" ? tagCounts.length : allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
                 {collectionGroup === "tags" ? (
                   <button onClick={() => setTagOrder((order) => order === "popular" ? "name" : "popular")}>
                     <SlidersHorizontal size={18} /> {tagOrder === "popular" ? "Most used" : "By name"}
@@ -1239,13 +1212,12 @@ export default function RebuildPreview({
         {destination === "discover" && (
           <section className="rb-discover-page">
             {(activeProfile || isOwnProfile) ? (
-              <div className="rb-profile-page">
-                <div className="rb-profile-toolbar">
-                  <button className="rb-profile-back" onClick={() => setProfileId(null)} aria-label="Back to Discover"><ArrowLeft size={22} /></button>
-                  {activeProfile && <button className={followedAccountIds.includes(activeProfile.id) ? "rb-follow-button following" : "rb-follow-button"} onClick={() => toggleFollow(activeProfile.id)}>{followedAccountIds.includes(activeProfile.id) ? "Following" : "Follow"}</button>}
-                </div>
+              <div className={`rb-profile-page ${isOwnProfile ? "rb-profile-page-own" : ""}`}>
+                {activeProfile && <div className="rb-profile-toolbar">
+                  <button className={followedAccountIds.includes(activeProfile.id) ? "rb-follow-button following" : "rb-follow-button"} onClick={() => toggleFollow(activeProfile.id)}>{followedAccountIds.includes(activeProfile.id) ? "Following" : "Follow"}</button>
+                </div>}
                 <div className="rb-profile-center">
-                  <div className="rb-profile-identity">
+                  <div className={`rb-profile-identity ${isOwnProfile ? "rb-own-profile" : ""}`}>
                     {activeProfile?.avatar ? <img src={activeProfile.avatar} alt="" /> : <span>{isOwnProfile ? "RW" : profileName.slice(0, 1)}</span>}
                     <h1>{profileName}</h1>
                     <span>{profileCards.length} public {profileCards.length === 1 ? "card" : "cards"}</span>
@@ -1410,7 +1382,7 @@ export default function RebuildPreview({
               onClick={closeDetail}
               aria-label="Close item"
             >
-              <ArrowLeft size={21} />
+              <X size={21} />
             </button>
             <div>
               {activeCardIsOwn && <button onClick={() => togglePrivacy(activeCard.id)} aria-label={activeCard.isPrivate === false ? "Make private" : "Make public"} title={activeCard.isPrivate === false ? "Public in this preview" : "Private in this preview"}>
@@ -1541,9 +1513,10 @@ export default function RebuildPreview({
       )}
 
       {activeCard && relatedFeedOpen && (
+        <div className="rb-related-feed-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); } }}>
         <div className="rb-related-feed" role="dialog" aria-modal="true" aria-label="More related cards">
           <div className="rb-related-feed-top">
-            <button onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} aria-label="Back to card"><ArrowLeft size={23} /></button>
+            <button onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} aria-label="Close related cards"><X size={23} /></button>
             <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
               {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => setRelatedScope(scope)}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
             </div>
@@ -1555,6 +1528,7 @@ export default function RebuildPreview({
             ))}
           </div>
           {relatedScope === "others" && !relatedCards.some((item) => item.owner) && <p className="rb-related-feed-empty">No public cards from other accounts yet.</p>}
+        </div>
         </div>
       )}
 
