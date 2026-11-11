@@ -41,6 +41,8 @@ import { type CardKind, type PreviewCard } from "./fixtures";
 type Destination = "library" | "collections" | "discover" | "inbox";
 type Filter = CardKind | "all" | "favorites" | "social" | "substack" | "youtube" | "x";
 type Composer = CardKind | "collection" | null;
+type IncomingFile = { file: File; path: string };
+type BrowserCapture = { kind: "link" | "image" | "note"; url?: string; sourceUrl?: string; imageUrl?: string; text?: string; title?: string };
 type PreviewCollection = {
   id: string;
   name: string;
@@ -100,6 +102,66 @@ function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
 }
 
 const storageKey = "savers.rebuild.preview.v3";
+const previewDatabase = "savers-rebuild-preview";
+
+function openPreviewDatabase(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(previewDatabase, 1);
+    request.onupgradeneeded = () => request.result.createObjectStore("state");
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error);
+  });
+}
+
+async function readPreviewCards(): Promise<PreviewCard[] | null> {
+  const database = await openPreviewDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction("state", "readonly");
+    const request = transaction.objectStore("state").get("cards");
+    request.onsuccess = () => resolve(Array.isArray(request.result) ? request.result as PreviewCard[] : null);
+    request.onerror = () => reject(request.error);
+    transaction.oncomplete = () => database.close();
+  });
+}
+
+async function writePreviewCards(cards: PreviewCard[]): Promise<void> {
+  const database = await openPreviewDatabase();
+  return new Promise((resolve, reject) => {
+    const transaction = database.transaction("state", "readwrite");
+    transaction.objectStore("state").put(cards, "cards");
+    transaction.oncomplete = () => { database.close(); resolve(); };
+    transaction.onerror = () => { database.close(); reject(transaction.error); };
+  });
+}
+
+async function filesFromEntries(entries: FileSystemEntry[], fallback: File[]): Promise<IncomingFile[]> {
+  if (!entries.length) return fallback.map((file) => ({ file, path: file.webkitRelativePath || file.name }));
+  const found: IncomingFile[] = [];
+  async function visit(entry: FileSystemEntry) {
+    if (entry.isFile) {
+      const file = await new Promise<File>((resolve, reject) => (entry as FileSystemFileEntry).file(resolve, reject));
+      found.push({ file, path: entry.fullPath.replace(/^\//, "") || file.name });
+      return;
+    }
+    const reader = (entry as FileSystemDirectoryEntry).createReader();
+    for (;;) {
+      const batch = await new Promise<FileSystemEntry[]>((resolve, reject) => reader.readEntries(resolve, reject));
+      if (!batch.length) break;
+      for (const child of batch) await visit(child);
+    }
+  }
+  for (const entry of entries) await visit(entry);
+  return found;
+}
+
+function fileDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
 const imageFilePattern = /\.(?:avif|bmp|gif|heic|jpe?g|png|svg|tiff?|webp)$/i;
 const wordFilePattern = /\.docx$/i;
@@ -331,6 +393,8 @@ export default function RebuildPreview({
   const [editUrl, setEditUrl] = useState("");
   const [editImage, setEditImage] = useState("");
   const [editCollection, setEditCollection] = useState("");
+  const [editTags, setEditTags] = useState("");
+  const [editPrivate, setEditPrivate] = useState(true);
   const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [composer, setComposer] = useState<Composer>(null);
@@ -374,6 +438,12 @@ export default function RebuildPreview({
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formPrivate, setFormPrivate] = useState(true);
   const [formError, setFormError] = useState("");
+  const [bulkImportFiles, setBulkImportFiles] = useState<IncomingFile[] | null>(null);
+  const [bulkImportCollection, setBulkImportCollection] = useState("");
+  const [bulkImportPrivate, setBulkImportPrivate] = useState(true);
+  const [bulkImportBusy, setBulkImportBusy] = useState(false);
+  const [bulkImportProgress, setBulkImportProgress] = useState(0);
+  const [bulkImportError, setBulkImportError] = useState("");
   const [pageDragActive, setPageDragActive] = useState(false);
   const [toast, setToast] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
@@ -388,6 +458,101 @@ export default function RebuildPreview({
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
+  const captureCardsRef = useRef(cards);
+  const captureQueueRef = useRef(Promise.resolve());
+  const captureResultsRef = useRef(new Map<string, string>());
+  const multiImageInputRef = useRef<HTMLInputElement>(null);
+  const folderInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { folderInputRef.current?.setAttribute("webkitdirectory", ""); }, []);
+
+  useEffect(() => { captureCardsRef.current = cards; }, [cards]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const reply = (requestId: string, result: Record<string, unknown>) => window.postMessage({ type: "SAVERS_PREVIEW_CAPTURE_RESULT", requestId, ...result }, window.location.origin);
+    const handleCapture = (event: MessageEvent) => {
+      if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== "SAVERS_PREVIEW_CAPTURE") return;
+      const { action, requestId, payload, cardId } = event.data as { action?: string; requestId?: string; payload?: BrowserCapture; cardId?: string };
+      if (typeof requestId !== "string") return;
+      captureQueueRef.current = captureQueueRef.current.catch(() => undefined).then(async () => {
+        try {
+          const earlierCardId = captureResultsRef.current.get(requestId);
+          if (earlierCardId) { reply(requestId, { ok: true, cardId: earlierCardId }); return; }
+          if (action === "undo" && cardId) {
+            const next = captureCardsRef.current.filter((card) => card.id !== cardId);
+            if (next.length === captureCardsRef.current.length) { reply(requestId, { ok: false, error: "Item was already removed." }); return; }
+            await writePreviewCards(next);
+            captureCardsRef.current = next;
+            setCards(next);
+            setToast("Capture undone");
+            reply(requestId, { ok: true });
+            return;
+          }
+          if (action === "edit" && cardId) {
+            const card = captureCardsRef.current.find((item) => item.id === cardId);
+            if (!card) { reply(requestId, { ok: false, error: "Item was not found." }); return; }
+            setEditingCardId(card.id);
+            setEditTitle(card.title);
+            setEditDescription(card.description || "");
+            setEditNote(card.note || "");
+            setEditUrl(card.url || "");
+            setEditImage(card.image || "");
+            setEditCollection(card.collection || "");
+            setEditTags((card.tags || []).join(", "));
+            setEditPrivate(card.isPrivate !== false);
+            reply(requestId, { ok: true });
+            return;
+          }
+          if (action !== "save" || !payload) { reply(requestId, { ok: false, error: "Invalid capture." }); return; }
+          const source = new URL(payload.sourceUrl || payload.url || "");
+          if (!/^https?:$/.test(source.protocol)) throw new Error("Only web pages can be captured.");
+          const link = payload.kind === "link" ? new URL(payload.url || source.href) : source;
+          if (!/^https?:$/.test(link.protocol)) throw new Error("Only web links can be captured.");
+          const image = payload.kind === "image" ? new URL(payload.imageUrl || "") : null;
+          if (image && !/^https?:$/.test(image.protocol)) throw new Error("Only web images can be captured.");
+          const quote = (payload.text || "").trim().slice(0, 100_000);
+          if (payload.kind === "note" && !quote) throw new Error("Select text to save first.");
+          const card: PreviewCard = {
+            id: `local-${crypto.randomUUID()}`,
+            kind: payload.kind,
+            title: payload.kind === "note" ? quote.slice(0, 76).replace(/\s+/g, " ") : (payload.title || image?.pathname.split("/").pop() || link.hostname).trim().slice(0, 240),
+            description: payload.kind === "note" ? quote : undefined,
+            source: (payload.kind === "link" ? link : source).hostname.replace(/^www\./, ""),
+            url: link.href,
+            image: image?.href,
+            date: "Just now",
+            isPrivate: true,
+            tags: [],
+            tone: "stone",
+          };
+          const next = [card, ...captureCardsRef.current];
+          await writePreviewCards(next);
+          captureCardsRef.current = next;
+          captureResultsRef.current.set(requestId, card.id);
+          setCards(next);
+          setToast(`Saved ${payload.kind} in this preview`);
+          reply(requestId, { ok: true, cardId: card.id });
+        } catch (error) {
+          reply(requestId, { ok: false, error: error instanceof Error ? error.message : "Could not save capture." });
+        }
+      });
+    };
+    window.addEventListener("message", handleCapture);
+    return () => window.removeEventListener("message", handleCapture);
+  }, [ready]);
+
+  useEffect(() => {
+    if (!accountOpen && !createOpen && !detailMenuOpen) return;
+    const closeMenus = (event: PointerEvent) => {
+      if (!(event.target instanceof Element)) return;
+      if (accountOpen && !event.target.closest(".rb-account-wrap")) setAccountOpen(false);
+      if (createOpen && !event.target.closest(".rb-create-anchor")) setCreateOpen(false);
+      if (detailMenuOpen && !event.target.closest(".rb-detail-menu, button[aria-label='More card actions']")) setDetailMenuOpen(false);
+    };
+    document.addEventListener("pointerdown", closeMenus);
+    return () => document.removeEventListener("pointerdown", closeMenus);
+  }, [accountOpen, createOpen, detailMenuOpen]);
 
   useEffect(() => {
     if (!sizeOpen && !sortOpen && !viewOpen) return;
@@ -402,7 +567,8 @@ export default function RebuildPreview({
   }, [sizeOpen, sortOpen, viewOpen]);
 
   useEffect(() => {
-    const timeout = window.setTimeout(() => {
+    let cancelled = false;
+    const timeout = window.setTimeout(() => { void (async () => {
       try {
         const stored = localStorage.getItem(storageKey);
         if (stored) {
@@ -417,7 +583,10 @@ export default function RebuildPreview({
             theme?: "light" | "dark";
             smartRules?: Record<string, SmartDefinition>;
           };
-          if (Array.isArray(parsed.cards)) setCards(parsed.cards);
+          const indexedCards = await readPreviewCards().catch(() => null);
+          if (cancelled) return;
+          if (indexedCards) setCards(indexedCards);
+          else if (Array.isArray(parsed.cards)) setCards(parsed.cards);
           if (Array.isArray(parsed.collections))
             setAllCollections(parsed.collections);
           if (Array.isArray(parsed.favorites)) setFavorites(parsed.favorites);
@@ -428,13 +597,17 @@ export default function RebuildPreview({
           if (parsed.smartRules && typeof parsed.smartRules === "object") setSmartRules(parsed.smartRules);
           if (parsed.theme === "light" || parsed.theme === "dark")
             setTheme(parsed.theme);
+        } else {
+          const indexedCards = await readPreviewCards().catch(() => null);
+          if (cancelled) return;
+          if (indexedCards) setCards(indexedCards);
         }
       } catch {
         /* The fixture preview remains usable if browser storage is unavailable. */
       }
-      setReady(true);
-    }, 0);
-    return () => window.clearTimeout(timeout);
+      if (!cancelled) setReady(true);
+    })(); }, 0);
+    return () => { cancelled = true; window.clearTimeout(timeout); };
   }, []);
 
   useEffect(() => {
@@ -443,7 +616,6 @@ export default function RebuildPreview({
       localStorage.setItem(
         storageKey,
         JSON.stringify({
-          cards,
           collections: allCollections,
           favorites,
           pinnedIds,
@@ -458,6 +630,14 @@ export default function RebuildPreview({
       /* A full browser storage quota only affects persistence of the preview. */
     }
   }, [cards, allCollections, favorites, pinnedIds, cardSize, followedAccountIds, subscriptions, theme, smartRules, ready]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const timeout = window.setTimeout(() => {
+      void writePreviewCards(cards).catch(() => setToast("Browser storage could not keep these items."));
+    }, 250);
+    return () => window.clearTimeout(timeout);
+  }, [cards, ready]);
 
   useEffect(() => {
     if (!toast) return;
@@ -553,6 +733,7 @@ export default function RebuildPreview({
         setEditingCardId(null);
         setBulkTagOpen(false);
         setBulkRemoveOpen(false);
+        if (!bulkImportBusy) setBulkImportFiles(null);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -564,14 +745,14 @@ export default function RebuildPreview({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [collectionGroup, initialCardId]);
+  }, [collectionGroup, initialCardId, bulkImportBusy]);
 
   useEffect(() => {
-    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen && !collectionPickerCardId && !libraryCollectionPickerOpen && !editingCardId && !bulkTagOpen && !bulkRemoveOpen) return;
+    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen && !collectionPickerCardId && !libraryCollectionPickerOpen && !editingCardId && !bulkTagOpen && !bulkRemoveOpen && !bulkImportFiles) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen, collectionPickerCardId, libraryCollectionPickerOpen, editingCardId, bulkTagOpen, bulkRemoveOpen]);
+  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen, collectionPickerCardId, libraryCollectionPickerOpen, editingCardId, bulkTagOpen, bulkRemoveOpen, bulkImportFiles]);
 
   function closeDetail() {
     setActiveCardId(null);
@@ -699,11 +880,11 @@ export default function RebuildPreview({
     setToast("Tags updated in this preview");
   }
 
-  function displayCount(item: PreviewCollection): number | null {
+  function displayCount(item: PreviewCollection): number {
     const definition = smartRules[item.id];
-    return definition && item.group === "smart"
-      ? cards.filter((card) => matchesSmart(card, definition)).length
-      : item.count;
+    return item.group === "smart"
+      ? definition ? cards.filter((card) => matchesSmart(card, definition)).length : 0
+      : cards.filter((card) => card.collection === item.id).length;
   }
 
   function openSmartEditor(id: string) {
@@ -812,7 +993,7 @@ export default function RebuildPreview({
       openComposer("image");
       setFormFile(file);
     } else {
-      const text = file.size <= 1_500_000 ? await extractNoteText(file) : null;
+      const text = file.size <= 20_000_000 ? await extractNoteText(file) : null;
       openComposer(text === null ? "file" : "note");
       setFormFile(file);
       if (text !== null) setFormNote(text);
@@ -833,9 +1014,87 @@ export default function RebuildPreview({
     } catch { setToast("This file could not be read as text."); }
   }
 
+  function openBulkImport(files: IncomingFile[]) {
+    const eligible = files.filter((item) => !/(?:^|\/)(?:\.DS_Store|Thumbs\.db|__MACOSX)(?:\/|$)/i.test(item.path));
+    if (!eligible.length) { setToast("That folder has no files to add."); return; }
+    setBulkImportFiles(eligible);
+    setBulkImportCollection(allCollections.some((item) => item.id === selectedCollection && item.group !== "smart") ? selectedCollection || "" : "");
+    setBulkImportPrivate(true);
+    setBulkImportProgress(0);
+    setBulkImportError("");
+    setCreateOpen(false);
+  }
+
+  async function importBulkFiles() {
+    if (!bulkImportFiles?.length || bulkImportBusy) return;
+    setBulkImportBusy(true);
+    setBulkImportError("");
+    const nextCollections = [...allCollections];
+    const newCards: PreviewCard[] = [];
+    const rootIds = new Set<string>();
+    const base = nextCollections.find((item) => item.id === bulkImportCollection);
+    const imageCount = bulkImportFiles.filter(({ file }) => file.type.startsWith("image/") || imageFilePattern.test(file.name)).length;
+    const group = base?.group || (imageCount > bulkImportFiles.length / 2 ? "images" : "links");
+    let skipped = 0;
+    try {
+      for (const [index, item] of bulkImportFiles.entries()) {
+        const parts = item.path.split("/").filter((part) => part && part !== "." && part !== "..");
+        if (item.file.size > 20_000_000) { skipped++; setBulkImportProgress(index + 1); continue; }
+        let parentId = base?.id;
+        for (const [folderIndex, folderName] of parts.slice(0, -1).entries()) {
+          let folder = nextCollections.find((candidate) => candidate.parentId === parentId && candidate.name === folderName && candidate.group === group);
+          if (!folder) {
+            folder = { id: `local-${crypto.randomUUID()}`, name: folderName, count: 0, parentId, group, isPrivate: bulkImportPrivate };
+            nextCollections.push(folder);
+          }
+          if (folderIndex === 0) rootIds.add(folder.id);
+          parentId = folder.id;
+        }
+        const file = item.file;
+        const image = file.type.startsWith("image/") || imageFilePattern.test(file.name);
+        const noteText = image ? null : await extractNoteText(file);
+        const fileData = noteText === null ? await fileDataUrl(file) : undefined;
+        newCards.push({
+          id: `local-${crypto.randomUUID()}`,
+          kind: image ? "image" : noteText !== null ? "note" : "file",
+          title: file.name.replace(/\.[^.]+$/, "") || file.name,
+          description: noteText || undefined,
+          source: file.name,
+          image: image ? fileData : undefined,
+          fileData,
+          collection: parentId,
+          date: "Just now",
+          isPrivate: bulkImportPrivate,
+          tags: [],
+          tone: "stone",
+        });
+        setBulkImportProgress(index + 1);
+      }
+      if (newCards.length) await writePreviewCards([...newCards, ...cards]);
+      setAllCollections(nextCollections);
+      setCards((existing) => [...newCards, ...existing]);
+      setBulkImportFiles(null);
+      setBulkImportBusy(false);
+      setDestination("library");
+      setSelectedCollection(rootIds.size === 1 ? [...rootIds][0] : base?.id || null);
+      setFilter("all");
+      setToast(`Added ${newCards.length} item${newCards.length === 1 ? "" : "s"}${skipped ? `; ${skipped} over 20 MB skipped` : ""}.`);
+      window.scrollTo(0, 0);
+    } catch {
+      setBulkImportBusy(false);
+      setBulkImportError("The browser could not store this batch. Try fewer or smaller files.");
+    }
+  }
+
   function handlePageDrop(transfer: DataTransfer) {
     setPageDragActive(false);
-    const file = transfer.files[0];
+    const files = Array.from(transfer.files);
+    const entries = Array.from(transfer.items).filter((item) => item.kind === "file").map((item) => item.webkitGetAsEntry()).filter((entry): entry is FileSystemEntry => !!entry);
+    if (files.length > 1 || entries.some((entry) => entry.isDirectory)) {
+      void filesFromEntries(entries, files).then(openBulkImport).catch(() => setToast("Could not read that folder. Try the folder picker."));
+      return;
+    }
+    const file = files[0];
     if (file) {
       void prepareComposerFile(file, transfer.files.length > 1);
       return;
@@ -931,18 +1190,11 @@ export default function RebuildPreview({
         setFormError(composer === "image" ? "Choose an image or enter its URL." : "Choose a file first.");
         return;
       }
-      if (formFile && formFile.size > 1_500_000) {
-        setFormError(
-          "For this browser-local preview, choose a file under 1.5 MB.",
-        );
+      if (formFile && formFile.size > 20_000_000) {
+        setFormError("Choose a file under 20 MB.");
         return;
       }
-      const fileData = formFile ? await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = reject;
-        reader.readAsDataURL(formFile);
-      }) : undefined;
+      const fileData = formFile ? await fileDataUrl(formFile) : undefined;
       setCards((prev) => [
         {
           id: `local-${Date.now()}`,
@@ -984,6 +1236,8 @@ export default function RebuildPreview({
     setEditUrl(card.url || "");
     setEditImage(card.image || "");
     setEditCollection(card.collection || "");
+    setEditTags((card.tags || []).join(", "));
+    setEditPrivate(card.isPrivate !== false);
     setDetailMenuOpen(false);
   }
 
@@ -1003,16 +1257,15 @@ export default function RebuildPreview({
         if (!["http:", "https:"].includes(image.protocol)) throw new Error("Unsupported image");
       } catch { setToast("Enter a valid preview image URL"); return; }
     }
-    setCards((items) => items.map((item) => item.id === editingCardId ? { ...item, title: editTitle.trim(), description: editDescription.trim(), note: editNote.trim(), url: editUrl.trim(), source: source || item.source, image: editImage, collection: editCollection || undefined } : item));
+    const tags = [...new Set(editTags.split(",").map((tag) => tag.trim()).filter(Boolean))];
+    setCards((items) => items.map((item) => item.id === editingCardId ? { ...item, title: editTitle.trim(), description: editDescription.trim(), note: editNote.trim(), url: editUrl.trim(), source: source || item.source, image: editImage, collection: editCollection || undefined, tags, isPrivate: editPrivate } : item));
     setEditingCardId(null);
     setToast("Card updated in this browser preview");
   }
 
   async function replaceCardImage(file: File) {
-    if (file.size > 1_500_000) { setToast("Choose an image under 1.5 MB for browser storage"); return; }
-    const reader = new FileReader();
-    reader.onload = () => setEditImage(String(reader.result || ""));
-    reader.readAsDataURL(file);
+    if (file.size > 20_000_000) { setToast("Choose an image under 20 MB"); return; }
+    setEditImage(await fileDataUrl(file));
   }
 
   function retryCardImage(card: PreviewCard) {
@@ -1161,6 +1414,8 @@ export default function RebuildPreview({
       onDropCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.stopPropagation(); handlePageDrop(event.dataTransfer); } }}
     >
       {pageDragActive && <div className="rb-page-drop-cue" aria-hidden="true"><div><Upload size={28} /><strong>Drop to save</strong><span>Link, image, or file</span></div></div>}
+      <input ref={multiImageInputRef} className="rb-hidden-file-input" type="file" accept="image/*" multiple aria-label="Choose images to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.name }))); event.target.value = ""; }} />
+      <input ref={folderInputRef} className="rb-hidden-file-input" type="file" multiple aria-label="Choose a folder to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.webkitRelativePath || file.name }))); event.target.value = ""; }} />
       <div className="rb-preview-flag">
         <span className="rb-pulse" /> Preview
         <span className="rb-flag-note">Saves stay in this browser</span>
@@ -1214,6 +1469,7 @@ export default function RebuildPreview({
                   </button>
                 </div>
                 <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
+                <a href="/rebuild-capture.html">Browser capture <ArrowUpRight size={14} /></a>
                 <button
                   onClick={() => {
                     setCards(seedCards);
@@ -1548,6 +1804,12 @@ export default function RebuildPreview({
             <button onClick={() => openComposer("image")}>
               <ImageIcon size={18} /> Upload an image <ArrowRight size={15} />
             </button>
+            <button onClick={() => multiImageInputRef.current?.click()}>
+              <ImageIcon size={18} /> Add multiple images <ArrowRight size={15} />
+            </button>
+            <button onClick={() => folderInputRef.current?.click()}>
+              <FolderPlus size={18} /> Add a folder <ArrowRight size={15} />
+            </button>
             <button onClick={() => openComposer("file")}>
               <Upload size={18} /> Upload a file <ArrowRight size={15} />
             </button>
@@ -1566,6 +1828,19 @@ export default function RebuildPreview({
           {createOpen ? <X size={27} /> : <Plus size={29} />}
         </button>
       </div>
+
+      {bulkImportFiles && <div className="rb-rule-overlay rb-bulk-import-backdrop" role="dialog" aria-modal="true" aria-label="Add files" onMouseDown={(event) => { if (!bulkImportBusy && event.target === event.currentTarget) setBulkImportFiles(null); }}>
+        <div className="rb-bulk-import-panel">
+          <div className="rb-bulk-import-head"><h2>Add {bulkImportFiles.length} item{bulkImportFiles.length === 1 ? "" : "s"}</h2><button onClick={() => setBulkImportFiles(null)} disabled={bulkImportBusy} aria-label="Close import"><X size={21} /></button></div>
+          <p>Images, readable documents, and other files will be added to your browser preview. Folder names become collections.</p>
+          <div className="rb-bulk-import-list">{bulkImportFiles.slice(0, 4).map((item, index) => <span key={`${item.path}-${index}`}>{item.path}</span>)}{bulkImportFiles.length > 4 && <span>+ {bulkImportFiles.length - 4} more</span>}</div>
+          <label>Into collection<select value={bulkImportCollection} onChange={(event) => setBulkImportCollection(event.target.value)}><option value="">Top level</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <button className="rb-bulk-import-privacy" role="switch" aria-checked={bulkImportPrivate} onClick={() => setBulkImportPrivate((value) => !value)} disabled={bulkImportBusy}>{bulkImportPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{bulkImportPrivate ? "Private" : "Public"}</button>
+          {bulkImportBusy && <p role="status">Adding {bulkImportProgress} of {bulkImportFiles.length}…</p>}
+          {bulkImportError && <p className="rb-form-error" role="alert">{bulkImportError}</p>}
+          <div className="rb-bulk-import-actions"><button onClick={() => setBulkImportFiles(null)} disabled={bulkImportBusy}>Cancel</button><button onClick={() => void importBulkFiles()} disabled={bulkImportBusy}>Add items <ArrowRight size={18} /></button></div>
+        </div>
+      </div>}
 
       {activeCard && (
         <div className={`rb-detail-backdrop ${initialCardId === activeCard.id ? "rb-detail-direct" : ""}`} onMouseDown={(event) => { if (event.target === event.currentTarget) closeDetail(); }}>
@@ -1812,6 +2087,8 @@ export default function RebuildPreview({
           <label>Description<textarea rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
           <label>Note<textarea rows={3} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
           <label>Collection<select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Tags<input value={editTags} onChange={(event) => setEditTags(event.target.value)} placeholder="Separate tags with commas" /></label>
+          <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
           <label>Preview image<input type="url" value={editImage.startsWith("data:") ? "" : editImage} onChange={(event) => setEditImage(event.target.value)} placeholder="Image URL" /></label>
           <label className="rb-edit-upload"><Upload size={18} /> Replace with an image from your computer<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCardImage(file); }} /></label>
           {editImage && <img className="rb-edit-image" src={editImage} alt="Selected preview" />}
@@ -1853,7 +2130,7 @@ export default function RebuildPreview({
                     ? formFile.name
                     : "Choose a file from your computer"}
                 </span>
-                <small>Browser-local preview, under 1.5 MB</small>
+                <small>Browser-local preview, under 20 MB</small>
                 <input
                   type="file"
                   accept={composer === "image" ? "image/*" : undefined}

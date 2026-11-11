@@ -16,6 +16,7 @@
     "backfill-auto-tags": "tsx scripts/backfill-auto-tags.ts",
     "gen:icons": "node scripts/build-lucide-icon-list.mjs",
     "package:chrome-extension": "node scripts/package-chrome-extension.mjs",
+    "package:rebuild-capture": "node scripts/package-rebuild-capture.mjs",
     "lint": "eslint"
   },
   "dependencies": {
