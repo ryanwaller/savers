@@ -55,7 +55,7 @@ The local checkout is at commit `2850d95` (15 October 2026); Railway reports an 
 | ------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- | ----- |
 | Link bookmarks, metadata, screenshots             | `bookmarks` API, preview workers, grid/detail       | Link cards and readable detail; capture never waits for enrichment                      | 3     |
 | Uploaded images and image folders                 | `images`, `image_collections`, image worker/storage | Image card variant in mixed library; image-focused filter and original download         | 3–4   |
-| Nested collections                                | `collections.parent_id`                             | Collections browser with drill-down and optional tree                                   | 3     |
+| Nested collections                                | `collections.parent_id`                             | Wide collection previews and drill-down to child folders                               | 3     |
 | Pinned and unsorted items                         | bookmark flags/virtual selections                   | Library filter and Inbox tab; pinned collections on collection home                     | 3     |
 | Tags, aliases, AI auto-tags                       | bookmark/image fields and tag APIs                  | Search facets and contextual editor; suggestions clearly distinguished from chosen tags | 4     |
 | Smart collections                                 | `smart_collections` query JSON                      | Saved views with readable filter summary and live builder preview                       | 4     |
@@ -84,7 +84,7 @@ This map deliberately separates a **new presentation** from a **new capability**
 4. Curate a purposeful collection and share it when desired.
 5. Review incoming/unsorted items without being forced to organize every save.
 6. Repair broken links, duplicates, and failed previews without turning the main library into an admin panel.
-7. Explore related items from one's own library; optionally extend to public discovery later.
+7. Explore related items from one's own library and public cards from other Savers accounts, with clear attribution.
 
 ### Proposed top-level destinations
 
@@ -93,7 +93,7 @@ This map deliberately separates a **new presentation** from a **new capability**
 | **Library**       | All saved cards, recent first, mixed link/image/note/file types     | Search, type filters, sort, view switch, bulk select                |
 | **Collections**   | Pinned/recent collections and accessible hierarchy                  | New collection, nested navigation, smart collections as saved views |
 | **Inbox**         | Following, user-added subscriptions, and review queues              | Follow/unfollow, add/remove feeds, keep, dismiss, retry              |
-| **Explore**       | Related from my library; optional curated public content later      | Scope, shuffle, source, privacy                                     |
+| **Explore**       | Related from my library and public cards from other Savers accounts | Yours/Others scope, source, ownership, privacy                      |
 | **Create**        | Link, note, image/file upload, collection; later highlight/canvas   | Current context prefilled, collection optional                      |
 | **Account/Tools** | Settings, integrations, imports/exports, health, duplicate review   | Progressive disclosure from profile menu                            |
 
@@ -104,7 +104,7 @@ Avoid copying Sublime's transient empty-account landing as the permanent home fo
 ### Card and collection rules
 
 - A **card** is a presentation and interaction contract: stable id, kind, title/primary content, source, preview, note, dates, visibility, collections, tags, processing/health state, and allowed actions. It does not initially imply one database table.
-- A **collection** represents a revisiting context. Existing nested collections remain navigable. The primary interface presents pinned/recent collections first and reveals hierarchy in a drill-down browser or expandable tree when needed.
+- A **collection** represents a revisiting context. Existing nested collections remain navigable. The primary interface uses wide, single-row previews with the name, count, privacy, owner, and actual saved-item artwork where available. Opening a collection reveals its immediate child folders and cards; no tree is needed in the primary view.
 - **Unsorted** is a valid saved state. Capture should never demand a collection.
 - **Tags** remain supported and searchable. Suggested tags can appear in an advanced section, while natural-language retrieval and collections carry the primary experience.
 - **Smart collections** are saved views with visible filter rules, not a confusing second folder species. The builder should show a live preview and a plain-language rule summary.
@@ -123,7 +123,7 @@ Use a light reading surface, centered content area, restrained title, and a vari
 
 ### C. Collection page and browser
 
-Collection header: name, optional description, item count, privacy badge, edit/share controls, and a calm cover mosaic. Below: mixed cards, sort/filter, nested child collections, and a contextual “Save to this collection” action. An item may later have multiple memberships. Expose smart collections beside regular collections, with distinct rule icon/text. For existing nested trees, preserve hierarchy without making the global sidebar always visible.
+Collection browser: wide horizontal previews with name, count, lock where private, owner avatar/name, and a small thumbnail stack drawn from real contents. Keep empty covers restrained. Opening one shows a collection header with optional description, privacy and edit/share controls, followed by immediate child folders as the same preview rows and then mixed cards, sort/filter, and a contextual “Save to this collection” action. Drill down one level at a time; a breadcrumb returns to the parent. An item may later have multiple memberships. Expose smart collections beside regular collections, with distinct rule icon/text and direct access to Edit rules.
 
 ### D. Card detail and reading
 
@@ -134,7 +134,7 @@ Use `9.16.15` and `9.16.23` as the strongest layout references: a narrow readabl
 - **Note/quote/highlight:** text is primary, with source/parent relationship visible; a highlight should lead back to the article or URL.
 - **File/PDF:** preview or first page, file type/size, download, source, note.
 
-Provide clear Edit, Add to collection, Share, and More controls. Related content is below the main card (or in an optional desktop side pane) and defaults to **my library**; label the source of every related result. Do not imply semantic recommendations exist until retrieval quality is proven. Reader Mode is a later slice with selectable highlights that produce source-linked cards.
+Provide clear Edit, Add to collection, Share, and More controls. Related cards stack below the main card in normal vertical page flow. Show a few strong matches first, then a “More related” action that opens a feed with All, Yours, and Others scopes. Display the other account's avatar/name on their cards; omit redundant owner badges on one's own cards. Only public cards from other accounts are eligible. Do not imply semantic recommendations exist until retrieval quality is proven. Reader Mode is a later slice with selectable highlights that produce source-linked cards.
 
 ### E. Capture and quick create
 
@@ -142,7 +142,7 @@ Mirror the small right-side menu in `9.14.50`: Save link, Write note, Upload ima
 
 ### F. Search and related
 
-Search should match title, URL/domain, description, notes, tags, collection names, OCR text, and later article/highlight text where stored. Start with reliable indexed lexical search and filters; add semantic retrieval behind a toggle and evaluate it on real examples. Results should explain matches, support type/collection/date/source filters, and remain useful when AI is unavailable. Related results should draw from the user's library first, with quality checks and privacy boundaries. Public/community discovery is a separate consent and moderation product, not a by-product of sharing.
+Search should match title, URL/domain, description, notes, tags, collection names, OCR text, and later article/highlight text where stored. Start with reliable indexed lexical search and filters; add semantic retrieval behind a toggle and evaluate it on real examples. Results should explain matches, support type/collection/date/source filters, and remain useful when AI is unavailable. Related results draw from one's own library plus public cards from other Savers accounts. Rank by meaningful overlap, show ownership, and filter every query through current visibility and block rules. Revoking public access removes a card from other users' related feeds. Following and discovery remain separate choices: a public related card can appear without an account follow, while the Following inbox only shows accounts explicitly followed.
 
 ### G. Inbox, feeds, and maintenance
 

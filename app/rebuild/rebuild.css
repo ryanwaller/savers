@@ -2370,6 +2370,7 @@ body:has(.rebuild-app) {
 .rebuild-app :is(.rb-card h3, .rb-collection-info h2, .rb-empty h2, .rb-rule-head h2) {
   font-size: var(--rb-type-title) !important;
 }
+.rebuild-app .rb-collection-preview-heading h2 { font-size: var(--rb-type-title) !important; }
 .rebuild-app :is(button, a, input, textarea, select):focus-visible {
   outline: 2px solid #828782;
   outline-offset: 2px;
@@ -2442,27 +2443,69 @@ body:has(.rebuild-app) {
 .rb-theme-dark .rb-tag-editor-add button, .rb-theme-dark .rb-tag-editor-actions button { background: #383838; color: #eee; }
 .rb-theme-dark .rb-tag-editor-actions button:last-child { background: #b9ff69; color: #172211; }
 
-/* The collection tree makes nested folders visible without crowding cards. */
-.rb-collections-actions, .rb-collection-view { display: flex; align-items: center; gap: 8px; }
+/* A collection is a single calm preview. Child folders appear after opening it. */
+.rb-collections-actions { display: flex; align-items: center; gap: 8px; }
 .rb-collections-head { border-bottom: 0; padding-bottom: 0; }
-.rb-collection-view { padding: 4px; border-radius: 13px; background: #eee; }
-.rb-collection-view button { display: inline-flex; align-items: center; gap: 7px; padding: 8px 12px; border-radius: 10px; color: #777; }
-.rb-collection-view button.active { background: #fff; color: #222; }
-.rb-collection-tree { display: grid; gap: 7px; margin-bottom: 110px; }
-.rb-tree-row { display: flex; align-items: center; gap: 8px; min-height: 64px; padding: 6px 14px; border-radius: 14px; background: #f2f2f2; }
-.rb-tree-toggle, .rb-tree-spacer { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; }
-.rb-tree-toggle svg { transition: transform 150ms ease; }
-.rb-tree-toggle svg.expanded { transform: rotate(90deg); }
-.rb-tree-name { display: flex; flex: 1; align-items: center; gap: 12px; min-width: 0; text-align: left; }
-.rb-tree-name span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rb-tree-name > svg { flex: 0 0 auto; }
-.rb-tree-name > svg:last-child { color: #999; }
-.rb-tree-count { min-width: 30px; text-align: right; color: #888; }
-.rb-tree-rules { flex: 0 0 auto; padding: 7px 10px; border-radius: 9px; background: #e4e4e4; }
-.rb-theme-dark .rb-collection-view, .rb-theme-dark .rb-tree-row { background: #242424; }
-.rb-theme-dark .rb-collection-view button { color: #a8a8a8; }
-.rb-theme-dark .rb-collection-view button.active, .rb-theme-dark .rb-tree-rules { background: #383838; color: #eee; }
-.rb-theme-dark .rb-tree-name { color: #eee; }
+.rb-collection-preview-list { display: grid; gap: 16px; margin-bottom: 120px; }
+.rb-collection-preview { position: relative; min-width: 0; }
+.rb-collection-preview-main {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-height: 226px;
+  overflow: hidden;
+  padding: 26px 260px 28px 30px;
+  border-radius: 24px;
+  background: #f1f1f1;
+  color: #333;
+  text-align: left;
+  transition: background 150ms ease, transform 150ms ease;
+}
+.rb-collection-preview-main:hover { background: #e9e9e9; transform: translateY(-2px); }
+.rb-collection-preview-heading { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.rb-collection-preview-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-collection-preview-heading > svg { flex: 0 0 auto; color: #919591; }
+.rb-collection-preview-heading span { flex: 0 0 auto; color: #999; }
+.rb-collection-preview-main > p { max-width: 58ch; margin: 12px 0 0 35px; color: #8b8b8b; }
+.rb-collection-preview-owner { position: absolute; left: 30px; bottom: 25px; display: flex; align-items: center; gap: 10px; color: #8a8a8a; }
+.rb-collection-preview-owner > span:first-child, .rb-collection-preview-owner img,
+.rb-card-owner > span:first-child, .rb-card-owner img {
+  display: grid; place-items: center; flex: 0 0 34px; width: 34px; height: 34px;
+  border-radius: 50%; background: #303030; color: #b9ff69; object-fit: cover;
+}
+.rb-collection-preview-art { position: absolute; top: 50%; right: 44px; display: grid; place-items: center; width: 156px; height: 144px; transform: translateY(-50%); color: #9ea29d; }
+.rb-collection-preview-art > img { position: absolute; width: 116px; height: 138px; border: 5px solid #fff; border-radius: 15px; object-fit: cover; box-shadow: 0 9px 25px #0002; }
+.rb-collection-preview-art > img[data-failed] { display: none; }
+.rb-collection-preview-rules { position: absolute; right: 18px; bottom: 15px; z-index: 1; padding: 7px 12px; border-radius: 999px; background: #fff; color: #555; }
+.rb-card-owner { display: flex; align-items: center; gap: 9px; margin-top: 14px; color: #888; }
+.rb-card-owner > span:first-child, .rb-card-owner img { flex-basis: 28px; width: 28px; height: 28px; }
+.rb-theme-dark .rb-collection-preview-main { background: #242424; color: #eee; }
+.rb-theme-dark .rb-collection-preview-main:hover { background: #2e2e2e; }
+.rb-theme-dark .rb-collection-preview-rules { background: #383838; color: #eee; }
+
+/* Related cards keep growing down the page; the feed opens on demand. */
+.rb-related { padding-bottom: 42px; }
+.rb-related-stack { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: 20px; margin-top: 46px; }
+.rb-related-stack .rb-card { margin: 0; min-width: 0; background: #e9e9e9; }
+.rb-related-stack .rb-card-image img { width: 100%; height: 250px; object-fit: cover; }
+.rb-related-stack .rb-card-content { padding: 20px; }
+.rb-related-more { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 52px; margin: 34px auto 0; padding: 10px 20px; border-radius: 999px; background: #fff; color: #333; }
+.rb-related-more:hover { background: #b9ff69; }
+.rb-theme-dark .rb-related-stack .rb-card { background: #333; }
+.rb-theme-dark .rb-related-more { background: #383838; color: #eee; }
+.rb-theme-dark .rb-related-more:hover { background: #b9ff69; color: #222; }
+.rb-related-feed { position: fixed; z-index: 40; inset: 0; overflow-y: auto; padding: 36px max(24px, calc((100vw - 1120px) / 2)) 110px; background: #fcfcfa; color: #242621; }
+.rb-related-feed-top { display: flex; align-items: center; gap: 20px; }
+.rb-related-feed-top > button { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: #eee; }
+.rb-related-feed-tabs { display: flex; gap: 7px; margin: 32px 0; }
+.rb-related-feed-tabs button { min-height: 48px; padding: 9px 19px; border-radius: 999px; background: #f1f1f1; color: #777; }
+.rb-related-feed-tabs button.active { background: #b9ff69; color: #222; }
+.rb-related-feed-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); align-items: start; gap: 20px; }
+.rb-related-feed-grid .rb-card { min-width: 0; margin: 0; }
+.rb-related-feed-empty { padding: 55px 0; color: #888; }
+.rb-theme-dark .rb-related-feed { background: #151515; color: #eee; }
+.rb-theme-dark .rb-related-feed-top > button, .rb-theme-dark .rb-related-feed-tabs button { background: #292929; color: #eee; }
+.rb-theme-dark .rb-related-feed-tabs button.active { background: #b9ff69; color: #222; }
 @media (max-width: 620px) {
   .rb-tags-page { grid-template-columns: 1fr; }
   .rb-collection-groups { gap: 2px; }
@@ -2470,7 +2513,13 @@ body:has(.rebuild-app) {
   .rb-tag-editor { padding: 22px; }
   .rb-collections-head { align-items: flex-start; }
   .rb-collections-actions { flex-wrap: wrap; justify-content: flex-end; }
-  .rb-collection-view button { padding: 8px; }
-  .rb-tree-row { padding: 6px 10px; }
-  .rb-tree-toggle, .rb-tree-spacer { flex-basis: 30px; width: 30px; }
+  .rb-collection-preview-main { min-height: 184px; padding: 22px 130px 65px 18px; border-radius: 18px; }
+  .rb-collection-preview-heading { gap: 7px; }
+  .rb-collection-preview-main > p { margin-left: 0; }
+  .rb-collection-preview-owner { left: 18px; bottom: 16px; }
+  .rb-collection-preview-art { right: 4px; width: 118px; }
+  .rb-collection-preview-art > img { width: 85px; height: 108px; }
+  .rb-related { width: calc(100% - 24px); padding: 28px 16px; }
+  .rb-related-stack, .rb-related-feed-grid { grid-template-columns: 1fr; }
+  .rb-related-feed { padding: 22px 16px 100px; }
 }
