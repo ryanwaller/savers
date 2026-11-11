@@ -2072,6 +2072,23 @@ body:has(.rebuild-app) {
 .rb-card-topline { text-transform: none; letter-spacing: 0; }
 .rb-detail-kind, .rb-related-grid span { text-transform: none; letter-spacing: 0; }
 .rb-detail-content h1, .rb-related h2, .rb-related-grid strong, .rb-composer h2 { font-family: "OM Bauer Folio", Arial, sans-serif; }
+.rb-load-more {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 25px auto 75px;
+  padding: 11px 17px;
+  border-radius: 999px;
+  background: #eaeaea;
+  color: #222;
+  font-size: 13px;
+}
+.rb-load-more:hover { background: #b9ff69; }
+.rb-theme-dark .rb-load-more { background: #303030; color: #eee; }
+.rb-theme-dark .rb-load-more:hover { background: #b9ff69; color: #111; }
+.rb-detail-tags { display: flex; flex-wrap: wrap; gap: 7px; margin: 24px 0; }
+.rb-detail-tags span { padding: 7px 11px; border: 1px solid #ddd; border-radius: 999px; color: #666; font-size: 12px; }
+.rb-theme-dark .rb-detail-tags span { border-color: #484848; color: #ccc; }
 @media (max-width: 640px) {
   .rb-collection-groups { width: 100%; justify-content: space-between; }
   .rb-collection-groups button { padding: 9px 10px; font-size: 12px; }

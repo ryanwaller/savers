@@ -43,7 +43,7 @@ type PreviewCollection = {
   group?: "links" | "images" | "smart";
 };
 
-const storageKey = "savers.rebuild.preview.v2";
+const storageKey = "savers.rebuild.preview.v3";
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
 const typeLabels: Record<CardKind, string> = {
   link: "Link",
@@ -70,7 +70,7 @@ function CardTile({
     >
       {card.image && (
         <div className="rb-card-image">
-          <img src={card.image} alt="" />
+          <img src={card.image} alt="" loading="lazy" />
         </div>
       )}
       {card.kind === "file" && (
@@ -120,6 +120,7 @@ export default function RebuildPreview({
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sortNewest, setSortNewest] = useState(true);
+  const [visibleCount, setVisibleCount] = useState(48);
   const [formUrl, setFormUrl] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
@@ -204,6 +205,16 @@ export default function RebuildPreview({
   }, []);
 
   const activeCard = cards.find((card) => card.id === activeCardId) || null;
+  const relatedCards = activeCard
+    ? cards
+        .filter(
+          (item) =>
+            item.id !== activeCard.id &&
+            ((activeCard.collection && item.collection === activeCard.collection) ||
+              item.tags?.some((tag) => activeCard.tags?.includes(tag))),
+        )
+        .slice(0, 3)
+    : [];
   const collection = allCollections.find(
     (item) => item.id === selectedCollection,
   );
@@ -220,7 +231,7 @@ export default function RebuildPreview({
       if (filter !== "all" && card.kind !== filter) return false;
       if (!query.trim()) return true;
       const text =
-        `${card.title} ${card.description || ""} ${card.source || ""} ${card.note || ""}`.toLowerCase();
+        `${card.title} ${card.description || ""} ${card.source || ""} ${card.note || ""} ${card.tags?.join(" ") || ""}`.toLowerCase();
       return text.includes(query.trim().toLowerCase());
     });
     return sortNewest ? match : [...match].reverse();
@@ -542,7 +553,7 @@ export default function RebuildPreview({
                           setSortOpen(false);
                         }}
                       >
-                        Newest first {sortNewest && <Check size={14} />}
+                        Export order {sortNewest && <Check size={14} />}
                       </button>
                       <button
                         onClick={() => {
@@ -550,7 +561,7 @@ export default function RebuildPreview({
                           setSortOpen(false);
                         }}
                       >
-                        Oldest first {!sortNewest && <Check size={14} />}
+                        Reverse order {!sortNewest && <Check size={14} />}
                       </button>
                     </div>
                   )}
@@ -573,7 +584,7 @@ export default function RebuildPreview({
             </div>
             {filteredCards.length ? (
               <div className={`rb-card-grid ${listMode ? "rb-list-grid" : ""}`}>
-                {filteredCards.map((card) => (
+                {filteredCards.slice(0, visibleCount).map((card) => (
                   <CardTile
                     key={card.id}
                     card={card}
@@ -588,6 +599,11 @@ export default function RebuildPreview({
                 <h2>{seedCards.length === 0 && !query ? "Saved items are being imported" : "No matches"}</h2>
                 {seedCards.length === 0 && !query && <p>The collection structure is ready for review.</p>}
               </div>
+            )}
+            {filteredCards.length > visibleCount && (
+              <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>
+                Show more <ArrowRight size={16} />
+              </button>
             )}
           </>
         )}
@@ -839,16 +855,18 @@ export default function RebuildPreview({
                 <p>{activeCard.note}</p>
               </div>
             )}
-            <div className="rb-related">
+            {!!activeCard.tags?.length && (
+              <div className="rb-detail-tags">
+                {activeCard.tags.map((tag) => <span key={tag}>{tag}</span>)}
+              </div>
+            )}
+            {relatedCards.length > 0 && <div className="rb-related">
               <div>
                 <Sparkles size={18} />
                 <h2>Related</h2>
               </div>
               <div className="rb-related-grid">
-                {cards
-                  .filter((item) => item.id !== activeCard.id)
-                  .slice(0, 3)
-                  .map((item) => (
+                {relatedCards.map((item) => (
                     <button
                       key={item.id}
                       onClick={() => {
@@ -862,7 +880,7 @@ export default function RebuildPreview({
                     </button>
                   ))}
               </div>
-            </div>
+            </div>}
           </div>
         </div>
       )}

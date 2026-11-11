@@ -39,7 +39,7 @@ const links: Array<[string, number | null, string?]> = [
   ["Museums", 8, "Art & Culture"],
   ["Schools", 4, "Art & Culture"],
   ["Shopping", 1],
-  ["Clothing & Accesories", 13, "Shopping"],
+  ["Clothing & Accessories", 13, "Shopping"],
   ["Home", 9, "Shopping"],
   ["Stores", 6, "Shopping"],
   ["Books", 1, "Shopping"],
@@ -77,8 +77,12 @@ function makeCollections(
   group: RealCollection["group"],
 ): RealCollection[] {
   const ids = new Map<string, string>();
-  return rows.map(([name, count, parent], index) => {
-    const id = `${group}-${index}`;
+  const seen = new Map<string, number>();
+  return rows.map(([name, count, parent]) => {
+    const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+    const ordinal = (seen.get(slug) || 0) + 1;
+    seen.set(slug, ordinal);
+    const id = `${group}-${slug}${ordinal > 1 ? `-${ordinal}` : ""}`;
     if (!ids.has(name)) ids.set(name, id);
     return { id, name, count, group, parentId: parent ? ids.get(parent) : undefined };
   });

@@ -1,5 +1,6 @@
 import type { Viewport } from "next";
 import RebuildPreview from "./preview";
+import { loadBookmarkSeed } from "./bookmark-seed";
 import { realCollections } from "./real-collections";
 import "./rebuild.css";
 
@@ -17,6 +18,8 @@ export const viewport: Viewport = {
   themeColor: "#f8f8f8",
 };
 
+export const dynamic = "force-dynamic";
+
 export default function RebuildPage() {
-  return <RebuildPreview seedCollections={realCollections} seedCards={[]} />;
+  return <RebuildPreview seedCollections={realCollections} seedCards={loadBookmarkSeed()} />;
 }

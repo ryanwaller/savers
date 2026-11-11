@@ -11,6 +11,7 @@ export type PreviewCard = {
   fileData?: string;
   collection?: string;
   note?: string;
+  tags?: string[];
   date: string;
   tone?: "cream" | "sage" | "lavender" | "stone";
   featured?: boolean;
