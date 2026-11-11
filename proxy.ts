@@ -29,26 +29,6 @@ function isOriginAllowed(origin: string | null): string | null {
 
 export function proxy(req: NextRequest) {
   if (process.env.SAVERS_REBUILD_PREVIEW === "1") {
-    const previewPassword = process.env.SAVERS_REBUILD_PASSWORD;
-    if (!previewPassword) {
-      return new NextResponse("Preview access is not configured", { status: 503 });
-    }
-    const authorization = req.headers.get("authorization");
-    const [scheme, encoded] = authorization?.split(" ") || [];
-    let suppliedPassword = "";
-    if (scheme?.toLowerCase() === "basic" && encoded) {
-      try {
-        suppliedPassword = Buffer.from(encoded, "base64").toString("utf8").split(":").slice(1).join(":");
-      } catch {
-        suppliedPassword = "";
-      }
-    }
-    if (suppliedPassword !== previewPassword) {
-      return new NextResponse("Sign in to review the Savers rebuild", {
-        status: 401,
-        headers: { "WWW-Authenticate": 'Basic realm="Savers rebuild preview"' },
-      });
-    }
     if (req.nextUrl.pathname === "/") {
       const previewUrl = req.nextUrl.clone();
       previewUrl.pathname = "/rebuild";

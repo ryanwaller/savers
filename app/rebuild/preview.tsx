@@ -1,7 +1,7 @@
 "use client";
 /* eslint-disable @next/next/no-img-element -- Fixture SVGs and browser-local upload data URLs are intentionally rendered without an image optimizer. */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -32,6 +32,7 @@ import {
   Search,
   SlidersHorizontal,
   Tag,
+  Trash2,
   Upload,
   UsersRound,
   X,
@@ -103,6 +104,14 @@ function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
 
 const storageKey = "savers.rebuild.preview.v3";
 const previewDatabase = "savers-rebuild-preview";
+const previewCardsChannel = "savers-rebuild-preview-cards";
+
+function announcePreviewCardsChanged() {
+  if (typeof BroadcastChannel === "undefined") return;
+  const channel = new BroadcastChannel(previewCardsChannel);
+  channel.postMessage({ type: "cards-changed" });
+  channel.close();
+}
 
 function openPreviewDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
@@ -391,6 +400,7 @@ export default function RebuildPreview({
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
   const [editNote, setEditNote] = useState("");
@@ -477,6 +487,26 @@ export default function RebuildPreview({
   useEffect(() => { captureCardsRef.current = cards; }, [cards]);
 
   useEffect(() => {
+    const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(previewCardsChannel);
+    let cancelled = false;
+    const refreshCards = () => {
+      void readPreviewCards().then((latest) => {
+        if (cancelled || !latest) return;
+        captureCardsRef.current = latest;
+        setCards(latest);
+      }).catch(() => undefined);
+    };
+    channel?.addEventListener("message", refreshCards);
+    window.addEventListener("focus", refreshCards);
+    return () => {
+      cancelled = true;
+      channel?.removeEventListener("message", refreshCards);
+      channel?.close();
+      window.removeEventListener("focus", refreshCards);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!ready) return;
     const reply = (requestId: string, result: Record<string, unknown>) => window.postMessage({ type: "SAVERS_PREVIEW_CAPTURE_RESULT", requestId, theme, ...result }, window.location.origin);
     const handleCapture = (event: MessageEvent) => {
@@ -488,18 +518,23 @@ export default function RebuildPreview({
           const earlierCardId = captureResultsRef.current.get(requestId);
           if (earlierCardId) { reply(requestId, { ok: true, cardId: earlierCardId }); return; }
           if (action === "undo" && cardId) {
-            const next = captureCardsRef.current.filter((card) => card.id !== cardId);
-            if (next.length === captureCardsRef.current.length) { reply(requestId, { ok: false, error: "Item was already removed." }); return; }
+            const current = await readPreviewCards().catch(() => null) || captureCardsRef.current;
+            const next = current.filter((card) => card.id !== cardId);
+            if (next.length === current.length) { reply(requestId, { ok: false, error: "Item was already removed." }); return; }
             await writePreviewCards(next);
             captureCardsRef.current = next;
             setCards(next);
+            announcePreviewCardsChanged();
             setToast("Capture undone");
             reply(requestId, { ok: true });
             return;
           }
           if (action === "edit" && cardId) {
-            const card = captureCardsRef.current.find((item) => item.id === cardId);
+            const current = await readPreviewCards().catch(() => null) || captureCardsRef.current;
+            const card = current.find((item) => item.id === cardId);
             if (!card) { reply(requestId, { ok: false, error: "Item was not found." }); return; }
+            captureCardsRef.current = current;
+            setCards(current);
             setEditingCardId(card.id);
             setEditTitle(card.title);
             setEditDescription(card.description || "");
@@ -523,8 +558,11 @@ export default function RebuildPreview({
           if (payload.kind === "image" && !imageUrl) throw new Error("Choose an image to capture.");
           const quote = (payload.text || "").trim().slice(0, 100_000);
           if (payload.kind === "note" && !quote) throw new Error("Select text to save first.");
+          const current = await readPreviewCards().catch(() => null) || captureCardsRef.current;
+          const existing = current.find((item) => item.id === `capture-${requestId}`);
+          if (existing) { reply(requestId, { ok: true, cardId: existing.id }); return; }
           const card: PreviewCard = {
-            id: `local-${crypto.randomUUID()}`,
+            id: `capture-${requestId}`,
             kind: payload.kind,
             title: payload.kind === "note" ? quote.slice(0, 76).replace(/\s+/g, " ") : (payload.title || image?.pathname.split("/").pop() || link.hostname).trim().slice(0, 240),
             description: payload.kind === "note" ? quote : undefined,
@@ -536,11 +574,12 @@ export default function RebuildPreview({
             tags: [],
             tone: "stone",
           };
-          const next = [card, ...captureCardsRef.current];
+          const next = [card, ...current];
           await writePreviewCards(next);
           captureCardsRef.current = next;
           captureResultsRef.current.set(requestId, card.id);
           setCards(next);
+          announcePreviewCardsChanged();
           setToast(`Saved ${payload.kind} in this preview`);
           reply(requestId, { ok: true, cardId: card.id });
         } catch (error) {
@@ -752,6 +791,7 @@ export default function RebuildPreview({
         setCollectionPickerCardId(null);
         setLibraryCollectionPickerOpen(false);
         setEditingCardId(null);
+        setDeleteCardId(null);
         setBulkTagOpen(false);
         setBulkRemoveOpen(false);
         if (!bulkImportBusy) setBulkImportFiles(null);
@@ -769,11 +809,11 @@ export default function RebuildPreview({
   }, [collectionGroup, initialCardId, bulkImportBusy]);
 
   useEffect(() => {
-    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen && !collectionPickerCardId && !libraryCollectionPickerOpen && !editingCardId && !bulkTagOpen && !bulkRemoveOpen && !bulkImportFiles) return;
+    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen && !collectionPickerCardId && !libraryCollectionPickerOpen && !editingCardId && !deleteCardId && !bulkTagOpen && !bulkRemoveOpen && !bulkImportFiles) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen, collectionPickerCardId, libraryCollectionPickerOpen, editingCardId, bulkTagOpen, bulkRemoveOpen, bulkImportFiles]);
+  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen, collectionPickerCardId, libraryCollectionPickerOpen, editingCardId, deleteCardId, bulkTagOpen, bulkRemoveOpen, bulkImportFiles]);
 
   function closeDetail() {
     setActiveCardId(null);
@@ -967,7 +1007,7 @@ export default function RebuildPreview({
     }
   }
 
-  function openComposer(kind: Composer) {
+  const openComposer = useCallback((kind: Composer) => {
     setComposer(kind);
     setCreateOpen(false);
     setFormUrl("");
@@ -981,7 +1021,7 @@ export default function RebuildPreview({
     setFormFile(null);
     setFormPrivate(true);
     setFormError("");
-  }
+  }, [selectedCollection]);
 
   function addComposerTag() {
     const existing = formTags.split(",").map((tag) => tag.trim()).filter(Boolean);
@@ -1016,7 +1056,7 @@ export default function RebuildPreview({
     setFormError("");
   }
 
-  async function prepareComposerFile(file: File, multiple = false) {
+  const prepareComposerFile = useCallback(async (file: File, multiple = false) => {
     const title = file.name.replace(/\.[^.]+$/, "");
     if (file.type.startsWith("image/") || imageFilePattern.test(file.name)) {
       openComposer("image");
@@ -1029,7 +1069,7 @@ export default function RebuildPreview({
     }
     setFormTitle(title);
     if (multiple) setFormError("Save one item at a time. The first file is ready.");
-  }
+  }, [openComposer]);
 
   async function convertFileCardToNote(card: PreviewCard) {
     if (!card.fileData) return;
@@ -1133,6 +1173,37 @@ export default function RebuildPreview({
     openComposer(dropped.image ? "image" : "link");
     setFormUrl(dropped.url.href);
   }
+
+  async function pasteImageFromClipboard() {
+    try {
+      if (!navigator.clipboard?.read) throw new Error("Clipboard image access is unavailable in this browser.");
+      const items = await navigator.clipboard.read();
+      for (const item of items) {
+        const type = item.types.find((value) => value.startsWith("image/"));
+        if (!type) continue;
+        const blob = await item.getType(type);
+        const extension = type.split("/")[1]?.replace("jpeg", "jpg") || "png";
+        await prepareComposerFile(new File([blob], `CleanShot ${new Date().toISOString().slice(0, 19).replace("T", " ")}.${extension}`, { type }));
+        return;
+      }
+      setToast("No image is on the clipboard. Copy the screenshot in CleanShot first.");
+    } catch {
+      setToast("Copy the screenshot in CleanShot, then press ⌘V in Savers or drag it onto this page.");
+    }
+  }
+
+  useEffect(() => {
+    const handlePaste = (event: ClipboardEvent) => {
+      if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable='true']")) return;
+      if (editingCardId || composer || tagEditorId || smartEditorId) return;
+      const file = Array.from(event.clipboardData?.items || []).find((item) => item.kind === "file" && item.type.startsWith("image/"))?.getAsFile();
+      if (!file) return;
+      event.preventDefault();
+      void prepareComposerFile(new File([file], file.name || `CleanShot ${new Date().toISOString().slice(0, 10)}.png`, { type: file.type }));
+    };
+    document.addEventListener("paste", handlePaste);
+    return () => document.removeEventListener("paste", handlePaste);
+  }, [editingCardId, composer, tagEditorId, smartEditorId, prepareComposerFile]);
 
   async function saveComposer() {
     const nextTags = [...new Set(`${formTags},${formTagInput}`.split(",").map((tag) => tag.trim()).filter(Boolean))];
@@ -1348,6 +1419,20 @@ export default function RebuildPreview({
     setSelectedLibraryIds([]);
     setActiveCardId(null);
     setToast("Removed from this browser preview");
+  }
+
+  function removeCard(id: string) {
+    const next = cards.filter((item) => item.id !== id);
+    captureCardsRef.current = next;
+    setCards(next);
+    void writePreviewCards(next).then(announcePreviewCardsChanged).catch(() => setToast("Browser storage could not keep this removal."));
+    setFavorites((ids) => ids.filter((item) => item !== id));
+    setPinnedIds((ids) => ids.filter((item) => item !== id));
+    setSelectedLibraryIds((ids) => ids.filter((item) => item !== id));
+    if (activeCardId === id) setActiveCardId(null);
+    if (editingCardId === id) setEditingCardId(null);
+    setDeleteCardId(null);
+    setToast("Card removed from this browser preview");
   }
 
   function saveRelatedSelection(collectionId?: string, moveExisting = false) {
@@ -1846,6 +1931,9 @@ export default function RebuildPreview({
             <button onClick={() => multiImageInputRef.current?.click()}>
               <ImageIcon size={18} /> Add multiple images <ArrowRight size={15} />
             </button>
+            <button onClick={() => { setCreateOpen(false); void pasteImageFromClipboard(); }}>
+              <Copy size={18} /> Paste screenshot <ArrowRight size={15} />
+            </button>
             <button onClick={() => folderInputRef.current?.click()}>
               <FolderPlus size={18} /> Add a folder <ArrowRight size={15} />
             </button>
@@ -2133,21 +2221,29 @@ export default function RebuildPreview({
       )}
 
       {editingCardId && <div className="rb-rule-overlay rb-edit-backdrop" role="dialog" aria-modal="true" aria-label="Edit card" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingCardId(null); }}>
-        <div className="rb-edit-panel" data-scroll-fade="y">
+        <div className="rb-edit-panel">
           <div className="rb-edit-head"><h2>Edit card</h2><button onClick={() => setEditingCardId(null)} aria-label="Close editor"><X size={22} /></button></div>
+          <div className="rb-edit-fields" data-scroll-fade="y">
           <label>Title<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} autoFocus /></label>
           <label>Link<input type="url" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} /></label>
           <label>Description<textarea rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
           <label>Note<textarea rows={3} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
           <label>Collection<select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
           <label>Tags<input value={editTags} onChange={(event) => setEditTags(event.target.value)} placeholder="Separate tags with commas" /></label>
-          <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
           <label>Preview image<input type="url" value={editImage.startsWith("data:") ? "" : editImage} onChange={(event) => setEditImage(event.target.value)} placeholder="Image URL" /></label>
           <label className="rb-edit-upload"><Upload size={18} /> Replace with an image from your computer<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCardImage(file); }} /></label>
-          {editImage && <img className="rb-edit-image" src={editImage} alt="Selected preview" />}
-          <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
+          </div>
+          <div className="rb-edit-footer">
+            <div className="rb-edit-footer-start">
+              <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
+              <button className="rb-edit-remove" onClick={() => setDeleteCardId(editingCardId)}><Trash2 size={17} /> Remove card</button>
+            </div>
+            <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
+          </div>
         </div>
       </div>}
+
+      {deleteCardId && <div className="rb-rule-overlay rb-delete-card-backdrop" role="dialog" aria-modal="true" aria-label="Remove card confirmation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCardId(null); }}><div className="rb-bulk-panel"><h2>Remove this card?</h2><p>{cards.find((item) => item.id === deleteCardId)?.title} will be removed from this browser preview.</p><div><button onClick={() => setDeleteCardId(null)}>Cancel</button><button className="rb-bulk-danger" onClick={() => removeCard(deleteCardId)}>Remove card</button></div></div></div>}
 
       {bulkTagOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Add tag to selected cards"><div className="rb-bulk-panel"><h2>Add a tag to {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}</h2><input value={bulkTagInput} onChange={(event) => setBulkTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyBulkTags(); }} placeholder="Tag name" autoFocus /><div><button onClick={() => setBulkTagOpen(false)}>Cancel</button><button onClick={applyBulkTags} disabled={!bulkTagInput.trim()}>Add tag</button></div></div></div>}
       {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><p>This removes them from this browser preview.</p><div><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}

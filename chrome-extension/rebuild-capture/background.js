@@ -20,7 +20,12 @@ function capturableImageUrl(value) {
 async function showStatus(tabId, state, message, capture, theme) {
   if (tabId == null) return;
   try { await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_STATUS", state, message, capture, theme }); }
-  catch { /* Restricted tabs still get toolbar badge feedback. */ }
+  catch {
+    try {
+      await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] });
+      await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_STATUS", state, message, capture, theme });
+    } catch { /* Restricted tabs still get toolbar badge feedback. */ }
+  }
 }
 
 async function badge(state) {
@@ -29,25 +34,39 @@ async function badge(state) {
   setTimeout(() => chrome.action.setBadgeText({ text: "" }), 2500);
 }
 
+function isPreviewAppTab(tab) {
+  try {
+    const url = new URL(tab?.url);
+    return url.origin === PREVIEW_ORIGIN && (url.pathname === "/" || url.pathname === "/rebuild" || url.pathname === "/rebuild/");
+  } catch { return false; }
+}
+
 async function previewTab() {
   const open = await chrome.tabs.query({ url: `${PREVIEW_ORIGIN}/*` });
-  const existing = open.find((tab) => tab.status === "complete") || open[0];
+  const appTabs = open.filter(isPreviewAppTab);
+  const existing = appTabs.sort((a, b) => Number(b.active) - Number(a.active) || Number(b.lastAccessed || 0) - Number(a.lastAccessed || 0))[0];
   if (existing?.id != null) return existing;
-  return chrome.tabs.create({ url: PREVIEW_ORIGIN, active: false });
+  return chrome.tabs.create({ url: PREVIEW_ORIGIN, active: true });
 }
 
 async function sendToPreview(tabId, message) {
-  let lastError;
   const requestId = crypto.randomUUID();
-  for (let attempt = 0; attempt < 25; attempt += 1) {
+  let injected = false;
+  for (let attempt = 0; attempt < 6; attempt += 1) {
+    let result;
     try {
-      const result = await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_BRIDGE", requestId, ...message });
-      if (result?.ok) return result;
-      if (result?.error && result.error !== "Preview is loading.") throw new Error(result.error);
-    } catch (error) { lastError = error; }
+      result = await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_BRIDGE", requestId, ...message });
+    } catch (error) {
+      if (!injected && /receiving end does not exist|could not establish connection/i.test(String(error?.message || error))) {
+        try { await chrome.scripting.executeScript({ target: { tabId }, files: ["content.js"] }); } catch { /* The preview may still be loading. */ }
+        injected = true;
+      }
+    }
+    if (result?.ok) return result;
+    if (result?.error && result.error !== "Preview is loading.") throw new Error(result.error);
     await new Promise((resolve) => setTimeout(resolve, 400));
   }
-  throw new Error(lastError?.message || "Open the Savers rebuild preview, then try again.");
+  throw new Error("Open the Savers preview tab, then try again.");
 }
 
 async function capture(payload, sourceTabId) {
@@ -121,12 +140,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     void (async () => {
       try {
         const { cardId, previewTabId } = message.capture || {};
-        if (!cardId || !previewTabId) throw new Error("Capture is no longer available.");
+        if (!cardId) throw new Error("Capture is no longer available.");
+        let tab;
+        try {
+          tab = await chrome.tabs.get(previewTabId);
+          if (!isPreviewAppTab(tab)) tab = null;
+        } catch { tab = null; }
+        if (!tab) tab = await previewTab();
         if (message.action === "edit") {
-          const tab = await chrome.tabs.update(previewTabId, { active: true });
+          tab = await chrome.tabs.update(tab.id, { active: true });
           if (tab.windowId != null) await chrome.windows.update(tab.windowId, { focused: true });
         }
-        const result = await sendToPreview(previewTabId, { action: message.action, cardId });
+        const result = await sendToPreview(tab.id, { action: message.action, cardId });
         sendResponse(result);
       } catch (error) { sendResponse({ ok: false, error: error?.message || "Action failed." }); }
     })();
