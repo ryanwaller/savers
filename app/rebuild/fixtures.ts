@@ -13,6 +13,8 @@ export type PreviewCard = {
   note?: string;
   tags?: string[];
   owner?: { id: string; name: string; avatar?: string };
+  savedFrom?: { id: string; name: string; avatar?: string };
+  originId?: string;
   isPrivate?: boolean;
   date: string;
   tone?: "cream" | "sage" | "lavender" | "stone";
