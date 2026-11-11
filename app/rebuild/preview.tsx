@@ -260,6 +260,7 @@ export default function RebuildPreview({
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [sizeOpen, setSizeOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [filterHasMore, setFilterHasMore] = useState(false);
@@ -447,6 +448,7 @@ export default function RebuildPreview({
         setDetailMenuOpen(false);
         setSortOpen(false);
         setSizeOpen(false);
+        setViewOpen(false);
         setSmartEditorId(null);
         setSearchOpen(false);
         setTagEditorId(null);
@@ -497,6 +499,7 @@ export default function RebuildPreview({
     setSelectedTag(null);
     setQuery("");
     setSearchOpen(false);
+    setViewOpen(false);
     window.scrollTo(0, 0);
   }
 
@@ -628,6 +631,7 @@ export default function RebuildPreview({
     setFilter("all");
     setSelectedTag(null);
     setSearchOpen(false);
+    setViewOpen(false);
     setProfileId(null);
     setFollowingOverlayOpen(false);
     setRelatedSelecting(false);
@@ -940,8 +944,24 @@ export default function RebuildPreview({
   }
 
   function toggleCollectionPrivacy(id: string) {
-    setAllCollections((items) => items.map((item) => item.id === id ? { ...item, isPrivate: item.isPrivate === false } : item));
-    setToast("Visibility updated in this preview");
+    setAllCollections((items) => {
+      const target = items.find((item) => item.id === id);
+      if (!target) return items;
+      const nextPrivate = target.isPrivate === false;
+      const branch = new Set([id]);
+      let foundChild = true;
+      while (foundChild) {
+        foundChild = false;
+        for (const item of items) {
+          if (item.parentId && branch.has(item.parentId) && !branch.has(item.id)) {
+            branch.add(item.id);
+            foundChild = true;
+          }
+        }
+      }
+      return items.map((item) => branch.has(item.id) ? { ...item, isPrivate: nextPrivate } : item);
+    });
+    setToast("Folder and subfolders updated in this preview");
   }
 
   function renderCollectionPreview(item: PreviewCollection): React.ReactNode {
@@ -957,7 +977,6 @@ export default function RebuildPreview({
       <div className="rb-collection-preview" key={item.id}>
         <button className="rb-collection-preview-main" onClick={() => { setSelectedCollection(item.id); setDestination("library"); window.scrollTo(0, 0); }}>
           <div className="rb-collection-preview-heading">
-            <Folder size={23} />
             <h2>{item.name}</h2>
             {item.isPrivate !== false && <LockKeyhole size={18} aria-label="Private" />}
             <span>{displayCount(item) ?? ""}</span>
@@ -1086,12 +1105,12 @@ export default function RebuildPreview({
             {collection && <div className="rb-page-heading">
               <div className="rb-heading-line">
                 <h1>{collection.name}</h1>
-                <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private" : "Make public"}: ${collection.name}`} title={collection.isPrivate === false ? "Public in this preview" : "Private in this preview"}>{collection.isPrivate === false ? <Unlock size={20} /> : <LockKeyhole size={20} />}</button>
+                <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private with subfolders" : "Make public with subfolders"}: ${collection.name}`} title={collection.isPrivate === false ? "Lock this folder and subfolders" : "Unlock this folder and subfolders"}>{collection.isPrivate === false ? <Unlock size={26} /> : <LockKeyhole size={26} />}</button>
               </div>
               {collection?.description && <p>{collection.description}</p>}
               {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}
             </div>}
-            {collection && subcollections.length > 0 && <section className="rb-subfolder-section"><h2>Subfolders</h2><div className="rb-collection-preview-list">{subcollections.map(renderCollectionPreview)}</div></section>}
+            {collection && subcollections.length > 0 && <section className="rb-subfolder-section"><div className="rb-collection-preview-list">{subcollections.map(renderCollectionPreview)}</div></section>}
             <div className={`rb-library-toolbar ${collection ? "" : "rb-root-controls"}`}>
               <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef} data-scroll-fade="x">
                 {(["all", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
@@ -1122,7 +1141,7 @@ export default function RebuildPreview({
                     : filteredCards.length}
                 </span>
                 <div className="rb-size-wrap">
-                  <button className={`rb-small-icon rb-size-trigger ${sizeOpen ? "selected" : ""}`} onClick={() => { setSizeOpen((open) => !open); setSortOpen(false); }} aria-label={`Thumbnail size: ${cardSize.toUpperCase()}`} aria-expanded={sizeOpen} title="Thumbnail size">{cardSize.toUpperCase()}</button>
+                  <button className={`rb-small-icon rb-size-trigger ${sizeOpen ? "selected" : ""}`} onClick={() => { setSizeOpen((open) => !open); setSortOpen(false); setViewOpen(false); }} aria-label={`Thumbnail size: ${cardSize.toUpperCase()}`} aria-expanded={sizeOpen} title="Thumbnail size">{cardSize.toUpperCase()}</button>
                   {sizeOpen && <div className="rb-size-menu" role="group" aria-label="Thumbnail size">
                     {(["s", "m", "l", "xl"] as const).map((size) => <button key={size} onClick={() => { setCardSize(size); setListMode(false); setSizeOpen(false); }}>{size.toUpperCase()}{cardSize === size && <Check size={17} aria-label="Selected" />}</button>)}
                   </div>}
@@ -1130,7 +1149,7 @@ export default function RebuildPreview({
                 <div className="rb-sort-wrap">
                   <button
                     className={`rb-small-icon ${sortOpen ? "selected" : ""}`}
-                    onClick={() => { setSortOpen(!sortOpen); setSizeOpen(false); }}
+                    onClick={() => { setSortOpen(!sortOpen); setSizeOpen(false); setViewOpen(false); }}
                     aria-label="Sort cards"
                     aria-expanded={sortOpen}
                   >
@@ -1157,20 +1176,13 @@ export default function RebuildPreview({
                     </div>
                   )}
                 </div>
-                <button
-                  className={`rb-small-icon ${!listMode ? "selected" : ""}`}
-                  onClick={() => setListMode(false)}
-                  aria-label="Grid view"
-                >
-                  <Grid2X2 size={17} />
-                </button>
-                <button
-                  className={`rb-small-icon ${listMode ? "selected" : ""}`}
-                  onClick={() => setListMode(true)}
-                  aria-label="List view"
-                >
-                  <List size={18} />
-                </button>
+                <div className="rb-view-wrap">
+                  <button className={`rb-small-icon ${viewOpen ? "selected" : ""}`} onClick={() => { setViewOpen((open) => !open); setSizeOpen(false); setSortOpen(false); }} aria-label={`View: ${listMode ? "List" : "Grid"}`} aria-expanded={viewOpen} title="Card view">{listMode ? <List size={18} /> : <Grid2X2 size={18} />}</button>
+                  {viewOpen && <div className="rb-size-menu rb-view-menu" role="group" aria-label="Card view">
+                    <button onClick={() => { setListMode(false); setViewOpen(false); }}><span className="rb-view-option-label"><Grid2X2 size={18} /> Grid</span>{!listMode && <Check size={17} aria-label="Selected" />}</button>
+                    <button onClick={() => { setListMode(true); setViewOpen(false); }}><span className="rb-view-option-label"><List size={18} /> List</span>{listMode && <Check size={17} aria-label="Selected" />}</button>
+                  </div>}
+                </div>
                 <button className={`rb-small-icon ${librarySelecting ? "selected" : ""}`} onClick={() => { setLibrarySelecting((value) => !value); setSelectedLibraryIds([]); }} aria-label={librarySelecting ? "Finish selecting cards" : "Select cards"} title="Select cards"><CheckCircle2 size={19} /></button>
               </div>
             </div>

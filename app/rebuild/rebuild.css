@@ -2209,10 +2209,11 @@ body:has(.rebuild-app) {
 .rb-card-lock { margin-left: 5px; }
 .rb-card-image[data-failed], .rb-detail-image[data-failed] { display: none; }
 .rb-folder-lock { flex: 0 0 auto; color: #999; }
-.rb-heading-line { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.rb-heading-line { display: flex; align-items: center; justify-content: center; gap: 14px; }
 .rb-heading-line h1 { margin-bottom: 0; }
-.rb-heading-privacy { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 50%; color: #999; }
-.rb-heading-privacy:hover { background: #ececec; color: #222; }
+.rb-heading-privacy { display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 50%; background: var(--rb-control-bg); color: var(--rb-control-muted); transform: translateY(5px); }
+.rb-heading-privacy svg { width: 26px; height: 26px; }
+.rb-heading-privacy:hover { background: var(--rb-control-hover); color: var(--rb-control-hover-ink); }
 .rb-collection-info h2 { display: flex; align-items: center; gap: 9px; }
 .rb-collection-info h2 svg { flex: 0 0 auto; color: #999; }
 .rb-detail-kind { display: inline-flex; align-items: center; gap: 8px; }
@@ -2475,7 +2476,10 @@ body:has(.rebuild-app) {
 .rb-collection-preview { position: relative; min-width: 0; }
 .rb-collection-preview-main {
   position: relative;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   width: 100%;
   min-height: 236px;
   overflow: hidden;
@@ -2491,7 +2495,7 @@ body:has(.rebuild-app) {
 .rb-collection-preview-heading h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rb-collection-preview-heading > svg { flex: 0 0 auto; color: #919591; }
 .rb-collection-preview-heading span { flex: 0 0 auto; color: #999; }
-.rb-collection-preview-main > p { max-width: 58ch; margin: 12px 0 0 35px; color: #8b8b8b; }
+.rb-collection-preview-main > p { max-width: 58ch; margin: 12px 0 0; color: #8b8b8b; }
 .rb-collection-preview-owner { position: absolute; left: 28px; bottom: 25px; display: flex; align-items: center; gap: 10px; color: #8a8a8a; }
 .rb-collection-preview-owner > span:first-child, .rb-collection-preview-owner img,
 .rb-card-owner > span:first-child, .rb-card-owner img {
@@ -2890,19 +2894,22 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rebuild-app .rb-active-tag button:hover { background: #b9ff69; color: #202820; }
 .rebuild-app :is(.rb-create-button:hover, .rb-composer-footer button:hover, .rb-inbox-keep) { background: #b9ff69; color: #202820; }
 .rebuild-app .rb-pulse { background: #b9ff69; box-shadow: 0 0 0 4px #ededed; }
-.rb-theme-dark .rb-filter-suboptions button { color: #eee; }
+.rb-theme-dark .rb-filter-suboptions button { color: #202820; }
 .rb-theme-dark :is(.rb-active-tag, .rb-filter-suboptions, .rb-profile-shortcuts button.active .rb-profile-shortcut-art) { background: #b9ff69; color: #202820; }
+.rb-theme-dark .rb-filter-suboptions button.active { background: rgb(32 40 32 / 14%); color: #202820; }
 .rb-dock { left: 50%; right: auto; transform: translateX(-50%); }
 .rb-dock button.active { background: #b9ff69; color: #202820; }
 .rb-theme-dark .rb-dock button.active { background: #b9ff69; color: #202820; }
 
 /* Thumbnail size uses the same control shape and menu rhythm as sorting. */
-.rb-size-wrap { position: relative; }
+.rb-size-wrap, .rb-view-wrap { position: relative; }
 .rebuild-app .rb-size-trigger { font-size: 17px !important; }
 .rb-size-menu { position: absolute; z-index: 31; top: calc(100% + 7px); right: 0; width: 156px; padding: 8px; border: 1px solid #e6e6e6; border-radius: 17px; background: #fcfcfc; box-shadow: 0 16px 55px #2e2e2a22; }
 .rb-size-menu button { display: flex; align-items: center; justify-content: space-between; width: 100%; min-height: 43px; padding: 8px 11px; border-radius: 10px; color: var(--rb-control-ink); text-align: left; }
 .rb-size-menu button:hover { background: #b9ff69; color: #202820; }
 .rb-theme-dark .rb-size-menu { border-color: #444; background: #262626; color: #eee; }
+.rb-view-menu { width: 172px; }
+.rb-view-option-label { display: inline-flex; align-items: center; gap: 10px; }
 /* Library scales share the related feed's aligned-row grid and card treatment. */
 .rb-card-grid:not(.rb-list-grid) { display: grid; grid-template-columns: repeat(var(--rb-grid-columns), minmax(0, 1fr)); align-items: start; column-gap: var(--rb-grid-gap); row-gap: var(--rb-grid-row-gap); }
 .rb-card-grid:not(.rb-list-grid) .rb-card { min-width: 0; margin: 0; }
