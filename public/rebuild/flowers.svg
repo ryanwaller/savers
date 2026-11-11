@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 720">
+  <rect width="900" height="720" fill="#e9e5d9"/>
+  <path d="M0 595q396-53 900 3v122H0Z" fill="#d4cebe"/>
+  <path d="M252 650 378 318M452 650 481 238M633 650 598 340M452 650 314 397M452 650 671 423" fill="none" stroke="#657762" stroke-width="14" stroke-linecap="round"/>
+  <g fill="#8e9e7e"><ellipse cx="352" cy="457" rx="59" ry="24" transform="rotate(-34 352 457)"/><ellipse cx="541" cy="453" rx="62" ry="22" transform="rotate(37 541 453)"/><ellipse cx="614" cy="533" rx="67" ry="24" transform="rotate(-21 614 533)"/><ellipse cx="283" cy="556" rx="64" ry="24" transform="rotate(31 283 556)"/></g>
+  <g fill="#c68b74"><ellipse cx="378" cy="242" rx="45" ry="94"/><ellipse cx="378" cy="242" rx="45" ry="94" transform="rotate(72 378 242)"/><ellipse cx="378" cy="242" rx="45" ry="94" transform="rotate(144 378 242)"/><ellipse cx="378" cy="242" rx="45" ry="94" transform="rotate(216 378 242)"/><ellipse cx="378" cy="242" rx="45" ry="94" transform="rotate(288 378 242)"/></g>
+  <circle cx="378" cy="242" r="42" fill="#dfb67f"/>
+  <g fill="#e2c38b"><ellipse cx="489" cy="185" rx="31" ry="70"/><ellipse cx="489" cy="185" rx="31" ry="70" transform="rotate(72 489 185)"/><ellipse cx="489" cy="185" rx="31" ry="70" transform="rotate(144 489 185)"/><ellipse cx="489" cy="185" rx="31" ry="70" transform="rotate(216 489 185)"/><ellipse cx="489" cy="185" rx="31" ry="70" transform="rotate(288 489 185)"/></g>
+  <circle cx="489" cy="185" r="29" fill="#a1715f"/>
+  <g fill="#b8a4a3"><ellipse cx="603" cy="286" rx="34" ry="73"/><ellipse cx="603" cy="286" rx="34" ry="73" transform="rotate(72 603 286)"/><ellipse cx="603" cy="286" rx="34" ry="73" transform="rotate(144 603 286)"/><ellipse cx="603" cy="286" rx="34" ry="73" transform="rotate(216 603 286)"/><ellipse cx="603" cy="286" rx="34" ry="73" transform="rotate(288 603 286)"/></g>
+  <circle cx="603" cy="286" r="30" fill="#e2c797"/>
+  <g fill="#d6b8a0"><circle cx="311" cy="381" r="33"/><circle cx="657" cy="416" r="34"/></g>
+  <path d="M350 582h302l-50 138H400Z" fill="#ae8e78"/>
+</svg>

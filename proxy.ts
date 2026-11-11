@@ -28,6 +28,15 @@ function isOriginAllowed(origin: string | null): string | null {
 }
 
 export function proxy(req: NextRequest) {
+  if (process.env.SAVERS_REBUILD_PREVIEW === "1") {
+    if (req.nextUrl.pathname === "/") {
+      return NextResponse.rewrite(new URL("/rebuild", req.url));
+    }
+    if (req.nextUrl.pathname.startsWith("/api/")) {
+      return new NextResponse(null, { status: 404 });
+    }
+  }
+
   if (req.nextUrl.pathname.startsWith("/api/")) {
     const origin = isOriginAllowed(req.headers.get("origin"));
 
@@ -48,7 +57,8 @@ export function proxy(req: NextRequest) {
         headers: {
           "Access-Control-Allow-Origin": origin,
           "Access-Control-Allow-Credentials": "true",
-          "Access-Control-Allow-Methods": "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+          "Access-Control-Allow-Methods":
+            "GET, POST, PUT, PATCH, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
           "Access-Control-Max-Age": "86400",
         },
@@ -65,5 +75,5 @@ export function proxy(req: NextRequest) {
 }
 
 export const config = {
-  matcher: "/api/:path*",
+  matcher: ["/", "/api/:path*"],
 };
