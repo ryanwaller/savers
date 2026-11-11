@@ -244,6 +244,7 @@ export default function RebuildPreview({
   const [accountOpen, setAccountOpen] = useState(false);
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
+  const [sizeOpen, setSizeOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
   const [filterHasMore, setFilterHasMore] = useState(false);
@@ -429,6 +430,7 @@ export default function RebuildPreview({
         setAccountOpen(false);
         setDetailMenuOpen(false);
         setSortOpen(false);
+        setSizeOpen(false);
         setSmartEditorId(null);
         setSearchOpen(false);
         setTagEditorId(null);
@@ -471,8 +473,20 @@ export default function RebuildPreview({
     }
   }
 
+  function openDetailCollection(id: string) {
+    closeDetail();
+    setDestination("library");
+    setSelectedCollection(id);
+    setFilter("all");
+    setSelectedTag(null);
+    setQuery("");
+    setSearchOpen(false);
+    window.scrollTo(0, 0);
+  }
+
   const activeCard = cards.find((card) => card.id === activeCardId) || publicRelatedCards.find((card) => card.id === activeCardId) || null;
   const activeCardIsOwn = activeCard ? !activeCard.owner : false;
+  const activeCardCollection = activeCard?.collection ? allCollections.find((item) => item.id === activeCard.collection) : null;
   const activeCardDuplicates = activeCard?.url ? cards.filter((card) => card.id !== activeCard.id && card.url?.replace(/\/$/, "") === activeCard.url?.replace(/\/$/, "")) : [];
   const smartEditorCollection = allCollections.find((item) => item.id === smartEditorId);
   const tagEditorCard = cards.find((item) => item.id === tagEditorId);
@@ -1093,13 +1107,16 @@ export default function RebuildPreview({
                     ? `${collection ? displayCount(collection) ?? "—" : 815}`
                     : filteredCards.length}
                 </span>
-                <div className="rb-size-control" role="radiogroup" aria-label="Thumbnail size">
-                  {(["s", "m", "l", "xl"] as const).map((size) => <button key={size} role="radio" aria-checked={cardSize === size} className={cardSize === size ? "active" : ""} onClick={() => { setCardSize(size); setListMode(false); }}>{size.toUpperCase()}</button>)}
+                <div className="rb-size-wrap">
+                  <button className={`rb-small-icon rb-size-trigger ${sizeOpen ? "selected" : ""}`} onClick={() => { setSizeOpen((open) => !open); setSortOpen(false); }} aria-label={`Thumbnail size: ${cardSize.toUpperCase()}`} aria-expanded={sizeOpen} title="Thumbnail size">{cardSize.toUpperCase()}</button>
+                  {sizeOpen && <div className="rb-size-menu" role="group" aria-label="Thumbnail size">
+                    {(["s", "m", "l", "xl"] as const).map((size) => <button key={size} onClick={() => { setCardSize(size); setListMode(false); setSizeOpen(false); }}>{size.toUpperCase()}{cardSize === size && <Check size={17} aria-label="Selected" />}</button>)}
+                  </div>}
                 </div>
                 <div className="rb-sort-wrap">
                   <button
-                    className="rb-small-icon"
-                    onClick={() => setSortOpen(!sortOpen)}
+                    className={`rb-small-icon ${sortOpen ? "selected" : ""}`}
+                    onClick={() => { setSortOpen(!sortOpen); setSizeOpen(false); }}
                     aria-label="Sort cards"
                     aria-expanded={sortOpen}
                   >
@@ -1472,7 +1489,6 @@ export default function RebuildPreview({
           <div className="rb-detail-content">
             <span className="rb-detail-kind">{typeLabels[activeCard.kind]}{activeCard.linkStatus === "broken" && <span className="rb-broken-marker">Marked broken</span>}</span>
             <h1>{activeCard.title}</h1>
-            {activeCard.url && <a className="rb-open-original" href={activeCard.url} target="_blank" rel="noopener noreferrer">Visit saved link <ArrowUpRight size={19} /></a>}
             {activeCard.description && (
               <p className="rb-detail-description">{activeCard.description}</p>
             )}
@@ -1493,9 +1509,9 @@ export default function RebuildPreview({
             <div className="rb-detail-meta">
               <div>
                 <span>Source</span>
-                <strong>{activeCard.source || "Your library"}</strong>
+                {activeCard.url ? <a className="rb-detail-meta-link" href={activeCard.url} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${activeCard.source || "saved link"} in a new tab`}>{activeCard.source || "Visit source"}<ArrowUpRight size={17} aria-hidden="true" /></a> : <strong>{activeCard.source || "Your library"}</strong>}
               </div>
-              <div><span>{activeCard.owner ? "By" : "Collection"}</span><strong>{activeCard.owner?.name || allCollections.find((item) => item.id === activeCard.collection)?.name || "Unsorted"}</strong></div>
+              <div><span>{activeCard.owner ? "By" : "Collection"}</span>{activeCard.owner ? <button className="rb-detail-meta-link" onClick={() => { closeDetail(); setDestination("discover"); setProfileId(activeCard.owner!.id); window.scrollTo(0, 0); }}>{activeCard.owner.name}<ArrowRight size={17} aria-hidden="true" /></button> : activeCardCollection ? <button className="rb-detail-meta-link" onClick={() => openDetailCollection(activeCardCollection.id)}>{activeCardCollection.name}<ArrowRight size={17} aria-hidden="true" /></button> : <strong>Unsorted</strong>}</div>
             </div>
             {activeCard.note && (
               <div className="rb-detail-note">
