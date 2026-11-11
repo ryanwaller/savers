@@ -1449,6 +1449,13 @@ export default function RebuildPreview({
                   >
                     <Copy size={16} /> Copy {activeCard.url ? "link" : "text"}
                   </button>
+                  <button onClick={() => {
+                    const link = new URL("/", window.location.origin);
+                    link.searchParams.set("item", activeCard.id);
+                    void navigator.clipboard?.writeText(link.toString());
+                    setToast("Preview link copied. It requires preview access.");
+                    setDetailMenuOpen(false);
+                  }}><Link2 size={16} /> Copy preview link</button>
                   <button
                     onClick={() => {
                       setSelectedLibraryIds([activeCard.id]);
