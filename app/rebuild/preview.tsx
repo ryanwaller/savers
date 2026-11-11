@@ -169,7 +169,7 @@ function CardTile({
   );
   return (
     <article
-      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""} ${dragOver ? "rb-card-drag-over" : ""}`}
+      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""} ${dragOver ? "rb-card-drag-over" : ""} ${onToggleFavorite ? "rb-card-has-favorite" : ""} ${favorite ? "rb-card-favorited" : ""}`}
       onDragOver={(event) => { if (onDropImage && event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragOver(true); } }}
       onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }}
       onDrop={(event) => { if (!onDropImage) return; event.preventDefault(); setDragOver(false); const file = event.dataTransfer.files[0]; if (file) onDropImage(file); }}
@@ -188,10 +188,8 @@ function CardTile({
         </button>
       )}
       {selecting && <span className={`rb-card-selection ${selected ? "selected" : ""}`} aria-hidden="true">{selected && <Check size={18} />}</span>}
+      {!selecting && onToggleFavorite && <button className="rb-card-favorite-toggle" onClick={(event) => { onToggleFavorite(); if (event.detail > 0) event.currentTarget.blur(); }} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} aria-pressed={favorite} title={favorite ? "Remove favorite" : "Add favorite"}><Heart size={18} fill={favorite ? "currentColor" : "none"} /></button>}
       {!selecting && <div className="rb-card-actions">
-        {onToggleFavorite && <button onClick={onToggleFavorite} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} title={favorite ? "Remove favorite" : "Add favorite"}>
-          <Heart size={18} fill={favorite ? "currentColor" : "none"} />
-        </button>}
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
         {onAddToCollection && <button onClick={onAddToCollection} aria-label={`Add ${card.title} to a collection`} title="Add to collection"><FolderPlus size={18} /></button>}
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
@@ -261,7 +259,6 @@ export default function RebuildPreview({
   const [relatedCollectionPickerOpen, setRelatedCollectionPickerOpen] = useState(false);
   const [relatedCollectionQuery, setRelatedCollectionQuery] = useState("");
   const [discoverTab, setDiscoverTab] = useState<"discover" | "following">("discover");
-  const [discoverSource, setDiscoverSource] = useState<"all" | "yours" | "others">("all");
   const [profileId, setProfileId] = useState<string | null>(null);
   const [profileScope, setProfileScope] = useState<"cards" | "collections">("cards");
   const [followingOverlayOpen, setFollowingOverlayOpen] = useState(false);
@@ -523,9 +520,8 @@ export default function RebuildPreview({
   const discoverCards = publicCards.filter((item) => {
     if (isOwnProfile && item.owner) return false;
     if (profileId && !isOwnProfile && item.owner?.id !== profileId) return false;
-    if (!profileId && discoverTab === "following" && (!item.owner || !followedAccountIds.includes(item.owner.id))) return false;
-    if (!profileId && discoverSource === "yours" && item.owner) return false;
-    if (!profileId && discoverSource === "others" && !item.owner) return false;
+    if (!profileId && !item.owner) return false;
+    if (!profileId && discoverTab === "following" && !followedAccountIds.includes(item.owner!.id)) return false;
     const text = `${item.title} ${item.source || ""} ${item.description || ""} ${item.owner?.name || ""}`.toLocaleLowerCase();
     return text.includes(query.trim().toLocaleLowerCase());
   });
@@ -1002,7 +998,7 @@ export default function RebuildPreview({
                     Dark
                   </button>
                 </div>
-                <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverSource("all"); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
+                <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
                 <button
                   onClick={() => {
                     setCards(seedCards);
@@ -1202,7 +1198,7 @@ export default function RebuildPreview({
                   .filter((tag) => tag.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
                   .sort((a, b) => tagOrder === "name" ? a.name.localeCompare(b.name) : b.count - a.count || a.name.localeCompare(b.name))
                   .map((tag) => <button key={tag.name.toLocaleLowerCase()} onClick={() => { setSelectedTag(tag.name); setSelectedCollection(null); setFilter("all"); setDestination("library"); setQuery(""); setSearchOpen(false); window.scrollTo(0, 0); }}>
-                    <Tag size={20} /><span>{tag.name}</span><span>{tag.count}</span><ArrowRight size={18} />
+                    <Tag size={20} /><span>{tag.name}</span><span>{tag.count}</span>
                   </button>)}
               </div>
             ) : <div className="rb-collection-preview-list">{allCollections.filter((item) => !item.parentId && (item.group || "links") === collectionGroup).map(renderCollectionPreview)}</div>}
@@ -1238,12 +1234,9 @@ export default function RebuildPreview({
                 <button className="rb-feed-select" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
               </div>
             )}
-            {!profileId && <div className="rb-discover-source" role="group" aria-label="Card source">
-              {(["all", "yours", "others"] as const).map((source) => <button key={source} className={discoverSource === source ? "active" : ""} onClick={() => setDiscoverSource(source)}>{source === "all" ? "All" : source === "yours" ? "Yours" : "Others"}</button>)}
-            </div>}
             {profileId && profileScope === "collections" ? (profileCollections.length ? <div className="rb-profile-collections">{profileCollections.map((item) => <button key={item.id} onClick={() => { setDestination("collections"); setSelectedCollection(item.id); setProfileId(null); window.scrollTo(0, 0); }}><Folder size={25} /><span>{item.name}</span><ArrowRight size={20} /></button>)}</div> : <div className="rb-empty rb-discover-empty"><Folder size={28} /><h2>No public collections yet</h2></div>) : discoverCards.length > 0 ? <div className="rb-discover-grid">
               {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
-            </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{profileId ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards here yet"}</h2>{discoverSource !== "others" && !profileId && <button onClick={() => navigate("library")}>Open Library <ArrowRight size={18} /></button>}</div>}
+            </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{profileId ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards to discover yet"}</h2></div>}
             {(!profileId || profileScope === "cards") && discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
           </section>
         )}
