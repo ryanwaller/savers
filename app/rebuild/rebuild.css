@@ -2934,6 +2934,17 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-theme-dark .rb-toolbar-menu button { color: #eee; }
 .rb-theme-dark .rb-toolbar-menu button:hover { background: #b9ff69; color: #202820; }
 .rebuild-app .rb-tag-editor-add input, .rebuild-app .rb-tag-editor-add button { background: var(--rb-control-bg); }
+.rebuild-app .rb-filter-entry:has(.rb-filter-suboptions) { gap: 0; border-radius: 999px; background: var(--rb-control-bg); }
+.rebuild-app .rb-filter-entry:has(.rb-filter-suboptions) > button { border-radius: 999px; }
+.rebuild-app .rb-filter-entry .rb-filter-suboptions { gap: 2px; height: var(--rb-control-size); padding: 0 8px; border-radius: 0 999px 999px 0; background: transparent; }
+.rebuild-app .rb-filter-entry .rb-filter-suboptions button { min-height: 42px; padding: 0 12px; border-radius: 999px; background: transparent; color: var(--rb-control-muted); font-weight: 400; }
+.rebuild-app .rb-filter-entry .rb-filter-suboptions button:hover, .rebuild-app .rb-filter-entry .rb-filter-suboptions button.active { background: #e6e6e6; color: var(--rb-control-ink); }
+.rb-theme-dark .rb-filter-entry .rb-filter-suboptions button { color: var(--rb-control-muted); }
+.rb-theme-dark .rb-filter-entry .rb-filter-suboptions button:hover, .rb-theme-dark .rb-filter-entry .rb-filter-suboptions button.active { background: #494949; color: #eee; }
+.rebuild-app .rb-filter-entry > button { transition: none; }
+.rebuild-app .rb-detail-menu { display: flex; flex-direction: column; gap: 7px; padding: 9px; }
+.rebuild-app .rb-detail-bar .rb-detail-menu button { border-radius: 15px; background: var(--rb-control-bg); }
+.rb-detail-description.rb-note-body { white-space: pre-wrap; overflow-wrap: anywhere; }
 /* Library scales share the related feed's aligned-row grid and card treatment. */
 .rb-card-grid:not(.rb-list-grid) { display: grid; grid-template-columns: repeat(var(--rb-grid-columns), minmax(0, 1fr)); align-items: start; column-gap: var(--rb-grid-gap); row-gap: var(--rb-grid-row-gap); }
 .rb-card-grid:not(.rb-list-grid) .rb-card { min-width: 0; margin: 0; }

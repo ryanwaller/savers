@@ -102,6 +102,84 @@ function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
 const storageKey = "savers.rebuild.preview.v3";
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
 const imageFilePattern = /\.(?:avif|bmp|gif|heic|jpe?g|png|svg|tiff?|webp)$/i;
+const wordFilePattern = /\.docx$/i;
+
+function rtfToText(source: string): string | null {
+  const ignored = new Set(["fonttbl", "colortbl", "stylesheet", "info", "pict", "object", "header", "footer"]);
+  const stack: boolean[] = [];
+  let hidden = false;
+  let groupStart = false;
+  let result = "";
+  for (let index = 0; index < source.length;) {
+    const char = source[index++];
+    if (char === "{") { stack.push(hidden); groupStart = true; continue; }
+    if (char === "}") { hidden = stack.pop() || false; groupStart = false; continue; }
+    if (char === "\\") {
+      const next = source[index++];
+      if (next === "*") { hidden = true; continue; }
+      if (next === "'" && index + 1 < source.length) {
+        if (!hidden) result += new TextDecoder("windows-1252").decode(Uint8Array.of(parseInt(source.slice(index, index + 2), 16)));
+        index += 2;
+        continue;
+      }
+      if (next === "\\" || next === "{" || next === "}") { if (!hidden) result += next; continue; }
+      if (!/[a-z]/i.test(next || "")) { groupStart = false; continue; }
+      let control = next;
+      while (/[a-z]/i.test(source[index] || "")) control += source[index++];
+      let value = "";
+      if (source[index] === "-") value += source[index++];
+      while (/[0-9]/.test(source[index] || "")) value += source[index++];
+      if (source[index] === " ") index++;
+      if (groupStart && ignored.has(control)) hidden = true;
+      groupStart = false;
+      if (hidden) continue;
+      if (control === "par" || control === "line") result += "\n";
+      else if (control === "tab") result += "\t";
+      else if (control === "u" && value) {
+        result += String.fromCharCode((Number(value) + 65536) % 65536);
+        if (source[index] === "?") index++;
+      }
+      continue;
+    }
+    if (!hidden && char !== "\r" && char !== "\n") result += char;
+    groupStart = false;
+  }
+  return result.trim() || null;
+}
+
+async function extractNoteText(file: Blob & { name?: string }): Promise<string | null> {
+  if (/\.(?:doc|pdf)$/i.test(file.name || "")) return null;
+  if (/\.rtf$/i.test(file.name || "")) {
+    try { return rtfToText(new TextDecoder("windows-1252").decode(await file.arrayBuffer())); }
+    catch { return null; }
+  }
+  if (wordFilePattern.test(file.name || "") || /\.odt$/i.test(file.name || "")) {
+    try {
+      const JSZip = (await import("jszip")).default;
+      const archive = await JSZip.loadAsync(file);
+      const openDocument = /\.odt$/i.test(file.name || "");
+      const xml = await archive.file(openDocument ? "content.xml" : "word/document.xml")?.async("text");
+      if (!xml) return null;
+      const document = new DOMParser().parseFromString(xml, "application/xml");
+      const namespace = openDocument ? "urn:oasis:names:tc:opendocument:xmlns:text:1.0" : "http://schemas.openxmlformats.org/wordprocessingml/2006/main";
+      const paragraphs = openDocument
+        ? Array.from(document.getElementsByTagName("*")).filter((element) => element.namespaceURI === namespace && (element.localName === "p" || element.localName === "h"))
+        : Array.from(document.getElementsByTagNameNS(namespace, "p"));
+      const text = paragraphs.map((paragraph) => openDocument ? paragraph.textContent || "" : Array.from(paragraph.getElementsByTagNameNS(namespace, "t"))
+          .map((run) => run.textContent || "").join(""))
+        .join("\n").trim();
+      return text || null;
+    } catch { return null; }
+  }
+  try {
+    const bytes = await file.arrayBuffer();
+    const data = new Uint8Array(bytes);
+    const encoding = data[0] === 0xff && data[1] === 0xfe ? "utf-16le" : data[0] === 0xfe && data[1] === 0xff ? "utf-16be" : "utf-8";
+    const text = new TextDecoder(encoding, { fatal: true }).decode(bytes);
+    if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f]/.test(text)) return null;
+    return text.trim() || null;
+  } catch { return null; }
+}
 
 function acceptsPageDrop(transfer: DataTransfer): boolean {
   return ["Files", "text/uri-list", "text/plain", "text/html"].some((type) => Array.from(transfer.types).includes(type));
@@ -728,14 +806,38 @@ export default function RebuildPreview({
     setFormError("");
   }
 
+  async function prepareComposerFile(file: File, multiple = false) {
+    const title = file.name.replace(/\.[^.]+$/, "");
+    if (file.type.startsWith("image/") || imageFilePattern.test(file.name)) {
+      openComposer("image");
+      setFormFile(file);
+    } else {
+      const text = file.size <= 1_500_000 ? await extractNoteText(file) : null;
+      openComposer(text === null ? "file" : "note");
+      setFormFile(file);
+      if (text !== null) setFormNote(text);
+    }
+    setFormTitle(title);
+    if (multiple) setFormError("Save one item at a time. The first file is ready.");
+  }
+
+  async function convertFileCardToNote(card: PreviewCard) {
+    if (!card.fileData) return;
+    try {
+      const blob = await (await fetch(card.fileData)).blob();
+      const text = await extractNoteText(new File([blob], card.source || card.title, { type: blob.type }));
+      if (text === null) { setToast("This file could not be read as text."); return; }
+      setCards((items) => items.map((item) => item.id === card.id ? { ...item, kind: "note", description: text, fileData: undefined, tone: "stone" } : item));
+      setDetailMenuOpen(false);
+      setToast("Converted to a note in this preview");
+    } catch { setToast("This file could not be read as text."); }
+  }
+
   function handlePageDrop(transfer: DataTransfer) {
     setPageDragActive(false);
     const file = transfer.files[0];
     if (file) {
-      openComposer(file.type.startsWith("image/") || imageFilePattern.test(file.name) ? "image" : "file");
-      setFormFile(file);
-      setFormTitle(file.name.replace(/\.[^.]+$/, ""));
-      if (transfer.files.length > 1) setFormError("Save one file at a time. The first file is ready.");
+      void prepareComposerFile(file, transfer.files.length > 1);
       return;
     }
     const dropped = droppedUrl(transfer);
@@ -805,6 +907,7 @@ export default function RebuildPreview({
           kind: "note",
           title: formTitle.trim() || "Untitled note",
           description: formNote.trim(),
+          source: formFile?.name,
           collection: formCollection || undefined,
           date: "Just now",
           isPrivate: formPrivate,
@@ -1522,11 +1625,12 @@ export default function RebuildPreview({
                   <button onClick={() => { setCollectionPickerCardId(activeCard.id); setRelatedCollectionQuery(""); setDetailMenuOpen(false); }}><FolderPlus size={16} /> Add to collection</button>
                   {activeCard.kind === "link" && <button onClick={() => activeCard.image ? retryCardImage(activeCard) : openCardEditor(activeCard)}><RefreshCw size={16} /> {activeCard.image ? "Reload preview" : "Add preview image"}</button>}
                   <button onClick={() => { setPinnedIds((ids) => ids.includes(activeCard.id) ? ids.filter((id) => id !== activeCard.id) : [...ids, activeCard.id]); setDetailMenuOpen(false); }}><Pin size={16} /> {pinnedIds.includes(activeCard.id) ? "Unpin" : "Pin"}</button>
+                  {activeCard.kind === "file" && activeCard.fileData && <button onClick={() => void convertFileCardToNote(activeCard)}><FileText size={16} /> Convert to note</button>}
                   {activeCard.url && <button onClick={() => { setCards((items) => items.map((item) => item.id === activeCard.id ? { ...item, linkStatus: item.linkStatus === "broken" ? "working" : "broken" } : item)); setDetailMenuOpen(false); }}><CheckCircle2 size={16} /> {activeCard.linkStatus === "broken" ? "Mark as working" : "Mark as broken"}</button>}
                   <button
                     onClick={() => {
                       navigator.clipboard?.writeText(
-                        activeCard.url || activeCard.title,
+                        activeCard.url || (activeCard.kind === "note" ? activeCard.description || activeCard.title : activeCard.title),
                       );
                       setToast("Copied to clipboard");
                       setDetailMenuOpen(false);
@@ -1558,7 +1662,7 @@ export default function RebuildPreview({
             <span className="rb-detail-kind">{typeLabels[activeCard.kind]}{activeCard.linkStatus === "broken" && <span className="rb-broken-marker">Marked broken</span>}</span>
             <h1>{activeCard.title}</h1>
             {activeCard.description && (
-              <p className="rb-detail-description">{activeCard.description}</p>
+              <p className={`rb-detail-description ${activeCard.kind === "note" ? "rb-note-body" : ""}`}>{activeCard.description}</p>
             )}
             {activeCard.image && (
               <img className="rb-detail-image" key={activeCard.image} src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
@@ -1753,7 +1857,12 @@ export default function RebuildPreview({
                 <input
                   type="file"
                   accept={composer === "image" ? "image/*" : undefined}
-                  onChange={(e) => setFormFile(e.target.files?.[0] || null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    if (composer === "file") void prepareComposerFile(file);
+                    else { setFormFile(file); if (!formTitle.trim()) setFormTitle(file.name.replace(/\.[^.]+$/, "")); }
+                  }}
                 />
               </label>
             )}
