@@ -34,7 +34,7 @@ import {
 import { type CardKind, type PreviewCard } from "./fixtures";
 
 type Destination = "library" | "collections";
-type Filter = CardKind | "all" | "tags" | "favorites" | "social" | "substack" | "youtube" | "x";
+type Filter = CardKind | "all" | "favorites" | "social" | "substack" | "youtube" | "x";
 type Composer = CardKind | "collection" | null;
 type PreviewCollection = {
   id: string;
@@ -196,10 +196,10 @@ export default function RebuildPreview({
   const [detailMenuOpen, setDetailMenuOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
-  const [tagBrowserOpen, setTagBrowserOpen] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string | null>(null);
-  const [tagSearch, setTagSearch] = useState("");
+  const [filterHasMore, setFilterHasMore] = useState(false);
   const [tagEditorId, setTagEditorId] = useState<string | null>(null);
+  const [tagOrder, setTagOrder] = useState<"popular" | "name">("popular");
   const [tagDraft, setTagDraft] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
   const [collectionView, setCollectionView] = useState<"tree" | "grid">("tree");
@@ -224,10 +224,10 @@ export default function RebuildPreview({
     rules: [{ field: "tags", operator: "contains", value: "" }],
   });
   const [theme, setTheme] = useState<"light" | "dark">("light");
-  const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart">("links");
+  const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart" | "tags">("links");
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
-  const tagBrowserRef = useRef<HTMLElement>(null);
+  const filterRef = useRef<HTMLDivElement>(null);
   const relatedTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -283,10 +283,15 @@ export default function RebuildPreview({
   }, [toast]);
 
   useEffect(() => {
-    if (tagBrowserOpen && window.innerWidth <= 620) {
-      window.requestAnimationFrame(() => tagBrowserRef.current?.scrollIntoView({ block: "start" }));
-    }
-  }, [tagBrowserOpen]);
+    const element = filterRef.current;
+    if (!element) return;
+    const update = () => setFilterHasMore(element.scrollLeft + element.clientWidth < element.scrollWidth - 3);
+    update();
+    element.addEventListener("scroll", update);
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => { element.removeEventListener("scroll", update); observer.disconnect(); };
+  }, [destination, filter, favorites.length]);
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -303,7 +308,7 @@ export default function RebuildPreview({
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
-        setDestination("library");
+        setDestination((current) => current === "collections" && collectionGroup === "tags" ? current : "library");
         setActiveCardId(null);
         setSearchOpen(true);
         window.setTimeout(() => searchRef.current?.focus(), 0);
@@ -311,7 +316,7 @@ export default function RebuildPreview({
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, []);
+  }, [collectionGroup]);
 
   const activeCard = cards.find((card) => card.id === activeCardId) || null;
   const smartEditorCollection = allCollections.find((item) => item.id === smartEditorId);
@@ -417,7 +422,7 @@ export default function RebuildPreview({
     setQuery("");
     setFilter("all");
     setSelectedTag(null);
-    setTagBrowserOpen(false);
+    setSearchOpen(false);
     window.scrollTo(0, 0);
   }
 
@@ -449,7 +454,7 @@ export default function RebuildPreview({
           count: 0,
           description: formNote.trim() || undefined,
           parentId: formCollection || undefined,
-          group: allCollections.find((item) => item.id === formCollection)?.group || collectionGroup,
+          group: allCollections.find((item) => item.id === formCollection)?.group || (collectionGroup === "tags" ? "links" : collectionGroup),
           isPrivate: formPrivate,
         },
         ...prev,
@@ -717,17 +722,17 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-library-toolbar">
-              <div className="rb-filter-group">
-                {(["all", "tags", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
+              <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef}>
+                {(["all", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
                     <div className="rb-filter-entry" key={kind}>
                       <button
-                        className={kind === "tags" ? (selectedTag || tagBrowserOpen ? "active" : "") : filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
-                        onClick={() => kind === "tags" ? setTagBrowserOpen((open) => !open) : setFilter(kind)}
-                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : kind === "tags" ? tagBrowserOpen : undefined}
+                        className={filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
+                        onClick={() => setFilter(kind)}
+                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : undefined}
                       >
-                        {kind === "all" ? <Grid2X2 size={18} /> : kind === "tags" ? <Tag size={18} /> : kind === "favorites" ? <Heart size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
-                        {kind === "all" ? "All" : kind === "tags" ? selectedTag || "Tags" : kind === "favorites" ? "Favorites" : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
+                        {kind === "all" ? <Grid2X2 size={18} /> : kind === "favorites" ? <Heart size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
+                        {kind === "all" ? "All" : kind === "favorites" ? <>Favorites <span className="rb-filter-count">{favorites.length}</span></> : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
                         {kind === "social" && <ChevronRight className="rb-filter-chevron" size={18} />}
                       </button>
                       {kind === "social" && ["social", "substack", "youtube", "x"].includes(filter) && (
@@ -791,22 +796,7 @@ export default function RebuildPreview({
                 </button>
               </div>
             </div>
-            {tagBrowserOpen && (
-              <section className="rb-tag-browser" ref={tagBrowserRef} aria-label="Browse tags">
-                <div className="rb-tag-browser-head">
-                  <span>Tags</span>
-                  <input value={tagSearch} onChange={(event) => setTagSearch(event.target.value)} placeholder="Find a tag" aria-label="Find a tag" />
-                  {selectedTag && <button onClick={() => setSelectedTag(null)}>Clear</button>}
-                </div>
-                <div className="rb-tag-browser-list">
-                  {tagCounts.filter((tag) => tag.name.toLocaleLowerCase().includes(tagSearch.trim().toLocaleLowerCase())).map((tag) => (
-                    <button key={tag.name.toLocaleLowerCase()} className={selectedTag?.toLocaleLowerCase() === tag.name.toLocaleLowerCase() ? "active" : ""} onClick={() => setSelectedTag(tag.name)}>
-                      {tag.name} <span>{tag.count}</span>
-                    </button>
-                  ))}
-                </div>
-              </section>
-            )}
+            {selectedTag && <div className="rb-active-tag"><Tag size={18} /><span>{selectedTag}</span><button onClick={() => setSelectedTag(null)} aria-label={`Clear tag ${selectedTag}`}><X size={18} /></button></div>}
             {filteredCards.length ? (
               <div className={`rb-card-grid ${listMode ? "rb-list-grid" : ""}`}>
                 {filteredCards.slice(0, visibleCount).map((card) => (
@@ -825,7 +815,8 @@ export default function RebuildPreview({
             ) : (
               <div className="rb-empty">
                 <Folder size={28} />
-                <h2>{seedCards.length === 0 && !query ? "Saved items are being imported" : "No matches"}</h2>
+                <h2>{filter === "favorites" && favorites.length === 0 ? "No favorites yet" : seedCards.length === 0 && !query ? "Items are being imported" : "No matches"}</h2>
+                {filter === "favorites" && favorites.length === 0 && <p>Use the heart on a card to add one.</p>}
                 {seedCards.length === 0 && !query && <p>The collection structure is ready for review.</p>}
               </div>
             )}
@@ -840,30 +831,43 @@ export default function RebuildPreview({
         {destination === "collections" && (
           <>
             <div className="rb-page-heading rb-collections-heading">
-              <h1>Collections</h1>
+              <h1>{collectionGroup === "tags" ? "Tags" : "Collections"}</h1>
             </div>
             <div className="rb-collection-groups" role="group" aria-label="Collection type">
-              {(["links", "images", "smart"] as const).map((group) => (
+              {(["links", "images", "smart", "tags"] as const).map((group) => (
                 <button
                   key={group}
                   className={collectionGroup === group ? "active" : ""}
-                  onClick={() => setCollectionGroup(group)}
+                  onClick={() => { setCollectionGroup(group); setQuery(""); setSearchOpen(false); }}
                 >
-                  {group === "smart" ? "Smart collections" : group === "links" ? "Links" : "Images"}
+                  {group === "smart" ? "Smart" : group === "tags" ? "Tags" : group === "links" ? "Links" : "Images"}
                 </button>
               ))}
             </div>
             <div className="rb-collections-head">
-              <span>{allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
-              <div className="rb-collections-actions">
+              <span>{collectionGroup === "tags" ? tagCounts.length : allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
+              {collectionGroup === "tags" ? (
+                <button onClick={() => setTagOrder((order) => order === "popular" ? "name" : "popular")}>
+                  <SlidersHorizontal size={18} /> {tagOrder === "popular" ? "Most used" : "By name"}
+                </button>
+              ) : <div className="rb-collections-actions">
                 <div className="rb-collection-view" role="group" aria-label="Collection view">
                   <button className={collectionView === "tree" ? "active" : ""} onClick={() => setCollectionView("tree")}><List size={19} /> Tree</button>
                   <button className={collectionView === "grid" ? "active" : ""} onClick={() => setCollectionView("grid")}><Grid2X2 size={19} /> Grid</button>
                 </div>
                 <button onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>
-              </div>
+              </div>}
             </div>
-            {collectionView === "tree" ? (
+            {collectionGroup === "tags" ? (
+              <div className="rb-tags-page">
+                {[...tagCounts]
+                  .filter((tag) => tag.name.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()))
+                  .sort((a, b) => tagOrder === "name" ? a.name.localeCompare(b.name) : b.count - a.count || a.name.localeCompare(b.name))
+                  .map((tag) => <button key={tag.name.toLocaleLowerCase()} onClick={() => { setSelectedTag(tag.name); setSelectedCollection(null); setFilter("all"); setDestination("library"); setQuery(""); setSearchOpen(false); window.scrollTo(0, 0); }}>
+                    <Tag size={20} /><span>{tag.name}</span><span>{tag.count}</span><ArrowRight size={18} />
+                  </button>)}
+              </div>
+            ) : collectionView === "tree" ? (
               <div className="rb-collection-tree">
                 {allCollections.filter((item) => !item.parentId && (item.group || "links") === collectionGroup).map((item) => renderCollectionTree(item))}
               </div>
@@ -920,32 +924,33 @@ export default function RebuildPreview({
           <span>Collections</span>
         </button>
         <div className="rb-dock-search">
-          <button
-            className={query ? "rb-dock-search-trigger has-query" : "rb-dock-search-trigger"}
-            onClick={() => {
-              if (searchOpen) {
-                setSearchOpen(false);
-              } else {
-                setDestination("library");
-                setSearchOpen(true);
-                window.setTimeout(() => searchRef.current?.focus(), 0);
-              }
-            }}
-            aria-label={searchOpen ? "Close search" : "Search library"}
-            aria-expanded={searchOpen}
-          >
-            {searchOpen ? <X size={23} /> : <Search size={23} />}
-          </button>
           {searchOpen && (
             <input
               ref={searchRef}
               autoFocus
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder="Search library"
-              aria-label="Search library"
+              placeholder={destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
+              aria-label={destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
             />
           )}
+          <button
+            className={query ? "rb-dock-search-trigger has-query" : "rb-dock-search-trigger"}
+            onClick={() => {
+              if (searchOpen) {
+                setQuery("");
+                setSearchOpen(false);
+              } else {
+                if (!(destination === "collections" && collectionGroup === "tags")) setDestination("library");
+                setSearchOpen(true);
+                window.setTimeout(() => searchRef.current?.focus(), 0);
+              }
+            }}
+            aria-label={searchOpen ? "Clear and close search" : destination === "collections" && collectionGroup === "tags" ? "Search tags" : "Search library"}
+            aria-expanded={searchOpen}
+          >
+            {searchOpen ? <X size={23} /> : <Search size={23} />}
+          </button>
         </div>
       </nav>
       <div className="rb-create-anchor">
@@ -1101,7 +1106,7 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-detail-tags">
-              {activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setTagBrowserOpen(true); setDestination("library"); setActiveCardId(null); }}>{tag}</button>)}
+              {activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setDestination("library"); setActiveCardId(null); window.scrollTo(0, 0); }}>{tag}</button>)}
               <button className="rb-detail-edit-tags" onClick={() => openTagEditor(activeCard)}><Tag size={17} /> Edit tags</button>
             </div>
           </div>
