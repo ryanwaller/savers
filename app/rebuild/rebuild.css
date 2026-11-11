@@ -1,3 +1,54 @@
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-Light.otf") format("opentype");
+  font-style: normal;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-LightItalic.otf")
+    format("opentype");
+  font-style: italic;
+  font-weight: 300;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-Book.otf") format("opentype");
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-BookItalic.otf")
+    format("opentype");
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-Medium.otf") format("opentype");
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "OM Bauer Folio";
+  src: url("/rebuild/fonts/OMBauerFolio260703-MediumItalic.otf")
+    format("opentype");
+  font-style: italic;
+  font-weight: 500;
+  font-display: swap;
+}
+
 body:has(.rebuild-app) {
   overflow: auto;
   background: #fbfaf7;
@@ -12,7 +63,7 @@ body:has(.rebuild-app) {
   padding-bottom: 155px;
   background: #fbfaf7;
   color: var(--rb-ink);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "OM Bauer Folio", Arial, sans-serif;
   font-size: 15px;
   line-height: 1.45;
   -webkit-font-smoothing: antialiased;
@@ -200,7 +251,7 @@ body:has(.rebuild-app) {
 }
 .rb-page-heading h1,
 .rb-explore-top h1 {
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "OM Bauer Folio", Arial, sans-serif;
   font-size: clamp(38px, 4vw, 54px);
   font-weight: 500;
   letter-spacing: -0.055em;
@@ -450,7 +501,7 @@ body:has(.rebuild-app) {
 }
 .rb-card h3 {
   margin: 17px 0 10px;
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: "OM Bauer Folio", Arial, sans-serif;
   font-weight: 500;
   font-size: 23px;
   line-height: 1.2;
@@ -576,7 +627,7 @@ body:has(.rebuild-app) {
 }
 .rb-empty h2 {
   color: #50544b;
-  font-family: Arial, sans-serif;
+  font-family: "OM Bauer Folio", Arial, sans-serif;
   font-weight: 500;
   font-size: 25px;
   margin: 13px 0 5px;
@@ -1526,4 +1577,502 @@ body:has(.rebuild-app) {
     transition-duration: 0.01ms !important;
     animation-duration: 0.01ms !important;
   }
+}
+
+/* Reference palette and typography. Keep chrome neutral; use lime for actions. */
+body:has(.rebuild-app) {
+  background: #fff;
+}
+.rebuild-app {
+  --rb-ink: #202020;
+  --rb-muted: #777;
+  --rb-line: #e6e6e6;
+  --rb-lime: #b9ff69;
+  background: #fff;
+  color: var(--rb-ink);
+  font-family: "OM Bauer Folio", Arial, sans-serif;
+}
+.rb-preview-flag,
+.rebuild-app .rb-preview-flag {
+  background: #f4f4f4;
+  color: #606060;
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.rb-flag-note {
+  color: #777;
+  letter-spacing: 0;
+}
+.rb-pulse {
+  background: #a4f853;
+  box-shadow: 0 0 0 4px #e6ffd0;
+}
+.rb-mark-glyph {
+  color: #202020;
+}
+.rb-page-heading {
+  margin: 30px auto 38px;
+}
+.rb-page-heading h1,
+.rb-explore-top h1 {
+  font-family: "OM Bauer Folio", Arial, sans-serif;
+  font-weight: 400;
+  font-size: clamp(34px, 4vw, 48px);
+}
+.rb-search-wrap {
+  background: #f3f3f3;
+  border-color: #f0f0f0;
+}
+.rb-search-wrap input {
+  background: transparent;
+}
+.rb-section-intro > span {
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0;
+  color: #777;
+}
+.rb-rail-item,
+.rb-collection-tile {
+  border-color: #e7e7e7;
+}
+.rb-filter-group button.active,
+.rb-small-icon.selected {
+  background: #ededed;
+  color: #242424;
+}
+.rb-card {
+  border-color: #e8e8e8;
+}
+.rb-card h3,
+.rb-collection-info h2,
+.rb-inbox-row h2,
+.rb-detail-content h1,
+.rb-related h2,
+.rb-related-grid strong,
+.rb-composer h2 {
+  font-family: "OM Bauer Folio", Arial, sans-serif;
+}
+.rb-card-topline {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 400;
+}
+.rb-card-footer {
+  font-size: 11px;
+}
+.rb-tone-cream {
+  background: #f2f2f2;
+  border-color: #ededed;
+}
+.rb-tone-sage {
+  background: #ededed;
+  border-color: #e9e9e9;
+}
+.rb-tone-lavender {
+  background: #f4f4f4;
+  border-color: #eee;
+}
+.rb-tone-stone {
+  background: #e9e9e9;
+  border-color: #e5e5e5;
+}
+.rb-file-art {
+  background: #e1e1e1;
+}
+.rb-dock {
+  background: #f8f8f8;
+  border-color: #ececec;
+}
+.rb-dock button.active {
+  background: #eeeeee;
+  color: #222;
+}
+.rb-create-button,
+.rb-composer-footer button {
+  background: #b9ff69;
+  color: #172211;
+}
+.rb-create-button:hover,
+.rb-composer-footer button:hover {
+  background: #a6f54d;
+}
+.rb-create-menu {
+  background: #252525;
+}
+.rb-create-menu > span {
+  letter-spacing: 0;
+  text-transform: none;
+  font-size: 12px;
+  font-weight: 400;
+}
+.rb-create-menu button:hover {
+  background: #383838;
+}
+.rb-composer-overlay {
+  background: #121212;
+}
+.rb-composer input,
+.rb-composer textarea,
+.rb-composer select {
+  background: #252525;
+  border-color: #444;
+}
+.rb-composer-footer span {
+  color: #aaa;
+}
+.rb-detail-kind,
+.rb-detail-meta span,
+.rb-detail-note > span,
+.rb-related-grid span {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: 12px;
+  font-weight: 400;
+}
+.rb-related-grid button {
+  background: #f2f2f2;
+}
+.rb-related-grid button:hover {
+  background: #e8e8e8;
+}
+.rb-inbox-keep {
+  background: #d8ffb1;
+  color: #243b14;
+}
+.rb-account-menu,
+.rb-sort-menu {
+  border-color: #e6e6e6;
+}
+.rb-theme-picker {
+  display: flex;
+  gap: 3px;
+  padding: 5px;
+  background: #f0f0f0;
+  border-radius: 10px;
+  margin: 7px 4px;
+}
+.rb-theme-picker button {
+  flex: 1;
+  justify-content: center;
+  min-height: 34px;
+}
+.rb-theme-picker button.active {
+  background: #b9ff69;
+  color: #182412;
+}
+
+.rebuild-app.rb-dark,
+.rebuild-app.rb-theme-dark {
+  background: #111;
+  color: #f5f5f5;
+}
+.rb-dark .rb-mark,
+.rb-theme-dark .rb-mark,
+.rb-dark .rb-icon-button,
+.rb-theme-dark .rb-icon-button {
+  color: #f3f3f3;
+}
+.rb-dark .rb-mark-glyph,
+.rb-theme-dark .rb-mark-glyph {
+  color: #b9ff69;
+}
+.rb-dark .rb-preview-flag,
+.rb-theme-dark .rb-preview-flag {
+  background: #262626;
+  color: #e1e1e1;
+}
+.rb-dark .rb-flag-note,
+.rb-theme-dark .rb-flag-note {
+  color: #aaa;
+}
+.rb-dark .rb-page-heading p,
+.rb-theme-dark .rb-page-heading p,
+.rb-dark .rb-explore-top p,
+.rb-theme-dark .rb-explore-top p {
+  color: #aaa;
+}
+.rb-dark .rb-search-wrap,
+.rb-theme-dark .rb-search-wrap {
+  background: #252525;
+  border-color: #333;
+  color: #aaa;
+}
+.rb-dark .rb-search-wrap input,
+.rb-theme-dark .rb-search-wrap input {
+  color: #f5f5f5;
+}
+.rb-dark .rb-keycap,
+.rb-theme-dark .rb-keycap {
+  border-color: #555;
+  color: #aaa;
+}
+.rb-dark .rb-section-intro > span,
+.rb-theme-dark .rb-section-intro > span,
+.rb-dark .rb-section-intro button,
+.rb-theme-dark .rb-section-intro button {
+  color: #aaa;
+}
+.rb-dark .rb-rail-item,
+.rb-theme-dark .rb-rail-item,
+.rb-dark .rb-collection-tile,
+.rb-theme-dark .rb-collection-tile {
+  background: #252525;
+  border-color: #393939;
+  color: #f3f3f3;
+}
+.rb-dark .rb-rail-count,
+.rb-theme-dark .rb-rail-count {
+  color: #aaa;
+}
+.rb-dark .rb-filter-group button,
+.rb-theme-dark .rb-filter-group button {
+  color: #aaa;
+}
+.rb-dark .rb-filter-group button.active,
+.rb-theme-dark .rb-filter-group button.active,
+.rb-dark .rb-small-icon.selected,
+.rb-theme-dark .rb-small-icon.selected {
+  background: #373737;
+  color: #caff8c;
+}
+.rb-dark .rb-toolbar-end,
+.rb-theme-dark .rb-toolbar-end {
+  color: #aaa;
+}
+.rb-dark .rb-small-icon,
+.rb-theme-dark .rb-small-icon {
+  color: #aaa;
+}
+.rb-dark .rb-small-icon:hover,
+.rb-theme-dark .rb-small-icon:hover {
+  background: #333;
+}
+.rb-dark .rb-card,
+.rb-theme-dark .rb-card {
+  background: #272727;
+  border-color: #393939;
+  color: #f4f4f4;
+}
+.rb-dark .rb-card p,
+.rb-theme-dark .rb-card p {
+  color: #c1c1c1;
+}
+.rb-dark .rb-card-topline,
+.rb-theme-dark .rb-card-topline,
+.rb-dark .rb-card-footer,
+.rb-theme-dark .rb-card-footer {
+  color: #aaa;
+}
+.rb-dark .rb-card-footer,
+.rb-theme-dark .rb-card-footer {
+  border-color: #424242;
+}
+.rb-dark .rb-file-art,
+.rb-theme-dark .rb-file-art {
+  background: #343434;
+  color: #bbb;
+}
+.rb-dark .rb-collections-head,
+.rb-theme-dark .rb-collections-head,
+.rb-dark .rb-inbox-tabs,
+.rb-theme-dark .rb-inbox-tabs,
+.rb-dark .rb-inbox-row,
+.rb-theme-dark .rb-inbox-row {
+  border-color: #383838;
+}
+.rb-dark .rb-collections-head button,
+.rb-theme-dark .rb-collections-head button {
+  color: #b9ff69;
+}
+.rb-dark .rb-collection-info p,
+.rb-theme-dark .rb-collection-info p {
+  color: #aaa;
+}
+.rb-dark .rb-inbox-tabs button.active,
+.rb-theme-dark .rb-inbox-tabs button.active {
+  color: #eee;
+  border-color: #b9ff69;
+}
+.rb-dark .rb-inbox-tabs button span,
+.rb-theme-dark .rb-inbox-tabs button span {
+  background: #444;
+}
+.rb-dark .rb-dock,
+.rb-theme-dark .rb-dock {
+  background: #242424f2;
+  border-color: #404040;
+}
+.rb-dark .rb-dock button,
+.rb-theme-dark .rb-dock button {
+  color: #aaa;
+}
+.rb-dark .rb-dock button.active,
+.rb-theme-dark .rb-dock button.active {
+  background: #404040;
+  color: #b9ff69;
+}
+.rb-dark .rb-account-menu,
+.rb-theme-dark .rb-account-menu,
+.rb-dark .rb-sort-menu,
+.rb-theme-dark .rb-sort-menu {
+  background: #262626;
+  border-color: #444;
+  color: #f1f1f1;
+}
+.rb-dark .rb-account-title,
+.rb-theme-dark .rb-account-title {
+  border-color: #414141;
+}
+.rb-dark .rb-account-menu button:hover,
+.rb-theme-dark .rb-account-menu button:hover,
+.rb-dark .rb-sort-menu button:hover,
+.rb-theme-dark .rb-sort-menu button:hover {
+  background: #383838;
+}
+.rb-dark .rb-theme-picker,
+.rb-theme-dark .rb-theme-picker {
+  background: #3a3a3a;
+}
+.rb-dark .rb-theme-picker button.active,
+.rb-theme-dark .rb-theme-picker button.active {
+  background: #b9ff69;
+  color: #182412;
+}
+.rb-theme-dark .rb-detail {
+  background: #151515;
+  color: #f5f5f5;
+}
+.rb-theme-dark .rb-detail-bar {
+  background: #151515ed;
+}
+.rb-theme-dark .rb-detail-bar button,
+.rb-theme-dark .rb-detail-bar a {
+  color: #bbb;
+}
+.rb-theme-dark .rb-detail-meta {
+  border-color: #3b3b3b;
+}
+.rb-theme-dark .rb-detail-description {
+  color: #bdbdbd;
+}
+.rb-theme-dark .rb-detail-note,
+.rb-theme-dark .rb-related-grid button {
+  background: #272727;
+  color: #f2f2f2;
+}
+.rb-theme-dark .rb-related h2 {
+  color: #f1f1f1;
+}
+.rb-theme-dark .rb-related-grid button:hover {
+  background: #353535;
+}
+.rb-theme-dark .rb-detail-file {
+  background: #303030;
+  color: #ddd;
+}
+.rb-theme-dark .rb-detail-menu {
+  background: #292929;
+  border-color: #444;
+}
+.rb-theme-dark .rb-detail-menu button {
+  color: #f1f1f1;
+}
+.rb-theme-dark .rb-empty {
+  border-color: #444;
+  color: #aaa;
+}
+.rb-theme-dark .rb-empty h2 {
+  color: #eee;
+}
+.rb-collection-tile {
+  display: block;
+  min-height: 0;
+}
+.rb-collection-main {
+  display: flex;
+  width: 100%;
+  min-height: 220px;
+  text-align: left;
+}
+.rb-collection-main .rb-collection-cover {
+  align-self: stretch;
+}
+.rb-collection-children {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+  padding: 12px 16px 16px;
+  border-top: 1px solid #e7e7e7;
+}
+.rb-collection-children button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 7px 9px;
+  border-radius: 8px;
+  background: #f3f3f3;
+  color: #565656;
+  font-size: 11px;
+}
+.rb-collection-children button:hover {
+  background: #e8e8e8;
+}
+.rb-theme-dark .rb-collection-children {
+  border-color: #3a3a3a;
+}
+.rb-theme-dark .rb-collection-children button {
+  background: #353535;
+  color: #ddd;
+}
+.rb-theme-dark .rb-collection-children button:hover {
+  background: #464646;
+}
+.rb-collection-groups {
+  display: flex;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto 25px;
+  padding: 5px;
+  border-radius: 999px;
+  background: #eaeaea;
+}
+.rb-collection-groups button {
+  padding: 9px 17px;
+  border-radius: 999px;
+  color: #6c6c6c;
+  white-space: nowrap;
+  font-size: 13px;
+}
+.rb-collection-groups button.active {
+  background: #111;
+  color: #fff;
+}
+.rb-theme-dark .rb-collection-groups { background: #252525; }
+.rb-theme-dark .rb-collection-groups button { color: #aaa; }
+.rb-theme-dark .rb-collection-groups button.active { background: #b9ff69; color: #111; }
+.rb-collection-cover > svg {
+  position: absolute;
+  top: 25px;
+  left: 25px;
+  color: #666;
+}
+.rb-collection-cover:not(:has(img)) {
+  min-height: 160px;
+  background: #ededed;
+}
+.rb-theme-dark .rb-collection-cover:not(:has(img)) { background: #303030; }
+.rb-theme-dark .rb-collection-cover > svg { color: #aaa; }
+.rb-collection-info h2 { font-family: "OM Bauer Folio", Arial, sans-serif; }
+.rb-child-count { margin-left: 4px; color: #999; }
+.rb-card-topline { text-transform: none; letter-spacing: 0; }
+.rb-detail-kind, .rb-related-grid span { text-transform: none; letter-spacing: 0; }
+.rb-detail-content h1, .rb-related h2, .rb-related-grid strong, .rb-composer h2 { font-family: "OM Bauer Folio", Arial, sans-serif; }
+@media (max-width: 640px) {
+  .rb-collection-groups { width: 100%; justify-content: space-between; }
+  .rb-collection-groups button { padding: 9px 10px; font-size: 12px; }
 }

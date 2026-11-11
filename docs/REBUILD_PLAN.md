@@ -157,16 +157,16 @@ Keep the concise account popover of `9.15.56`, then open dedicated views for ope
 
 ## 5. Visual system: close match, deliberate improvements
 
-These are **starting targets for design prototypes**, not extracted Sublime tokens. Compare at the same screenshot viewport and adjust by eye and accessibility checks.
+The user has now set the design direction: match the reference's light and dark greys, use bright neon green as the accent, use the supplied OM Bauer Folio family, and remove all-caps labels and extra copy. Compare at the same screenshot viewport and adjust by eye and accessibility checks.
 
 | Element        | Starting target                                                                    | Improvement                                                                            |
 | -------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| Canvas         | Charcoal `#111111` for discovery/creation; warm white `#FCFCFA` for library/detail | Maintain consistent semantic surfaces when switching modes.                            |
-| Panels         | 16–24 px radius; dark `#242424` or light `#F3F3F1`; very soft shadow               | Keep dialog edges discernible on either canvas.                                        |
-| Main text      | `#F5F5F2` on dark; `#171717` on light                                              | Body copy at WCAG AA contrast; avoid the faint gray seen in some empty states.         |
-| Secondary text | Approx. `#B8B8B3` dark / `#636363` light                                           | Never use opacity alone for essential labels.                                          |
-| Accent         | Restrained pale lime, approx. `#CBF7A3`                                            | Reserve for save/affirmative state and selected controls; test contrast of text on it. |
-| Typography     | Neutral sans for UI; 15–16 px body; 28–40 px display depending on viewport         | Card text and article text get a distinct readable scale; no tiny action labels.       |
+| Canvas         | Dark grey `#111111` or white `#FFFFFF`, switchable by the user                       | Maintain consistent semantic surfaces when switching modes.                            |
+| Panels         | 16–24 px radius; dark `#252525` or light `#F3F3F3`; very soft shadow               | Keep dialog edges discernible on either canvas.                                        |
+| Main text      | `#F5F5F5` on dark; `#202020` on light                                              | Body copy at WCAG AA contrast; avoid the faint gray seen in some empty states.         |
+| Secondary text | Approx. `#B8B8B8` dark / `#636363` light                                           | Never use opacity alone for essential labels.                                          |
+| Accent         | Bright neon green, initially `#B9FF69`                                            | Reserve for actions and selected controls; test contrast of text on it.                 |
+| Typography     | Supplied OM Bauer Folio Light, Book, and Medium, including italics                | Use readable sizes and sentence-case labels; no decorative filler copy.                |
 | Layout         | 8 px spacing rhythm; reading column 640–760 px; grid container around 1180–1320 px | Responsive breakpoints from content needs, not arbitrary device labels.                |
 | Motion         | 120–220 ms soft transitions for menus/cards                                        | Respect reduced-motion preferences and avoid long blur transitions.                    |
 
@@ -185,9 +185,9 @@ Potential later schema changes: a `cards`/`collection_memberships` model, notes/
 ### Preview and production isolation
 
 1. Confirm GitHub branch and the exact live deployment SHA. Create `rebuild` from the current source of truth.
-2. Create a separate Railway **web service** attached to `rebuild`, with a generated Railway domain. Set only the variables required for fixture mode; do not inherit production Supabase service-role, Redis, queue, or storage secrets. No DNS change is needed. Publish the first interactive design slice there.
+2. Create a separate Railway **web service** attached to `rebuild`, with a generated Railway domain. Set only the variables required for preview mode, including a review password; do not inherit production Supabase service-role, Redis, queue, or storage secrets. No DNS change is needed. Publish the first interactive design slice there.
 3. For authenticated functional testing, create a **separate Supabase staging project** with matching migrations/storage buckets and test users. Give the preview its own explicit `NEXT_PUBLIC_SITE_URL`, Supabase redirect allowlist, and origin configuration. Check web auth and the existing native `savers://` callback separately. Use staging Redis/workers only when background jobs are tested; otherwise display fixture states.
-4. If representative content is needed, copy a small, consented and sanitized sample; never point staging writes at production. Where safe, a temporary read-only import can seed staging, with URLs/tokens/private asset paths scrubbed.
+4. The user's screenshots provide real collection names, hierarchy, and displayed counts for the review slice. Import saved items from an authorized export into isolated staging when available; never point staging writes at production. Scrub private asset paths and share tokens before publishing any content outside password-protected review.
 5. Keep the production Railway service and domain unchanged through review. Promote only after all gates pass; preserve the old build as a rollback target and keep database migrations backward compatible during the cutover window.
 
 Why a separate service instead of `/rebuild` in production: a subfolder avoids an extra URL but requires every work-in-progress change to deploy through the live service and tempts shared data/credentials. A generated Railway URL costs no custom-domain configuration and gives a cleaner boundary. A dedicated staging database adds setup later, when write-capable testing begins; the first visual preview needs none.

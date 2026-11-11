@@ -1,5 +1,6 @@
 import type { Viewport } from "next";
 import RebuildPreview from "./preview";
+import { realCollections } from "./real-collections";
 import "./rebuild.css";
 
 export const metadata = {
@@ -13,9 +14,9 @@ export const viewport: Viewport = {
   maximumScale: 5,
   userScalable: true,
   viewportFit: "cover",
-  themeColor: "#fbfaf7",
+  themeColor: "#f8f8f8",
 };
 
 export default function RebuildPage() {
-  return <RebuildPreview />;
+  return <RebuildPreview seedCollections={realCollections} seedCards={[]} />;
 }

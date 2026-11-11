@@ -9,7 +9,6 @@ import {
   Bookmark,
   Check,
   CheckCircle2,
-  Compass,
   Copy,
   ExternalLink,
   FileText,
@@ -18,7 +17,6 @@ import {
   Grid2X2,
   Heart,
   Image as ImageIcon,
-  Inbox,
   Link2,
   List,
   LockKeyhole,
@@ -30,26 +28,22 @@ import {
   Upload,
   X,
 } from "lucide-react";
-import {
-  collections as sampleCollections,
-  inboxItems,
-  initialCards,
-  type CardKind,
-  type PreviewCard,
-} from "./fixtures";
+import { type CardKind, type PreviewCard } from "./fixtures";
 
-type Destination = "library" | "collections" | "inbox" | "explore";
+type Destination = "library" | "collections";
 type Filter = CardKind | "all";
 type Composer = CardKind | "collection" | null;
 type PreviewCollection = {
   id: string;
   name: string;
-  count: number;
-  description: string;
-  image: string;
+  count: number | null;
+  description?: string;
+  image?: string;
+  parentId?: string;
+  group?: "links" | "images" | "smart";
 };
 
-const storageKey = "savers.rebuild.preview.v1";
+const storageKey = "savers.rebuild.preview.v2";
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
 const typeLabels: Record<CardKind, string> = {
   link: "Link",
@@ -103,12 +97,16 @@ function CardTile({
   );
 }
 
-export default function RebuildPreview() {
+export default function RebuildPreview({
+  seedCollections,
+  seedCards,
+}: {
+  seedCollections: PreviewCollection[];
+  seedCards: PreviewCard[];
+}) {
   const [destination, setDestination] = useState<Destination>("library");
-  const [cards, setCards] = useState<PreviewCard[]>(initialCards);
-  const [allCollections, setAllCollections] = useState<PreviewCollection[]>([
-    ...sampleCollections,
-  ]);
+  const [cards, setCards] = useState<PreviewCard[]>(seedCards);
+  const [allCollections, setAllCollections] = useState<PreviewCollection[]>(seedCollections);
   const [selectedCollection, setSelectedCollection] = useState<string | null>(
     null,
   );
@@ -129,8 +127,9 @@ export default function RebuildPreview() {
   const [formFile, setFormFile] = useState<File | null>(null);
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
-  const [removedInbox, setRemovedInbox] = useState<string[]>([]);
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart">("links");
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -143,11 +142,14 @@ export default function RebuildPreview() {
             cards?: PreviewCard[];
             collections?: PreviewCollection[];
             favorites?: string[];
+            theme?: "light" | "dark";
           };
           if (Array.isArray(parsed.cards)) setCards(parsed.cards);
           if (Array.isArray(parsed.collections))
             setAllCollections(parsed.collections);
           if (Array.isArray(parsed.favorites)) setFavorites(parsed.favorites);
+          if (parsed.theme === "light" || parsed.theme === "dark")
+            setTheme(parsed.theme);
         }
       } catch {
         /* The fixture preview remains usable if browser storage is unavailable. */
@@ -162,12 +164,17 @@ export default function RebuildPreview() {
     try {
       localStorage.setItem(
         storageKey,
-        JSON.stringify({ cards, collections: allCollections, favorites }),
+        JSON.stringify({
+          cards,
+          collections: allCollections,
+          favorites,
+          theme,
+        }),
       );
     } catch {
       /* A full browser storage quota only affects persistence of the preview. */
     }
-  }, [cards, allCollections, favorites, ready]);
+  }, [cards, allCollections, favorites, theme, ready]);
 
   useEffect(() => {
     if (!toast) return;
@@ -199,6 +206,12 @@ export default function RebuildPreview() {
   const activeCard = cards.find((card) => card.id === activeCardId) || null;
   const collection = allCollections.find(
     (item) => item.id === selectedCollection,
+  );
+  const parentCollection = collection?.parentId
+    ? allCollections.find((item) => item.id === collection.parentId)
+    : null;
+  const subcollections = allCollections.filter(
+    (item) => item.parentId === selectedCollection,
   );
   const filteredCards = useMemo(() => {
     const match = cards.filter((card) => {
@@ -246,13 +259,14 @@ export default function RebuildPreview() {
           id,
           name: formTitle.trim(),
           count: 0,
-          description: formNote.trim() || "A place for what matters to you.",
-          image: "/rebuild/flowers.svg",
+          description: formNote.trim() || undefined,
+          parentId: formCollection || undefined,
+          group: allCollections.find((item) => item.id === formCollection)?.group || collectionGroup,
         },
         ...prev,
       ]);
       setSelectedCollection(id);
-      setDestination("collections");
+      setDestination("library");
       setComposer(null);
       setToast("Collection created in this preview");
       return;
@@ -343,21 +357,15 @@ export default function RebuildPreview() {
     );
   }
 
-  const visibleInbox = inboxItems.filter(
-    (item) => !removedInbox.includes(item.title),
-  );
-
   return (
     <div
-      className={`rebuild-app ${destination === "explore" ? "rb-dark" : ""}`}
+      className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""}`}
       data-rebuild-root
     >
       <div className="rb-preview-flag">
-        <span className="rb-pulse" /> SAVERS REBUILD{" "}
-        <span className="rb-flag-divider">/</span> INTERACTIVE PREVIEW{" "}
-        <span className="rb-flag-note">
-          Sample content · saves stay in this browser
-        </span>
+        <span className="rb-pulse" /> Preview
+        <span className="rb-flag-divider">·</span>
+        <span className="rb-flag-note">Saves stay in this browser</span>
       </div>
 
       <header className="rb-topbar">
@@ -392,19 +400,37 @@ export default function RebuildPreview() {
             {accountOpen && (
               <div className="rb-account-menu">
                 <div className="rb-account-title">
-                  Your preview space
-                  <span>Changes live in this browser only</span>
+                  Preview
+                  <span>Browser-local saves</span>
+                </div>
+                <div
+                  className="rb-theme-picker"
+                  role="group"
+                  aria-label="Appearance"
+                >
+                  <button
+                    className={theme === "light" ? "active" : ""}
+                    onClick={() => setTheme("light")}
+                  >
+                    Light
+                  </button>
+                  <button
+                    className={theme === "dark" ? "active" : ""}
+                    onClick={() => setTheme("dark")}
+                  >
+                    Dark
+                  </button>
                 </div>
                 <button
                   onClick={() => {
-                    setCards(initialCards);
-                    setAllCollections([...sampleCollections]);
+                    setCards(seedCards);
+                    setAllCollections(seedCollections);
                     setFavorites([]);
                     setAccountOpen(false);
                     setToast("Preview reset");
                   }}
                 >
-                  Reset sample content
+                  Reset preview
                 </button>
                 <a
                   href="https://savers-production.up.railway.app"
@@ -425,19 +451,16 @@ export default function RebuildPreview() {
             {collection && (
               <button
                 className="rb-back-link"
-                onClick={() => setSelectedCollection(null)}
+                onClick={() =>
+                  setSelectedCollection(parentCollection?.id || null)
+                }
               >
-                <ArrowLeft size={17} /> All cards
+                <ArrowLeft size={17} /> {parentCollection?.name || "All cards"}
               </button>
             )}
             <div className="rb-page-heading">
-              <span className="rb-eyebrow">YOUR SPACE, YOUR WAY</span>
-              <h1>{collection ? collection.name : "Your library"}</h1>
-              <p>
-                {collection
-                  ? collection.description
-                  : "Everything worth keeping, all in one beautiful place."}
-              </p>
+              <h1>{collection ? collection.name : "Library"}</h1>
+              {collection?.description && <p>{collection.description}</p>}
             </div>
             <div className="rb-search-wrap">
               <Search size={20} />
@@ -450,28 +473,32 @@ export default function RebuildPreview() {
               />
               <span className="rb-keycap">⌘ K</span>
             </div>
-            {!collection && (
+            {(!collection || subcollections.length > 0) && (
               <div className="rb-collection-rail">
                 <div className="rb-section-intro">
-                  <span>COLLECTIONS</span>
-                  <button onClick={() => navigate("collections")}>
-                    View all <ArrowRight size={14} />
-                  </button>
+                  <span>{collection ? "Subfolders" : "Collections"}</span>
+                  {!collection && (
+                    <button onClick={() => navigate("collections")}>
+                      View all <ArrowRight size={14} />
+                    </button>
+                  )}
                 </div>
                 <div className="rb-rail-items">
-                  {allCollections.slice(0, 4).map((item) => (
+                  {(collection
+                    ? subcollections
+                    : allCollections
+                        .filter((item) => !item.parentId && (item.group || "links") === "links")
+                        .slice(0, 4)
+                  ).map((item) => (
                     <button
                       key={item.id}
                       className="rb-rail-item"
                       onClick={() => setSelectedCollection(item.id)}
                     >
-                      <img src={item.image} alt="" />
+                      {item.image ? <img src={item.image} alt="" /> : <Folder size={20} />}
                       <span>{item.name}</span>
                       <span className="rb-rail-count">
-                        {
-                          cards.filter((card) => card.collection === item.id)
-                            .length
-                        }
+                        {item.count ?? ""}
                       </span>
                     </button>
                   ))}
@@ -494,8 +521,9 @@ export default function RebuildPreview() {
               </div>
               <div className="rb-toolbar-end">
                 <span>
-                  {filteredCards.length}{" "}
-                  {filteredCards.length === 1 ? "card" : "cards"}
+                  {seedCards.length === 0 && !query && filter === "all"
+                    ? `${collection ? collection.count ?? "—" : 815} saved`
+                    : `${filteredCards.length} ${filteredCards.length === 1 ? "card" : "cards"}`}
                 </span>
                 <div className="rb-sort-wrap">
                   <button
@@ -556,12 +584,9 @@ export default function RebuildPreview() {
               </div>
             ) : (
               <div className="rb-empty">
-                <Search size={28} />
-                <h2>Nothing here yet</h2>
-                <p>Try a different search or save something new.</p>
-                <button onClick={() => openComposer("link")}>
-                  Save a link <ArrowRight size={16} />
-                </button>
+                <Folder size={28} />
+                <h2>{seedCards.length === 0 && !query ? "Saved items are being imported" : "No matches"}</h2>
+                {seedCards.length === 0 && !query && <p>The collection structure is ready for review.</p>}
               </div>
             )}
           </>
@@ -570,172 +595,78 @@ export default function RebuildPreview() {
         {destination === "collections" && (
           <>
             <div className="rb-page-heading rb-collections-heading">
-              <span className="rb-eyebrow">PUT THINGS TOGETHER</span>
               <h1>Collections</h1>
-              <p>
-                Gather ideas by what they mean to you, not just what they are.
-              </p>
+            </div>
+            <div className="rb-collection-groups" role="group" aria-label="Collection type">
+              {(["links", "images", "smart"] as const).map((group) => (
+                <button
+                  key={group}
+                  className={collectionGroup === group ? "active" : ""}
+                  onClick={() => setCollectionGroup(group)}
+                >
+                  {group === "smart" ? "Smart collections" : group === "links" ? "Links" : "Images"}
+                </button>
+              ))}
             </div>
             <div className="rb-collections-head">
-              <span>{allCollections.length} collections</span>
+              <span>{allCollections.filter((item) => (item.group || "links") === collectionGroup).length} collections</span>
               <button onClick={() => openComposer("collection")}>
                 <FolderPlus size={16} /> New collection
               </button>
             </div>
             <div className="rb-collection-grid">
-              {allCollections.map((item) => (
-                <button
-                  key={item.id}
-                  className="rb-collection-tile"
-                  onClick={() => {
-                    setSelectedCollection(item.id);
-                    setDestination("library");
-                  }}
-                >
-                  <div className="rb-collection-cover">
-                    <img src={item.image} alt="" />
-                    <span>
-                      <Folder size={18} />
-                    </span>
-                  </div>
-                  <div className="rb-collection-info">
-                    <h2>{item.name}</h2>
-                    <p>{item.description}</p>
-                    <span>
-                      {
-                        cards.filter((card) => card.collection === item.id)
-                          .length
-                      }{" "}
-                      cards <ArrowUpRight size={15} />
-                    </span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-
-        {destination === "inbox" && (
-          <>
-            <div className="rb-page-heading">
-              <span className="rb-eyebrow">A PLACE TO BEGIN</span>
-              <h1>Your inbox</h1>
-              <p>
-                Interesting things can wait here until you decide what to keep.
-              </p>
-            </div>
-            <div className="rb-inbox-tabs">
-              <button className="active">
-                To review <span>{visibleInbox.length}</span>
-              </button>
-              <button
-                onClick={() =>
-                  setToast("More inbox views arrive in a later preview")
-                }
-              >
-                Unsorted
-              </button>
-              <button
-                onClick={() =>
-                  setToast("Feed management arrives in a later preview")
-                }
-              >
-                Feeds
-              </button>
-            </div>
-            <div className="rb-inbox-list">
-              {visibleInbox.length ? (
-                visibleInbox.map((item) => (
-                  <div className="rb-inbox-row" key={item.title}>
-                    <img src={item.image} alt="" />
-                    <div>
-                      <span>
-                        {item.type} · {item.source}
-                      </span>
-                      <h2>{item.title}</h2>
-                    </div>
+              {allCollections
+                .filter((item) => !item.parentId && (item.group || "links") === collectionGroup)
+                .map((item) => (
+                  <div key={item.id} className="rb-collection-tile">
                     <button
-                      className="rb-inbox-keep"
+                      className="rb-collection-main"
                       onClick={() => {
-                        setCards((prev) => [
-                          {
-                            id: `inbox-${Date.now()}`,
-                            kind: "link",
-                            title: item.title,
-                            description: `Saved from ${item.source}`,
-                            source: item.source,
-                            image: item.image,
-                            date: "Just now",
-                          },
-                          ...prev,
-                        ]);
-                        setRemovedInbox((prev) => [...prev, item.title]);
-                        setToast("Added to your preview library");
+                        setSelectedCollection(item.id);
+                        setDestination("library");
                       }}
                     >
-                      Keep <Check size={15} />
+                      <div className="rb-collection-cover">
+                        {item.image ? <img src={item.image} alt="" /> : <Folder size={28} />}
+                        <span>
+                          <Folder size={18} />
+                        </span>
+                      </div>
+                      <div className="rb-collection-info">
+                        <h2>{item.name}</h2>
+                        <span>
+                          {item.count === null ? "" : `${item.count} saved`} <ArrowUpRight size={15} />
+                        </span>
+                      </div>
                     </button>
-                    <button
-                      className="rb-small-icon"
-                      aria-label={`Dismiss ${item.title}`}
-                      onClick={() =>
-                        setRemovedInbox((prev) => [...prev, item.title])
-                      }
-                    >
-                      <X size={17} />
-                    </button>
+                    {allCollections.some(
+                      (child) => child.parentId === item.id,
+                    ) && (
+                      <div className="rb-collection-children">
+                        {allCollections
+                          .filter((child) => child.parentId === item.id)
+                          .map((child) => (
+                            <button
+                              key={child.id}
+                              onClick={() => {
+                                setSelectedCollection(child.id);
+                                setDestination("library");
+                              }}
+                            >
+                              <Folder size={13} />
+                              {child.name}
+                              <span className="rb-child-count">{child.count ?? ""}</span>
+                              <ArrowRight size={13} />
+                            </button>
+                          ))}
+                      </div>
+                    )}
                   </div>
-                ))
-              ) : (
-                <div className="rb-empty">
-                  <CheckCircle2 size={31} />
-                  <h2>All caught up</h2>
-                  <p>Everything in this preview inbox has been reviewed.</p>
-                </div>
-              )}
-            </div>
-            <p className="rb-preview-caption">
-              This is a sample of the planned feed and unsorted review
-              experience.
-            </p>
-          </>
-        )}
-
-        {destination === "explore" && (
-          <>
-            <div className="rb-explore-top">
-              <span className="rb-eyebrow">FOLLOW YOUR CURIOSITY</span>
-              <h1>A little further afield</h1>
-              <p>
-                Related ideas from this sample library. Public discovery is
-                planned separately.
-              </p>
-              <div className="rb-explore-tabs">
-                <button className="active">For you</button>
-                <button
-                  onClick={() =>
-                    setToast(
-                      "Your own library is the first source for related ideas",
-                    )
-                  }
-                >
-                  From your library
-                </button>
-              </div>
-            </div>
-            <div className="rb-card-grid rb-explore-grid">
-              {[cards[1], cards[0], cards[3], cards[5], cards[6], cards[2]]
-                .filter(Boolean)
-                .map((card) => (
-                  <CardTile
-                    key={card.id}
-                    card={card}
-                    onOpen={() => setActiveCardId(card.id)}
-                  />
                 ))}
             </div>
           </>
         )}
+
       </main>
 
       <nav className="rb-dock" aria-label="Main navigation">
@@ -756,25 +687,11 @@ export default function RebuildPreview() {
           <Grid2X2 size={20} />
           <span>Collections</span>
         </button>
-        <button
-          className={destination === "inbox" ? "active" : ""}
-          onClick={() => navigate("inbox")}
-        >
-          <Inbox size={21} />
-          <span>Inbox</span>
-        </button>
-        <button
-          className={destination === "explore" ? "active" : ""}
-          onClick={() => navigate("explore")}
-        >
-          <Compass size={21} />
-          <span>Explore</span>
-        </button>
       </nav>
       <div className="rb-create-anchor">
         {createOpen && (
           <div className="rb-create-menu">
-            <span>ADD SOMETHING</span>
+            <span>Create</span>
             <button onClick={() => openComposer("link")}>
               <Link2 size={18} /> Save a link <ArrowRight size={15} />
             </button>
@@ -904,11 +821,11 @@ export default function RebuildPreview() {
             )}
             <div className="rb-detail-meta">
               <div>
-                <span>SOURCE</span>
+                <span>Source</span>
                 <strong>{activeCard.source || "Your library"}</strong>
               </div>
               <div>
-                <span>COLLECTION</span>
+                <span>Collection</span>
                 <strong>
                   {allCollections.find(
                     (item) => item.id === activeCard.collection,
@@ -918,16 +835,15 @@ export default function RebuildPreview() {
             </div>
             {activeCard.note && (
               <div className="rb-detail-note">
-                <span>YOUR NOTE</span>
+                <span>Your note</span>
                 <p>{activeCard.note}</p>
               </div>
             )}
             <div className="rb-related">
               <div>
                 <Sparkles size={18} />
-                <h2>Keep exploring</h2>
+                <h2>Related</h2>
               </div>
-              <p>More from your library that might feel at home beside this.</p>
               <div className="rb-related-grid">
                 {cards
                   .filter((item) => item.id !== activeCard.id)
@@ -966,9 +882,6 @@ export default function RebuildPreview() {
             <X size={23} />
           </button>
           <div className="rb-composer">
-            <span className="rb-composer-kicker">
-              {composer === "collection" ? "MAKE A SPACE" : "KEEP WHAT MATTERS"}
-            </span>
             <h2>
               {composer === "link"
                 ? "Save a link"
@@ -980,11 +893,6 @@ export default function RebuildPreview() {
                       ? "Upload an image"
                       : "Upload a file"}
             </h2>
-            <p>
-              {composer === "collection"
-                ? "Give related ideas a place to meet."
-                : "A little context now can help you find it again later."}
-            </p>
             {composer === "link" && (
               <label>
                 Link
@@ -1046,22 +954,29 @@ export default function RebuildPreview() {
                 rows={composer === "note" ? 6 : 3}
               />
             </label>
-            {composer !== "collection" && (
+            {
               <label>
-                Collection (optional)
+                {composer === "collection"
+                  ? "Inside (optional)"
+                  : "Collection (optional)"}
                 <select
                   value={formCollection}
                   onChange={(e) => setFormCollection(e.target.value)}
                 >
-                  <option value="">Unsorted — decide later</option>
+                  <option value="">
+                    {composer === "collection"
+                      ? "Top level"
+                      : "Unsorted — decide later"}
+                  </option>
                   {allCollections.map((item) => (
                     <option value={item.id} key={item.id}>
+                      {item.parentId ? "↳ " : ""}
                       {item.name}
                     </option>
                   ))}
                 </select>
               </label>
-            )}
+            }
             {formError && (
               <div className="rb-form-error" role="alert">
                 {formError}
@@ -1069,7 +984,7 @@ export default function RebuildPreview() {
             )}
             <div className="rb-composer-footer">
               <span>
-                <LockKeyhole size={15} /> Only in this preview
+                <LockKeyhole size={15} /> Preview only
               </span>
               <button onClick={saveComposer}>
                 {composer === "collection"
