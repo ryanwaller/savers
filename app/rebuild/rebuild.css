@@ -2842,3 +2842,74 @@ body:has(.rebuild-app) {
   .rb-profile-center { margin: 65px auto 80px; }
   .rb-profile-shortcuts { gap: 14px; }
 }
+
+/* Final surface and accent tokens: a 1.2% grey page, one bright green. */
+body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background: #fcfcfc; }
+.rebuild-app { --rb-lime: #b9ff69; --rb-control-hover: #b9ff69; --rb-modal-surface: #fcfcfc; }
+.rb-theme-dark { --rb-control-hover: #b9ff69; --rb-modal-surface: #242424; }
+.rebuild-app :is(.rb-social-nav button.active, .rb-profile-shortcuts button.active .rb-profile-shortcut-art, .rb-active-tag, .rb-tags-page button:hover, .rb-collections-controls .rb-collections-head button:hover, .rb-related-picker-list button:hover, .rb-profile-following:hover, .rb-profile-collections button:hover, .rb-detail-content .rb-open-original:hover) { background: #b9ff69; color: #202820; }
+.rebuild-app .rb-filter-suboptions { background: #f1f1f1; }
+.rebuild-app .rb-active-tag button:hover { background: #b9ff69; }
+.rebuild-app :is(.rb-create-button:hover, .rb-composer-footer button:hover, .rb-inbox-keep) { background: #b9ff69; color: #202820; }
+.rebuild-app .rb-pulse { background: #b9ff69; box-shadow: 0 0 0 4px #ededed; }
+.rb-theme-dark .rb-filter-suboptions button { color: #eee; }
+.rb-theme-dark :is(.rb-active-tag, .rb-filter-suboptions, .rb-profile-shortcuts button.active .rb-profile-shortcut-art) { background: #b9ff69; color: #202820; }
+.rb-dock { left: 50%; right: auto; transform: translateX(-50%); }
+.rb-dock button.active { background: #b9ff69; color: #202820; }
+.rb-theme-dark .rb-dock button.active { background: #b9ff69; color: #202820; }
+
+/* The original four thumbnail scales, with responsive column counts. */
+.rb-size-control { display: inline-flex; gap: 3px; padding: 4px; border-radius: 999px; background: var(--rb-control-bg); }
+.rb-size-control button { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 999px; color: var(--rb-control-muted); }
+.rb-size-control button.active, .rb-size-control button:hover { background: #b9ff69; color: #202820; }
+.rb-card-grid:not(.rb-list-grid).rb-card-size-s { columns: 4 215px; }
+.rb-card-grid:not(.rb-list-grid).rb-card-size-m { columns: 3 300px; }
+.rb-card-grid:not(.rb-list-grid).rb-card-size-l { columns: 2 440px; }
+.rb-card-grid:not(.rb-list-grid).rb-card-size-xl { columns: 1 760px; }
+.rb-card-grid { animation: rb-view-in 320ms cubic-bezier(.2,.7,.2,1) both; }
+.rb-card-grid.rb-card-size-s .rb-card-image img { max-height: 245px; }
+.rb-card-grid.rb-card-size-m .rb-card-image img { max-height: 370px; }
+.rb-card-grid.rb-card-size-xl .rb-card-image img { max-height: 720px; }
+.rb-card-grid.rb-card-size-s .rb-card-content { padding: 13px; }
+.rb-card-grid.rb-card-size-s .rb-card h3 { font-size: 19px !important; }
+.rb-card-grid.rb-card-size-s .rb-card p { display: none; }
+.rb-card-grid.rb-card-size-xl .rb-card h3 { font-size: 29px !important; }
+.rb-card-grid.rb-card-size-xl .rb-card-content { padding: 26px; }
+.rb-broken-marker { display: inline-block; padding: 2px 7px; border-radius: 999px; background: #f7d9d5; color: #9e413a; font-size: 13px !important; }
+.rb-card:has(.rb-card-selection):not(:has(.rb-card-image:not([data-failed]))) .rb-card-topline { padding-left: 48px; }
+.rb-card-drag-over { outline: 2px solid #b9ff69; outline-offset: 2px; }
+.rb-card-drop-hint { position: absolute; z-index: 5; inset: 0; display: grid; place-items: center; padding: 18px; background: #b9ff69ed; color: #202820; text-align: center; pointer-events: none; }
+.rb-detail-duplicates { margin-top: 24px; padding: 16px 18px; border-radius: 16px; background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rb-library-selection-active .rb-dock, .rb-library-selection-active .rb-create-anchor { opacity: 0; pointer-events: none; }
+.rb-library-selection-bar { bottom: 25px; }
+.rb-library-selection-bar button:last-child { background: #b9ff69; color: #202820; }
+.rebuild-app .rb-detail-menu { width: 250px; max-height: min(540px, calc(100dvh - 80px)); overflow-y: auto; }
+
+/* Browser-local card editing, image replacement, and batch actions. */
+.rb-edit-backdrop, .rb-bulk-dialog { z-index: 60; }
+.rb-edit-panel { display: grid; gap: 14px; width: min(620px, 100%); max-height: 88dvh; overflow-y: auto; padding: 28px; border-radius: 26px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); }
+.rb-edit-head { display: flex; align-items: center; justify-content: space-between; }
+.rb-edit-head h2, .rb-bulk-panel h2 { margin: 0; font-size: 25px !important; }
+.rb-edit-head button { display: grid; place-items: center; width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 50%; background: var(--rb-control-bg); }
+.rb-edit-panel label { display: grid; gap: 6px; color: var(--rb-modal-muted); }
+.rb-edit-panel input, .rb-edit-panel textarea, .rb-edit-panel select, .rb-bulk-panel input { width: 100%; min-height: var(--rb-control-size); padding: 10px 14px; border: 1px solid var(--rb-modal-border); border-radius: 14px; background: var(--rb-modal-field); color: var(--rb-modal-ink); }
+.rb-edit-panel textarea { resize: vertical; }
+.rb-edit-upload { display: flex !important; align-items: center; gap: 9px; padding: 13px; border: 1px dashed var(--rb-modal-border); border-radius: 15px; cursor: pointer; }
+.rb-edit-upload input { display: none; }
+.rb-edit-image { display: block; max-width: 220px; max-height: 160px; border-radius: 12px; object-fit: cover; }
+.rb-edit-actions, .rb-bulk-panel > div { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.rb-edit-actions button, .rb-bulk-panel > div button { min-height: var(--rb-control-size); padding: 0 21px; border-radius: 999px; background: var(--rb-control-bg); }
+.rb-edit-actions button:last-child, .rb-bulk-panel > div button:last-child { background: #b9ff69; color: #202820; }
+.rb-edit-actions button:disabled, .rb-bulk-panel button:disabled { opacity: .45; cursor: not-allowed; }
+.rb-bulk-panel { display: grid; gap: 20px; width: min(460px, 100%); padding: 28px; border-radius: 24px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); }
+.rb-bulk-panel p { margin: 0; color: var(--rb-modal-muted); }
+.rb-bulk-panel > div .rb-bulk-danger { background: #f4d5d2; color: #9e413a; }
+@media (max-width: 700px) {
+  .rb-dock { left: 50%; right: auto; width: calc(100vw - 20px); }
+  .rb-card-grid:not(.rb-list-grid).rb-card-size-s, .rb-card-grid:not(.rb-list-grid).rb-card-size-m { columns: 2 150px; column-gap: 12px; }
+  .rb-card-grid:not(.rb-list-grid).rb-card-size-l, .rb-card-grid:not(.rb-list-grid).rb-card-size-xl { columns: 1; }
+  .rb-size-control button { width: 32px; height: 36px; }
+  .rb-library-selection-bar { right: 12px; left: 12px; bottom: 12px; flex-wrap: wrap; transform: none; white-space: normal; }
+  .rb-library-selection-bar button { min-height: 42px; }
+  .rb-edit-panel { padding: 20px; }
+}

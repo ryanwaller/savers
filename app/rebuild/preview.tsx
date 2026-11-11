@@ -25,7 +25,10 @@ import {
   LockKeyhole,
   Unlock,
   MoreHorizontal,
+  Pencil,
+  Pin,
   Plus,
+  RefreshCw,
   Search,
   SlidersHorizontal,
   Tag,
@@ -109,10 +112,12 @@ function CardTile({
   card,
   onOpen,
   onToggleFavorite,
-  onTogglePrivacy,
   onEditTags,
+  onAddToCollection,
+  onDropImage,
   onOpenOwner,
   favorite = false,
+  pinned = false,
   list = false,
   selecting = false,
   selected = false,
@@ -121,10 +126,12 @@ function CardTile({
   card: PreviewCard;
   onOpen: () => void;
   onToggleFavorite?: () => void;
-  onTogglePrivacy?: () => void;
   onEditTags?: () => void;
+  onAddToCollection?: () => void;
+  onDropImage?: (file: File) => void;
   onOpenOwner?: () => void;
   favorite?: boolean;
+  pinned?: boolean;
   list?: boolean;
   selecting?: boolean;
   selected?: boolean;
@@ -132,10 +139,11 @@ function CardTile({
 }) {
   const KindIcon = icons[card.kind];
   const externalOwner = card.owner || card.savedFrom;
+  const [dragOver, setDragOver] = useState(false);
   const content = (
     <>
       {card.image && (
-        <div className="rb-card-image">
+        <div className="rb-card-image" key={card.image}>
           <img src={card.image} alt="" loading="lazy" onError={(event) => event.currentTarget.parentElement?.setAttribute("data-failed", "true")} />
         </div>
       )}
@@ -147,7 +155,7 @@ function CardTile({
       )}
       <div className="rb-card-content">
         <div className="rb-card-topline">
-          <span><KindIcon size={14} /> {typeLabels[card.kind]} {card.isPrivate !== false && <LockKeyhole className="rb-card-lock" size={14} aria-label="Private" />}</span>
+          <span><KindIcon size={14} /> {typeLabels[card.kind]} {pinned && <Pin size={14} aria-label="Pinned" />}{card.linkStatus === "broken" && <span className="rb-broken-marker">Broken</span>}</span>
         </div>
         <h3>{card.title}</h3>
         {card.description && <p className={card.description.length > 125 ? "rb-card-description-long" : ""}>{card.description}</p>}
@@ -161,7 +169,10 @@ function CardTile({
   );
   return (
     <article
-      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""}`}
+      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""} ${dragOver ? "rb-card-drag-over" : ""}`}
+      onDragOver={(event) => { if (onDropImage && event.dataTransfer.types.includes("Files")) { event.preventDefault(); setDragOver(true); } }}
+      onDragLeave={(event) => { if (!event.currentTarget.contains(event.relatedTarget as Node)) setDragOver(false); }}
+      onDrop={(event) => { if (!onDropImage) return; event.preventDefault(); setDragOver(false); const file = event.dataTransfer.files[0]; if (file) onDropImage(file); }}
     >
       {selecting ? (
         <button className="rb-card-primary" onClick={onSelect} aria-label={`${selected ? "Deselect" : "Select"} ${card.title}`} aria-pressed={selected}>
@@ -178,16 +189,15 @@ function CardTile({
       )}
       {selecting && <span className={`rb-card-selection ${selected ? "selected" : ""}`} aria-hidden="true">{selected && <Check size={18} />}</span>}
       {!selecting && <div className="rb-card-actions">
-        {onTogglePrivacy && <button onClick={onTogglePrivacy} aria-label={`${card.isPrivate === false ? "Make private" : "Make public"}: ${card.title}`} title={card.isPrivate === false ? "Public in this preview" : "Private in this preview"}>
-          {card.isPrivate === false ? <Unlock size={18} /> : <LockKeyhole size={18} />}
-        </button>}
         {onToggleFavorite && <button onClick={onToggleFavorite} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} title={favorite ? "Remove favorite" : "Add favorite"}>
           <Heart size={18} fill={favorite ? "currentColor" : "none"} />
         </button>}
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
+        {onAddToCollection && <button onClick={onAddToCollection} aria-label={`Add ${card.title} to a collection`} title="Add to collection"><FolderPlus size={18} /></button>}
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
         {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>}
+      {dragOver && <span className="rb-card-drop-hint">Drop image to replace preview</span>}
     </article>
   );
 }
@@ -213,6 +223,22 @@ export default function RebuildPreview({
   const [filter, setFilter] = useState<Filter>("all");
   const [query, setQuery] = useState("");
   const [listMode, setListMode] = useState(false);
+  const [cardSize, setCardSize] = useState<"s" | "m" | "l" | "xl">("l");
+  const [librarySelecting, setLibrarySelecting] = useState(false);
+  const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
+  const [collectionPickerCardId, setCollectionPickerCardId] = useState<string | null>(null);
+  const [libraryCollectionPickerOpen, setLibraryCollectionPickerOpen] = useState(false);
+  const [bulkTagOpen, setBulkTagOpen] = useState(false);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
+  const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editTitle, setEditTitle] = useState("");
+  const [editDescription, setEditDescription] = useState("");
+  const [editNote, setEditNote] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editImage, setEditImage] = useState("");
+  const [editCollection, setEditCollection] = useState("");
+  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
   const [createOpen, setCreateOpen] = useState(false);
   const [composer, setComposer] = useState<Composer>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -274,6 +300,8 @@ export default function RebuildPreview({
             cards?: PreviewCard[];
             collections?: PreviewCollection[];
             favorites?: string[];
+            pinnedIds?: string[];
+            cardSize?: "s" | "m" | "l" | "xl";
             followedAccountIds?: string[];
             subscriptions?: string[];
             theme?: "light" | "dark";
@@ -283,6 +311,8 @@ export default function RebuildPreview({
           if (Array.isArray(parsed.collections))
             setAllCollections(parsed.collections);
           if (Array.isArray(parsed.favorites)) setFavorites(parsed.favorites);
+          if (Array.isArray(parsed.pinnedIds)) setPinnedIds(parsed.pinnedIds);
+          if (parsed.cardSize && ["s", "m", "l", "xl"].includes(parsed.cardSize)) setCardSize(parsed.cardSize);
           if (Array.isArray(parsed.followedAccountIds)) setFollowedAccountIds(parsed.followedAccountIds);
           if (Array.isArray(parsed.subscriptions)) setSubscriptions(parsed.subscriptions);
           if (parsed.smartRules && typeof parsed.smartRules === "object") setSmartRules(parsed.smartRules);
@@ -306,6 +336,8 @@ export default function RebuildPreview({
           cards,
           collections: allCollections,
           favorites,
+          pinnedIds,
+          cardSize,
           followedAccountIds,
           subscriptions,
           theme,
@@ -315,7 +347,7 @@ export default function RebuildPreview({
     } catch {
       /* A full browser storage quota only affects persistence of the preview. */
     }
-  }, [cards, allCollections, favorites, followedAccountIds, subscriptions, theme, smartRules, ready]);
+  }, [cards, allCollections, favorites, pinnedIds, cardSize, followedAccountIds, subscriptions, theme, smartRules, ready]);
 
   useEffect(() => {
     if (!toast) return;
@@ -403,6 +435,11 @@ export default function RebuildPreview({
         setRelatedFeedOpen(false);
         setRelatedCollectionPickerOpen(false);
         setFollowingOverlayOpen(false);
+        setCollectionPickerCardId(null);
+        setLibraryCollectionPickerOpen(false);
+        setEditingCardId(null);
+        setBulkTagOpen(false);
+        setBulkRemoveOpen(false);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -417,11 +454,11 @@ export default function RebuildPreview({
   }, [collectionGroup, initialCardId]);
 
   useEffect(() => {
-    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen) return;
+    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen && !collectionPickerCardId && !libraryCollectionPickerOpen && !editingCardId && !bulkTagOpen && !bulkRemoveOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen]);
+  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen, collectionPickerCardId, libraryCollectionPickerOpen, editingCardId, bulkTagOpen, bulkRemoveOpen]);
 
   function closeDetail() {
     setActiveCardId(null);
@@ -436,6 +473,7 @@ export default function RebuildPreview({
 
   const activeCard = cards.find((card) => card.id === activeCardId) || publicRelatedCards.find((card) => card.id === activeCardId) || null;
   const activeCardIsOwn = activeCard ? !activeCard.owner : false;
+  const activeCardDuplicates = activeCard?.url ? cards.filter((card) => card.id !== activeCard.id && card.url?.replace(/\/$/, "") === activeCard.url?.replace(/\/$/, "")) : [];
   const smartEditorCollection = allCollections.find((item) => item.id === smartEditorId);
   const tagEditorCard = cards.find((item) => item.id === tagEditorId);
   const tagCounts = useMemo(() => {
@@ -509,8 +547,9 @@ export default function RebuildPreview({
         `${card.title} ${card.description || ""} ${card.source || ""} ${card.note || ""} ${card.tags?.join(" ") || ""}`.toLowerCase();
       return text.includes(query.trim().toLowerCase());
     });
-    return sortNewest ? match : [...match].reverse();
-  }, [cards, allCollections, smartRules, favorites, selectedCollection, filter, selectedTag, query, sortNewest]);
+    const ordered = sortNewest ? match : [...match].reverse();
+    return [...ordered].sort((a, b) => Number(pinnedIds.includes(b.id)) - Number(pinnedIds.includes(a.id)));
+  }, [cards, allCollections, smartRules, favorites, pinnedIds, selectedCollection, filter, selectedTag, query, sortNewest]);
 
   function openTagEditor(card: PreviewCard) {
     setTagEditorId(card.id);
@@ -564,6 +603,8 @@ export default function RebuildPreview({
     setFollowingOverlayOpen(false);
     setRelatedSelecting(false);
     setSelectedRelatedIds([]);
+    setLibrarySelecting(false);
+    setSelectedLibraryIds([]);
     window.scrollTo(0, 0);
   }
 
@@ -721,10 +762,112 @@ export default function RebuildPreview({
     );
   }
 
-  function saveRelatedSelection(collectionId?: string) {
+  function openCardEditor(card: PreviewCard) {
+    setEditingCardId(card.id);
+    setEditTitle(card.title);
+    setEditDescription(card.description || "");
+    setEditNote(card.note || "");
+    setEditUrl(card.url || "");
+    setEditImage(card.image || "");
+    setEditCollection(card.collection || "");
+    setDetailMenuOpen(false);
+  }
+
+  function saveCardEdit() {
+    if (!editingCardId || !editTitle.trim()) return;
+    let source: string | undefined;
+    if (editUrl.trim()) {
+      try {
+        const link = new URL(editUrl.trim());
+        if (!["http:", "https:"].includes(link.protocol)) throw new Error("Unsupported link");
+        source = link.hostname.replace(/^www\./, "");
+      } catch { setToast("Enter a valid http or https link"); return; }
+    }
+    if (editImage && !editImage.startsWith("data:")) {
+      try {
+        const image = new URL(editImage, window.location.href);
+        if (!["http:", "https:"].includes(image.protocol)) throw new Error("Unsupported image");
+      } catch { setToast("Enter a valid preview image URL"); return; }
+    }
+    setCards((items) => items.map((item) => item.id === editingCardId ? { ...item, title: editTitle.trim(), description: editDescription.trim(), note: editNote.trim(), url: editUrl.trim(), source: source || item.source, image: editImage, collection: editCollection || undefined } : item));
+    setEditingCardId(null);
+    setToast("Card updated in this browser preview");
+  }
+
+  async function replaceCardImage(file: File) {
+    if (file.size > 1_500_000) { setToast("Choose an image under 1.5 MB for browser storage"); return; }
+    const reader = new FileReader();
+    reader.onload = () => setEditImage(String(reader.result || ""));
+    reader.readAsDataURL(file);
+  }
+
+  function dropCardImage(cardId: string, file: File) {
+    if (!file.type.startsWith("image/") || file.size > 1_500_000) { setToast("Drop an image under 1.5 MB"); return; }
+    const reader = new FileReader();
+    reader.onload = () => {
+      setCards((items) => items.map((item) => item.id === cardId ? { ...item, image: String(reader.result || "") } : item));
+      setToast("Preview image replaced in this browser");
+    };
+    reader.readAsDataURL(file);
+  }
+
+  function retryCardImage(card: PreviewCard) {
+    if (!card.image || card.image.startsWith("data:")) { setToast("No remote preview image to retry"); return; }
+    const url = new URL(card.image, window.location.href);
+    url.searchParams.set("savers_retry", String(Date.now()));
+    setCards((items) => items.map((item) => item.id === card.id ? { ...item, image: url.toString() } : item));
+    setDetailMenuOpen(false);
+    setToast("Retried existing image. A new capture needs the preview service.");
+  }
+
+  function chooseCollection(collectionId?: string) {
+    if (collectionPickerCardId) {
+      const card = [...cards, ...publicRelatedCards].find((item) => item.id === collectionPickerCardId);
+      if (card?.owner) {
+        setCards((items) => [{ ...card, id: `preview-${crypto.randomUUID()}`, originId: card.id, owner: undefined, savedFrom: card.owner, collection: collectionId, isPrivate: true, date: "Just now" }, ...items]);
+      } else {
+        setCards((items) => items.map((item) => item.id === collectionPickerCardId ? { ...item, collection: collectionId } : item));
+      }
+      setCollectionPickerCardId(null);
+    } else if (libraryCollectionPickerOpen) {
+      setCards((items) => items.map((item) => selectedLibraryIds.includes(item.id) ? { ...item, collection: collectionId } : item));
+      setLibraryCollectionPickerOpen(false);
+      setLibrarySelecting(false);
+      setSelectedLibraryIds([]);
+    } else {
+      saveRelatedSelection(collectionId, true);
+      return;
+    }
+    setRelatedCollectionQuery("");
+    setToast(collectionId ? "Added to collection in this browser preview" : "Moved to Unsorted");
+  }
+
+  function applyBulkTags() {
+    const tag = bulkTagInput.trim();
+    if (!tag) return;
+    setCards((items) => items.map((item) => selectedLibraryIds.includes(item.id) && !(item.tags || []).some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase()) ? { ...item, tags: [...(item.tags || []), tag] } : item));
+    setBulkTagOpen(false);
+    setBulkTagInput("");
+    setLibrarySelecting(false);
+    setSelectedLibraryIds([]);
+    setToast("Tags added in this browser preview");
+  }
+
+  function removeSelectedCards() {
+    setCards((items) => items.filter((item) => !selectedLibraryIds.includes(item.id)));
+    setFavorites((ids) => ids.filter((id) => !selectedLibraryIds.includes(id)));
+    setPinnedIds((ids) => ids.filter((id) => !selectedLibraryIds.includes(id)));
+    setBulkRemoveOpen(false);
+    setLibrarySelecting(false);
+    setSelectedLibraryIds([]);
+    setActiveCardId(null);
+    setToast("Removed from this browser preview");
+  }
+
+  function saveRelatedSelection(collectionId?: string, moveExisting = false) {
     const others = selectedRelatedCards.filter((item) => item.owner);
     setCards((existing) => {
-      const updated = collectionId
+      const updated = moveExisting
         ? existing.map((item) => selectedRelatedIds.includes(item.id) || (item.originId && selectedRelatedIds.includes(item.originId)) ? { ...item, collection: collectionId } : item)
         : existing;
       const additions = others.filter((item) => !existing.some((saved) => saved.originId === item.id)).map((item) => ({
@@ -790,7 +933,7 @@ export default function RebuildPreview({
 
   return (
     <div
-      className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""}`}
+      className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""} ${librarySelecting && destination === "library" ? "rb-library-selection-active" : ""}`}
       data-rebuild-root
     >
       <div className="rb-preview-flag">
@@ -851,6 +994,8 @@ export default function RebuildPreview({
                     setCards(seedCards);
                     setAllCollections(seedCollections);
                     setFavorites([]);
+                    setPinnedIds([]);
+                    setCardSize("l");
                     setFollowedAccountIds([]);
                     setSubscriptions([]);
                     setSmartRules({});
@@ -948,6 +1093,9 @@ export default function RebuildPreview({
                     ? `${collection ? displayCount(collection) ?? "—" : 815}`
                     : filteredCards.length}
                 </span>
+                <div className="rb-size-control" role="radiogroup" aria-label="Thumbnail size">
+                  {(["s", "m", "l", "xl"] as const).map((size) => <button key={size} role="radio" aria-checked={cardSize === size} className={cardSize === size ? "active" : ""} onClick={() => { setCardSize(size); setListMode(false); }}>{size.toUpperCase()}</button>)}
+                </div>
                 <div className="rb-sort-wrap">
                   <button
                     className="rb-small-icon"
@@ -992,21 +1140,27 @@ export default function RebuildPreview({
                 >
                   <List size={18} />
                 </button>
+                <button className={`rb-small-icon ${librarySelecting ? "selected" : ""}`} onClick={() => { setLibrarySelecting((value) => !value); setSelectedLibraryIds([]); }} aria-label={librarySelecting ? "Finish selecting cards" : "Select cards"} title="Select cards"><CheckCircle2 size={19} /></button>
               </div>
             </div>
             {selectedTag && <div className="rb-active-tag"><Tag size={18} /><span>{selectedTag}</span><button onClick={() => setSelectedTag(null)} aria-label={`Clear tag ${selectedTag}`}><X size={18} /></button></div>}
             {filteredCards.length ? (
-              <div className={`rb-card-grid ${listMode ? "rb-list-grid" : ""}`}>
+              <div key={`${cardSize}:${listMode}`} className={`rb-card-grid rb-card-size-${cardSize} ${listMode ? "rb-list-grid" : ""}`}>
                 {filteredCards.slice(0, visibleCount).map((card) => (
                   <CardTile
                     key={card.id}
                     card={card}
                     onOpen={() => setActiveCardId(card.id)}
                     onToggleFavorite={() => toggleFavorite(card.id)}
-                    onTogglePrivacy={() => togglePrivacy(card.id)}
                     onEditTags={() => openTagEditor(card)}
+                    onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(card.id); }}
+                    onDropImage={(file) => dropCardImage(card.id, file)}
                     favorite={favorites.includes(card.id)}
+                    pinned={pinnedIds.includes(card.id)}
                     list={listMode}
+                    selecting={librarySelecting}
+                    selected={selectedLibraryIds.includes(card.id)}
+                    onSelect={() => setSelectedLibraryIds((ids) => ids.includes(card.id) ? ids.filter((id) => id !== card.id) : [...ids, card.id])}
                   />
                 ))}
               </div>
@@ -1099,7 +1253,7 @@ export default function RebuildPreview({
               {(["all", "yours", "others"] as const).map((source) => <button key={source} className={discoverSource === source ? "active" : ""} onClick={() => setDiscoverSource(source)}>{source === "all" ? "All" : source === "yours" ? "Yours" : "Others"}</button>)}
             </div>}
             {profileId && profileScope === "collections" ? (profileCollections.length ? <div className="rb-profile-collections">{profileCollections.map((item) => <button key={item.id} onClick={() => { setDestination("collections"); setSelectedCollection(item.id); setProfileId(null); window.scrollTo(0, 0); }}><Folder size={25} /><span>{item.name}</span><ArrowRight size={20} /></button>)}</div> : <div className="rb-empty rb-discover-empty"><Folder size={28} /><h2>No public collections yet</h2></div>) : discoverCards.length > 0 ? <div className="rb-discover-grid">
-              {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onTogglePrivacy={item.owner ? undefined : () => togglePrivacy(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
+              {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
             </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{profileId ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards here yet"}</h2>{discoverSource !== "others" && !profileId && <button onClick={() => navigate("library")}>Open Library <ArrowRight size={18} /></button>}</div>}
             {(!profileId || profileScope === "cards") && discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
           </section>
@@ -1119,11 +1273,19 @@ export default function RebuildPreview({
               {subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
               {subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
             </div>}
-            {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onTogglePrivacy={() => togglePrivacy(item.id)} onEditTags={() => openTagEditor(item)} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
+            {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onEditTags={() => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
           </section>
         )}
 
       </main>
+
+      {librarySelecting && selectedLibraryIds.length > 0 && destination === "library" && <div className="rb-related-selection-bar rb-library-selection-bar">
+        <span>{selectedLibraryIds.length} selected</span>
+        <button onClick={() => { setRelatedCollectionQuery(""); setLibraryCollectionPickerOpen(true); }}><Folder size={19} /> Move to collection</button>
+        <button onClick={() => setBulkTagOpen(true)}><Tag size={19} /> Add tag</button>
+        <button onClick={() => setBulkRemoveOpen(true)}><X size={19} /> Remove</button>
+        <button onClick={() => { setLibrarySelecting(false); setSelectedLibraryIds([]); }}>Done</button>
+      </div>}
 
       {followingOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label={`${profileName} following`} onMouseDown={(event) => { if (event.target === event.currentTarget) setFollowingOverlayOpen(false); }}>
         <div className="rb-following-panel">
@@ -1270,7 +1432,13 @@ export default function RebuildPreview({
               </button>}
               {detailMenuOpen && (
                 <div className="rb-detail-menu">
-                  {activeCardIsOwn && <><button
+                  {activeCardIsOwn && <>
+                  <button onClick={() => openCardEditor(activeCard)}><Pencil size={16} /> Edit card</button>
+                  <button onClick={() => { setCollectionPickerCardId(activeCard.id); setRelatedCollectionQuery(""); setDetailMenuOpen(false); }}><FolderPlus size={16} /> Add to collection</button>
+                  {activeCard.kind === "link" && <button onClick={() => activeCard.image ? retryCardImage(activeCard) : openCardEditor(activeCard)}><RefreshCw size={16} /> {activeCard.image ? "Reload preview" : "Add preview image"}</button>}
+                  <button onClick={() => { setPinnedIds((ids) => ids.includes(activeCard.id) ? ids.filter((id) => id !== activeCard.id) : [...ids, activeCard.id]); setDetailMenuOpen(false); }}><Pin size={16} /> {pinnedIds.includes(activeCard.id) ? "Unpin" : "Pin"}</button>
+                  {activeCard.url && <button onClick={() => { setCards((items) => items.map((item) => item.id === activeCard.id ? { ...item, linkStatus: item.linkStatus === "broken" ? "working" : "broken" } : item)); setDetailMenuOpen(false); }}><CheckCircle2 size={16} /> {activeCard.linkStatus === "broken" ? "Mark as working" : "Mark as broken"}</button>}
+                  <button
                     onClick={() => {
                       navigator.clipboard?.writeText(
                         activeCard.url || activeCard.title,
@@ -1283,11 +1451,9 @@ export default function RebuildPreview({
                   </button>
                   <button
                     onClick={() => {
-                      setCards((prev) =>
-                        prev.filter((item) => item.id !== activeCard.id),
-                      );
-                      setActiveCardId(null);
-                      setToast("Removed from this preview");
+                      setSelectedLibraryIds([activeCard.id]);
+                      setBulkRemoveOpen(true);
+                      setDetailMenuOpen(false);
                     }}
                   >
                     Remove from preview
@@ -1297,14 +1463,14 @@ export default function RebuildPreview({
             </div>
           </div>
           <div className="rb-detail-content">
-            <span className="rb-detail-kind">{activeCard.isPrivate === false ? <Unlock size={16} aria-label="Public" /> : <LockKeyhole size={16} aria-label="Private" />}{typeLabels[activeCard.kind]}</span>
+            <span className="rb-detail-kind">{typeLabels[activeCard.kind]}{activeCard.linkStatus === "broken" && <span className="rb-broken-marker">Marked broken</span>}</span>
             <h1>{activeCard.title}</h1>
             {activeCard.url && <a className="rb-open-original" href={activeCard.url} target="_blank" rel="noopener noreferrer">Visit saved link <ArrowUpRight size={19} /></a>}
             {activeCard.description && (
               <p className="rb-detail-description">{activeCard.description}</p>
             )}
             {activeCard.image && (
-              <img className="rb-detail-image" src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
+              <img className="rb-detail-image" key={activeCard.image} src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
             )}
             {activeCard.kind === "file" && (
               <div className="rb-detail-file">
@@ -1330,6 +1496,7 @@ export default function RebuildPreview({
                 <p>{activeCard.note}</p>
               </div>
             )}
+            {activeCardDuplicates.length > 0 && <div className="rb-detail-duplicates">{activeCardDuplicates.length} other saved {activeCardDuplicates.length === 1 ? "copy" : "copies"} of this link</div>}
             <div className="rb-detail-tags">
               {activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setDestination("library"); setActiveCardId(null); window.scrollTo(0, 0); }}>{tag}</button>)}
               {activeCardIsOwn && <button className="rb-detail-edit-tags" onClick={() => openTagEditor(activeCard)}><Tag size={17} /> Edit tags</button>}
@@ -1340,7 +1507,7 @@ export default function RebuildPreview({
               <div className="rb-related-heading"><h2>Related</h2></div>
               <div className="rb-related-stack">
                 {relatedCards.slice(0, 4).map((item) => (
-                  <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onTogglePrivacy={item.owner ? undefined : () => togglePrivacy(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} favorite={favorites.includes(item.id)} onOpen={() => { setActiveCardId(item.id); setDetailMenuOpen(false); }} />
+                  <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => { setActiveCardId(item.id); setDetailMenuOpen(false); }} />
                 ))}
               </div>
               <button className="rb-related-more" onClick={() => { setRelatedScope("all"); setRelatedSelecting(false); setSelectedRelatedIds([]); setRelatedFeedOpen(true); }}>More related <ArrowRight size={19} /></button>
@@ -1361,7 +1528,7 @@ export default function RebuildPreview({
           </div>
           <div className="rb-related-feed-grid">
             {relatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
-              <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onTogglePrivacy={item.owner ? undefined : () => togglePrivacy(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} favorite={favorites.includes(item.id)} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => { setActiveCardId(item.id); setRelatedFeedOpen(false); setDetailMenuOpen(false); }} />
+              <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => { setActiveCardId(item.id); setRelatedFeedOpen(false); setDetailMenuOpen(false); }} />
             ))}
           </div>
           {relatedScope === "others" && !relatedCards.some((item) => item.owner) && <p className="rb-related-feed-empty">No public cards from other accounts yet.</p>}
@@ -1373,11 +1540,12 @@ export default function RebuildPreview({
         {selectedRelatedCards.some((item) => item.owner) && <button onClick={() => saveRelatedSelection()}><Plus size={19} /> Save</button>}
         <button onClick={() => { setRelatedCollectionQuery(""); setRelatedCollectionPickerOpen(true); }}><Folder size={19} /> Add to collection</button>
       </div>}
-      {relatedCollectionPickerOpen && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection">
+      {(relatedCollectionPickerOpen || collectionPickerCardId || libraryCollectionPickerOpen) && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRelatedCollectionPickerOpen(false); setCollectionPickerCardId(null); setLibraryCollectionPickerOpen(false); } }}>
             <div className="rb-related-picker">
-              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={() => setRelatedCollectionPickerOpen(false)} aria-label="Close collection picker"><X size={23} /></button></div>
+              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={() => { setRelatedCollectionPickerOpen(false); setCollectionPickerCardId(null); setLibraryCollectionPickerOpen(false); }} aria-label="Close collection picker"><X size={23} /></button></div>
               <div className="rb-related-picker-list" data-scroll-fade="y">
-                {allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).map((item) => <button key={item.id} onClick={() => saveRelatedSelection(item.id)}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span><Plus className="rb-picker-plus" size={21} /></button>)}
+                <button onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>
+                {allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).map((item) => <button key={item.id} onClick={() => chooseCollection(item.id)}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span><Plus className="rb-picker-plus" size={21} /></button>)}
               </div>
             </div>
       </div>}
@@ -1438,6 +1606,24 @@ export default function RebuildPreview({
           </div>
         </div>
       )}
+
+      {editingCardId && <div className="rb-rule-overlay rb-edit-backdrop" role="dialog" aria-modal="true" aria-label="Edit card" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingCardId(null); }}>
+        <div className="rb-edit-panel" data-scroll-fade="y">
+          <div className="rb-edit-head"><h2>Edit card</h2><button onClick={() => setEditingCardId(null)} aria-label="Close editor"><X size={22} /></button></div>
+          <label>Title<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} autoFocus /></label>
+          <label>Link<input type="url" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} /></label>
+          <label>Description<textarea rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
+          <label>Note<textarea rows={3} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
+          <label>Collection<select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <label>Preview image<input type="url" value={editImage.startsWith("data:") ? "" : editImage} onChange={(event) => setEditImage(event.target.value)} placeholder="Image URL" /></label>
+          <label className="rb-edit-upload"><Upload size={18} /> Replace with an image from your computer<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCardImage(file); }} /></label>
+          {editImage && <img className="rb-edit-image" src={editImage} alt="Selected preview" />}
+          <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
+        </div>
+      </div>}
+
+      {bulkTagOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Add tag to selected cards"><div className="rb-bulk-panel"><h2>Add a tag to {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}</h2><input value={bulkTagInput} onChange={(event) => setBulkTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyBulkTags(); }} placeholder="Tag name" autoFocus /><div><button onClick={() => setBulkTagOpen(false)}>Cancel</button><button onClick={applyBulkTags} disabled={!bulkTagInput.trim()}>Add tag</button></div></div></div>}
+      {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><p>This removes them from this browser preview.</p><div><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}
 
       {composer && (
         <div

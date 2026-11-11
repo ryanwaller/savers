@@ -19,6 +19,7 @@ export type PreviewCard = {
   date: string;
   tone?: "cream" | "sage" | "lavender" | "stone";
   featured?: boolean;
+  linkStatus?: "broken" | "working";
 };
 
 export const collections = [
