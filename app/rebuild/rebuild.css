@@ -2768,3 +2768,77 @@ body:has(.rebuild-app) {
   .rb-composer { max-height: calc(100dvh - 24px); padding: 24px; border-radius: 22px; }
   .rb-composer-footer { bottom: -24px; margin-right: -24px; margin-bottom: -24px; margin-left: -24px; padding: 14px 24px 24px; }
 }
+
+/* Roomier, image-led cards and a translucent destination dock. */
+.rb-main { max-width: 1640px; padding-left: clamp(24px, 4vw, 72px); padding-right: clamp(24px, 4vw, 72px); }
+.rb-card-grid:not(.rb-list-grid), .rb-discover-grid { columns: 2 440px; column-gap: clamp(30px, 5vw, 90px); }
+.rb-card-grid:not(.rb-list-grid) .rb-card, .rb-discover-grid .rb-card { margin-bottom: clamp(36px, 5vw, 80px); }
+.rb-card:has(.rb-card-image) { border: 0; background: #e9e9e9; }
+.rb-card:has(.rb-card-image) .rb-card-image img { max-height: 570px; }
+.rb-card:has(.rb-card-image) .rb-card-content { padding: 18px 20px 20px; }
+.rb-card:has(.rb-card-image) h3 { margin: 4px 0 7px; font-size: clamp(19px, 1.35vw, 24px); font-weight: 600; letter-spacing: -.035em; }
+.rb-card:has(.rb-card-image) .rb-card-topline { margin-bottom: 12px; }
+.rb-card:has(.rb-card-image) .rb-card-footer { margin-top: 10px; padding: 0; border: 0; font-size: 12px; }
+.rb-card .rb-card-description-long { max-height: 4.7em; overflow: hidden; mask-image: linear-gradient(#000 45%, transparent 100%); }
+.rb-theme-dark .rb-card:has(.rb-card-image) { background: #303030; }
+.rb-related-feed { padding-left: max(30px, calc((100vw - 1500px) / 2)); padding-right: max(30px, calc((100vw - 1500px) / 2)); }
+.rb-related-feed-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: clamp(28px, 5vw, 76px); }
+.rb-dock { background: rgb(248 248 248 / 70%); border-color: rgb(225 225 225 / 65%); box-shadow: 0 14px 45px #2b342226; backdrop-filter: blur(24px) saturate(150%); -webkit-backdrop-filter: blur(24px) saturate(150%); }
+.rb-dock button.active { background: rgb(235 235 235 / 72%); }
+.rb-theme-dark .rb-dock { background: rgb(36 36 36 / 72%); border-color: rgb(80 80 80 / 55%); }
+.rb-theme-dark .rb-dock button.active { background: rgb(75 75 75 / 75%); }
+
+/* An account profile is a destination inside Discover, with a contained following dialog. */
+.rb-profile-page { min-height: 65vh; }
+.rb-profile-toolbar { display: flex; align-items: center; justify-content: space-between; min-height: 56px; margin-top: 18px; }
+.rb-profile-toolbar .rb-follow-button { margin-left: auto; }
+.rb-profile-center { width: min(460px, 100%); margin: clamp(100px, 13vh, 180px) auto 100px; }
+.rb-profile-identity { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; min-height: 200px; padding: 22px; border-radius: 20px; background: #ededed; text-align: center; }
+.rb-profile-identity > span:first-child, .rb-profile-identity > img { display: grid; place-items: center; width: 88px; height: 88px; flex: 0 0 88px; border-radius: 50%; background: #242424; color: #b9ff69; font-size: 28px; object-fit: cover; }
+.rb-profile-identity h1 { max-width: 100%; margin: 5px 0 0; font-size: 27px; line-height: 1.15; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rb-profile-identity > span:last-child { color: #999; font-size: 14px; }
+.rb-profile-following { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 48px; margin-top: 7px; padding: 0 15px; border-radius: 999px; background: #f2f2f2; color: #777; text-align: left; }
+.rb-profile-following:hover { background: #e7ffd4; color: #222; }
+.rb-profile-following-avatars { display: flex; align-items: center; margin-left: auto; }
+.rb-profile-following-avatars img, .rb-profile-following-avatars span { display: grid; place-items: center; width: 27px; height: 27px; margin-left: -5px; border: 2px solid #f2f2f2; border-radius: 50%; background: #ddd; color: #555; object-fit: cover; }
+.rb-profile-shortcuts { display: flex; justify-content: center; gap: 42px; margin: 60px auto 0; }
+.rb-profile-shortcuts button { display: grid; justify-items: center; gap: 11px; min-width: 120px; color: #666; }
+.rb-profile-shortcuts button.active, .rb-profile-shortcuts button:hover { color: #252525; }
+.rb-profile-shortcut-art { display: grid; place-items: center; width: 106px; height: 104px; border-radius: 24px; background: #f1f1f1; box-shadow: 0 14px 30px #0000000d; }
+.rb-profile-shortcuts button.active .rb-profile-shortcut-art { background: #e7f5db; }
+.rb-profile-shortcuts strong { font-size: 17px; font-weight: 500; }
+.rb-profile-collections { display: grid; gap: 10px; max-width: 1100px; margin: 0 auto; }
+.rb-profile-collections button { display: flex; align-items: center; gap: 17px; min-height: 76px; padding: 16px 23px; border-radius: 20px; background: #f2f2f2; text-align: left; }
+.rb-profile-collections button:hover { background: #e7ffd4; }
+.rb-profile-collections button span { flex: 1; }
+.rb-following-backdrop { position: fixed; z-index: 60; inset: 0; display: grid; place-items: center; padding: 20px; background: #0009; backdrop-filter: blur(8px); animation: rb-overlay-in 240ms ease both; }
+.rb-following-panel { display: flex; flex-direction: column; width: min(500px, 100%); max-height: min(650px, 85dvh); padding: 24px; border-radius: 24px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); box-shadow: 0 18px 55px #0003; }
+.rb-following-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.rb-following-head h2 { margin: 0; font-size: 22px; font-weight: 500; }
+.rb-following-head button { display: grid; place-items: center; width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 50%; background: var(--rb-control-bg); }
+.rb-following-list { min-height: 0; overflow-y: auto; }
+.rb-following-row { display: flex; align-items: center; gap: 10px; min-height: 66px; margin-bottom: 9px; padding: 8px 12px; border-radius: 16px; background: var(--rb-control-bg); }
+.rb-following-person { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 0; text-align: left; }
+.rb-following-person img, .rb-following-person > span { display: grid; place-items: center; width: 35px; height: 35px; flex: 0 0 35px; border-radius: 50%; background: #ddd; object-fit: cover; }
+.rb-following-person strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.rb-following-action { min-height: 36px; padding: 0 13px; border-radius: 999px; background: var(--rb-control-hover); }
+.rb-following-empty { margin: 0; padding: 26px 10px 32px; color: var(--rb-modal-muted); text-align: center; line-height: 1.5; }
+.rb-theme-dark .rb-profile-identity, .rb-theme-dark .rb-profile-shortcut-art, .rb-theme-dark .rb-profile-following, .rb-theme-dark .rb-profile-collections button { background: #2b2b2b; color: #eee; }
+.rb-theme-dark .rb-profile-shortcuts button { color: #aaa; }
+.rb-theme-dark .rb-profile-shortcuts button.active { color: #eee; }
+.rb-theme-dark .rb-profile-shortcuts button.active .rb-profile-shortcut-art { background: #34452d; }
+.rebuild-app .rb-profile-identity h1 { font-size: 27px !important; }
+.rebuild-app .rb-profile-identity > span:first-child { font-size: 25px !important; }
+.rebuild-app .rb-profile-identity > span:last-child { display: block; width: auto; height: auto; flex: none; border-radius: 0; background: transparent; color: #999; font-size: 14px !important; }
+.rebuild-app .rb-card:has(.rb-card-image) h3 { font-size: clamp(21px, 1.55vw, 25px) !important; font-weight: 400 !important; }
+.rebuild-app .rb-card:has(.rb-card-image) .rb-card-topline { font-size: 13px !important; }
+.rebuild-app .rb-card:has(.rb-card-image) .rb-card-footer { font-size: 14px !important; }
+.rebuild-app .rb-card:has(.rb-card-image) p { font-size: 16px !important; }
+@media (max-width: 700px) {
+  .rb-main { padding-left: 18px; padding-right: 18px; }
+  .rb-card-grid:not(.rb-list-grid), .rb-discover-grid { columns: 1; }
+  .rb-related-feed { padding-left: 18px; padding-right: 18px; }
+  .rb-related-feed-grid { grid-template-columns: 1fr; }
+  .rb-profile-center { margin: 65px auto 80px; }
+  .rb-profile-shortcuts { gap: 14px; }
+}

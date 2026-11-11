@@ -150,7 +150,7 @@ function CardTile({
           <span><KindIcon size={14} /> {typeLabels[card.kind]} {card.isPrivate !== false && <LockKeyhole className="rb-card-lock" size={14} aria-label="Private" />}</span>
         </div>
         <h3>{card.title}</h3>
-        {card.description && <p>{card.description}</p>}
+        {card.description && <p className={card.description.length > 125 ? "rb-card-description-long" : ""}>{card.description}</p>}
         <div className="rb-card-footer">
           <span>{card.source || "Your note"}</span>
           {card.url && <ArrowUpRight size={16} aria-hidden="true" />}
@@ -236,6 +236,8 @@ export default function RebuildPreview({
   const [discoverTab, setDiscoverTab] = useState<"discover" | "following">("discover");
   const [discoverSource, setDiscoverSource] = useState<"all" | "yours" | "others">("all");
   const [profileId, setProfileId] = useState<string | null>(null);
+  const [profileScope, setProfileScope] = useState<"cards" | "collections">("cards");
+  const [followingOverlayOpen, setFollowingOverlayOpen] = useState(false);
   const [followedAccountIds, setFollowedAccountIds] = useState<string[]>([]);
   const [inboxTab, setInboxTab] = useState<"activity" | "following" | "subscriptions" | "review">("activity");
   const [subscriptions, setSubscriptions] = useState<string[]>([]);
@@ -400,6 +402,7 @@ export default function RebuildPreview({
         setTagEditorId(null);
         setRelatedFeedOpen(false);
         setRelatedCollectionPickerOpen(false);
+        setFollowingOverlayOpen(false);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -414,11 +417,11 @@ export default function RebuildPreview({
   }, [collectionGroup, initialCardId]);
 
   useEffect(() => {
-    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen) return;
+    if (!activeCardId && !composer && !relatedFeedOpen && !tagEditorId && !smartEditorId && !relatedCollectionPickerOpen && !followingOverlayOpen) return;
     const previous = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     return () => { document.body.style.overflow = previous; };
-  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen]);
+  }, [activeCardId, composer, relatedFeedOpen, tagEditorId, smartEditorId, relatedCollectionPickerOpen, followingOverlayOpen]);
 
   function closeDetail() {
     setActiveCardId(null);
@@ -461,11 +464,16 @@ export default function RebuildPreview({
   const publicCards = [...cards.filter((item) => item.isPrivate === false), ...publicRelatedCards.filter((item) => item.isPrivate === false && item.owner)];
   const publicAccounts = [...new Map(publicRelatedCards.filter((item) => item.isPrivate === false && item.owner).map((item) => [item.owner!.id, item.owner!])).values()];
   const activeProfile = publicAccounts.find((account) => account.id === profileId);
+  const isOwnProfile = profileId === "self";
+  const profileName = isOwnProfile ? "Your profile" : activeProfile?.name || "";
+  const profileCards = publicCards.filter((item) => isOwnProfile ? !item.owner : item.owner?.id === profileId);
+  const profileCollections = isOwnProfile ? allCollections.filter((item) => !item.parentId && item.isPrivate === false) : [];
   const discoverCards = publicCards.filter((item) => {
-    if (profileId && item.owner?.id !== profileId) return false;
-    if (discoverTab === "following" && (!item.owner || !followedAccountIds.includes(item.owner.id))) return false;
-    if (discoverSource === "yours" && item.owner) return false;
-    if (discoverSource === "others" && !item.owner) return false;
+    if (isOwnProfile && item.owner) return false;
+    if (profileId && !isOwnProfile && item.owner?.id !== profileId) return false;
+    if (!profileId && discoverTab === "following" && (!item.owner || !followedAccountIds.includes(item.owner.id))) return false;
+    if (!profileId && discoverSource === "yours" && item.owner) return false;
+    if (!profileId && discoverSource === "others" && !item.owner) return false;
     const text = `${item.title} ${item.source || ""} ${item.description || ""} ${item.owner?.name || ""}`.toLocaleLowerCase();
     return text.includes(query.trim().toLocaleLowerCase());
   });
@@ -553,6 +561,7 @@ export default function RebuildPreview({
     setSelectedTag(null);
     setSearchOpen(false);
     setProfileId(null);
+    setFollowingOverlayOpen(false);
     setRelatedSelecting(false);
     setSelectedRelatedIds([]);
     window.scrollTo(0, 0);
@@ -836,6 +845,7 @@ export default function RebuildPreview({
                     Dark
                   </button>
                 </div>
+                <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverSource("all"); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
                 <button
                   onClick={() => {
                     setCards(seedCards);
@@ -1057,14 +1067,24 @@ export default function RebuildPreview({
 
         {destination === "discover" && (
           <section className="rb-discover-page">
-            {activeProfile ? (
-              <div className="rb-public-profile">
-                <button className="rb-profile-back" onClick={() => setProfileId(null)} aria-label="Back to Discover"><ArrowLeft size={22} /></button>
-                <div className="rb-profile-identity">
-                  {activeProfile.avatar ? <img src={activeProfile.avatar} alt="" /> : <span>{activeProfile.name.slice(0, 1)}</span>}
-                  <div><h1>{activeProfile.name}</h1><span>{publicCards.filter((item) => item.owner?.id === activeProfile.id).length} public cards</span></div>
+            {(activeProfile || isOwnProfile) ? (
+              <div className="rb-profile-page">
+                <div className="rb-profile-toolbar">
+                  <button className="rb-profile-back" onClick={() => setProfileId(null)} aria-label="Back to Discover"><ArrowLeft size={22} /></button>
+                  {activeProfile && <button className={followedAccountIds.includes(activeProfile.id) ? "rb-follow-button following" : "rb-follow-button"} onClick={() => toggleFollow(activeProfile.id)}>{followedAccountIds.includes(activeProfile.id) ? "Following" : "Follow"}</button>}
                 </div>
-                <button className={followedAccountIds.includes(activeProfile.id) ? "rb-follow-button following" : "rb-follow-button"} onClick={() => toggleFollow(activeProfile.id)}>{followedAccountIds.includes(activeProfile.id) ? "Following" : "Follow"}</button>
+                <div className="rb-profile-center">
+                  <div className="rb-profile-identity">
+                    {activeProfile?.avatar ? <img src={activeProfile.avatar} alt="" /> : <span>{isOwnProfile ? "RW" : profileName.slice(0, 1)}</span>}
+                    <h1>{profileName}</h1>
+                    <span>{profileCards.length} public {profileCards.length === 1 ? "card" : "cards"}</span>
+                  </div>
+                  <button className="rb-profile-following" onClick={() => setFollowingOverlayOpen(true)}><UsersRound size={18} /><span>Following</span><span className="rb-profile-following-avatars">{isOwnProfile && publicAccounts.filter((account) => followedAccountIds.includes(account.id)).slice(0, 3).map((account) => account.avatar ? <img key={account.id} src={account.avatar} alt="" /> : <span key={account.id}>{account.name.slice(0, 1)}</span>)}</span><ChevronRight size={18} /></button>
+                  <div className="rb-profile-shortcuts">
+                    <button className={profileScope === "cards" ? "active" : ""} onClick={() => setProfileScope("cards")}><span className="rb-profile-shortcut-art"><Bookmark size={42} /></span><strong>All cards</strong></button>
+                    <button className={profileScope === "collections" ? "active" : ""} onClick={() => setProfileScope("collections")}><span className="rb-profile-shortcut-art"><Folder size={44} /></span><strong>Collections</strong></button>
+                  </div>
+                </div>
               </div>
             ) : (
               <div className="rb-discover-top">
@@ -1075,13 +1095,13 @@ export default function RebuildPreview({
                 <button className="rb-feed-select" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
               </div>
             )}
-            <div className="rb-discover-source" role="group" aria-label="Card source">
+            {!profileId && <div className="rb-discover-source" role="group" aria-label="Card source">
               {(["all", "yours", "others"] as const).map((source) => <button key={source} className={discoverSource === source ? "active" : ""} onClick={() => setDiscoverSource(source)}>{source === "all" ? "All" : source === "yours" ? "Yours" : "Others"}</button>)}
-            </div>
-            {discoverCards.length > 0 ? <div className="rb-discover-grid">
+            </div>}
+            {profileId && profileScope === "collections" ? (profileCollections.length ? <div className="rb-profile-collections">{profileCollections.map((item) => <button key={item.id} onClick={() => { setDestination("collections"); setSelectedCollection(item.id); setProfileId(null); window.scrollTo(0, 0); }}><Folder size={25} /><span>{item.name}</span><ArrowRight size={20} /></button>)}</div> : <div className="rb-empty rb-discover-empty"><Folder size={28} /><h2>No public collections yet</h2></div>) : discoverCards.length > 0 ? <div className="rb-discover-grid">
               {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onTogglePrivacy={item.owner ? undefined : () => togglePrivacy(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
-            </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{activeProfile ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards here yet"}</h2>{discoverSource !== "others" && !activeProfile && <button onClick={() => navigate("library")}>Open Library <ArrowRight size={18} /></button>}</div>}
-            {discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
+            </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{profileId ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards here yet"}</h2>{discoverSource !== "others" && !profileId && <button onClick={() => navigate("library")}>Open Library <ArrowRight size={18} /></button>}</div>}
+            {(!profileId || profileScope === "cards") && discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
           </section>
         )}
 
@@ -1104,6 +1124,18 @@ export default function RebuildPreview({
         )}
 
       </main>
+
+      {followingOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label={`${profileName} following`} onMouseDown={(event) => { if (event.target === event.currentTarget) setFollowingOverlayOpen(false); }}>
+        <div className="rb-following-panel">
+          <div className="rb-following-head"><h2>Following</h2><button onClick={() => setFollowingOverlayOpen(false)} aria-label="Close following"><X size={23} /></button></div>
+          <div className="rb-following-list" data-scroll-fade="y">
+            {isOwnProfile && publicAccounts.filter((account) => followedAccountIds.includes(account.id)).length > 0 ? publicAccounts.filter((account) => followedAccountIds.includes(account.id)).map((account) => <div className="rb-following-row" key={account.id}>
+              <button className="rb-following-person" onClick={() => { setProfileId(account.id); setProfileScope("cards"); setFollowingOverlayOpen(false); window.scrollTo(0, 0); }}>{account.avatar ? <img src={account.avatar} alt="" /> : <span>{account.name.slice(0, 1)}</span>}<strong>{account.name}</strong></button>
+              <button className="rb-following-action" onClick={() => toggleFollow(account.id)}>Following</button>
+            </div>) : <p className="rb-following-empty">{isOwnProfile ? "You aren’t following anyone yet. Explore public cards in Discover." : "This account’s following list isn’t available in the preview."}</p>}
+          </div>
+        </div>
+      </div>}
 
       <nav className={`rb-dock ${searchOpen ? "rb-dock-expanded" : ""}`} aria-label="Main navigation">
         <button
