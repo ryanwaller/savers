@@ -4,16 +4,18 @@ The interactive preview lives on a separate Railway service at [savers-rebuild-p
 
 ## Available for review
 
-- Responsive Library with all 815 exported bookmarks, search across titles, domains, notes, and tags, type filters, export-order sort, grid/list views, and progressive card rendering.
+- Responsive Library with all 815 exported bookmarks, search across titles, domains, notes, and tags, an expandable top filter with real social-source subfilters, export-order sort, grid/list views, and progressive card rendering.
 - Collection browser and nested collection navigation using the names, hierarchy, and counts from the user's Savers screenshots. Links, Images, and Smart collections are separated.
-- Card detail with source, collection, tags, notes where present, favorite, copy, and related cards from the same collection or tags.
-- Quick create for links, notes, collections, images, and small files. These saves persist in the current browser via localStorage; uploaded file data is kept there as well.
+- Bookmark cards open the original link as their primary action. A hover/touch action row opens Savers details, favorites the item, or changes its local privacy state. Detail has source, collection, tags, notes where present, and a larger carousel of locally related cards ranked by collection, source, tags, and title words.
+- Quick create for links, notes, collections, images, and small files, with a private/public choice. These edits persist in the current browser via localStorage; uploaded file data is kept there as well.
 - Light and dark appearance modes with the supplied OM Bauer Folio family and neon green action color.
-- Nested collection navigation and creation. Image collections still need their own export to show actual image records.
+- Nested collection navigation and creation, with lock indicators. Smart collection rules can be tried and edited locally; the original rules were not part of the export. Image collections still need their own export to show actual image records.
 
 ## Scope of this preview
 
 Starting collection names and counts are transcribed from the user's current Savers screenshots. The 815 bookmarks come from the user's CSV export, compressed into Railway-only environment variables by `scripts/prepare-rebuild-bookmarks.py`. The CSV and its generated chunks stay outside Git. The preview uses the export's already-generated, public Savers thumbnail URLs, loaded lazily in the browser. It does not generate previews or call an AI/metadata API. The supplied ZIP was too large for this workspace's 32 MB transfer limit; its local image files are not deployed. No production Supabase, Redis, storage, or worker credentials are configured on the preview service. `SAVERS_REBUILD_PREVIEW=1` rewrites `/` to `/rebuild` and returns 404 for the existing `/api/*` routes. `SAVERS_REBUILD_PASSWORD` protects the preview with HTTP Basic authentication, including fonts and static assets. Nothing saved in the preview appears in the current Savers app or on another device. The browser's storage limit makes this unsuitable for large uploads or long-term data storage.
+
+The export has no visibility fields. The preview assumes items and collections are private until changed locally. Switching to public here does not create a share link or change production permissions. The new Following and user-added Subscriptions Inbox flows are required in the full rebuild plan; they are not connected in this visual preview.
 
 The complete feature and data parity work is laid out in [REBUILD_PLAN.md](./REBUILD_PLAN.md).
 

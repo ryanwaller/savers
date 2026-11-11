@@ -12,6 +12,7 @@ export type PreviewCard = {
   collection?: string;
   note?: string;
   tags?: string[];
+  isPrivate?: boolean;
   date: string;
   tone?: "cream" | "sage" | "lavender" | "stone";
   featured?: boolean;

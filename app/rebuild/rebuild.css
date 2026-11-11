@@ -2093,3 +2093,257 @@ body:has(.rebuild-app) {
   .rb-collection-groups { width: 100%; justify-content: space-between; }
   .rb-collection-groups button { padding: 9px 10px; font-size: 12px; }
 }
+
+/* Three-scale type system and controls sized alongside the navigation dock. */
+.rebuild-app {
+  --rb-type-body: 16px;
+  --rb-type-title: 22px;
+  --rb-type-display: 42px;
+  font-size: var(--rb-type-body);
+}
+.rb-page-heading h1, .rb-detail-content h1, .rb-composer h2 {
+  font-size: var(--rb-type-display);
+  line-height: 1.12;
+}
+.rb-card h3, .rb-collection-info h2, .rb-related h2, .rb-empty h2 {
+  font-size: var(--rb-type-title);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+.rb-card p, .rb-detail-description, .rb-detail-note p,
+.rb-card-topline, .rb-card-footer, .rb-section-intro > span,
+.rb-section-intro button, .rb-rail-item > span:nth-child(2),
+.rb-rail-count, .rb-toolbar-end, .rb-collections-head,
+.rb-collection-info > span, .rb-collection-children button,
+.rb-detail-kind, .rb-detail-meta span, .rb-detail-meta strong,
+.rb-detail-note > span, .rb-collection-groups button,
+.rb-filter-group button, .rb-account-menu button, .rb-account-menu a,
+.rb-sort-menu button, .rb-preview-flag, .rb-flag-note,
+.rb-load-more, .rb-dock button, .rb-avatar {
+  font-size: var(--rb-type-body) !important;
+  font-weight: 400;
+}
+.rb-topbar { height: 96px; }
+.rb-icon-button, .rb-avatar { width: 50px; height: 50px; }
+.rb-avatar { letter-spacing: 0; }
+.rb-top-actions { gap: 14px; }
+.rb-top-actions svg { width: 23px; height: 23px; }
+.rb-search-wrap { height: 62px; width: min(600px, 100%); }
+.rb-search-wrap input { font-size: var(--rb-type-body); }
+.rb-search-wrap > svg { width: 23px; height: 23px; }
+.rb-keycap { font-size: 13px; }
+.rb-rail-item { min-height: 62px; padding: 11px 14px; }
+.rb-rail-item > svg { width: 22px; height: 22px; flex: 0 0 auto; }
+.rb-rail-count { min-width: 26px; text-align: right; }
+.rb-filter-group { gap: 5px; }
+.rb-filter-group button { min-height: 47px; padding: 10px 18px; }
+.rb-toolbar-end { gap: 6px; }
+.rb-toolbar-end > span { margin-right: 10px; }
+.rb-small-icon { width: 46px; height: 46px; border-radius: 12px; }
+.rb-small-icon svg { width: 21px; height: 21px; }
+.rb-collection-groups button { min-height: 43px; padding: 10px 17px; }
+.rb-collections-head button { min-height: 44px; font-size: var(--rb-type-body) !important; }
+.rb-collection-children button { min-height: 42px; padding: 8px 12px; }
+.rb-card { position: relative; }
+.rb-card-primary {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+}
+.rb-card-primary:hover { color: inherit; }
+.rb-list-grid .rb-card-primary { display: flex; }
+.rb-card-topline { padding-right: 42px; }
+.rb-card-actions {
+  position: absolute;
+  z-index: 1;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease;
+}
+.rb-card:hover .rb-card-actions,
+.rb-card:focus-within .rb-card-actions { opacity: 1; pointer-events: auto; }
+.rb-card-actions button {
+  display: grid;
+  place-items: center;
+  width: 39px;
+  height: 39px;
+  border-radius: 50%;
+  background: #f1f1f1ed;
+  color: #555;
+}
+.rb-card-actions button:hover { background: #b9ff69; color: #111; }
+.rb-theme-dark .rb-card-actions button { background: #414141ee; color: #eee; }
+.rb-theme-dark .rb-card-actions button:hover { background: #b9ff69; color: #111; }
+.rb-card-lock { margin-left: 5px; }
+.rb-card-image[data-failed], .rb-detail-image[data-failed] { display: none; }
+.rb-folder-lock { flex: 0 0 auto; color: #999; }
+.rb-heading-line { display: flex; align-items: center; justify-content: center; gap: 8px; }
+.rb-heading-line h1 { margin-bottom: 0; }
+.rb-heading-privacy { display: grid; place-items: center; width: 43px; height: 43px; border-radius: 50%; color: #999; }
+.rb-heading-privacy:hover { background: #ececec; color: #222; }
+.rb-collection-info h2 { display: flex; align-items: center; gap: 9px; }
+.rb-collection-info h2 svg { flex: 0 0 auto; color: #999; }
+.rb-detail-kind { display: inline-flex; align-items: center; gap: 8px; }
+.rb-composer-privacy { display: flex; align-items: center; justify-content: space-between; margin: 22px 0 0; color: #bbb; font-size: var(--rb-type-body); }
+.rb-composer-privacy button { display: inline-flex; align-items: center; gap: 9px; min-height: 46px; padding: 9px 15px; border-radius: 999px; background: #343434; color: #eee; }
+.rb-composer-privacy button[aria-checked="true"] { background: #b9ff69; color: #172211; }
+@media (hover: none) { .rb-card-actions { opacity: 1; pointer-events: auto; } }
+.rb-card-footer { align-items: center; }
+.rb-card-footer svg { flex: 0 0 auto; }
+.rb-dock { padding: 8px; }
+.rb-dock button { width: 88px; height: 68px; gap: 4px; }
+.rb-dock button svg { width: 23px; height: 23px; }
+.rb-create-button { width: 72px; height: 72px; }
+.rb-create-button svg { width: 32px; height: 32px; }
+
+/* Large, quiet carousel of actual cards, following the reference detail view. */
+.rb-detail-content { padding-bottom: 35px; }
+.rb-related {
+  position: relative;
+  width: min(1020px, calc(100% - 48px));
+  margin: 80px auto 120px;
+  padding: 45px 48px 50px;
+  border-radius: 36px;
+  background: #f5f5f5;
+}
+.rb-related-heading { display: flex; justify-content: center; }
+.rb-related-heading h2 {
+  margin: 0;
+  padding: 10px 17px;
+  border: 4px solid #ededed;
+  border-radius: 11px;
+  background: #fff;
+  font-size: var(--rb-type-body);
+  font-weight: 400;
+  letter-spacing: 0;
+}
+.rb-related-stage { position: relative; margin-top: 54px; }
+.rb-related-track {
+  display: flex;
+  gap: 20px;
+  overflow-x: auto;
+  padding: 2px 2px 12px;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: none;
+}
+.rb-related-track::-webkit-scrollbar { display: none; }
+.rb-related-track .rb-card {
+  flex: 0 0 min(360px, 79vw);
+  align-self: flex-start;
+  margin: 0;
+  scroll-snap-align: start;
+  border-radius: 18px;
+  background: #e8e8e8;
+}
+.rb-related-track .rb-card-image img { width: 100%; height: 220px; object-fit: cover; }
+.rb-related-track .rb-card-content { padding: 20px; }
+.rb-related-track .rb-card h3 { margin-top: 20px; }
+.rb-related-arrow {
+  position: absolute;
+  z-index: 2;
+  top: 42%;
+  display: grid;
+  place-items: center;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #777;
+  color: #fff;
+  box-shadow: 0 4px 15px #0002;
+}
+.rb-related-prev { left: -20px; }
+.rb-related-next { right: -20px; }
+.rb-related-arrow:hover { background: #b9ff69; color: #111; }
+.rb-theme-dark .rb-related { background: #252525; }
+.rb-theme-dark .rb-related-heading h2 { background: #303030; border-color: #393939; color: #eee; }
+.rb-theme-dark .rb-related-track .rb-card { background: #343434; }
+
+/* Local smart collection rule editor. */
+.rb-edit-rules, .rb-collection-rule-action, .rb-rule-add {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 9px 15px;
+  border-radius: 12px;
+  background: #ececec;
+  color: #333;
+  font-size: var(--rb-type-body);
+}
+.rb-collection-rule-action { width: calc(100% - 32px); margin: 0 16px 16px; }
+.rb-rule-overlay { position: fixed; z-index: 55; inset: 0; display: grid; place-items: center; padding: 20px; background: #0009; }
+.rb-rule-panel { width: min(680px, 100%); max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 24px; background: #fff; color: #222; }
+.rb-rule-head, .rb-rule-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
+.rb-rule-head span { color: #777; font-size: var(--rb-type-body); }
+.rb-rule-head h2 { margin-top: 4px; font-size: var(--rb-type-title); font-weight: 500; }
+.rb-rule-head > button, .rb-rule-remove { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 11px; }
+.rb-rule-head > button:hover, .rb-rule-remove:hover { background: #eee; }
+.rb-rule-note { margin: 18px 0 24px; color: #777; font-size: var(--rb-type-body); line-height: 1.45; }
+.rb-rule-match { display: flex; align-items: center; gap: 18px; margin: 24px 0; font-size: var(--rb-type-body); }
+.rb-rule-match > div { display: flex; gap: 4px; padding: 4px; border-radius: 12px; background: #eee; }
+.rb-rule-match button { padding: 9px 13px; border-radius: 9px; }
+.rb-rule-match button.active { background: #111; color: #fff; }
+.rb-rule-list { display: grid; gap: 10px; }
+.rb-rule-row { display: grid; grid-template-columns: 1fr 1.15fr 1.4fr 44px; gap: 8px; }
+.rb-rule-row select, .rb-rule-row input { width: 100%; min-width: 0; height: 48px; padding: 0 12px; border: 1px solid #ddd; border-radius: 10px; background: #fafafa; color: #222; font-size: var(--rb-type-body); }
+.rb-rule-remove:disabled { opacity: .3; cursor: default; }
+.rb-rule-add { margin-top: 14px; }
+.rb-rule-footer { margin-top: 34px; padding-top: 20px; border-top: 1px solid #e8e8e8; }
+.rb-rule-footer > span { font-size: var(--rb-type-title); }
+.rb-rule-footer > div { display: flex; gap: 8px; }
+.rb-rule-footer button { min-height: 46px; padding: 9px 18px; border-radius: 10px; background: #eee; font-size: var(--rb-type-body); }
+.rb-rule-footer .rb-rule-apply { background: #b9ff69; color: #111; }
+.rb-rule-footer .rb-rule-apply:disabled { opacity: .45; cursor: default; }
+.rb-theme-dark .rb-edit-rules, .rb-theme-dark .rb-collection-rule-action { background: #343434; color: #eee; }
+.rb-theme-dark .rb-rule-panel { background: #222; color: #eee; }
+.rb-theme-dark .rb-rule-row select, .rb-theme-dark .rb-rule-row input { border-color: #444; background: #303030; color: #eee; }
+.rb-theme-dark .rb-rule-match > div, .rb-theme-dark .rb-rule-footer button { background: #333; color: #eee; }
+.rb-theme-dark .rb-rule-match button.active { background: #b9ff69; color: #111; }
+.rb-theme-dark .rb-rule-footer .rb-rule-apply { background: #b9ff69; color: #111; }
+@media (max-width: 620px) {
+  .rebuild-app { --rb-type-display: 36px; --rb-type-title: 21px; }
+  .rb-topbar { height: 82px; }
+  .rb-icon-button, .rb-avatar { width: 46px; height: 46px; }
+  .rb-search-wrap { height: 58px; }
+  .rb-rail-items { grid-template-columns: 1fr; }
+  .rb-rail-item { min-height: 56px; padding: 8px 14px; }
+  .rb-rail-count { display: block; }
+  .rb-rail-item > span:nth-child(2) { font-size: 14px; }
+  .rb-toolbar-end { align-self: stretch; justify-content: flex-end; }
+  .rb-dock button { width: 77px; height: 62px; }
+  .rb-create-button { width: 66px; height: 66px; }
+  .rb-related { width: calc(100% - 28px); margin: 45px auto 90px; padding: 30px 16px; border-radius: 25px; }
+  .rb-related-stage { margin-top: 36px; }
+  .rb-related-track .rb-card { flex-basis: 78vw; }
+  .rb-related-arrow { width: 40px; height: 40px; }
+  .rb-related-prev { left: -10px; }
+  .rb-related-next { right: -10px; }
+  .rb-rule-panel { padding: 20px; }
+  .rb-rule-row { grid-template-columns: 1fr 1fr 44px; }
+  .rb-rule-row input { grid-column: 1 / 3; grid-row: 2; }
+  .rb-rule-remove { grid-column: 3; grid-row: 1 / 3; align-self: center; }
+}
+.rb-filter-group { min-width: 0; flex: 1; gap: 7px; }
+.rb-filter-entry { display: inline-flex; flex: 0 0 auto; align-items: center; gap: 4px; }
+.rb-filter-entry > button { display: inline-flex; align-items: center; gap: 8px; border-radius: 999px; background: #f2f2f2; color: #777; }
+.rb-filter-entry > button.active, .rb-theme-dark .rb-filter-entry > button.active { background: #b9ff69; color: #172211; }
+.rb-filter-chevron { transition: transform 150ms ease; }
+.rb-filter-entry > button[aria-expanded="true"] .rb-filter-chevron { transform: rotate(90deg); }
+.rb-filter-suboptions { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; background: #e6ffd0; }
+.rb-filter-suboptions button { min-height: 39px; padding: 7px 13px; background: transparent; color: #45603b; }
+.rb-filter-suboptions button.active { background: #b9ff69; color: #172211; }
+.rb-theme-dark .rb-filter-entry > button { background: #303030; color: #bbb; }
+.rb-theme-dark .rb-filter-suboptions { background: #34452d; }
+.rb-theme-dark .rb-filter-suboptions button { color: #d5efc4; }
+.rb-theme-dark .rb-filter-suboptions button.active { color: #172211; }
+@media (max-width: 620px) { .rb-filter-group { width: 100%; flex: none; } }

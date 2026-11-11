@@ -59,7 +59,8 @@ The local checkout is at commit `2850d95` (15 October 2026); Railway reports an 
 | Pinned and unsorted items                         | bookmark flags/virtual selections                   | Library filter and Inbox tab; pinned collections on collection home                     | 3     |
 | Tags, aliases, AI auto-tags                       | bookmark/image fields and tag APIs                  | Search facets and contextual editor; suggestions clearly distinguished from chosen tags | 4     |
 | Smart collections                                 | `smart_collections` query JSON                      | Saved views with readable filter summary and live builder preview                       | 4     |
-| Feed subscriptions and item review                | feed APIs and feed-item queue                       | Inbox “Feed finds”; keep/dismiss/batch actions and source management                    | 4     |
+| User-added feed subscriptions and item review     | feed APIs and feed-item queue                       | Inbox “Subscriptions”; add/watch sources explicitly, keep/dismiss/batch items           | 4     |
+| Following Savers accounts                         | new account-follow and public-activity read models | Follow/unfollow accounts and review their public cards in Inbox “Following”             | 5     |
 | Broken-link checks and verification               | link worker, `broken_status`                        | Inbox “Broken links” with checker confidence and user decision                          | 4     |
 | Duplicate review                                  | duplicate APIs/settings                             | Dedicated review queue with safe comparison and explicit deletion/merge result          | 4     |
 | Bulk move/tag/delete                              | bulk API routes and edit mode                       | Selection mode in grid/list with fixed toolbar and undo where possible                  | 4     |
@@ -91,7 +92,7 @@ This map deliberately separates a **new presentation** from a **new capability**
 | ----------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | **Library**       | All saved cards, recent first, mixed link/image/note/file types     | Search, type filters, sort, view switch, bulk select                |
 | **Collections**   | Pinned/recent collections and accessible hierarchy                  | New collection, nested navigation, smart collections as saved views |
-| **Inbox**         | Unsorted saves, feed candidates, failed processing as distinct tabs | Keep, organize, dismiss, retry; counts for actionable items         |
+| **Inbox**         | Following, user-added subscriptions, and review queues              | Follow/unfollow, add/remove feeds, keep, dismiss, retry              |
 | **Explore**       | Related from my library; optional curated public content later      | Scope, shuffle, source, privacy                                     |
 | **Create**        | Link, note, image/file upload, collection; later highlight/canvas   | Current context prefilled, collection optional                      |
 | **Account/Tools** | Settings, integrations, imports/exports, health, duplicate review   | Progressive disclosure from profile menu                            |
@@ -145,11 +146,15 @@ Search should match title, URL/domain, description, notes, tags, collection name
 
 ### G. Inbox, feeds, and maintenance
 
-Use **Inbox** as the practical home for existing Savers workflows: Unsorted, Feed finds, Processing issues, Broken links, and Duplicates. Each tab has count, plain-language status, and one obvious primary action. Feed items support preview, keep as card, dismiss, and batch action. Broken-link review must distinguish checker uncertainty from user-confirmed failure, and preserve the original URL. Duplicate review shows why items group together and which fields would be lost on merge. Bulk mode should be explicit and reversible where possible, with a clear selected count and fixed action bar. These tools should be available from context, not dominate every card.
+Use **Inbox** for three clear sources: **Following** shows new public activity from Savers accounts the user follows; **Subscriptions** shows items from external site feeds the user explicitly added; **Review** holds Unsorted, processing issues, broken links, and duplicates. Following an account never automatically subscribes to that account's external feeds. Each tab has a count and one clear primary action. Subscriptions need an add-source flow (paste site or feed URL, preview recent items, confirm), a source list with pause/remove controls, and per-item keep/dismiss/batch actions. Broken-link review must distinguish checker uncertainty from user-confirmed failure, and preserve the original URL. Duplicate review shows why items group together and which fields would be lost on merge. Bulk mode should be explicit and reversible where possible, with a clear selected count and fixed action bar. These tools should be available from context, not dominate every card.
 
 ### H. Sharing, public pages, and collaboration
 
-Preserve current bookmark and collection shares and public URLs. Design publish flows that show exactly what becomes visible, provide a preview, and allow unpublish/revoke. Test images and private originals carefully. Collaboration, public profiles, following, and network discovery appear in Sublime but are **later product decisions** for Savers; implement only with a defined identity, permissions, and abuse model. Do not expose data just to match a screenshot.
+Preserve current bookmark and collection shares and public URLs. Design publish flows that show exactly what becomes visible, provide a preview, and allow unpublish/revoke. Every new card and collection has an explicit private/public state; private is the default and a lock marks it in cards, details, collections, and the create flow. Test images and private originals carefully.
+
+**Following Savers accounts is required for the final rebuild.** Give each opt-in public account a stable profile/handle and public-card feed. A user can find an account, follow/unfollow it, and see only newly public items in Inbox → Following. The feed must respect visibility at query time and retract items when made private; following never grants access to private content. Provide mute/block and report controls before wide release, and decide notification frequency with user testing. Keep follower relationships separate from user-added external feed subscriptions. Public network discovery and collaborative editing remain later decisions.
+
+Implementation should add a profile record with a stable user ID and editable handle, a unique follower/followed edge, and a cursor-paginated activity read model. Start by querying the followed accounts' public cards rather than copying private item data into a permanent follower inbox. Recheck visibility and blocks whenever activity is read or a card is opened, so making an item private, deleting it, or blocking someone removes access immediately. Use stable IDs in follow links so a handle change does not break relationships. The first release needs profile search, follow/unfollow, an account page with only public cards, Inbox → Following, and empty/loading/error states. Test cross-account reads, newly public items, privacy revocation, deleted accounts, blocks, and duplicate follow attempts before release.
 
 ### I. Settings and integrations
 
@@ -166,11 +171,13 @@ The user has now set the design direction: match the reference's light and dark 
 | Main text      | `#F5F5F5` on dark; `#202020` on light                                              | Body copy at WCAG AA contrast; avoid the faint gray seen in some empty states.         |
 | Secondary text | Approx. `#B8B8B8` dark / `#636363` light                                           | Never use opacity alone for essential labels.                                          |
 | Accent         | Bright neon green, initially `#B9FF69`                                            | Reserve for actions and selected controls; test contrast of text on it.                 |
-| Typography     | Supplied OM Bauer Folio Light, Book, and Medium, including italics                | Use readable sizes and sentence-case labels; no decorative filler copy.                |
+| Typography     | Supplied OM Bauer Folio Light, Book, and Medium, including italics                | Three related sizes for body, card/section title, and page title; larger controls and sentence-case labels. |
 | Layout         | 8 px spacing rhythm; reading column 640–760 px; grid container around 1180–1320 px | Responsive breakpoints from content needs, not arbitrary device labels.                |
 | Motion         | 120–220 ms soft transitions for menus/cards                                        | Respect reduced-motion preferences and avoid long blur transitions.                    |
 
 The screenshot's floating controls, pale surfaces, and large blank areas are worth matching; its very low contrast iconography and ambiguous unlabeled controls are not. Provide visible hover/focus, accessible names, Escape and click-away behavior, sensible tab order, and touch targets of at least ~44 px on mobile. Use real empty, loading, error, and success states rather than an always pristine mockup. A fidelity review should compare desktop and mobile screenshots side by side at each milestone.
+
+Use the reference's expanding top filter, showing subfilters only when there is a reliable way to classify items. Keep number-only counts on cards and folders; omit repeated “saved” labels and dot separators. Let a link card open its original source directly, with a separate clearly named detail action. Hover actions and lock icons show visibility without hiding it from touch or keyboard users.
 
 ## 6. Engineering plan
 
@@ -194,7 +201,7 @@ Why a separate service instead of `/rebuild` in production: a subfolder avoids a
 
 ## 7. Phased delivery and gates
 
-Effort is a **planning range**, not a commitment: roughly 14–22 developer-weeks for a robust parity rebuild with a functional preview, plus additional time for Canvas, public discovery, and deep semantic search. A small team can overlap design/engineering, but data migration and cutover remain sequential.
+Effort is a **planning range**, not a commitment: roughly 17–27 developer-weeks for the parity rebuild, account following, and functional preview, plus additional time for Canvas, broader public discovery, and deep semantic search. A small team can overlap design/engineering, but data migration and cutover remain sequential.
 
 | Phase                                      | Deliverable                                                                                                                                                                           | Review/exit gate                                                                                                 |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
@@ -203,10 +210,11 @@ Effort is a **planning range**, not a commitment: roughly 14–22 developer-week
 | **2. Reviewable preview** (2–3 weeks)      | Separate Railway URL; fixture-backed shell, library, collection, search UI, detail, capture prototype                                                                                 | User can click through core tasks on desktop and phone; zero prod credentials and no prod deploy.                |
 | **3. Core functional library** (3–5 weeks) | Staging auth/data; paginated read model; real saves/edits; mixed links/images; collections; search/filter; responsive layout                                                          | Representative library loads well; create/edit/delete round-trip; permissions and share boundaries verified.     |
 | **4. Savers parity** (3–5 weeks)           | Inbox/feeds, tags/smart views, bulk actions, link health, duplicates, images/files, sharing, settings/export, extension/iOS contract                                                  | Every existing supported workflow has a route and task test; no silent data loss; queue failure states recover.  |
-| **5. Enrichment & polish** (2–4 weeks)     | Related from own library, reader/highlights if viable, semantic search experiment, performance/accessibility/usability rounds                                                         | Related relevance beats a documented baseline; search remains useful without AI; mobile and keyboard flows pass. |
-| **6. Cutover** (1–2 weeks)                 | Backward-compatible migrations, production data verification, monitored release, rollback rehearsal                                                                                   | Counts/IDs/public links match; critical task checks pass on production; old app can be restored quickly.         |
+| **5. Account following** (3–5 weeks)       | Public profiles/handles, follow graph, public activity feed, Inbox Following tab, visibility checks, mute/block/report                                                                  | Follow/unfollow and feed tasks pass; private or revoked items never appear to followers.                          |
+| **6. Enrichment & polish** (2–4 weeks)     | Related from own library, reader/highlights if viable, semantic search experiment, performance/accessibility/usability rounds                                                         | Related relevance beats a documented baseline; search remains useful without AI; mobile and keyboard flows pass. |
+| **7. Cutover** (1–2 weeks)                 | Backward-compatible migrations, production data verification, monitored release, rollback rehearsal                                                                                   | Counts/IDs/public links match; critical task checks pass on production; old app can be restored quickly.         |
 
-Canvas, social following, public network discovery, Raycast, and Kindle/Readwise/X/Instagram imports are **optional post-parity tracks**. They should be justified by actual Savers user needs and given separate scope, especially where they introduce content rights, privacy, and moderation work.
+Canvas, broader public network discovery, Raycast, and Kindle/Readwise/X/Instagram imports are **optional post-parity tracks**. Account following and user-added subscriptions are included above.
 
 ### Definition of done for the core rebuild
 
@@ -216,7 +224,7 @@ Canvas, social following, public network discovery, Raycast, and Kindle/Readwise
 - Search and browse scale beyond the entire library being shipped to the browser at boot.
 - Privacy and ownership are checked on every server operation and public page. Staging cannot write to production.
 - Keyboard navigation, focus restoration, reduced motion, text contrast, and touch use are verified.
-- Real users can complete a task set: save a URL, save an image, add a note, organize, retrieve, review a feed find, resolve a broken link, share/revoke, and export.
+- Real users can complete a task set: save a URL, save an image, add a note, organize, retrieve, add and review a feed subscription, follow/unfollow a Savers account, review only its public activity, resolve a broken link, share/revoke, and export.
 - Production cutover has measured before/after counts, share URL checks, backup, monitoring, and a rehearsed rollback.
 
 ## 8. Risks, tradeoffs, and decisions for review

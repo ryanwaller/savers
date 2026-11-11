@@ -9,6 +9,7 @@ import {
   Bookmark,
   Check,
   CheckCircle2,
+  ChevronRight,
   Copy,
   ExternalLink,
   FileText,
@@ -20,18 +21,19 @@ import {
   Link2,
   List,
   LockKeyhole,
+  Unlock,
   MoreHorizontal,
   Plus,
   Search,
   SlidersHorizontal,
-  Sparkles,
   Upload,
+  UsersRound,
   X,
 } from "lucide-react";
 import { type CardKind, type PreviewCard } from "./fixtures";
 
 type Destination = "library" | "collections";
-type Filter = CardKind | "all";
+type Filter = CardKind | "all" | "social" | "substack" | "youtube" | "x";
 type Composer = CardKind | "collection" | null;
 type PreviewCollection = {
   id: string;
@@ -41,7 +43,54 @@ type PreviewCollection = {
   image?: string;
   parentId?: string;
   group?: "links" | "images" | "smart";
+  isPrivate?: boolean;
 };
+type SmartRule = {
+  field: "tags" | "title" | "domain" | "url";
+  operator: "contains" | "not_contains";
+  value: string;
+};
+type SmartDefinition = { match: "all" | "any"; rules: SmartRule[] };
+
+function matchesSmart(card: PreviewCard, definition: SmartDefinition): boolean {
+  const rules = definition.rules.filter((rule) => rule.value.trim());
+  if (!rules.length) return false;
+  const checks = rules.map((rule) => {
+    const haystack = rule.field === "tags"
+      ? card.tags?.join(" ") || ""
+      : rule.field === "domain"
+        ? card.source || ""
+        : rule.field === "url"
+          ? card.url || ""
+          : card.title;
+    const contains = haystack.toLowerCase().includes(rule.value.trim().toLowerCase());
+    return rule.operator === "contains" ? contains : !contains;
+  });
+  return definition.match === "all" ? checks.every(Boolean) : checks.some(Boolean);
+}
+
+function relatedScore(card: PreviewCard, candidate: PreviewCard): number {
+  if (card.id === candidate.id) return 0;
+  let score = 0;
+  if (card.collection && card.collection === candidate.collection) score += 3;
+  if (card.source && card.source === candidate.source) score += 4;
+  const tags = new Set(card.tags?.map((tag) => tag.toLowerCase()) || []);
+  for (const tag of candidate.tags || []) if (tags.has(tag.toLowerCase())) score += 5;
+  const words = new Set((card.title.toLowerCase().match(/[a-z0-9]+/g) || []).filter((word) => word.length > 3));
+  for (const word of (candidate.title.toLowerCase().match(/[a-z0-9]+/g) || [])) {
+    if (words.has(word) && word.length > 3) score += 1;
+  }
+  return score;
+}
+
+function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
+  if (card.kind !== "link") return null;
+  const source = (card.source || "").toLowerCase();
+  if (source.endsWith("substack.com")) return "substack";
+  if (source === "youtube.com" || source.endsWith(".youtube.com") || source === "youtu.be") return "youtube";
+  if (source === "x.com" || source.endsWith(".x.com") || source === "twitter.com" || source.endsWith(".twitter.com")) return "x";
+  return null;
+}
 
 const storageKey = "savers.rebuild.preview.v3";
 const icons = { link: Link2, image: ImageIcon, note: FileText, file: Upload };
@@ -55,22 +104,24 @@ const typeLabels: Record<CardKind, string> = {
 function CardTile({
   card,
   onOpen,
+  onToggleFavorite,
+  onTogglePrivacy,
+  favorite = false,
   list = false,
 }: {
   card: PreviewCard;
   onOpen: () => void;
+  onToggleFavorite: () => void;
+  onTogglePrivacy: () => void;
+  favorite?: boolean;
   list?: boolean;
 }) {
   const KindIcon = icons[card.kind];
-  return (
-    <button
-      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""}`}
-      onClick={onOpen}
-      aria-label={`Open ${card.title}`}
-    >
+  const content = (
+    <>
       {card.image && (
         <div className="rb-card-image">
-          <img src={card.image} alt="" loading="lazy" />
+          <img src={card.image} alt="" loading="lazy" onError={(event) => event.currentTarget.parentElement?.setAttribute("data-failed", "true")} />
         </div>
       )}
       {card.kind === "file" && (
@@ -81,19 +132,40 @@ function CardTile({
       )}
       <div className="rb-card-content">
         <div className="rb-card-topline">
-          <span>
-            <KindIcon size={14} /> {typeLabels[card.kind]}
-          </span>
-          <ArrowUpRight size={15} />
+          <span><KindIcon size={14} /> {typeLabels[card.kind]} {card.isPrivate !== false && <LockKeyhole className="rb-card-lock" size={14} aria-label="Private" />}</span>
         </div>
         <h3>{card.title}</h3>
         {card.description && <p>{card.description}</p>}
         <div className="rb-card-footer">
           <span>{card.source || "Your note"}</span>
-          <span>{card.date}</span>
+          {card.url && <ArrowUpRight size={16} aria-hidden="true" />}
         </div>
       </div>
-    </button>
+    </>
+  );
+  return (
+    <article
+      className={`rb-card rb-card-${card.kind} ${card.tone ? `rb-tone-${card.tone}` : ""} ${list ? "rb-card-list" : ""}`}
+    >
+      {card.kind === "link" && card.url ? (
+        <a className="rb-card-primary" href={card.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${card.title} in a new tab`}>
+          {content}
+        </a>
+      ) : (
+        <button className="rb-card-primary" onClick={onOpen} aria-label={`View ${card.title} in Savers`}>
+          {content}
+        </button>
+      )}
+      <div className="rb-card-actions">
+        <button onClick={onTogglePrivacy} aria-label={`${card.isPrivate === false ? "Make private" : "Make public"}: ${card.title}`} title={card.isPrivate === false ? "Public in this preview" : "Private in this preview"}>
+          {card.isPrivate === false ? <Unlock size={18} /> : <LockKeyhole size={18} />}
+        </button>
+        <button onClick={onToggleFavorite} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} title={favorite ? "Remove favorite" : "Add favorite"}>
+          <Heart size={18} fill={favorite ? "currentColor" : "none"} />
+        </button>
+        {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
+      </div>
+    </article>
   );
 }
 
@@ -121,18 +193,27 @@ export default function RebuildPreview({
   const [sortOpen, setSortOpen] = useState(false);
   const [sortNewest, setSortNewest] = useState(true);
   const [visibleCount, setVisibleCount] = useState(48);
+  const [relatedCanGoBack, setRelatedCanGoBack] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
   const [formCollection, setFormCollection] = useState("");
   const [formFile, setFormFile] = useState<File | null>(null);
+  const [formPrivate, setFormPrivate] = useState(true);
   const [formError, setFormError] = useState("");
   const [toast, setToast] = useState("");
   const [favorites, setFavorites] = useState<string[]>([]);
+  const [smartRules, setSmartRules] = useState<Record<string, SmartDefinition>>({});
+  const [smartEditorId, setSmartEditorId] = useState<string | null>(null);
+  const [smartDraft, setSmartDraft] = useState<SmartDefinition>({
+    match: "all",
+    rules: [{ field: "tags", operator: "contains", value: "" }],
+  });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart">("links");
   const [ready, setReady] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
+  const relatedTrackRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const timeout = window.setTimeout(() => {
@@ -144,11 +225,13 @@ export default function RebuildPreview({
             collections?: PreviewCollection[];
             favorites?: string[];
             theme?: "light" | "dark";
+            smartRules?: Record<string, SmartDefinition>;
           };
           if (Array.isArray(parsed.cards)) setCards(parsed.cards);
           if (Array.isArray(parsed.collections))
             setAllCollections(parsed.collections);
           if (Array.isArray(parsed.favorites)) setFavorites(parsed.favorites);
+          if (parsed.smartRules && typeof parsed.smartRules === "object") setSmartRules(parsed.smartRules);
           if (parsed.theme === "light" || parsed.theme === "dark")
             setTheme(parsed.theme);
         }
@@ -170,12 +253,13 @@ export default function RebuildPreview({
           collections: allCollections,
           favorites,
           theme,
+          smartRules,
         }),
       );
     } catch {
       /* A full browser storage quota only affects persistence of the preview. */
     }
-  }, [cards, allCollections, favorites, theme, ready]);
+  }, [cards, allCollections, favorites, theme, smartRules, ready]);
 
   useEffect(() => {
     if (!toast) return;
@@ -192,6 +276,7 @@ export default function RebuildPreview({
         setAccountOpen(false);
         setDetailMenuOpen(false);
         setSortOpen(false);
+        setSmartEditorId(null);
       }
       if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
         event.preventDefault();
@@ -205,15 +290,15 @@ export default function RebuildPreview({
   }, []);
 
   const activeCard = cards.find((card) => card.id === activeCardId) || null;
+  const smartEditorCollection = allCollections.find((item) => item.id === smartEditorId);
+  const smartPreviewCount = cards.filter((card) => matchesSmart(card, smartDraft)).length;
   const relatedCards = activeCard
     ? cards
-        .filter(
-          (item) =>
-            item.id !== activeCard.id &&
-            ((activeCard.collection && item.collection === activeCard.collection) ||
-              item.tags?.some((tag) => activeCard.tags?.includes(tag))),
-        )
-        .slice(0, 3)
+        .map((item) => ({ item, score: relatedScore(activeCard, item) }))
+        .filter(({ score }) => score > 0)
+        .sort((a, b) => b.score - a.score)
+        .map(({ item }) => item)
+        .slice(0, 12)
     : [];
   const collection = allCollections.find(
     (item) => item.id === selectedCollection,
@@ -226,16 +311,38 @@ export default function RebuildPreview({
   );
   const filteredCards = useMemo(() => {
     const match = cards.filter((card) => {
-      if (selectedCollection && card.collection !== selectedCollection)
-        return false;
-      if (filter !== "all" && card.kind !== filter) return false;
+      if (selectedCollection) {
+        const selected = allCollections.find((item) => item.id === selectedCollection);
+        if (selected?.group === "smart") {
+          const definition = smartRules[selectedCollection];
+          if (!definition || !matchesSmart(card, definition)) return false;
+        } else if (card.collection !== selectedCollection) return false;
+      }
+      if (filter === "social" && !socialSource(card)) return false;
+      if (["substack", "youtube", "x"].includes(filter) && socialSource(card) !== filter) return false;
+      if (["link", "image", "note", "file"].includes(filter) && card.kind !== filter) return false;
       if (!query.trim()) return true;
       const text =
         `${card.title} ${card.description || ""} ${card.source || ""} ${card.note || ""} ${card.tags?.join(" ") || ""}`.toLowerCase();
       return text.includes(query.trim().toLowerCase());
     });
     return sortNewest ? match : [...match].reverse();
-  }, [cards, selectedCollection, filter, query, sortNewest]);
+  }, [cards, allCollections, smartRules, selectedCollection, filter, query, sortNewest]);
+
+  function displayCount(item: PreviewCollection): number | null {
+    const definition = smartRules[item.id];
+    return definition && item.group === "smart"
+      ? cards.filter((card) => matchesSmart(card, definition)).length
+      : item.count;
+  }
+
+  function openSmartEditor(id: string) {
+    setSmartDraft(smartRules[id] || {
+      match: "all",
+      rules: [{ field: "tags", operator: "contains", value: "" }],
+    });
+    setSmartEditorId(id);
+  }
 
   function navigate(next: Destination) {
     setDestination(next);
@@ -255,6 +362,7 @@ export default function RebuildPreview({
     setFormNote("");
     setFormCollection(selectedCollection || "");
     setFormFile(null);
+    setFormPrivate(true);
     setFormError("");
   }
 
@@ -273,6 +381,7 @@ export default function RebuildPreview({
           description: formNote.trim() || undefined,
           parentId: formCollection || undefined,
           group: allCollections.find((item) => item.id === formCollection)?.group || collectionGroup,
+          isPrivate: formPrivate,
         },
         ...prev,
       ]);
@@ -301,6 +410,7 @@ export default function RebuildPreview({
         url: url.href,
         collection: formCollection || undefined,
         date: "Just now",
+        isPrivate: formPrivate,
         tone: "cream",
       };
       setCards((prev) => [newCard, ...prev]);
@@ -317,6 +427,7 @@ export default function RebuildPreview({
           description: formNote.trim(),
           collection: formCollection || undefined,
           date: "Just now",
+          isPrivate: formPrivate,
           tone: "sage",
         },
         ...prev,
@@ -349,6 +460,7 @@ export default function RebuildPreview({
           fileData,
           collection: formCollection || undefined,
           date: "Just now",
+          isPrivate: formPrivate,
           tone: "stone",
         },
         ...prev,
@@ -368,6 +480,16 @@ export default function RebuildPreview({
     );
   }
 
+  function togglePrivacy(id: string) {
+    setCards((items) => items.map((item) => item.id === id ? { ...item, isPrivate: item.isPrivate === false } : item));
+    setToast("Visibility updated in this preview");
+  }
+
+  function toggleCollectionPrivacy(id: string) {
+    setAllCollections((items) => items.map((item) => item.id === id ? { ...item, isPrivate: item.isPrivate === false } : item));
+    setToast("Visibility updated in this preview");
+  }
+
   return (
     <div
       className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""}`}
@@ -375,7 +497,6 @@ export default function RebuildPreview({
     >
       <div className="rb-preview-flag">
         <span className="rb-pulse" /> Preview
-        <span className="rb-flag-divider">·</span>
         <span className="rb-flag-note">Saves stay in this browser</span>
       </div>
 
@@ -437,6 +558,7 @@ export default function RebuildPreview({
                     setCards(seedCards);
                     setAllCollections(seedCollections);
                     setFavorites([]);
+                    setSmartRules({});
                     setAccountOpen(false);
                     setToast("Preview reset");
                   }}
@@ -470,8 +592,12 @@ export default function RebuildPreview({
               </button>
             )}
             <div className="rb-page-heading">
-              <h1>{collection ? collection.name : "Library"}</h1>
+              <div className="rb-heading-line">
+                <h1>{collection ? collection.name : "Library"}</h1>
+                {collection && <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private" : "Make public"}: ${collection.name}`} title={collection.isPrivate === false ? "Public in this preview" : "Private in this preview"}>{collection.isPrivate === false ? <Unlock size={20} /> : <LockKeyhole size={20} />}</button>}
+              </div>
               {collection?.description && <p>{collection.description}</p>}
+              {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}
             </div>
             <div className="rb-search-wrap">
               <Search size={20} />
@@ -508,8 +634,9 @@ export default function RebuildPreview({
                     >
                       {item.image ? <img src={item.image} alt="" /> : <Folder size={20} />}
                       <span>{item.name}</span>
+                      {item.isPrivate !== false && <LockKeyhole className="rb-folder-lock" size={16} aria-label="Private" />}
                       <span className="rb-rail-count">
-                        {item.count ?? ""}
+                        {displayCount(item) ?? ""}
                       </span>
                     </button>
                   ))}
@@ -518,23 +645,32 @@ export default function RebuildPreview({
             )}
             <div className="rb-library-toolbar">
               <div className="rb-filter-group">
-                {(["all", "link", "image", "note", "file"] as Filter[]).map(
+                {(["all", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
-                    <button
-                      key={kind}
-                      className={filter === kind ? "active" : ""}
-                      onClick={() => setFilter(kind)}
-                    >
-                      {kind === "all" ? "All cards" : `${typeLabels[kind]}s`}
-                    </button>
+                    <div className="rb-filter-entry" key={kind}>
+                      <button
+                        className={filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
+                        onClick={() => setFilter(kind)}
+                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : undefined}
+                      >
+                        {kind === "all" ? <Grid2X2 size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
+                        {kind === "all" ? "All" : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
+                        {kind === "social" && <ChevronRight className="rb-filter-chevron" size={18} />}
+                      </button>
+                      {kind === "social" && ["social", "substack", "youtube", "x"].includes(filter) && (
+                        <div className="rb-filter-suboptions">
+                          {(["substack", "youtube", "x"] as Filter[]).map((source) => <button key={source} className={filter === source ? "active" : ""} onClick={() => setFilter(source)}>{source === "x" ? "X" : source === "youtube" ? "YouTube" : "Substack"}</button>)}
+                        </div>
+                      )}
+                    </div>
                   ),
                 )}
               </div>
               <div className="rb-toolbar-end">
                 <span>
                   {seedCards.length === 0 && !query && filter === "all"
-                    ? `${collection ? collection.count ?? "—" : 815} saved`
-                    : `${filteredCards.length} ${filteredCards.length === 1 ? "card" : "cards"}`}
+                    ? `${collection ? displayCount(collection) ?? "—" : 815}`
+                    : filteredCards.length}
                 </span>
                 <div className="rb-sort-wrap">
                   <button
@@ -589,6 +725,9 @@ export default function RebuildPreview({
                     key={card.id}
                     card={card}
                     onOpen={() => setActiveCardId(card.id)}
+                    onToggleFavorite={() => toggleFavorite(card.id)}
+                    onTogglePrivacy={() => togglePrivacy(card.id)}
+                    favorite={favorites.includes(card.id)}
                     list={listMode}
                   />
                 ))}
@@ -625,7 +764,7 @@ export default function RebuildPreview({
               ))}
             </div>
             <div className="rb-collections-head">
-              <span>{allCollections.filter((item) => (item.group || "links") === collectionGroup).length} collections</span>
+              <span>{allCollections.filter((item) => (item.group || "links") === collectionGroup).length}</span>
               <button onClick={() => openComposer("collection")}>
                 <FolderPlus size={16} /> New collection
               </button>
@@ -649,12 +788,13 @@ export default function RebuildPreview({
                         </span>
                       </div>
                       <div className="rb-collection-info">
-                        <h2>{item.name}</h2>
+                        <h2>{item.name} {item.isPrivate !== false && <LockKeyhole size={17} aria-label="Private" />}</h2>
                         <span>
-                          {item.count === null ? "" : `${item.count} saved`} <ArrowUpRight size={15} />
+                          {displayCount(item) ?? ""} <ArrowUpRight size={15} />
                         </span>
                       </div>
                     </button>
+                    {item.group === "smart" && <button className="rb-collection-rule-action" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
                     {allCollections.some(
                       (child) => child.parentId === item.id,
                     ) && (
@@ -671,6 +811,7 @@ export default function RebuildPreview({
                             >
                               <Folder size={13} />
                               {child.name}
+                              {child.isPrivate !== false && <LockKeyhole size={14} aria-label="Private" />}
                               <span className="rb-child-count">{child.count ?? ""}</span>
                               <ArrowRight size={13} />
                             </button>
@@ -754,6 +895,9 @@ export default function RebuildPreview({
               <ArrowLeft size={21} />
             </button>
             <div>
+              <button onClick={() => togglePrivacy(activeCard.id)} aria-label={activeCard.isPrivate === false ? "Make private" : "Make public"} title={activeCard.isPrivate === false ? "Public in this preview" : "Private in this preview"}>
+                {activeCard.isPrivate === false ? <Unlock size={19} /> : <LockKeyhole size={19} />}
+              </button>
               <button
                 onClick={() => toggleFavorite(activeCard.id)}
                 aria-label={
@@ -814,15 +958,13 @@ export default function RebuildPreview({
             </div>
           </div>
           <div className="rb-detail-content">
-            <span className="rb-detail-kind">
-              {typeLabels[activeCard.kind]} <span>·</span> {activeCard.date}
-            </span>
+            <span className="rb-detail-kind">{activeCard.isPrivate === false ? <Unlock size={16} aria-label="Public" /> : <LockKeyhole size={16} aria-label="Private" />}{typeLabels[activeCard.kind]}</span>
             <h1>{activeCard.title}</h1>
             {activeCard.description && (
               <p className="rb-detail-description">{activeCard.description}</p>
             )}
             {activeCard.image && (
-              <img className="rb-detail-image" src={activeCard.image} alt="" />
+              <img className="rb-detail-image" src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
             )}
             {activeCard.kind === "file" && (
               <div className="rb-detail-file">
@@ -860,27 +1002,63 @@ export default function RebuildPreview({
                 {activeCard.tags.map((tag) => <span key={tag}>{tag}</span>)}
               </div>
             )}
-            {relatedCards.length > 0 && <div className="rb-related">
-              <div>
-                <Sparkles size={18} />
-                <h2>Related</h2>
-              </div>
-              <div className="rb-related-grid">
-                {relatedCards.map((item) => (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActiveCardId(item.id);
-                        setDetailMenuOpen(false);
-                      }}
-                    >
-                      <span>{typeLabels[item.kind]}</span>
-                      <strong>{item.title}</strong>
-                      <ArrowUpRight size={16} />
-                    </button>
+          </div>
+          {relatedCards.length > 0 && (
+            <section className="rb-related" aria-label="Related cards">
+              <div className="rb-related-heading"><h2>Related</h2></div>
+              <div className="rb-related-stage">
+                {relatedCanGoBack && <button className="rb-related-arrow rb-related-prev" onClick={() => relatedTrackRef.current?.scrollBy({ left: -relatedTrackRef.current.clientWidth * 0.8, behavior: "smooth" })} aria-label="Previous related cards"><ArrowLeft size={19} /></button>}
+                <div className="rb-related-track" ref={relatedTrackRef} onScroll={(event) => setRelatedCanGoBack(event.currentTarget.scrollLeft > 5)}>
+                  {relatedCards.map((item) => (
+                    <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onTogglePrivacy={() => togglePrivacy(item.id)} favorite={favorites.includes(item.id)} onOpen={() => {
+                      setActiveCardId(item.id);
+                      setDetailMenuOpen(false);
+                      setRelatedCanGoBack(false);
+                      relatedTrackRef.current?.scrollTo({ left: 0 });
+                    }} />
                   ))}
+                </div>
+                <button className="rb-related-arrow rb-related-next" onClick={() => relatedTrackRef.current?.scrollBy({ left: relatedTrackRef.current.clientWidth * 0.8, behavior: "smooth" })} aria-label="Next related cards"><ArrowRight size={19} /></button>
               </div>
-            </div>}
+            </section>
+          )}
+        </div>
+      )}
+
+      {smartEditorId && (
+        <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit rules for ${smartEditorCollection?.name || "smart collection"}`}>
+          <div className="rb-rule-panel">
+            <div className="rb-rule-head">
+              <div><span>Smart collection</span><h2>{smartEditorCollection?.name}</h2></div>
+              <button onClick={() => setSmartEditorId(null)} aria-label="Close rule editor"><X size={21} /></button>
+            </div>
+            {!smartRules[smartEditorId] && <p className="rb-rule-note">The original rules were not included in the export. Try rules here without changing current Savers.</p>}
+            <div className="rb-rule-match">
+              <span>Match</span>
+              <div role="group" aria-label="Rule matching">
+                <button className={smartDraft.match === "all" ? "active" : ""} onClick={() => setSmartDraft((draft) => ({ ...draft, match: "all" }))}>All rules</button>
+                <button className={smartDraft.match === "any" ? "active" : ""} onClick={() => setSmartDraft((draft) => ({ ...draft, match: "any" }))}>Any rule</button>
+              </div>
+            </div>
+            <div className="rb-rule-list">
+              {smartDraft.rules.map((rule, index) => (
+                <div className="rb-rule-row" key={index}>
+                  <select aria-label={`Rule ${index + 1} field`} value={rule.field} onChange={(event) => setSmartDraft((draft) => ({ ...draft, rules: draft.rules.map((item, row) => row === index ? { ...item, field: event.target.value as SmartRule["field"] } : item) }))}>
+                    <option value="tags">Tags</option><option value="title">Title</option><option value="domain">Domain</option><option value="url">URL</option>
+                  </select>
+                  <select aria-label={`Rule ${index + 1} operator`} value={rule.operator} onChange={(event) => setSmartDraft((draft) => ({ ...draft, rules: draft.rules.map((item, row) => row === index ? { ...item, operator: event.target.value as SmartRule["operator"] } : item) }))}>
+                    <option value="contains">Contains</option><option value="not_contains">Does not contain</option>
+                  </select>
+                  <input aria-label={`Rule ${index + 1} value`} value={rule.value} placeholder="Value" onChange={(event) => setSmartDraft((draft) => ({ ...draft, rules: draft.rules.map((item, row) => row === index ? { ...item, value: event.target.value } : item) }))} />
+                  <button className="rb-rule-remove" aria-label={`Remove rule ${index + 1}`} disabled={smartDraft.rules.length === 1} onClick={() => setSmartDraft((draft) => ({ ...draft, rules: draft.rules.filter((_, row) => row !== index) }))}><X size={18} /></button>
+                </div>
+              ))}
+            </div>
+            <button className="rb-rule-add" onClick={() => setSmartDraft((draft) => ({ ...draft, rules: [...draft.rules, { field: "tags", operator: "contains", value: "" }] }))}><Plus size={18} /> Add rule</button>
+            <div className="rb-rule-footer">
+              <span>{smartDraft.rules.some((rule) => rule.value.trim()) ? smartPreviewCount : "—"}</span>
+              <div><button onClick={() => setSmartEditorId(null)}>Cancel</button><button className="rb-rule-apply" disabled={!smartDraft.rules.some((rule) => rule.value.trim())} onClick={() => { setSmartRules((rules) => ({ ...rules, [smartEditorId]: smartDraft })); setSmartEditorId(null); setToast("Rules updated in this preview"); }}>Apply</button></div>
+            </div>
           </div>
         </div>
       )}
@@ -931,7 +1109,7 @@ export default function RebuildPreview({
                     ? formFile.name
                     : "Choose a file from your computer"}
                 </span>
-                <small>Browser-local preview · under 1.5 MB</small>
+                <small>Browser-local preview, under 1.5 MB</small>
                 <input
                   type="file"
                   accept={composer === "image" ? "image/*" : undefined}
@@ -1000,6 +1178,13 @@ export default function RebuildPreview({
                 {formError}
               </div>
             )}
+            <div className="rb-composer-privacy">
+              <span>Visibility</span>
+              <button role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
+                {formPrivate ? <LockKeyhole size={19} /> : <Unlock size={19} />}
+                {formPrivate ? "Private" : "Public"}
+              </button>
+            </div>
             <div className="rb-composer-footer">
               <span>
                 <LockKeyhole size={15} /> Preview only
