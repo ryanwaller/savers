@@ -277,6 +277,7 @@ function CardTile({
   onOpen,
   onToggleFavorite,
   onEditTags,
+  onEdit,
   onAddToCollection,
   onOpenOwner,
   favorite = false,
@@ -290,6 +291,7 @@ function CardTile({
   onOpen: () => void;
   onToggleFavorite?: () => void;
   onEditTags?: () => void;
+  onEdit?: () => void;
   onAddToCollection?: () => void;
   onOpenOwner?: () => void;
   favorite?: boolean;
@@ -348,6 +350,7 @@ function CardTile({
       {selecting && <span className={`rb-card-selection ${selected ? "selected" : ""}`} aria-hidden="true">{selected && <Check size={18} />}</span>}
       {!selecting && onToggleFavorite && <button className="rb-card-favorite-toggle" onClick={(event) => { onToggleFavorite(); if (event.detail > 0) event.currentTarget.blur(); }} aria-label={`${favorite ? "Remove favorite" : "Add favorite"}: ${card.title}`} aria-pressed={favorite} title={favorite ? "Remove favorite" : "Add favorite"}><Heart size={18} fill={favorite ? "currentColor" : "none"} /></button>}
       {!selecting && <div className="rb-card-actions">
+        {onEdit && <button onClick={onEdit} aria-label={`Edit card: ${card.title}`} title="Edit card"><Pencil size={18} /></button>}
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
         {onAddToCollection && <button onClick={onAddToCollection} aria-label={`Add ${card.title} to a collection`} title="Add to collection"><FolderPlus size={18} /></button>}
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
@@ -376,6 +379,7 @@ export default function RebuildPreview({
   );
   const [activeCardId, setActiveCardId] = useState<string | null>(initialCardId || null);
   const [filter, setFilter] = useState<Filter>("all");
+  const [socialExpanded, setSocialExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [listMode, setListMode] = useState(false);
   const [cardSize, setCardSize] = useState<"s" | "m" | "l" | "xl">("l");
@@ -413,6 +417,10 @@ export default function RebuildPreview({
   const [sortNewest, setSortNewest] = useState(true);
   const [visibleCount, setVisibleCount] = useState(48);
   const [relatedFeedOpen, setRelatedFeedOpen] = useState(false);
+  const [relatedSortOpen, setRelatedSortOpen] = useState(false);
+  const [relatedSort, setRelatedSort] = useState<"relevant" | "library" | "reverse">("relevant");
+  const [relatedMineOnly, setRelatedMineOnly] = useState(false);
+  const [relatedKind, setRelatedKind] = useState<"all" | CardKind>("all");
   const [relatedScope, setRelatedScope] = useState<"all" | "yours" | "others">("all");
   const [relatedSelecting, setRelatedSelecting] = useState(false);
   const [selectedRelatedIds, setSelectedRelatedIds] = useState<string[]>([]);
@@ -470,7 +478,7 @@ export default function RebuildPreview({
 
   useEffect(() => {
     if (!ready) return;
-    const reply = (requestId: string, result: Record<string, unknown>) => window.postMessage({ type: "SAVERS_PREVIEW_CAPTURE_RESULT", requestId, ...result }, window.location.origin);
+    const reply = (requestId: string, result: Record<string, unknown>) => window.postMessage({ type: "SAVERS_PREVIEW_CAPTURE_RESULT", requestId, theme, ...result }, window.location.origin);
     const handleCapture = (event: MessageEvent) => {
       if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== "SAVERS_PREVIEW_CAPTURE") return;
       const { action, requestId, payload, cardId } = event.data as { action?: string; requestId?: string; payload?: BrowserCapture; cardId?: string };
@@ -509,8 +517,10 @@ export default function RebuildPreview({
           if (!/^https?:$/.test(source.protocol)) throw new Error("Only web pages can be captured.");
           const link = payload.kind === "link" ? new URL(payload.url || source.href) : source;
           if (!/^https?:$/.test(link.protocol)) throw new Error("Only web links can be captured.");
-          const image = payload.kind === "image" ? new URL(payload.imageUrl || "") : null;
-          if (image && !/^https?:$/.test(image.protocol)) throw new Error("Only web images can be captured.");
+          const imageUrl = payload.kind === "image" ? payload.imageUrl || "" : null;
+          const image = imageUrl && !imageUrl.startsWith("data:") ? new URL(imageUrl) : null;
+          if (imageUrl && !(/^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/i.test(imageUrl) && imageUrl.length < 27_000_000) && (!image || !/^https?:$/.test(image.protocol))) throw new Error("This image cannot be captured.");
+          if (payload.kind === "image" && !imageUrl) throw new Error("Choose an image to capture.");
           const quote = (payload.text || "").trim().slice(0, 100_000);
           if (payload.kind === "note" && !quote) throw new Error("Select text to save first.");
           const card: PreviewCard = {
@@ -520,7 +530,7 @@ export default function RebuildPreview({
             description: payload.kind === "note" ? quote : undefined,
             source: (payload.kind === "link" ? link : source).hostname.replace(/^www\./, ""),
             url: link.href,
-            image: image?.href,
+            image: imageUrl || undefined,
             date: "Just now",
             isPrivate: true,
             tags: [],
@@ -540,7 +550,7 @@ export default function RebuildPreview({
     };
     window.addEventListener("message", handleCapture);
     return () => window.removeEventListener("message", handleCapture);
-  }, [ready]);
+  }, [ready, theme]);
 
   useEffect(() => {
     if (!accountOpen && !createOpen && !detailMenuOpen) return;
@@ -565,6 +575,16 @@ export default function RebuildPreview({
     document.addEventListener("pointerdown", closeOnOutsideClick);
     return () => document.removeEventListener("pointerdown", closeOnOutsideClick);
   }, [sizeOpen, sortOpen, viewOpen]);
+
+  useEffect(() => {
+    if (!relatedSortOpen) return;
+    const close = (event: PointerEvent) => {
+      if (event.target instanceof Element && event.target.closest(".rb-related-heading")) return;
+      setRelatedSortOpen(false);
+    };
+    document.addEventListener("pointerdown", close);
+    return () => document.removeEventListener("pointerdown", close);
+  }, [relatedSortOpen]);
 
   useEffect(() => {
     let cancelled = false;
@@ -726,6 +746,7 @@ export default function RebuildPreview({
         setSearchOpen(false);
         setTagEditorId(null);
         setRelatedFeedOpen(false);
+        setRelatedSortOpen(false);
         setRelatedCollectionPickerOpen(false);
         setFollowingOverlayOpen(false);
         setCollectionPickerCardId(null);
@@ -806,6 +827,14 @@ export default function RebuildPreview({
         .map(({ item }) => item)
         .slice(0, 60)
     : [];
+  const visibleRelatedCards = relatedCards.filter((item) =>
+    (!relatedMineOnly || !item.owner) && (relatedKind === "all" || item.kind === relatedKind),
+  );
+  if (relatedSort !== "relevant") visibleRelatedCards.sort((a, b) => {
+    const aIndex = cards.indexOf(a) < 0 ? Number.MAX_SAFE_INTEGER : cards.indexOf(a);
+    const bIndex = cards.indexOf(b) < 0 ? Number.MAX_SAFE_INTEGER : cards.indexOf(b);
+    return relatedSort === "library" ? aIndex - bIndex : bIndex - aIndex;
+  });
   const publicCards = [...cards.filter((item) => item.isPrivate === false), ...publicRelatedCards.filter((item) => item.isPrivate === false && item.owner)];
   const publicAccounts = [...new Map(publicRelatedCards.filter((item) => item.isPrivate === false && item.owner).map((item) => [item.owner!.id, item.owner!])).values()];
   const activeProfile = publicAccounts.find((account) => account.id === profileId);
@@ -1525,18 +1554,27 @@ export default function RebuildPreview({
               <div className={`rb-filter-group ${filterHasMore ? "rb-filter-fade-right" : ""}`} ref={filterRef} data-scroll-fade="x">
                 {(["all", "favorites", "link", "social", "image", "note", "file"] as Filter[]).map(
                   (kind) => (
-                    <div className="rb-filter-entry" key={kind}>
+                    <div className={`rb-filter-entry ${kind === "social" ? "rb-filter-entry-social" : ""} ${kind === "social" && socialExpanded ? "expanded" : ""}`} key={kind}>
                       <button
                         className={filter === kind || (kind === "social" && ["substack", "youtube", "x"].includes(filter)) ? "active" : ""}
-                        onClick={() => setFilter(kind)}
-                        aria-expanded={kind === "social" ? ["social", "substack", "youtube", "x"].includes(filter) : undefined}
+                        onClick={() => {
+                          if (kind === "social") {
+                            setFilter("social");
+                            setSocialExpanded((open) => !open);
+                          } else {
+                            setFilter(kind);
+                            setSocialExpanded(false);
+                          }
+                        }}
+                        aria-expanded={kind === "social" ? socialExpanded : undefined}
+                        aria-controls={kind === "social" ? "rb-social-sources" : undefined}
                       >
                         {kind === "all" ? <Grid2X2 size={18} /> : kind === "favorites" ? <Heart size={18} /> : kind === "social" ? <UsersRound size={18} /> : (() => { const Icon = icons[kind as CardKind]; return <Icon size={18} />; })()}
                         {kind === "all" ? "All" : kind === "favorites" ? <>Favorites <span className="rb-filter-count">{favorites.length}</span></> : kind === "social" ? "Social" : `${typeLabels[kind as CardKind]}s`}
                         {kind === "social" && <ChevronRight className="rb-filter-chevron" size={18} />}
                       </button>
-                      {kind === "social" && ["social", "substack", "youtube", "x"].includes(filter) && (
-                        <div className="rb-filter-suboptions">
+                      {kind === "social" && socialExpanded && (
+                        <div className="rb-filter-suboptions" id="rb-social-sources" role="group" aria-label="Social sources">
                           {(["substack", "youtube", "x"] as Filter[]).map((source) => <button key={source} className={filter === source ? "active" : ""} onClick={() => setFilter(source)}>{source === "x" ? "X" : source === "youtube" ? "YouTube" : "Substack"}</button>)}
                         </div>
                       )}
@@ -1605,6 +1643,7 @@ export default function RebuildPreview({
                     card={card}
                     onOpen={() => setActiveCardId(card.id)}
                     onToggleFavorite={() => toggleFavorite(card.id)}
+                    onEdit={() => openCardEditor(card)}
                     onEditTags={() => openTagEditor(card)}
                     onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(card.id); }}
                     favorite={favorites.includes(card.id)}
@@ -1698,7 +1737,7 @@ export default function RebuildPreview({
               </div>
             )}
             {profileId && profileScope === "collections" ? (profileCollections.length ? <div className="rb-profile-collections">{profileCollections.map((item) => <button key={item.id} onClick={() => { setDestination("collections"); setSelectedCollection(item.id); setProfileId(null); window.scrollTo(0, 0); }}><Folder size={25} /><span>{item.name}</span><ArrowRight size={20} /></button>)}</div> : <div className="rb-empty rb-discover-empty"><Folder size={28} /><h2>No public collections yet</h2></div>) : discoverCards.length > 0 ? <div className="rb-discover-grid">
-              {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
+              {discoverCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} favorite={favorites.includes(item.id)} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEdit={item.owner ? undefined : () => openCardEditor(item)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} onOpenOwner={item.owner ? () => { setProfileId(item.owner!.id); window.scrollTo(0, 0); } : undefined} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => setActiveCardId(item.id)} />)}
             </div> : <div className="rb-empty rb-discover-empty"><UsersRound size={28} /><h2>{profileId ? "No public cards" : discoverTab === "following" ? "No cards from followed accounts yet" : "No public cards to discover yet"}</h2></div>}
             {(!profileId || profileScope === "cards") && discoverCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}
           </section>
@@ -1717,7 +1756,7 @@ export default function RebuildPreview({
               {subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
               {subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
             </div>}
-            {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onEditTags={() => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
+            {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onEdit={() => openCardEditor(item)} onEditTags={() => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
           </section>
         )}
 
@@ -1974,12 +2013,25 @@ export default function RebuildPreview({
           </div>
           {relatedCards.length > 0 && (
             <section className="rb-related" aria-label="Related cards">
-              <div className="rb-related-heading"><h2>Related</h2></div>
+              <div className="rb-related-heading">
+                <h2>Related</h2>
+                <button className={`rb-related-sort-trigger ${relatedSortOpen ? "active" : ""}`} onClick={() => setRelatedSortOpen((open) => !open)} aria-label="Sort and filter related cards" aria-expanded={relatedSortOpen} title="Sort and filter related cards"><SlidersHorizontal size={19} /></button>
+                {relatedSortOpen && <div className="rb-related-sort-menu" role="group" aria-label="Related card options">
+                  <span>Sort by</span>
+                  {([ ["relevant", "Most relevant"], ["library", "Library order"], ["reverse", "Reverse order"] ] as const).map(([value, label]) => <button key={value} className={relatedSort === value ? "selected" : ""} onClick={() => setRelatedSort(value)}><span className="rb-related-option-mark">{relatedSort === value && <Check size={14} />}</span>{label}</button>)}
+                  <span>Filter</span>
+                  <button className={relatedMineOnly ? "selected" : ""} onClick={() => setRelatedMineOnly((value) => !value)}><span className="rb-related-option-mark">{relatedMineOnly && <Check size={14} />}</span>In my library</button>
+                  <span>Media type</span>
+                  {([ ["all", "All types"], ["link", "Links"], ["image", "Images"], ["note", "Notes"], ["file", "Files"] ] as const).map(([value, label]) => <button key={value} className={relatedKind === value ? "selected" : ""} onClick={() => setRelatedKind(value)}><span className="rb-related-option-mark">{relatedKind === value && <Check size={14} />}</span>{label}</button>)}
+                  <div className="rb-related-sort-actions"><button onClick={() => { setRelatedSort("relevant"); setRelatedMineOnly(false); setRelatedKind("all"); }}>Clear</button><button onClick={() => setRelatedSortOpen(false)}>Done</button></div>
+                </div>}
+              </div>
               <div className="rb-related-stack">
-                {relatedCards.slice(0, 4).map((item) => (
-                  <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => { setActiveCardId(item.id); setDetailMenuOpen(false); }} />
+                {visibleRelatedCards.slice(0, 4).map((item) => (
+                  <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEdit={item.owner ? undefined : () => openCardEditor(item)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => { setActiveCardId(item.id); setDetailMenuOpen(false); }} />
                 ))}
               </div>
+              {!visibleRelatedCards.length && <p className="rb-related-empty">No related cards match these filters.</p>}
               <button className="rb-related-more" onClick={() => { setRelatedScope("all"); setRelatedSelecting(false); setSelectedRelatedIds([]); setRelatedFeedOpen(true); }}>More related <ArrowRight size={19} /></button>
             </section>
           )}
@@ -1998,11 +2050,12 @@ export default function RebuildPreview({
             <button className="rb-related-select-toggle" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
           </div>
           <div className="rb-related-feed-grid">
-            {relatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
-              <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => { setActiveCardId(item.id); setRelatedFeedOpen(false); setDetailMenuOpen(false); }} />
+            {visibleRelatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
+              <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEdit={item.owner ? undefined : () => openCardEditor(item)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => { setActiveCardId(item.id); setRelatedFeedOpen(false); setDetailMenuOpen(false); }} />
             ))}
           </div>
           {relatedScope === "others" && !relatedCards.some((item) => item.owner) && <p className="rb-related-feed-empty">No public cards from other accounts yet.</p>}
+          {!visibleRelatedCards.some((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)) && (relatedScope !== "others" || relatedCards.some((item) => item.owner)) && <p className="rb-related-feed-empty">No cards match the related filters.</p>}
         </div>
         </div>
       )}

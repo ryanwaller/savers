@@ -2963,6 +2963,28 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-bulk-import-actions button:last-child { background: #b9ff69; color: #202820; }
 .rb-bulk-import-actions button:disabled, .rb-bulk-import-head button:disabled { opacity: .45; cursor: not-allowed; }
 @media (max-width: 600px) { .rb-bulk-import-panel { padding: 20px; } }
+/* The Social source choices live inside one neutral capsule; its green trigger opens and closes them. */
+.rebuild-app .rb-filter-entry-social.expanded { gap: 0; height: var(--rb-control-size); border-radius: 999px; background: var(--rb-control-bg); }
+.rebuild-app .rb-filter-entry-social.expanded > button { height: var(--rb-control-size); border-radius: 999px; }
+.rebuild-app .rb-filter-entry-social.expanded .rb-filter-suboptions { height: var(--rb-control-size); padding: 0 12px; background: transparent; }
+.rebuild-app .rb-filter-entry-social.expanded .rb-filter-suboptions button { min-height: calc(var(--rb-control-size) - 10px); padding-inline: 15px; color: var(--rb-control-muted); }
+.rebuild-app .rb-filter-entry-social.expanded .rb-filter-suboptions button.active { background: var(--rb-control-hover); color: var(--rb-control-ink); }
+.rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions button.active { background: #494949; color: #eee; }
+/* Related cards keep their large two-column layout, with a compact sort and filter menu. */
+.rb-related-heading { position: relative; gap: 8px; }
+.rebuild-app .rb-related-heading .rb-related-sort-trigger { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rebuild-app .rb-related-heading .rb-related-sort-trigger:hover, .rebuild-app .rb-related-heading .rb-related-sort-trigger.active { background: var(--rb-control-hover); color: var(--rb-control-hover-ink); }
+.rb-related-sort-menu { position: absolute; z-index: 8; top: calc(100% + 12px); left: calc(50% - 4px); display: flex; flex-direction: column; width: 275px; max-height: min(620px, 72dvh); overflow-y: auto; padding: 10px; border: 1px solid var(--rb-modal-border); border-radius: 20px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); box-shadow: 0 20px 50px #0002; text-align: left; }
+.rb-related-sort-menu > span { padding: 10px 12px 4px; color: var(--rb-modal-muted); font-size: 12px; }
+.rb-related-sort-menu > button { display: flex; align-items: center; gap: 9px; min-height: 42px; padding: 7px 10px; border-radius: 11px; color: var(--rb-modal-ink); text-align: left; }
+.rb-related-sort-menu > button:hover { background: var(--rb-control-hover); color: var(--rb-control-hover-ink); }
+.rb-related-option-mark { display: grid; place-items: center; flex: 0 0 19px; width: 19px; height: 19px; border: 2px solid var(--rb-modal-border); border-radius: 50%; }
+.rb-related-sort-menu > button.selected .rb-related-option-mark { border-color: #b9ff69; background: #b9ff69; color: #202820; }
+.rb-related-sort-actions { position: sticky; bottom: -10px; display: flex; gap: 8px; margin-top: 9px; padding: 10px 0; border-top: 1px solid var(--rb-modal-border); background: var(--rb-modal-surface); }
+.rb-related-sort-actions button { flex: 1; min-height: 39px; border-radius: 11px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-related-sort-actions button:last-child { background: #b9ff69; color: #202820; }
+.rb-related-empty { margin: 28px 0 0; color: var(--rb-modal-muted); text-align: center; }
+@media (max-width: 620px) { .rb-related-sort-menu { left: 50%; transform: translateX(-50%); } }
 /* Library scales share the related feed's aligned-row grid and card treatment. */
 .rb-card-grid:not(.rb-list-grid) { display: grid; grid-template-columns: repeat(var(--rb-grid-columns), minmax(0, 1fr)); align-items: start; column-gap: var(--rb-grid-gap); row-gap: var(--rb-grid-row-gap); }
 .rb-card-grid:not(.rb-list-grid) .rb-card { min-width: 0; margin: 0; }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Savers Rebuild Capture",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Save pages, images, and selected text to the Savers rebuild preview.",
   "permissions": ["activeTab", "contextMenus", "tabs"],
   "host_permissions": ["https://savers-rebuild-preview-production.up.railway.app/*"],

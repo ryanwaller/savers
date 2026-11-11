@@ -11,9 +11,15 @@ function webUrl(value) {
   } catch { return null; }
 }
 
-async function showStatus(tabId, state, message, capture) {
+function capturableImageUrl(value) {
+  const remote = webUrl(value);
+  if (remote) return remote;
+  return typeof value === "string" && value.length < 27_000_000 && /^data:image\/(?:png|jpeg|gif|webp|svg\+xml);base64,/i.test(value) ? value : null;
+}
+
+async function showStatus(tabId, state, message, capture, theme) {
   if (tabId == null) return;
-  try { await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_STATUS", state, message, capture }); }
+  try { await chrome.tabs.sendMessage(tabId, { type: "SAVERS_CAPTURE_STATUS", state, message, capture, theme }); }
   catch { /* Restricted tabs still get toolbar badge feedback. */ }
 }
 
@@ -49,12 +55,12 @@ async function capture(payload, sourceTabId) {
     await showStatus(sourceTabId, "error", "Open a web page to save it.");
     return;
   }
-  await showStatus(sourceTabId, "saving", "Saving to Savers…");
+  await showStatus(sourceTabId, "saving", `Saving ${payload.kind === "note" ? "text" : payload.kind}…`);
   try {
     const tab = await previewTab();
     const result = await sendToPreview(tab.id, { action: "save", payload });
     const label = payload.kind === "note" ? "Text saved" : payload.kind === "image" ? "Image saved" : "Link saved";
-    await showStatus(sourceTabId, "saved", label, { cardId: result.cardId, previewTabId: tab.id });
+    await showStatus(sourceTabId, "saved", label, { cardId: result.cardId, previewTabId: tab.id, sourceUrl: payload.sourceUrl }, result.theme);
     await badge("saved");
   } catch (error) {
     await showStatus(sourceTabId, "error", error?.message || "Could not save to Savers.");
@@ -66,9 +72,9 @@ function payloadForMenu(info, tab) {
   const sourceUrl = webUrl(info.pageUrl || tab?.url);
   if (!sourceUrl) return null;
   if (info.menuItemId === MENU_IMAGE) {
-    const imageUrl = webUrl(info.srcUrl);
+    const imageUrl = capturableImageUrl(info.srcUrl);
     if (!imageUrl) return null;
-    const filename = new URL(imageUrl).pathname.split("/").pop() || "Saved image";
+    const filename = imageUrl.startsWith("data:") ? "Saved image" : new URL(imageUrl).pathname.split("/").pop() || "Saved image";
     let title = filename;
     try { title = decodeURIComponent(filename); } catch { /* Keep malformed filenames as-is. */ }
     return { kind: "image", sourceUrl, imageUrl, title };
