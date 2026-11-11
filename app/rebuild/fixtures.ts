@@ -8,6 +8,7 @@ export type PreviewCard = {
   source?: string;
   url?: string;
   image?: string;
+  fileData?: string;
   collection?: string;
   note?: string;
   date: string;

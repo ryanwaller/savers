@@ -1,6 +1,6 @@
 # Savers rebuild: product, design, and delivery plan
 
-**Status:** Research and planning, 11 November 2026. No production deployment or data migration has been made.
+**Status:** Research and planning completed 11 November 2026. The first fixture-backed preview is being deployed as a separate Railway service on the `rebuild` branch. The current Savers service and data have not been changed.
 
 **Goal:** Build a calmer, more coherent Savers alongside the live app, using the supplied Sublime screenshots as a close visual and interaction reference while improving clarity, accessibility, and support for Savers' deeper workflows.
 
@@ -18,20 +18,20 @@
 
 The archive contains **20 screenshots**. Most are desktop browser captures of an empty or newly seeded Sublime account; one is a composite of mobile screens. They show the actual layouts and interaction states, but do not cover a large, mature private library, every mobile flow, or all settings. The screenshot filenames below are timestamps from the supplied archive.
 
-| Reference | Observed pattern | Implication for Savers |
-| --- | --- | --- |
-| `9.11.35` | Mobile profile, all cards with media filters, mixed cards, collection, and card detail/related views | Design mobile deliberately; do not shrink the desktop grid. |
-| `9.14.47`, `9.15.24` | Dark first-run canvas with centered starter choices and optional integrations | Give new users one clear first save, then progressively reveal other methods. |
-| `9.14.50` | Floating plus expands a short, grouped create menu | Use one persistent capture affordance with typed actions. |
-| `9.14.58`, `9.15.05` | Compact link composer and full-canvas note editor | Match the editor to the content type; keep optional organization secondary. |
-| `9.15.17` | Collection creation with description, privacy, pinning, collaborators, and contextual guidance | Keep collection setup simple, but explain its purpose and sharing state. |
-| `9.15.33`, `9.15.56`, `9.16.04` | Layered settings, account, and following popovers/modals | Use focused overlays; reserve full settings pages for complex tools. |
-| `9.15.45` | Dark staff-picks/discovery view, two-column varied cards, top tabs/search/filter/shuffle | Build a reusable editorial card grid; discovery is optional, not the default personal-library home. |
-| `9.16.15`, `9.16.23` | Light quote and article detail pages with large whitespace, original source, Save action, and related content below | Make detail a place to read, understand, and act. |
-| `9.16.28`, `9.16.33` | Related cards and sort/filter controls beneath a card | Related results need provenance and usable ordering. |
-| `9.16.58`, `9.17.28` | Select-text clipping with a note and collection picker; selected-card state | Treat highlights as source-linked items and support multi-select cleanly. |
-| `9.17.57` | Light library entry with central search, All cards / Collections / Canvases, imports | Provide a simple entry but promote real content above imports for existing users. |
-| `9.18.49`, `9.18.52` | Uploaded file cards, success toasts, and per-card menu for edit/share/source/related/collection/privacy/delete | Carry files into the card language and provide clear action feedback. |
+| Reference                       | Observed pattern                                                                                                    | Implication for Savers                                                                              |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `9.11.35`                       | Mobile profile, all cards with media filters, mixed cards, collection, and card detail/related views                | Design mobile deliberately; do not shrink the desktop grid.                                         |
+| `9.14.47`, `9.15.24`            | Dark first-run canvas with centered starter choices and optional integrations                                       | Give new users one clear first save, then progressively reveal other methods.                       |
+| `9.14.50`                       | Floating plus expands a short, grouped create menu                                                                  | Use one persistent capture affordance with typed actions.                                           |
+| `9.14.58`, `9.15.05`            | Compact link composer and full-canvas note editor                                                                   | Match the editor to the content type; keep optional organization secondary.                         |
+| `9.15.17`                       | Collection creation with description, privacy, pinning, collaborators, and contextual guidance                      | Keep collection setup simple, but explain its purpose and sharing state.                            |
+| `9.15.33`, `9.15.56`, `9.16.04` | Layered settings, account, and following popovers/modals                                                            | Use focused overlays; reserve full settings pages for complex tools.                                |
+| `9.15.45`                       | Dark staff-picks/discovery view, two-column varied cards, top tabs/search/filter/shuffle                            | Build a reusable editorial card grid; discovery is optional, not the default personal-library home. |
+| `9.16.15`, `9.16.23`            | Light quote and article detail pages with large whitespace, original source, Save action, and related content below | Make detail a place to read, understand, and act.                                                   |
+| `9.16.28`, `9.16.33`            | Related cards and sort/filter controls beneath a card                                                               | Related results need provenance and usable ordering.                                                |
+| `9.16.58`, `9.17.28`            | Select-text clipping with a note and collection picker; selected-card state                                         | Treat highlights as source-linked items and support multi-select cleanly.                           |
+| `9.17.57`                       | Light library entry with central search, All cards / Collections / Canvases, imports                                | Provide a simple entry but promote real content above imports for existing users.                   |
+| `9.18.49`, `9.18.52`            | Uploaded file cards, success toasts, and per-card menu for edit/share/source/related/collection/privacy/delete      | Carry files into the card language and provide clear action feedback.                               |
 
 Visual details are directly observed. Exact font, spacing, and color values are **estimates**, because no design file or token sheet was supplied. Reference imagery is for analysis, not assets to ship or a license to reuse Sublime branding/icons.
 
@@ -51,25 +51,25 @@ The local checkout is at commit `2850d95` (15 October 2026); Railway reports an 
 
 “Current” below means present in the checked-out code or schema, not independently exercised against production. The purpose is to make parity visible before any screen is retired.
 
-| Existing capability | Current evidence | New home / treatment | Phase |
-| --- | --- | --- | --- |
-| Link bookmarks, metadata, screenshots | `bookmarks` API, preview workers, grid/detail | Link cards and readable detail; capture never waits for enrichment | 3 |
-| Uploaded images and image folders | `images`, `image_collections`, image worker/storage | Image card variant in mixed library; image-focused filter and original download | 3–4 |
-| Nested collections | `collections.parent_id` | Collections browser with drill-down and optional tree | 3 |
-| Pinned and unsorted items | bookmark flags/virtual selections | Library filter and Inbox tab; pinned collections on collection home | 3 |
-| Tags, aliases, AI auto-tags | bookmark/image fields and tag APIs | Search facets and contextual editor; suggestions clearly distinguished from chosen tags | 4 |
-| Smart collections | `smart_collections` query JSON | Saved views with readable filter summary and live builder preview | 4 |
-| Feed subscriptions and item review | feed APIs and feed-item queue | Inbox “Feed finds”; keep/dismiss/batch actions and source management | 4 |
-| Broken-link checks and verification | link worker, `broken_status` | Inbox “Broken links” with checker confidence and user decision | 4 |
-| Duplicate review | duplicate APIs/settings | Dedicated review queue with safe comparison and explicit deletion/merge result | 4 |
-| Bulk move/tag/delete | bulk API routes and edit mode | Selection mode in grid/list with fixed toolbar and undo where possible | 4 |
-| Public collections and bookmark shares | public/share routes, tokens | Preview/publish/revoke flow and stable legacy URLs | 4 |
-| Custom previews, refresh, processing status | preview APIs/workers | Card fallback and retry in detail; maintenance task view | 4 |
-| Grid/list, density, sorting | current page controls | Compact library toolbar, URL-backed filters, saved preference | 3 |
-| Export/import and API tokens | settings, public import, token API | Account → Data and Integrations with scope/progress text | 4 |
-| Chrome extension and bookmarklet | repo extension/bookmarklet | Same capture contract and collection picker as web | 4 |
-| iPhone share / Capacitor | native bridge and tokens | Same capture contract; native auth and deep link regression check | 4 |
-| Notes, highlights, reader, files as general cards | notes field and image/PDF support are partial | First-class note/highlight/file presentation; reader and clipping after core parity | 3–5 |
+| Existing capability                               | Current evidence                                    | New home / treatment                                                                    | Phase |
+| ------------------------------------------------- | --------------------------------------------------- | --------------------------------------------------------------------------------------- | ----- |
+| Link bookmarks, metadata, screenshots             | `bookmarks` API, preview workers, grid/detail       | Link cards and readable detail; capture never waits for enrichment                      | 3     |
+| Uploaded images and image folders                 | `images`, `image_collections`, image worker/storage | Image card variant in mixed library; image-focused filter and original download         | 3–4   |
+| Nested collections                                | `collections.parent_id`                             | Collections browser with drill-down and optional tree                                   | 3     |
+| Pinned and unsorted items                         | bookmark flags/virtual selections                   | Library filter and Inbox tab; pinned collections on collection home                     | 3     |
+| Tags, aliases, AI auto-tags                       | bookmark/image fields and tag APIs                  | Search facets and contextual editor; suggestions clearly distinguished from chosen tags | 4     |
+| Smart collections                                 | `smart_collections` query JSON                      | Saved views with readable filter summary and live builder preview                       | 4     |
+| Feed subscriptions and item review                | feed APIs and feed-item queue                       | Inbox “Feed finds”; keep/dismiss/batch actions and source management                    | 4     |
+| Broken-link checks and verification               | link worker, `broken_status`                        | Inbox “Broken links” with checker confidence and user decision                          | 4     |
+| Duplicate review                                  | duplicate APIs/settings                             | Dedicated review queue with safe comparison and explicit deletion/merge result          | 4     |
+| Bulk move/tag/delete                              | bulk API routes and edit mode                       | Selection mode in grid/list with fixed toolbar and undo where possible                  | 4     |
+| Public collections and bookmark shares            | public/share routes, tokens                         | Preview/publish/revoke flow and stable legacy URLs                                      | 4     |
+| Custom previews, refresh, processing status       | preview APIs/workers                                | Card fallback and retry in detail; maintenance task view                                | 4     |
+| Grid/list, density, sorting                       | current page controls                               | Compact library toolbar, URL-backed filters, saved preference                           | 3     |
+| Export/import and API tokens                      | settings, public import, token API                  | Account → Data and Integrations with scope/progress text                                | 4     |
+| Chrome extension and bookmarklet                  | repo extension/bookmarklet                          | Same capture contract and collection picker as web                                      | 4     |
+| iPhone share / Capacitor                          | native bridge and tokens                            | Same capture contract; native auth and deep link regression check                       | 4     |
+| Notes, highlights, reader, files as general cards | notes field and image/PDF support are partial       | First-class note/highlight/file presentation; reader and clipping after core parity     | 3–5   |
 
 This map deliberately separates a **new presentation** from a **new capability**. For example, showing an image beside a link is a UI/read-model task; making arbitrary files and source-linked highlights truly first-class requires additional data and capture work.
 
@@ -87,14 +87,14 @@ This map deliberately separates a **new presentation** from a **new capability**
 
 ### Proposed top-level destinations
 
-| Destination | Main content | Secondary controls |
-| --- | --- | --- |
-| **Library** | All saved cards, recent first, mixed link/image/note/file types | Search, type filters, sort, view switch, bulk select |
-| **Collections** | Pinned/recent collections and accessible hierarchy | New collection, nested navigation, smart collections as saved views |
-| **Inbox** | Unsorted saves, feed candidates, failed processing as distinct tabs | Keep, organize, dismiss, retry; counts for actionable items |
-| **Explore** | Related from my library; optional curated public content later | Scope, shuffle, source, privacy |
-| **Create** | Link, note, image/file upload, collection; later highlight/canvas | Current context prefilled, collection optional |
-| **Account/Tools** | Settings, integrations, imports/exports, health, duplicate review | Progressive disclosure from profile menu |
+| Destination       | Main content                                                        | Secondary controls                                                  |
+| ----------------- | ------------------------------------------------------------------- | ------------------------------------------------------------------- |
+| **Library**       | All saved cards, recent first, mixed link/image/note/file types     | Search, type filters, sort, view switch, bulk select                |
+| **Collections**   | Pinned/recent collections and accessible hierarchy                  | New collection, nested navigation, smart collections as saved views |
+| **Inbox**         | Unsorted saves, feed candidates, failed processing as distinct tabs | Keep, organize, dismiss, retry; counts for actionable items         |
+| **Explore**       | Related from my library; optional curated public content later      | Scope, shuffle, source, privacy                                     |
+| **Create**        | Link, note, image/file upload, collection; later highlight/canvas   | Current context prefilled, collection optional                      |
+| **Account/Tools** | Settings, integrations, imports/exports, health, duplicate review   | Progressive disclosure from profile menu                            |
 
 Desktop: a small floating bottom-left destination dock and a separate bottom-right create button, as in the screenshots. The dock must retain labels or tooltips and clear active state; a keyboard user can reach everything. Mobile: a bottom bar for Library, Collections, Inbox, Explore, plus a prominent Create control. On narrow screens, hide fixed overlays when the keyboard is open and preserve safe-area spacing. Search is reachable from any content destination, not buried in a modal.
 
@@ -159,16 +159,16 @@ Keep the concise account popover of `9.15.56`, then open dedicated views for ope
 
 These are **starting targets for design prototypes**, not extracted Sublime tokens. Compare at the same screenshot viewport and adjust by eye and accessibility checks.
 
-| Element | Starting target | Improvement |
-| --- | --- | --- |
-| Canvas | Charcoal `#111111` for discovery/creation; warm white `#FCFCFA` for library/detail | Maintain consistent semantic surfaces when switching modes. |
-| Panels | 16–24 px radius; dark `#242424` or light `#F3F3F1`; very soft shadow | Keep dialog edges discernible on either canvas. |
-| Main text | `#F5F5F2` on dark; `#171717` on light | Body copy at WCAG AA contrast; avoid the faint gray seen in some empty states. |
-| Secondary text | Approx. `#B8B8B3` dark / `#636363` light | Never use opacity alone for essential labels. |
-| Accent | Restrained pale lime, approx. `#CBF7A3` | Reserve for save/affirmative state and selected controls; test contrast of text on it. |
-| Typography | Neutral sans for UI; 15–16 px body; 28–40 px display depending on viewport | Card text and article text get a distinct readable scale; no tiny action labels. |
-| Layout | 8 px spacing rhythm; reading column 640–760 px; grid container around 1180–1320 px | Responsive breakpoints from content needs, not arbitrary device labels. |
-| Motion | 120–220 ms soft transitions for menus/cards | Respect reduced-motion preferences and avoid long blur transitions. |
+| Element        | Starting target                                                                    | Improvement                                                                            |
+| -------------- | ---------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| Canvas         | Charcoal `#111111` for discovery/creation; warm white `#FCFCFA` for library/detail | Maintain consistent semantic surfaces when switching modes.                            |
+| Panels         | 16–24 px radius; dark `#242424` or light `#F3F3F1`; very soft shadow               | Keep dialog edges discernible on either canvas.                                        |
+| Main text      | `#F5F5F2` on dark; `#171717` on light                                              | Body copy at WCAG AA contrast; avoid the faint gray seen in some empty states.         |
+| Secondary text | Approx. `#B8B8B3` dark / `#636363` light                                           | Never use opacity alone for essential labels.                                          |
+| Accent         | Restrained pale lime, approx. `#CBF7A3`                                            | Reserve for save/affirmative state and selected controls; test contrast of text on it. |
+| Typography     | Neutral sans for UI; 15–16 px body; 28–40 px display depending on viewport         | Card text and article text get a distinct readable scale; no tiny action labels.       |
+| Layout         | 8 px spacing rhythm; reading column 640–760 px; grid container around 1180–1320 px | Responsive breakpoints from content needs, not arbitrary device labels.                |
+| Motion         | 120–220 ms soft transitions for menus/cards                                        | Respect reduced-motion preferences and avoid long blur transitions.                    |
 
 The screenshot's floating controls, pale surfaces, and large blank areas are worth matching; its very low contrast iconography and ambiguous unlabeled controls are not. Provide visible hover/focus, accessible names, Escape and click-away behavior, sensible tab order, and touch targets of at least ~44 px on mobile. Use real empty, loading, error, and success states rather than an always pristine mockup. A fidelity review should compare desktop and mobile screenshots side by side at each milestone.
 
@@ -196,15 +196,15 @@ Why a separate service instead of `/rebuild` in production: a subfolder avoids a
 
 Effort is a **planning range**, not a commitment: roughly 14–22 developer-weeks for a robust parity rebuild with a functional preview, plus additional time for Canvas, public discovery, and deep semantic search. A small team can overlap design/engineering, but data migration and cutover remain sequential.
 
-| Phase | Deliverable | Review/exit gate |
-| --- | --- | --- |
-| **0. Baseline & inventory** (1–2 weeks) | Verify deployed SHA; snapshot current flows/data shapes; map APIs and counts; define 10–15 representative user tasks; capture current desktop/mobile screens; branch and staging plan | Parity matrix agreed; current app untouched; source of truth known. |
-| **1. Design foundation** (1–2 weeks) | Screens for first-run, populated library, collection, 5 card types, detail, capture, mobile; tokens/components; realistic fixture data | Side-by-side reference review; keyboard/mobile/contrast pass on prototype. |
-| **2. Reviewable preview** (2–3 weeks) | Separate Railway URL; fixture-backed shell, library, collection, search UI, detail, capture prototype | User can click through core tasks on desktop and phone; zero prod credentials and no prod deploy. |
-| **3. Core functional library** (3–5 weeks) | Staging auth/data; paginated read model; real saves/edits; mixed links/images; collections; search/filter; responsive layout | Representative library loads well; create/edit/delete round-trip; permissions and share boundaries verified. |
-| **4. Savers parity** (3–5 weeks) | Inbox/feeds, tags/smart views, bulk actions, link health, duplicates, images/files, sharing, settings/export, extension/iOS contract | Every existing supported workflow has a route and task test; no silent data loss; queue failure states recover. |
-| **5. Enrichment & polish** (2–4 weeks) | Related from own library, reader/highlights if viable, semantic search experiment, performance/accessibility/usability rounds | Related relevance beats a documented baseline; search remains useful without AI; mobile and keyboard flows pass. |
-| **6. Cutover** (1–2 weeks) | Backward-compatible migrations, production data verification, monitored release, rollback rehearsal | Counts/IDs/public links match; critical task checks pass on production; old app can be restored quickly. |
+| Phase                                      | Deliverable                                                                                                                                                                           | Review/exit gate                                                                                                 |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **0. Baseline & inventory** (1–2 weeks)    | Verify deployed SHA; snapshot current flows/data shapes; map APIs and counts; define 10–15 representative user tasks; capture current desktop/mobile screens; branch and staging plan | Parity matrix agreed; current app untouched; source of truth known.                                              |
+| **1. Design foundation** (1–2 weeks)       | Screens for first-run, populated library, collection, 5 card types, detail, capture, mobile; tokens/components; realistic fixture data                                                | Side-by-side reference review; keyboard/mobile/contrast pass on prototype.                                       |
+| **2. Reviewable preview** (2–3 weeks)      | Separate Railway URL; fixture-backed shell, library, collection, search UI, detail, capture prototype                                                                                 | User can click through core tasks on desktop and phone; zero prod credentials and no prod deploy.                |
+| **3. Core functional library** (3–5 weeks) | Staging auth/data; paginated read model; real saves/edits; mixed links/images; collections; search/filter; responsive layout                                                          | Representative library loads well; create/edit/delete round-trip; permissions and share boundaries verified.     |
+| **4. Savers parity** (3–5 weeks)           | Inbox/feeds, tags/smart views, bulk actions, link health, duplicates, images/files, sharing, settings/export, extension/iOS contract                                                  | Every existing supported workflow has a route and task test; no silent data loss; queue failure states recover.  |
+| **5. Enrichment & polish** (2–4 weeks)     | Related from own library, reader/highlights if viable, semantic search experiment, performance/accessibility/usability rounds                                                         | Related relevance beats a documented baseline; search remains useful without AI; mobile and keyboard flows pass. |
+| **6. Cutover** (1–2 weeks)                 | Backward-compatible migrations, production data verification, monitored release, rollback rehearsal                                                                                   | Counts/IDs/public links match; critical task checks pass on production; old app can be restored quickly.         |
 
 Canvas, social following, public network discovery, Raycast, and Kindle/Readwise/X/Instagram imports are **optional post-parity tracks**. They should be justified by actual Savers user needs and given separate scope, especially where they introduce content rights, privacy, and moderation work.
 
@@ -221,16 +221,16 @@ Canvas, social following, public network discovery, Raycast, and Kindle/Readwise
 
 ## 8. Risks, tradeoffs, and decisions for review
 
-| Issue | Recommendation | Why / when to revisit |
-| --- | --- | --- |
-| **Exact visual match vs. utility** | Match composition and feel closely; improve contrast, controls, and state feedback. | The screenshots are elegant but many controls are faint. |
-| **Dark vs. light** | Use the reference's contextual split, with a user theme preference later. | The archive does not depict a single universal dark mode. |
-| **One card across collections** | Design for it, but keep single membership until an additive join-table migration is ready. | The current schema is one-to-many; rushing this risks duplicate and share semantics. |
-| **Tags and nested folders** | Keep supported, soften their prominence. | Removing them would strand existing organization. |
-| **Semantic search/AI** | Ship reliable lexical search first, then evaluate opt-in semantic ranking. | Relevance, cost, and privacy need real data and a fallback. |
-| **Public discovery** | Defer until explicit product/privacy design. | Current shares are not a community graph. |
-| **Reader and highlights** | Build after core cards/detail unless extraction proves easy in Phase 3. | Source rights and robust text anchoring require care. |
-| **Review environment** | Generated Railway URL with fixture content first; isolated Supabase for functional work. | Fastest safe path with no DNS or live-app disruption. |
+| Issue                              | Recommendation                                                                             | Why / when to revisit                                                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **Exact visual match vs. utility** | Match composition and feel closely; improve contrast, controls, and state feedback.        | The screenshots are elegant but many controls are faint.                             |
+| **Dark vs. light**                 | Use the reference's contextual split, with a user theme preference later.                  | The archive does not depict a single universal dark mode.                            |
+| **One card across collections**    | Design for it, but keep single membership until an additive join-table migration is ready. | The current schema is one-to-many; rushing this risks duplicate and share semantics. |
+| **Tags and nested folders**        | Keep supported, soften their prominence.                                                   | Removing them would strand existing organization.                                    |
+| **Semantic search/AI**             | Ship reliable lexical search first, then evaluate opt-in semantic ranking.                 | Relevance, cost, and privacy need real data and a fallback.                          |
+| **Public discovery**               | Defer until explicit product/privacy design.                                               | Current shares are not a community graph.                                            |
+| **Reader and highlights**          | Build after core cards/detail unless extraction proves easy in Phase 3.                    | Source rights and robust text anchoring require care.                                |
+| **Review environment**             | Generated Railway URL with fixture content first; isolated Supabase for functional work.   | Fastest safe path with no DNS or live-app disruption.                                |
 
 The largest unknown is how a **large, lived-in Savers library** should feel in this visual system; the supplied Sublime desktop shots mostly show empty states, a few saved files, and public content. Phase 1 should therefore include realistic examples from each existing Savers content type and at least one dense collection. The first preview should be judged on those cases, not just the attractive empty canvas.
 

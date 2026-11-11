@@ -1030,6 +1030,14 @@ body:has(.rebuild-app) {
   border-radius: 16px;
   color: #7c8478;
 }
+.rb-detail-file a {
+  border-radius: 8px;
+  padding: 8px 12px;
+  background: #d8e7cf;
+  color: #3b5736;
+  font-size: 12px;
+  font-weight: 700;
+}
 .rb-detail-meta {
   display: grid;
   grid-template-columns: 1fr 1fr;

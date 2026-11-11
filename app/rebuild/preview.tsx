@@ -307,15 +307,12 @@ export default function RebuildPreview() {
         );
         return;
       }
-      const image =
-        composer === "image"
-          ? await new Promise<string>((resolve, reject) => {
-              const reader = new FileReader();
-              reader.onload = () => resolve(String(reader.result));
-              reader.onerror = reject;
-              reader.readAsDataURL(formFile);
-            })
-          : undefined;
+      const fileData = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = reject;
+        reader.readAsDataURL(formFile);
+      });
       setCards((prev) => [
         {
           id: `local-${Date.now()}`,
@@ -323,7 +320,8 @@ export default function RebuildPreview() {
           title: formTitle.trim() || formFile.name,
           description: formNote.trim() || undefined,
           source: formFile.name,
-          image,
+          image: composer === "image" ? fileData : undefined,
+          fileData,
           collection: formCollection || undefined,
           date: "Just now",
           tone: "stone",
@@ -897,6 +895,11 @@ export default function RebuildPreview() {
               <div className="rb-detail-file">
                 <FileText size={48} />
                 <span>{activeCard.source}</span>
+                {activeCard.fileData && (
+                  <a href={activeCard.fileData} download={activeCard.source}>
+                    Download file
+                  </a>
+                )}
               </div>
             )}
             <div className="rb-detail-meta">
