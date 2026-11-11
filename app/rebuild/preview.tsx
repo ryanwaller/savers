@@ -2236,7 +2236,7 @@ export default function RebuildPreview({
           <div className="rb-edit-footer">
             <div className="rb-edit-footer-start">
               <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
-              <button className="rb-edit-remove" onClick={() => setDeleteCardId(editingCardId)}><Trash2 size={17} /> Remove card</button>
+              <button className="rb-edit-remove" onClick={() => setDeleteCardId(editingCardId)}><Trash2 size={17} /> Remove</button>
             </div>
             <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
           </div>

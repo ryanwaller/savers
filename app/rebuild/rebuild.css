@@ -3052,7 +3052,7 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-edit-upload input { display: none; }
 .rb-edit-footer { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding-top: 16px; border-top: 1px solid var(--rb-modal-border); }
 .rb-edit-footer-start { display: flex; align-items: center; gap: 8px; }
-.rb-edit-remove { display: inline-flex; align-items: center; gap: 7px; min-height: var(--rb-control-size); padding: 0 10px; border-radius: 999px; color: #a94640; }
+.rb-edit-remove { display: inline-flex; align-items: center; gap: 7px; min-height: var(--rb-control-size); padding: 0 10px; border-radius: 999px; color: #a94640; white-space: nowrap; }
 .rb-edit-remove:hover { background: #f4d5d2; color: #8d322d; }
 .rb-edit-actions, .rb-bulk-panel > div { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
 .rb-edit-actions { justify-content: flex-end; margin-top: 0; }
@@ -3072,4 +3072,84 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-edit-footer { align-items: stretch; flex-direction: column; }
   .rb-edit-footer-start { justify-content: space-between; }
   .rb-edit-actions { justify-content: flex-end; }
+}
+
+/* Phone layout: fewer controls, readable cards, and a detail view that wraps. */
+@media (max-width: 700px) {
+  .rebuild-app { --rb-type-body: 15px; --rb-type-title: 20px; --rb-type-display: 30px; --rb-control-size: 42px; --rb-control-compact-size: 40px; padding-bottom: 130px; }
+  .rb-preview-flag { display: none !important; }
+  .rb-main { min-width: 0; padding: 4px 16px 0; }
+  .rb-topbar { height: 64px; padding-inline: 16px; gap: 10px; }
+  .rb-top-actions { gap: 8px; }
+  .rb-icon-button, .rb-avatar { width: 42px; height: 42px; }
+
+  .rb-page-heading { margin: 26px 0 24px; text-align: left; }
+  .rb-heading-line { justify-content: flex-start; align-items: flex-start; min-width: 0; gap: 10px; }
+  .rb-heading-line h1 { min-width: 0; margin: 0; overflow-wrap: anywhere; }
+  .rb-heading-privacy { flex-basis: 40px; width: 40px; height: 40px; transform: none; }
+  .rb-heading-privacy svg { width: 20px; height: 20px; }
+
+  .rb-root-controls { margin-top: 22px; margin-bottom: 22px; }
+  .rb-library-toolbar { gap: 12px; }
+  .rb-filter-group { width: 100%; min-width: 0; gap: 6px; }
+  .rebuild-app .rb-filter-entry > button { min-height: 42px; padding: 0 14px; }
+  .rb-filter-entry > button svg { width: 16px; height: 16px; }
+  .rb-toolbar-end { align-self: stretch; justify-content: flex-end; gap: 7px; }
+  .rb-toolbar-end > span { margin-right: auto; }
+  .rb-toolbar-end .rb-size-wrap, .rebuild-app .rb-toolbar-end > button:last-child { display: none !important; }
+  .rebuild-app .rb-toolbar-end .rb-small-icon { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; }
+
+  .rb-card-grid.rb-card-size-s, .rb-card-grid.rb-card-size-m, .rb-card-grid.rb-card-size-l, .rb-card-grid.rb-card-size-xl { --rb-grid-columns: 1; --rb-grid-gap: 0px; --rb-grid-row-gap: 20px; max-width: none; }
+  .rb-card-grid .rb-card-content, .rb-card-grid.rb-card-size-s .rb-card-content, .rb-card-grid.rb-card-size-xl .rb-card-content { padding: 16px; }
+  .rebuild-app .rb-card-grid .rb-card h3, .rebuild-app .rb-card:has(.rb-card-image) h3 { font-size: var(--rb-type-title) !important; overflow-wrap: anywhere; }
+  .rb-card-grid .rb-card-image img, .rb-card-grid.rb-card-size-s .rb-card-image img, .rb-card-grid.rb-card-size-m .rb-card-image img, .rb-card-grid.rb-card-size-xl .rb-card-image img { max-height: 300px; }
+  .rb-card-footer span { min-width: 0; overflow-wrap: anywhere; }
+  .rb-card-actions button[title="Edit tags"], .rb-card-actions button[title="Add to collection"], .rb-card-actions button[title="View account"] { display: none; }
+  .rb-card-actions { top: 10px; right: 10px; }
+  .rb-card-has-favorite .rb-card-actions { right: 56px; }
+  .rb-card-favorite-toggle { top: 10px; right: 10px; }
+
+  .rb-collections-controls { gap: 10px; }
+  .rb-collections-controls .rb-collection-groups { justify-content: flex-start; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+  .rb-collections-controls .rb-collection-groups::-webkit-scrollbar { display: none; }
+  .rebuild-app .rb-collection-groups button { min-height: 42px; padding: 0 14px; }
+  .rb-collections-controls .rb-collections-head { justify-content: flex-start; }
+  .rb-collections-count { display: none; }
+  .rb-collection-preview-list { gap: 12px; margin-bottom: 50px; }
+  .rb-collection-preview-main { min-height: 78px; padding: 20px; border-radius: 18px; }
+  .rb-collection-preview-heading h2 { overflow: visible; text-overflow: clip; white-space: normal; overflow-wrap: anywhere; }
+  .rb-collection-preview-art, .rb-collection-preview-owner { display: none; }
+  .rb-collection-preview-rules { position: static; margin-top: 7px; }
+
+  .rb-dock { left: 12px; right: 12px; bottom: max(10px, env(safe-area-inset-bottom)); width: calc(100vw - 24px); gap: 6px; padding: 6px; border-radius: 22px; transform: none; }
+  .rebuild-app .rb-dock > button, .rebuild-app .rb-dock .rb-dock-search-trigger { height: 58px; border-radius: 16px; }
+  .rb-dock > button { flex: 1 1 0; }
+  .rb-dock > button svg { width: 21px; height: 21px; }
+  .rb-dock-search { flex: 0 0 48px; }
+  .rb-dock .rb-dock-search-trigger { width: 48px; }
+  .rb-dock-expanded .rb-dock-search { flex: 1 1 auto; }
+  .rb-dock-expanded .rb-dock-search input { height: 58px; }
+  .rb-create-anchor { right: 16px; bottom: calc(94px + env(safe-area-inset-bottom)); }
+  .rb-create-button { width: 54px; height: 54px; }
+  .rb-create-button svg { width: 25px; height: 25px; }
+  .rb-create-menu { bottom: 62px; width: min(300px, calc(100vw - 32px)); max-height: 65dvh; overflow-y: auto; }
+
+  .rb-detail-backdrop { padding: 6px; }
+  .rb-detail-backdrop .rb-detail { border-radius: 18px; }
+  .rb-detail-bar { height: 60px; padding-inline: 14px; }
+  .rb-detail-bar > div { gap: 6px; }
+  .rebuild-app .rb-detail-bar button, .rebuild-app .rb-detail-bar a { flex-basis: 42px; width: 42px; height: 42px; border-radius: 13px; }
+  .rb-detail-bar button[aria-label="Make private"], .rb-detail-bar button[aria-label="Make public"], .rb-detail-bar a[aria-label="Open original source"] { display: none !important; }
+  .rb-detail-content { min-width: 0; padding: 24px 18px 28px; }
+  .rb-detail-content h1 { margin: 12px 0 18px; overflow-wrap: anywhere; word-break: break-word; }
+  .rb-detail-description { overflow-wrap: anywhere; }
+  .rb-detail-image { max-height: 340px; margin-top: 26px; border-radius: 13px; }
+  .rb-detail-meta { grid-template-columns: minmax(0, 1fr); gap: 18px; margin-top: 26px; padding: 20px 0; }
+  .rb-detail-meta .rb-detail-meta-link { min-width: 0; overflow-wrap: anywhere; word-break: break-word; }
+  .rb-detail-tags { margin: 20px 0; }
+  .rb-related { margin-top: 20px; }
+}
+@media (max-width: 360px) {
+  .rebuild-app .rb-detail-content h1 { font-size: 26px !important; }
+  .rebuild-app .rb-heading-line h1 { font-size: 28px !important; }
 }
