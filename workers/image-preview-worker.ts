@@ -26,6 +26,7 @@ import { join } from "node:path";
 import { randomBytes } from "node:crypto";
 import sharp from "sharp";
 import { createRedisConnection } from "@/lib/redis";
+import { assertRebuildStagingSupabaseUrl } from "@/lib/rebuild-staging-guard";
 import {
   IMAGE_PREVIEW_QUEUE_NAME,
   type ImagePreviewJobData,
@@ -44,6 +45,7 @@ function getSupabaseAdmin() {
   if (!url || !serviceRoleKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+  assertRebuildStagingSupabaseUrl(url);
   return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: "savers" },

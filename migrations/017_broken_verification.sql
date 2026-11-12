@@ -13,6 +13,6 @@ ALTER TABLE savers.bookmarks
   ADD COLUMN IF NOT EXISTS broken_verified_at TIMESTAMPTZ;
 
 ALTER TABLE savers.bookmarks
-  ADD COLUMN IF NOT EXISTS broken_verified_by UUID REFERENCES savers.users(id);
+  ADD COLUMN IF NOT EXISTS broken_verified_by UUID REFERENCES auth.users(id);
 
 CREATE INDEX IF NOT EXISTS idx_bookmarks_broken_status ON savers.bookmarks(broken_status);

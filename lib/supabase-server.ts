@@ -3,6 +3,7 @@ import 'server-only'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
+import { assertRebuildStagingSupabaseUrl } from './rebuild-staging-guard'
 
 function requiredEnv(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_ANON_KEY' | 'SUPABASE_SERVICE_ROLE_KEY') {
   const value = process.env[name]
@@ -13,8 +14,10 @@ function requiredEnv(name: 'NEXT_PUBLIC_SUPABASE_URL' | 'NEXT_PUBLIC_SUPABASE_AN
 }
 
 function getServerSupabaseConfig() {
+  const url = requiredEnv('NEXT_PUBLIC_SUPABASE_URL')
+  assertRebuildStagingSupabaseUrl(url)
   return {
-    url: requiredEnv('NEXT_PUBLIC_SUPABASE_URL'),
+    url,
     anonKey: requiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
     serviceRoleKey: requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
   }

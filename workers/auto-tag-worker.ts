@@ -22,6 +22,7 @@ import { fetchPageContent } from "@/lib/page-content";
 import { enrichWithCountries, normalizeTagList, resolveAliases } from "@/lib/tag-aliases";
 import type { TagAlias } from "@/lib/types";
 import { deepseekJson } from "@/lib/ai-client";
+import { assertRebuildStagingSupabaseUrl } from "@/lib/rebuild-staging-guard";
 import {
   buildStructuredTaggingPrompt,
   flattenStructuredTags,
@@ -39,6 +40,7 @@ function getSupabaseAdmin() {
   if (!url || !serviceRoleKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+  assertRebuildStagingSupabaseUrl(url);
   return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: "savers" },

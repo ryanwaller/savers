@@ -26,6 +26,7 @@ import { generateProductInsetImage } from "@/lib/generateProductInsetImage";
 import { preparePageForCapture } from "@/lib/preparePageForCapture";
 import { getSaversUserAgent, normalizeUrl, BROWSER_HEADERS } from "@/lib/site-url";
 import { isArticleContext, isRecipeContext, isShoppingContext } from "@/lib/assetTypeRules";
+import { assertRebuildStagingSupabaseUrl } from "@/lib/rebuild-staging-guard";
 
 const PREVIEW_BUCKET = "bookmark-previews";
 const USER_AGENT = getSaversUserAgent();
@@ -36,6 +37,7 @@ function getSupabaseAdmin() {
   if (!url || !serviceRoleKey) {
     throw new Error("Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY");
   }
+  assertRebuildStagingSupabaseUrl(url);
   return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: "savers" },

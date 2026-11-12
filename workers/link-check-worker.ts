@@ -17,6 +17,7 @@ import { createClient } from "@supabase/supabase-js";
 import { createRedisConnection } from "@/lib/redis";
 import type { LinkCheckJobData } from "@/lib/link-check-queue";
 import { LINK_CHECK_QUEUE_NAME, enqueueLinkCheck } from "@/lib/link-check-queue";
+import { assertRebuildStagingSupabaseUrl } from "@/lib/rebuild-staging-guard";
 
 const USER_AGENT =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
@@ -35,6 +36,7 @@ function getSupabaseAdmin() {
       "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY",
     );
   }
+  assertRebuildStagingSupabaseUrl(url);
   return createClient(url, serviceRoleKey, {
     auth: { autoRefreshToken: false, persistSession: false },
     db: { schema: "savers" },
