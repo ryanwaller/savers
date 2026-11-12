@@ -2,7 +2,7 @@
 
 ## Current state
 
-- The original Savers source is preserved at the fixed Git tag `legacy-savers-2026-11-12` and the `archive/legacy-savers-2026-11-12` branch. The new `rebuild-live` branch also serves that interface at `/legacy`.
+- The `main` branch source is preserved at the fixed Git tag `legacy-savers-2026-11-12` and the `archive/legacy-savers-2026-11-12` branch. The new `rebuild-live` branch also serves that interface at `/legacy`. The currently deployed production commit still needs verification in Railway before cutover.
 - The public `rebuild` preview still stores edits in the browser. It has no authenticated server data or background enrichment.
 - The isolated Supabase project **Savers Rebuild Staging** (`zhcepsclcjigaqnlwxiw`) was created on 12 November 2026 in `us-west-1`. Migrations 001–029 are applied there. Its bookmark, collection, image, and feed tables are empty. Its `bookmark-previews`, `image-originals`, and `image-previews` buckets exist and are empty. Production is `zyeuthooypsjclffmird` and has not been migrated or changed for this setup.
 - The source archive is **not a database or storage backup**. Before production cutover, export the production Supabase database and both original and preview storage buckets, then verify that the archive can be restored.
