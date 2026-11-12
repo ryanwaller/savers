@@ -7,73 +7,64 @@ struct CapturePreview: View {
     @ObservedObject var model: CaptureModel
     let close: () -> Void
     let openSettings: () -> Void
+    @State private var hovered = false
 
     var body: some View {
-        VStack(spacing: 12) {
-            HStack {
-                Text("Screenshot")
-                    .font(.system(size: 15, weight: .medium))
-                Spacer()
-                Button(action: close) { Image(systemName: "xmark") }
-                    .buttonStyle(.plain)
-                    .accessibilityLabel("Close preview")
+        ZStack {
+            Color(white: 0.14)
+            if let image = model.image {
+                Image(nsImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 278, height: 190)
             }
-            .foregroundColor(.black.opacity(0.82))
-
-            Group {
-                if let image = model.image {
-                    Image(nsImage: image)
-                        .resizable()
-                        .scaledToFit()
-                } else {
-                    Image(systemName: "photo")
-                        .font(.system(size: 32, weight: .ultraLight))
-                        .foregroundColor(.gray)
+            if hovered {
+                Color.black.opacity(0.52)
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack {
+                        Button(action: close) { Image(systemName: "xmark") }
+                            .help("Close preview")
+                        Spacer()
+                        if !model.status.isEmpty {
+                            Text(model.status)
+                                .font(.system(size: 10, weight: .medium))
+                                .lineLimit(2)
+                                .multilineTextAlignment(.trailing)
+                        }
+                    }
+                    Spacer()
+                    HStack(spacing: 6) {
+                        Button("Desktop") { model.saveToDesktop() }
+                            .help("Save PNG to Desktop")
+                        Button("Open") { model.openLarger() }
+                            .help("Open a larger preview")
+                        Button("Rebuild") { model.sendToRebuild() }
+                            .help("Send to the Rebuild library")
+                            .disabled(model.status == "Waiting for Rebuild…")
+                    }
                 }
+                .padding(10)
+                .buttonStyle(HoverButtonStyle())
+                .foregroundColor(.white)
             }
-            .frame(maxWidth: .infinity)
-            .frame(height: 150)
-            .background(Color.black.opacity(0.045))
-            .clipShape(RoundedRectangle(cornerRadius: 14))
-
-            HStack(spacing: 8) {
-                Button("Desktop") { model.saveToDesktop() }
-                    .help("Save a PNG to Desktop")
-                Button("Open larger") { model.openLarger() }
-                Button(model.isSending ? "Sending…" : "Send to Savers") {
-                    if model.hasToken { model.sendToSavers() } else { openSettings() }
-                }
-                .disabled(model.isSending)
-                .buttonStyle(CaptureButtonStyle(isPrimary: true))
-            }
-            .buttonStyle(CaptureButtonStyle())
-
-            Text(model.status.isEmpty ? " " : model.status)
-                .font(.system(size: 11))
-                .foregroundColor(model.status.hasPrefix("Could not") ? .red : .secondary)
-                .lineLimit(2)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .accessibilityLabel(model.status)
         }
-        .padding(16)
-        .frame(width: 370, height: 280)
-        .background(Color.white)
-        .clipShape(RoundedRectangle(cornerRadius: 22))
+        .frame(width: 278, height: 190)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .onHover { hovered = $0 }
+        .accessibilityLabel("Screenshot preview")
+        .accessibilityHint("Hover for Desktop, Open, and Rebuild actions")
     }
 }
 
-private struct CaptureButtonStyle: ButtonStyle {
-    var isPrimary = false
-
+private struct HoverButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
-            .font(.system(size: 12, weight: .medium))
-            .foregroundColor(Color.black.opacity(0.88))
+            .font(.system(size: 11, weight: .medium))
+            .foregroundColor(.black.opacity(0.85))
             .padding(.horizontal, 11)
-            .frame(height: 38)
-            .background(isPrimary ? saversGreen : Color.black.opacity(0.055))
+            .frame(height: 29)
+            .background(Color.white.opacity(configuration.isPressed ? 0.7 : 0.94))
             .clipShape(Capsule())
-            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 
@@ -93,7 +84,6 @@ struct LargerPreview: View {
 struct CaptureSettings: View {
     @ObservedObject var model: CaptureModel
     @State private var address: String
-    @State private var token = ""
     @State private var feedback = ""
 
     init(model: CaptureModel) {
@@ -102,30 +92,23 @@ struct CaptureSettings: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 16) {
             Text("Savers Capture")
                 .font(.system(size: 23, weight: .medium))
-            Text("Connect once, then send screenshots directly to Savers. The API token stays in this Mac’s Keychain.")
+            Text("Screenshots go to your Rebuild preview in this browser. Open Rebuild once to connect it to this Mac.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
-            VStack(alignment: .leading, spacing: 7) {
-                Text("Savers address")
-                TextField("https://savers-production.up.railway.app", text: $address)
-                    .textFieldStyle(.roundedBorder)
-            }
-            VStack(alignment: .leading, spacing: 7) {
-                Text(model.hasToken ? "Replace API token" : "API token")
-                SecureField(model.hasToken ? "Leave blank to keep current token" : "Paste token from Savers Settings", text: $token)
-                    .textFieldStyle(.roundedBorder)
-            }
+            TextField("Rebuild address", text: $address)
+                .textFieldStyle(.roundedBorder)
             HStack {
                 Text(feedback)
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
                 Spacer()
-                Button("Save settings") {
-                    feedback = model.configure(baseURL: address, token: token)
-                    if feedback == "Settings saved" { token = "" }
+                Button("Save") { feedback = model.configure(baseURL: address) }
+                Button("Open Rebuild") {
+                    feedback = model.configure(baseURL: address)
+                    if feedback == "Settings saved" { model.openRebuild() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(saversGreen)

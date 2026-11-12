@@ -105,6 +105,7 @@ function socialSource(card: PreviewCard): "substack" | "youtube" | "x" | null {
 const storageKey = "savers.rebuild.preview.v3";
 const previewDatabase = "savers-rebuild-preview";
 const previewCardsChannel = "savers-rebuild-preview-cards";
+const macCaptureTokenKey = "savers.rebuild.macCaptureToken";
 
 function announcePreviewCardsChanged() {
   if (typeof BroadcastChannel === "undefined") return;
@@ -487,6 +488,62 @@ export default function RebuildPreview({
   useEffect(() => { folderInputRef.current?.setAttribute("webkitdirectory", ""); }, []);
 
   useEffect(() => { captureCardsRef.current = cards; }, [cards]);
+
+  useEffect(() => {
+    if (!ready) return;
+    const hash = new URLSearchParams(window.location.hash.slice(1));
+    const pairedToken = hash.get("savers-capture");
+    if (pairedToken && /^[A-Fa-f0-9-]{72}$/.test(pairedToken)) {
+      localStorage.setItem(macCaptureTokenKey, pairedToken);
+      window.history.replaceState(null, "", window.location.pathname + window.location.search);
+      setToast("Mac Capture connected");
+    }
+    const token = pairedToken || localStorage.getItem(macCaptureTokenKey);
+    if (!token) return;
+    const bridgeURL = "http://127.0.0.1:57733";
+    const headers = { Authorization: `Bearer ${token}` };
+    let stopped = false;
+    let polling = false;
+    const poll = async () => {
+      if (stopped || polling) return;
+      polling = true;
+      try {
+        const response = await fetch(`${bridgeURL}/capture`, { headers, cache: "no-store" });
+        if (response.status === 204 || !response.ok) return;
+        const capture = await response.json() as { id: string; image: string; title: string };
+        if (!/^[A-Fa-f0-9-]{36}$/.test(capture.id) || !capture.image.startsWith("data:image/png;base64,")) return;
+        const current = await readPreviewCards().catch(() => null) || captureCardsRef.current;
+        const id = `mac-capture-${capture.id}`;
+        if (!current.some((card) => card.id === id)) {
+          const next: PreviewCard[] = [{
+            id,
+            kind: "image",
+            title: capture.title || "Screenshot",
+            source: "Mac screenshot",
+            image: capture.image,
+            date: "Just now",
+            isPrivate: true,
+            tags: [],
+            tone: "stone",
+          }, ...current];
+          await writePreviewCards(next);
+          if (stopped) return;
+          captureCardsRef.current = next;
+          setCards(next);
+          announcePreviewCardsChanged();
+          setToast("Screenshot saved to Rebuild");
+        }
+        await fetch(`${bridgeURL}/ack/${capture.id}`, { method: "POST", headers });
+      } catch {
+        // The Mac companion may be closed. Keep the browser preview usable.
+      } finally {
+        polling = false;
+      }
+    };
+    void poll();
+    const interval = window.setInterval(() => { void poll(); }, 1800);
+    return () => { stopped = true; window.clearInterval(interval); };
+  }, [ready]);
 
   useEffect(() => {
     const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(previewCardsChannel);

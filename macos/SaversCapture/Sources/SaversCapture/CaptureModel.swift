@@ -1,60 +1,37 @@
 import AppKit
 import Foundation
-import Security
 import SwiftUI
 
-private enum TokenVault {
-    static let service = "app.savers.capture"
-    static let account = "upload-token"
-
-    static func read() -> String? {
-        let query: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account,
-            kSecMatchLimit as String: kSecMatchLimitOne,
-            kSecReturnData as String: true
-        ]
-        var result: CFTypeRef?
-        guard SecItemCopyMatching(query as CFDictionary, &result) == errSecSuccess,
-              let data = result as? Data else { return nil }
-        return String(data: data, encoding: .utf8)
-    }
-
-    static func save(_ token: String) -> Bool {
-        let key: [String: Any] = [
-            kSecClass as String: kSecClassGenericPassword,
-            kSecAttrService as String: service,
-            kSecAttrAccount as String: account
-        ]
-        SecItemDelete(key as CFDictionary)
-        var item = key
-        item[kSecValueData as String] = Data(token.utf8)
-        item[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlockThisDeviceOnly
-        return SecItemAdd(item as CFDictionary, nil) == errSecSuccess
-    }
-}
-
-private struct UploadResponse: Decodable {
-    struct ImageRow: Decodable { let id: String }
-    struct UploadIssue: Decodable { let reason: String }
-    let images: [ImageRow]?
-    let errors: [UploadIssue]?
-    let error: String?
-}
-
 final class CaptureModel: ObservableObject {
-    static let defaultBaseURL = "https://savers-production.up.railway.app"
+    static let defaultBaseURL = "https://savers-rebuild-preview-production.up.railway.app"
+    private static let oldBaseURL = "https://savers-production.up.railway.app"
 
     @Published private(set) var image: NSImage?
     @Published private(set) var status = ""
-    @Published private(set) var isSending = false
-    @Published private(set) var hasToken = TokenVault.read() != nil
-    @Published private(set) var baseURL = UserDefaults.standard.string(forKey: "saversBaseURL") ?? defaultBaseURL
+    @Published private(set) var baseURL: String = {
+        let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
+        return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
+    }()
 
     private var pngData: Data?
     var onCapture: (() -> Void)?
     var onOpenLarge: ((NSImage) -> Void)?
+    var onNeedsRebuild: (() -> Void)?
+    private var didOpenRebuild = false
+    lazy var bridge: RebuildBridge? = {
+        do {
+            let server = try RebuildBridge(baseURL: baseURL)
+            server.onAcknowledged = { [weak self] in
+                DispatchQueue.main.async { self?.status = "Saved to Rebuild" }
+            }
+            return server
+        } catch {
+            status = "Could not start the local Rebuild connection."
+            return nil
+        }
+    }()
+
+    func startBridge() { _ = bridge }
 
     func capture(area: Bool) {
         let pasteboard = NSPasteboard.general
@@ -111,80 +88,37 @@ final class CaptureModel: ObservableObject {
         onOpenLarge?(image)
     }
 
-    func configure(baseURL rawURL: String, token rawToken: String) -> String {
+    func configure(baseURL rawURL: String) -> String {
         let cleanURL = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: cleanURL),
-              url.scheme == "https", url.host != nil, url.path.isEmpty || url.path == "/" else {
-            return "Enter the HTTPS address of Savers."
+        guard let url = URL(string: cleanURL), url.scheme == "https", url.host != nil,
+              url.path.isEmpty || url.path == "/" else {
+            return "Enter the HTTPS address of the Rebuild preview."
         }
-        let token = rawToken.trimmingCharacters(in: .whitespacesAndNewlines)
-        if !token.isEmpty && !TokenVault.save(token) { return "Could not save the token in Keychain." }
         baseURL = cleanURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         UserDefaults.standard.set(baseURL, forKey: "saversBaseURL")
-        hasToken = TokenVault.read() != nil
+        bridge?.baseURL = baseURL
+        didOpenRebuild = false
         return "Settings saved"
     }
 
-    func sendToSavers() {
-        guard !isSending, let data = pngData else { return }
-        guard let token = TokenVault.read(), !token.isEmpty else {
-            status = "Add a Savers API token in Settings."
+    func openRebuild() {
+        guard let bridge, let url = URL(string: "\(baseURL)/rebuild#savers-capture=\(bridge.token)") else {
+            status = "Could not open Rebuild."
             return
         }
-        guard let url = URL(string: baseURL + "/api/images/upload") else {
-            status = "Check the Savers address in Settings."
-            return
-        }
+        NSWorkspace.shared.open(url)
+        didOpenRebuild = true
+    }
 
-        // Savers accepts at most 20 MB per image. Keep the lossless capture when
-        // possible, and use a high-quality JPEG only for very large screenshots.
-        var uploadData = data
-        var fileName = "Screenshot.png"
-        var contentType = "image/png"
-        if data.count > 20 * 1024 * 1024,
-           let image,
-           let tiff = image.tiffRepresentation,
-           let bitmap = NSBitmapImageRep(data: tiff),
-           let jpeg = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) {
-            uploadData = jpeg
-            fileName = "Screenshot.jpg"
-            contentType = "image/jpeg"
+    func sendToRebuild() {
+        guard let data = pngData else { return }
+        guard let bridge else { return }
+        do {
+            try bridge.enqueue(data)
+            status = "Waiting for Rebuild…"
+            if !didOpenRebuild { onNeedsRebuild?() }
+        } catch {
+            status = "Could not queue screenshot for Rebuild."
         }
-        guard uploadData.count <= 20 * 1024 * 1024 else {
-            status = "Screenshot is larger than Savers’ 20 MB limit."
-            return
-        }
-
-        isSending = true
-        status = "Sending…"
-        let boundary = "SaversCapture-\(UUID().uuidString)"
-        var body = Data()
-        body.append(Data("--\(boundary)\r\n".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"files\"; filename=\"\(fileName)\"\r\n".utf8))
-        body.append(Data("Content-Type: \(contentType)\r\n\r\n".utf8))
-        body.append(uploadData)
-        body.append(Data("\r\n--\(boundary)--\r\n".utf8))
-
-        var request = URLRequest(url: url)
-        request.httpMethod = "POST"
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
-        request.httpBody = body
-        request.timeoutInterval = 90
-        URLSession.shared.dataTask(with: request) { [weak self] responseData, response, error in
-            let payload = responseData.flatMap { try? JSONDecoder().decode(UploadResponse.self, from: $0) }
-            let code = (response as? HTTPURLResponse)?.statusCode ?? 0
-            DispatchQueue.main.async {
-                guard let self else { return }
-                self.isSending = false
-                if code == 200, payload?.images?.isEmpty == false {
-                    self.status = "Saved to Savers"
-                } else if code == 401 {
-                    self.status = "Token expired or revoked. Add a new one in Settings."
-                } else {
-                    self.status = payload?.errors?.first?.reason ?? payload?.error ?? error?.localizedDescription ?? "Could not send screenshot."
-                }
-            }
-        }.resume()
     }
 }

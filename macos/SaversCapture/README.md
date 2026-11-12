@@ -1,20 +1,25 @@
 # Savers Capture for macOS
 
-A small menu bar screenshot companion for Savers. Choose **Capture Area** or
-**Capture Screen** from the menu bar icon. After the native macOS selection, a
-compact preview appears at the bottom left with three actions:
+Savers Capture is a compact menu bar screenshot companion for the **Rebuild preview**.
+Press **Control–Option–Command–4** anywhere on the Mac to select a screen area, or
+choose **Capture Area** or **Capture Screen** from the menu bar. A small image tile
+appears at the bottom left. Hover over it to show three actions:
 
-- **Desktop** writes a PNG to the Desktop.
-- **Open larger** opens a full-size resizable preview.
-- **Send to Savers** uploads the PNG bytes directly. It does not save a local file
-  or attach a URL.
+- **Desktop** saves a PNG on the Desktop.
+- **Open** opens a larger, resizable view.
+- **Rebuild** sends the screenshot to the Rebuild library in your browser.
 
-Screenshots over the current 20 MB upload limit are converted to a high-quality
-JPEG for sending; **Desktop** still saves the original PNG.
+The Rebuild preview stores cards in that browser. The Mac app opens it once with
+a private pairing token, then hands screenshots over through a loopback-only
+connection. Captures are queued in Application Support until the browser saves
+them, and are then removed from the queue. Nothing is sent to the old Savers
+service or saved to the Desktop when you choose Rebuild. If the browser tab is
+closed, choose **Open Rebuild** from the menu bar later to finish the handoff.
 
-The capture command uses the macOS `screencapture` tool with its clipboard option.
-The first capture may prompt for Screen Recording permission. This app is intended
-for macOS 13 or newer.
+The app uses macOS's `screencapture` command. The first capture may require
+Screen Recording permission. macOS 13 or newer is required. This build is ad
+hoc signed and not notarized, so macOS may ask you to allow it in **System
+Settings → Privacy & Security → Open Anyway**.
 
 ## Build and run
 
@@ -26,26 +31,8 @@ cd macos/SaversCapture
 open 'dist/Savers Capture.app'
 ```
 
-The script creates a locally ad hoc signed app. Distribution to other Macs would
-need a Developer ID signature and notarization.
-
-## Connect Savers
-
-1. Open the current Savers website and go to **Settings → API tokens**.
-2. Create a token named **Mac Capture** and copy it when shown.
-3. In the Savers Capture menu bar menu, open **Settings…** and paste the token.
-
-The token is kept in the macOS Keychain. The default endpoint is the current
-Savers service, `https://savers-production.up.railway.app`. Change the address
-in Settings only if the target Savers service has the same authenticated image
-upload API. The app sends to `POST /api/images/upload` and checks the response
-before reporting success.
-
-The rebuild preview keeps cards in browser-local storage, so native uploads do
-not appear there yet. They appear in the current authenticated Savers account.
-
-## Scope of this first version
-
-This version uses native macOS area or screen selection and a lightweight Savers
-preview. It does not add a button to CleanShot's overlay or replace CleanShot's
-annotation, scrolling capture, OCR, or recording tools.
+The default Rebuild address is
+`https://savers-rebuild-preview-production.up.railway.app`. You can change it
+in the menu bar's **Settings…** window. **Open Rebuild** pairs that browser with
+the Mac app using a token stored in the app's preferences and browser storage.
+The pairing token remains in the URL fragment only until the page loads.
