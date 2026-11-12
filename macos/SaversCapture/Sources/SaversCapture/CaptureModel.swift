@@ -33,31 +33,20 @@ final class CaptureModel: ObservableObject {
 
     func startBridge() { _ = bridge }
 
-    func capture(area: Bool) {
-        let pasteboard = NSPasteboard.general
-        let previousChangeCount = pasteboard.changeCount
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
-        process.arguments = area ? ["-i", "-c", "-t", "png"] : ["-c", "-t", "png"]
-        process.terminationHandler = { [weak self] finished in
-            DispatchQueue.main.async {
-                guard finished.terminationStatus == 0,
-                      pasteboard.changeCount != previousChangeCount,
-                      let captured = NSImage(pasteboard: pasteboard),
-                      let tiff = captured.tiffRepresentation,
-                      let bitmap = NSBitmapImageRep(data: tiff),
-                      let data = bitmap.representation(using: .png, properties: [:]) else { return }
-                self?.image = captured
-                self?.pngData = data
-                self?.status = ""
-                self?.onCapture?()
-            }
+    @discardableResult
+    func importClipboardImage() -> Bool {
+        guard let captured = NSImage(pasteboard: .general),
+              let tiff = captured.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiff),
+              let data = bitmap.representation(using: .png, properties: [:]) else {
+            status = "Copy a screenshot to the clipboard first."
+            return false
         }
-        do {
-            try process.run()
-        } catch {
-            status = "Could not start screenshot capture."
-        }
+        image = captured
+        pngData = data
+        status = ""
+        onCapture?()
+        return true
     }
 
     func saveToDesktop() {

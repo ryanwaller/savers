@@ -496,7 +496,7 @@ export default function RebuildPreview({
     if (pairedToken && /^[A-Fa-f0-9-]{72}$/.test(pairedToken)) {
       localStorage.setItem(macCaptureTokenKey, pairedToken);
       window.history.replaceState(null, "", window.location.pathname + window.location.search);
-      setToast("Mac Capture connected");
+      window.setTimeout(() => setToast("Mac Capture connected"), 0);
     }
     const token = pairedToken || localStorage.getItem(macCaptureTokenKey);
     if (!token) return;

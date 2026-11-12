@@ -1,5 +1,4 @@
 import AppKit
-import Carbon
 import SwiftUI
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
@@ -8,15 +7,18 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private var previewPanel: NSPanel?
     private var largerWindow: NSWindow?
     private var settingsWindow: NSWindow?
-    private var hotKeyRef: EventHotKeyRef?
-    private var hotKeyHandler: EventHandlerRef?
+    private var clipboardTimer: Timer?
+    private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Savers Capture")
         let menu = NSMenu()
-        menu.addItem(withTitle: "Capture Area  ⌃⌥⌘4", action: #selector(captureArea), keyEquivalent: "")
-        menu.addItem(withTitle: "Capture Screen", action: #selector(captureScreen), keyEquivalent: "")
+        let areaShortcut = menu.addItem(withTitle: "Area screenshot  ⌃⇧⌘4", action: nil, keyEquivalent: "")
+        areaShortcut.isEnabled = false
+        let screenShortcut = menu.addItem(withTitle: "Screen screenshot  ⌃⇧⌘3", action: nil, keyEquivalent: "")
+        screenShortcut.isEnabled = false
+        menu.addItem(withTitle: "Use Clipboard Image", action: #selector(importClipboardImage), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Rebuild", action: #selector(openRebuild), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: "")
@@ -30,37 +32,30 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
         model.onNeedsRebuild = { [weak self] in self?.model.openRebuild() }
         model.startBridge()
-        installHotKey()
-    }
-
-    private func installHotKey() {
-        var eventType = EventTypeSpec(eventClass: OSType(kEventClassKeyboard), eventKind: UInt32(kEventHotKeyPressed))
-        let handler: EventHandlerUPP = { _, _, userData in
-            guard let userData else { return noErr }
-            let delegate = Unmanaged<CaptureAppDelegate>.fromOpaque(userData).takeUnretainedValue()
-            DispatchQueue.main.async { delegate.captureArea() }
-            return noErr
+        clipboardTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
+            self?.checkClipboard()
         }
-        InstallEventHandler(GetApplicationEventTarget(), handler, 1, &eventType,
-                            Unmanaged.passUnretained(self).toOpaque(), &hotKeyHandler)
-        let hotKeyID = EventHotKeyID(signature: 0x53565243, id: 1)
-        RegisterEventHotKey(UInt32(kVK_ANSI_4), UInt32(controlKey | optionKey | cmdKey),
-                            hotKeyID, GetApplicationEventTarget(), 0, &hotKeyRef)
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        if let hotKeyRef { UnregisterEventHotKey(hotKeyRef) }
-        if let hotKeyHandler { RemoveEventHandler(hotKeyHandler) }
+        clipboardTimer?.invalidate()
     }
 
-    @objc private func captureArea() {
-        previewPanel?.orderOut(nil)
-        model.capture(area: true)
+    private func checkClipboard() {
+        let pasteboard = NSPasteboard.general
+        guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
+        lastPasteboardChangeCount = pasteboard.changeCount
+        if NSImage(pasteboard: pasteboard) != nil { model.importClipboardImage() }
     }
 
-    @objc private func captureScreen() {
-        previewPanel?.orderOut(nil)
-        model.capture(area: false)
+    @objc private func importClipboardImage() {
+        lastPasteboardChangeCount = NSPasteboard.general.changeCount
+        if !model.importClipboardImage() {
+            let alert = NSAlert()
+            alert.messageText = "No image on the clipboard"
+            alert.informativeText = "Press Control–Shift–Command–4 and select an area, then Savers Capture will open the preview."
+            alert.runModal()
+        }
     }
 
     private func showPreview() {
