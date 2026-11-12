@@ -1,0 +1,25 @@
+name: Build Savers Capture
+
+on:
+  push:
+    paths:
+      - 'macos/SaversCapture/**'
+      - '.github/workflows/mac-capture.yml'
+  pull_request:
+    paths:
+      - 'macos/SaversCapture/**'
+      - '.github/workflows/mac-capture.yml'
+
+jobs:
+  build:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build app
+        run: ./macos/SaversCapture/build-app.sh
+      - name: Zip app
+        run: ditto -c -k --sequesterRsrc --keepParent 'macos/SaversCapture/dist/Savers Capture.app' Savers-Capture-macOS.zip
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Savers-Capture-macOS
+          path: Savers-Capture-macOS.zip
