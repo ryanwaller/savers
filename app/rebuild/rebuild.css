@@ -2698,9 +2698,9 @@ body:has(.rebuild-app) {
 .rb-delete-collection-panel { width: min(440px, 100%); padding: 28px; border-radius: 24px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); box-shadow: 0 20px 60px #0003; }
 .rb-delete-collection-panel h2 { margin: 0 0 12px; font-size: 24px; font-weight: 500; }
 .rb-delete-collection-panel p { margin: 0 0 24px; color: var(--rb-modal-muted); line-height: 1.45; }
-.rb-delete-collection-panel > div { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+.rb-delete-collection-panel > .rb-confirm-actions { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
 .rb-delete-collection-panel button { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 16px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
-.rb-delete-collection-panel button:last-child { background: #ffe1dd; color: #922e25; }
+.rb-delete-collection-panel .rb-confirm-actions button:last-child { background: #ffe1dd; color: #922e25; }
 .rb-bulk-import-panel > .rb-new-folder-trigger, .rb-bulk-import-panel > .rb-new-folder-form { margin-top: 10px; }
 @media (max-width: 620px) { .rb-related-picker { padding: 18px 18px 0; } .rb-related-picker-footer { margin-inline: -18px; padding: 48px 18px 18px; } .rb-new-folder-form button { padding-inline: 10px; } }
 .rb-theme-dark .rb-related-picker-head > button { background: #393939; color: #eee; }
@@ -3101,14 +3101,14 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-edit-footer-start { display: flex; align-items: center; gap: 8px; }
 .rb-edit-remove { display: inline-flex; align-items: center; gap: 7px; min-height: var(--rb-control-size); padding: 0 10px; border-radius: 999px; color: #a94640; white-space: nowrap; }
 .rb-edit-remove:hover { background: #f4d5d2; color: #8d322d; }
-.rb-edit-actions, .rb-bulk-panel > div { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
+.rb-edit-actions, .rb-bulk-panel > .rb-confirm-actions { display: flex; justify-content: center; gap: 10px; margin-top: 12px; }
 .rb-edit-actions { justify-content: flex-end; margin-top: 0; }
-.rb-edit-actions button, .rb-bulk-panel > div button { min-height: var(--rb-control-size); padding: 0 21px; border-radius: 999px; background: var(--rb-control-bg); }
-.rb-edit-actions button:last-child, .rb-bulk-panel > div button:last-child { background: #b9ff69; color: #202820; }
+.rb-edit-actions button, .rb-bulk-panel > .rb-confirm-actions button { min-height: var(--rb-control-size); padding: 0 21px; border-radius: 999px; background: var(--rb-control-bg); }
+.rb-edit-actions button:last-child, .rb-bulk-panel > .rb-confirm-actions button:last-child { background: #b9ff69; color: #202820; }
 .rb-edit-actions button:disabled, .rb-bulk-panel button:disabled { opacity: .45; cursor: not-allowed; }
 .rb-bulk-panel { display: grid; gap: 20px; width: min(460px, 100%); padding: 28px; border-radius: 24px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); }
 .rb-bulk-panel p { margin: 0; color: var(--rb-modal-muted); }
-.rb-bulk-panel > div .rb-bulk-danger { background: #f4d5d2; color: #9e413a; }
+.rb-bulk-panel > .rb-confirm-actions .rb-bulk-danger { background: #f4d5d2; color: #9e413a; }
 @media (max-width: 700px) {
   .rb-dock { left: 50%; right: auto; width: calc(100vw - 20px); }
   .rb-card-grid.rb-card-size-s, .rb-card-grid.rb-card-size-m { --rb-grid-columns: 2; --rb-grid-gap: 12px; --rb-grid-row-gap: 24px; }
@@ -3377,3 +3377,40 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 
 .rebuild-app .rb-related-heading .rb-related-sort-trigger,
 .rebuild-app .rb-related-heading .rb-related-sort-trigger:is(:hover, .active) { background: #fff; color: #444; }
+
+/* One close control for every Rebuild overlay: upper right, round, and inset with the panel content. */
+.rebuild-app button.rb-overlay-close {
+  display: grid;
+  place-items: center;
+  flex: 0 0 var(--rb-control-size);
+  width: var(--rb-control-size);
+  min-width: var(--rb-control-size);
+  height: var(--rb-control-size);
+  min-height: var(--rb-control-size);
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: var(--rb-control-bg);
+  color: var(--rb-control-ink);
+}
+.rebuild-app button.rb-overlay-close svg { width: 21px; height: 21px; stroke-width: 1.8; }
+.rebuild-app button.rb-overlay-close:hover { background: var(--rb-control-hover); color: var(--rb-control-hover-ink); }
+.rebuild-app button.rb-overlay-close:focus-visible { outline: 2px solid var(--rb-control-active); outline-offset: 3px; }
+.rebuild-app button.rb-overlay-close:disabled { opacity: .45; cursor: not-allowed; }
+.rb-detail-backdrop .rb-detail-bar { justify-content: flex-end; gap: 8px; padding-inline: clamp(18px, 2.5vw, 30px); }
+.rb-detail-bar > .rb-overlay-close { margin-left: 4px; }
+.rb-related-feed-top { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; }
+.rb-related-feed-top .rb-related-feed-tabs { grid-column: 2; justify-self: center; }
+.rb-related-feed-actions { display: flex; grid-column: 3; align-items: center; justify-self: end; gap: 8px; }
+.rb-related-feed-actions .rb-related-select-toggle { margin-left: 0; }
+.rb-confirm-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.rb-confirm-head h2 { flex: 1; min-width: 0; }
+.rb-confirm-head .rb-overlay-close { margin-top: -4px; }
+.rebuild-app :is(.rb-detail-bar, .rb-related-picker-head) button.rb-overlay-close { border-radius: 50%; }
+@media (max-width: 700px) {
+  .rb-related-feed-top { grid-template-columns: minmax(0, 1fr); }
+  .rb-related-feed-actions { grid-column: 1; grid-row: 1; }
+  .rb-related-feed-top .rb-related-feed-tabs { grid-column: 1; grid-row: 2; width: min(302px, 100%); }
+  .rb-detail-backdrop .rb-detail-bar { padding-inline: 18px; }
+}
