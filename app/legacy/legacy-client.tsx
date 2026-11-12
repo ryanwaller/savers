@@ -1,0 +1,4888 @@
+"use client";
+/* eslint-disable @next/next/no-img-element -- User-supplied preview and avatar URLs load in the browser, avoiding another server-side remote fetch path. */
+
+import type { CSSProperties } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Grid2x2, List, Plus, Search } from "lucide-react";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
+import type { Bookmark, Collection, AISuggestion, FeedItem, FeedSubscription, ImageCollection, SmartCollection } from "@/lib/types";
+import { api, canonicalBookmarkUrl, type CustomPreviewSource } from "@/lib/api";
+import { notify } from "@/lib/notify";
+import { evaluateFilter } from "@/lib/smart-collections";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
+import {
+  computeCollectionBookmarkCounts,
+  computeGlobalTagCounts,
+  computeSmartCollectionCounts,
+  computeTotals,
+  type BookmarkTotals,
+} from "@/lib/bookmark-summaries";
+import Sidebar from "../components/Sidebar";
+import CollectionIcon from "../components/CollectionIcon";
+import SubcollectionRow from "../components/SubcollectionRow";
+import BookmarkGrid from "../components/BookmarkGrid";
+import FeedInbox from "../components/FeedInbox";
+import AddBookmarkModal from "../components/AddBookmarkModal";
+import BookmarkDetail from "../components/BookmarkDetail";
+import AISuggestionToast from "../components/AISuggestionToast";
+import DropZone from "../components/DropZone";
+import DuplicateImportModal from "../components/DuplicateImportModal";
+import AuthScreen from "../components/AuthScreen";
+import ConfirmDialog from "../components/ConfirmDialog";
+import SettingsModal from "../components/SettingsModal";
+import SharingModal, { type ShareableCollection } from "../components/SharingModal";
+import TriageOverlay from "../components/TriageOverlay";
+import ImageTriageOverlay from "../components/ImageTriageOverlay";
+import SmartCollectionBuilderModal from "../components/SmartCollectionBuilderModal";
+import CreateCollectionModal from "../components/CreateCollectionModal";
+import AddImageModal from "../components/AddImageModal";
+import ImageGrid, { type ImageRow } from "../components/ImageGrid";
+import CreateImageCollectionModal from "../components/CreateImageCollectionModal";
+import ImageSlideshow from "../components/ImageSlideshow";
+import ImageDetail from "../components/ImageDetail";
+import SortMenu from "../components/SortMenu";
+import { useScrollCollectionSpy } from "../hooks/useScrollCollectionSpy";
+import {
+  isNative as isNativeShell,
+  NATIVE_REDIRECT,
+  openOAuthUrl,
+  runOAuthInAuthSession,
+} from "@/lib/capacitor-bridge";
+
+type Selection =
+  | { kind: "all" }
+  | { kind: "unsorted" }
+  | { kind: "pinned" }
+  | { kind: "broken" }
+  | { kind: "collection"; id: string }
+  | { kind: "smart_collection"; id: string }
+  | { kind: "feed"; id: string }
+  // Images surface (parallel taxonomy from Links)
+  | { kind: "images_all" }
+  | { kind: "images_unsorted" }
+  | { kind: "image_collection"; id: string };
+
+type EditableImageRow = ImageRow & {
+  description?: string | null;
+  notes?: string | null;
+  tags?: string[];
+  original_filename?: string | null;
+  original_size_bytes?: number | null;
+  mime_type?: string | null;
+  taken_at?: string | null;
+  camera_make?: string | null;
+  camera_model?: string | null;
+  collection_id?: string | null;
+};
+
+const SIDEBAR_SNAPSHOT_STORAGE_KEY = "savers.sidebar.snapshot.v1";
+const FEED_ITEMS_CACHE_STORAGE_KEY = "savers.feedItemsCache.v1";
+const IMAGE_VIEW_CACHE_STORAGE_KEY = "savers.imageViewCache.v1";
+const CARD_SIZES = ["s", "m", "l", "xl"] as const;
+type CardSize = (typeof CARD_SIZES)[number];
+
+async function fetchAllImages(url: URL): Promise<ImageRow[]> {
+  const images: ImageRow[] = [];
+  for (;;) {
+    url.searchParams.set("offset", String(images.length));
+    url.searchParams.set("limit", "500");
+    const res = await fetch(url.toString(), { cache: "no-store" });
+    const body = await res.json();
+    if (!res.ok) throw new Error(body.error || "Failed to load images");
+    images.push(...((body.images as ImageRow[]) || []));
+    if (!body.has_more) return images;
+  }
+}
+
+export default function Home() {
+  const MIN_SIDEBAR_WIDTH = 180;
+  const MAX_SIDEBAR_WIDTH = 420;
+
+  const [user, setUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [authEmail, setAuthEmail] = useState("");
+  const [authMessage, setAuthMessage] = useState<string | null>(null);
+  const [sendingAuthLink, setSendingAuthLink] = useState(false);
+  const [signingInWithGoogle, setSigningInWithGoogle] = useState(false);
+
+  // Library bootstrap state: counts and sidebar summaries are seeded from the
+  // server, then kept in sync locally as bookmarks mutate.
+  const [allBookmarks, setAllBookmarks] = useState<Bookmark[]>([]);
+  const [libraryDataLoaded, setLibraryDataLoaded] = useState(false);
+  const allBookmarksRef = useRef<Bookmark[]>([]);
+  const [treeRaw, setTreeRaw] = useState<Collection[]>([]);
+  const [bookmarkCountsHydrated, setBookmarkCountsHydrated] = useState(false);
+  const [collectionBookmarkCounts, setCollectionBookmarkCounts] = useState<Record<string, number>>(
+    {}
+  );
+  const tree = useMemo(
+    () => annotateCounts(treeRaw, collectionBookmarkCounts, bookmarkCountsHydrated),
+    [treeRaw, collectionBookmarkCounts, bookmarkCountsHydrated]
+  );
+  const [flat, setFlat] = useState<Collection[]>([]);
+  const [smartCollections, setSmartCollections] = useState<SmartCollection[]>([]);
+  const smartCollectionsRef = useRef<SmartCollection[]>([]);
+  const [feeds, setFeeds] = useState<FeedSubscription[]>([]);
+  const [feedCounts, setFeedCounts] = useState<Record<string, number>>({});
+  const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
+  const feedItemsCacheRef = useRef<Map<string, FeedItem[]>>(new Map());
+  const [loadedFeedId, setLoadedFeedId] = useState<string | null>(null);
+  const [loadingFeedItems, setLoadingFeedItems] = useState(false);
+  const [feedItemsError, setFeedItemsError] = useState<string | null>(null);
+  const [busyFeedItemIds, setBusyFeedItemIds] = useState<Set<string>>(() => new Set());
+  const [busyFeedBulkAction, setBusyFeedBulkAction] = useState(false);
+  const [totals, setTotals] = useState<BookmarkTotals>({
+    all: 0,
+    unsorted: 0,
+    pinned: 0,
+    broken: 0,
+  });
+  const [globalTagCounts, setGlobalTagCounts] = useState<Record<string, number>>({});
+  const [smartCollectionCounts, setSmartCollectionCounts] = useState<Record<string, number>>({});
+  const [bookmarks, setBookmarks] = useState<Bookmark[]>([]);
+  type SidebarMode = "links" | "images";
+  const [selection, setSelection] = useState<Selection>(() => {
+    // Restore the last-active selection across page reloads. Saved as JSON
+    // in localStorage by the useEffect below. If the saved value is for a
+    // collection/folder that no longer exists, we'll still hydrate it here
+    // — a follow-up effect bounces back to "all" once the loaded lists
+    // confirm the id is missing.
+    if (typeof window === "undefined") return { kind: "all" };
+    try {
+      const raw = window.localStorage.getItem("savers.selection");
+      if (!raw) return { kind: "all" };
+      const parsed = JSON.parse(raw) as Selection | { kind?: string };
+      const kind = parsed?.kind;
+      if (
+        kind === "all" ||
+        kind === "unsorted" ||
+        kind === "pinned" ||
+        kind === "broken" ||
+        kind === "images_all"
+      ) {
+        return { kind } as Selection;
+      }
+      if (
+        (kind === "collection" || kind === "smart_collection" || kind === "feed" || kind === "image_collection") &&
+        typeof (parsed as { id?: unknown }).id === "string"
+      ) {
+        return parsed as Selection;
+      }
+    } catch {
+      /* fall through to default */
+    }
+    return { kind: "all" };
+  });
+  const sidebarMode: SidebarMode = selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted"
+    ? "images" : "links";
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sidebar.mode", sidebarMode); } catch { /* ignore */ }
+  }, [sidebarMode]);
+  const [renderSelection, setRenderSelection] = useState<Selection>(selection);
+  const [contentTransitioning, setContentTransitioning] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem("savers.selection", JSON.stringify(selection));
+    } catch {
+      /* quota or denied — ignore */
+    }
+  }, [selection]);
+
+  const switchSidebarMode = useCallback((next: SidebarMode) => {
+    // Bounce the selection into the new mode's home view so the user
+    // never sees a blank/irrelevant grid right after flipping modes.
+    if (next === "images") {
+      setSelection({ kind: "images_all" });
+    } else {
+      setSelection({ kind: "all" });
+    }
+  }, []);
+  const [search, setSearch] = useState("");
+  const [activeTag, setActiveTag] = useState<string | null>(null);
+  // Tags in the sidebar are scoped to the current selection: in a specific
+  // collection we only surface tags actually attached to bookmarks in that
+  // collection. "All bookmarks" shows the full set.
+  const selectionBookmarks = useMemo(() => {
+    if (selection.kind === "all") return allBookmarks;
+    if (selection.kind === "unsorted")
+      return allBookmarks.filter((b) => b.collection_id === null);
+    if (selection.kind === "pinned")
+      return allBookmarks.filter((b) => b.pinned);
+    if (selection.kind === "broken")
+      return allBookmarks.filter((b) => b.link_status === "broken");
+    if (selection.kind === "collection")
+      return allBookmarks.filter((b) => b.collection_id === selection.id);
+    if (selection.kind === "smart_collection") {
+      const sc = smartCollections.find((s) => s.id === selection.id);
+      if (sc) return allBookmarks.filter((b) => evaluateFilter(b, sc.query_json));
+      return [];
+    }
+    if (selection.kind === "feed") return [];
+    return allBookmarks;
+  }, [allBookmarks, selection, smartCollections]);
+
+  const [sortBy, setSortBy] = useState<"date" | "collection">(() => {
+    if (typeof window === "undefined") return "collection";
+    try {
+      const raw = window.localStorage.getItem("savers.sortBy");
+      if (raw === "date" || raw === "collection") return raw;
+    } catch { /* ignore */ }
+    return "collection";
+  });
+
+  useEffect(() => {
+    try { window.localStorage.setItem("savers.sortBy", sortBy); } catch { /* ignore */ }
+  }, [sortBy]);
+  const [showSortMenu, setShowSortMenu] = useState(false);
+
+  const collectionNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const c of flat) map.set(c.id, c.name);
+    return map;
+  }, [flat]);
+
+  const collectionById = useMemo(() => {
+    const map = new Map(flat.map((c) => [c.id, c]));
+    return map;
+  }, [flat]);
+
+  const buildCollectionPath = useCallback(
+    (collectionId: string | null): string => {
+      if (!collectionId) return "Uncategorized";
+      const parts: string[] = [];
+      let id: string | null = collectionId;
+      while (id) {
+        const c = collectionById.get(id);
+        if (!c) break;
+        parts.unshift(c.name);
+        id = c.parent_id;
+      }
+      return parts.join(" > ");
+    },
+    [collectionById],
+  );
+
+  const sortedBookmarks = useMemo(() => {
+    if (sortBy === "date") {
+      return [...bookmarks].sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+    }
+    // Group by collection: sort by collection name, then by created_at desc within each group
+    return [...bookmarks].sort((a, b) => {
+      const nameA = (a.collection_id && collectionNameMap.get(a.collection_id)) || "Uncategorized";
+      const nameB = (b.collection_id && collectionNameMap.get(b.collection_id)) || "Uncategorized";
+      const cmp = nameA.localeCompare(nameB);
+      if (cmp !== 0) return cmp;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, [bookmarks, sortBy, collectionNameMap]);
+
+  const isGroupedView = sortBy === "collection" && renderSelection.kind === "all";
+  const isGroupedImageView = sortBy === "collection" && renderSelection.kind === "images_all";
+
+  const groupedBookmarks = useMemo(() => {
+    if (!isGroupedView) return null;
+    const groups: { collectionId: string; collectionName: string; path: string; bookmarks: Bookmark[] }[] = [];
+    const seen = new Map<string, number>();
+    for (const b of sortedBookmarks) {
+      const cid = b.collection_id || "__uncategorized__";
+      const name = (b.collection_id && collectionNameMap.get(b.collection_id)) || "Uncategorized";
+      if (seen.has(cid)) {
+        groups[seen.get(cid)!].bookmarks.push(b);
+      } else {
+        seen.set(cid, groups.length);
+        groups.push({
+          collectionId: cid,
+          collectionName: name,
+          path: buildCollectionPath(b.collection_id),
+          bookmarks: [b],
+        });
+      }
+    }
+    // Sort by path so parent collections group together
+    groups.sort((a, b) => a.path.localeCompare(b.path));
+    return groups;
+  }, [isGroupedView, sortedBookmarks, collectionNameMap, buildCollectionPath]);
+
+  const visibleFeedItems = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return feedItems;
+    return feedItems.filter((item) => {
+      const haystack = [item.title, item.url, item.description]
+        .filter((value): value is string => typeof value === "string" && value.length > 0)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [feedItems, search]);
+
+  const [isMobileViewport, setIsMobileViewport] = useState(false);
+  const contentRef = useRef<HTMLElement>(null);
+  const scrollSpyCollectionIds = useMemo(
+    () => groupedBookmarks?.map((g) => g.collectionId) || [],
+    [groupedBookmarks]
+  );
+  const scrollCollection = useScrollCollectionSpy({
+    enabled: isGroupedView,
+    // On mobile, .main is the scroll container — .content has overflow:visible
+    scrollContainerRef: isMobileViewport ? undefined : contentRef,
+    collectionIds: scrollSpyCollectionIds,
+  });
+
+  const tagCounts = useMemo(() => {
+    if (selection.kind === "all") return globalTagCounts;
+
+    const counts: Record<string, number> = {};
+    for (const bookmark of selectionBookmarks) {
+      for (const tag of bookmark.tags ?? []) {
+        counts[tag] = (counts[tag] ?? 0) + 1;
+      }
+    }
+    return counts;
+  }, [globalTagCounts, selection.kind, selectionBookmarks]);
+
+  const allTags = useMemo(
+    () => Object.keys(tagCounts).sort((a, b) => a.localeCompare(b)),
+    [tagCounts]
+  );
+
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window === "undefined") return true;
+    const saved = localStorage.getItem("sidebarOpen");
+    return saved !== null ? saved === "true" : true;
+  });
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  const [sidebarWidth, setSidebarWidth] = useState(220);
+  const [contentWidth, setContentWidth] = useState(0);
+  type ViewMode = "grid" | "list";
+  // Desktop: choose column count, let cards stretch with 1fr.
+  const CARD_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
+    s: 4,
+    m: 3,
+    l: 2,
+    xl: 1,
+  };
+  // Image grid uses denser layouts than bookmarks — one step tighter
+  // at every size (S=5, M=4, L=3, XL=2) so you can see more thumbs.
+  const IMAGE_SIZE_DESKTOP_COLS: Record<CardSize, number> = {
+    s: 5,
+    m: 4,
+    l: 3,
+    xl: 2,
+  };
+  // Mobile: fewer columns due to narrow viewport.
+  const CARD_SIZE_MOBILE_COLS: Record<CardSize, number> = {
+    s: 3,
+    m: 2,
+    l: 1,
+    xl: 1,
+  };
+  const IMAGE_SIZE_MOBILE_COLS: Record<CardSize, number> = {
+    s: 3,
+    m: 2,
+    l: 2,
+    xl: 1,
+  };
+  const CARD_SIZE_PX: Record<CardSize, number> = {
+    s: 220,
+    m: 300,
+    l: 380,
+    xl: 480,
+  };
+  const [cardSize, setCardSize] = useState<CardSize>("m");
+  const [viewMode, setViewMode] = useState<ViewMode>("grid");
+  const cardMinWidth = CARD_SIZE_PX[cardSize];
+  const desktopCols = CARD_SIZE_DESKTOP_COLS[cardSize];
+  const mobileCols = CARD_SIZE_MOBILE_COLS[cardSize];
+  const imageDesktopCols = IMAGE_SIZE_DESKTOP_COLS[cardSize];
+  const imageMobileCols = IMAGE_SIZE_MOBILE_COLS[cardSize];
+  const effectiveDesktopCols = useMemo(() => {
+    if (isMobileViewport || !contentWidth) return desktopCols;
+
+    const GRID_GAP_PX = 20;
+    const GRID_SIDE_PADDING_PX = 40;
+    const usableWidth = Math.max(contentWidth - GRID_SIDE_PADDING_PX, 0);
+    const maxFittingCols = Math.max(
+      1,
+      Math.floor((usableWidth + GRID_GAP_PX) / (cardMinWidth + GRID_GAP_PX))
+    );
+
+    return Math.max(1, Math.min(desktopCols, maxFittingCols));
+  }, [cardMinWidth, contentWidth, desktopCols, isMobileViewport]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const syncViewport = () => {
+      setIsMobileViewport(window.innerWidth <= 768);
+    };
+
+    syncViewport();
+    window.addEventListener("resize", syncViewport, { passive: true });
+    return () => window.removeEventListener("resize", syncViewport);
+  }, []);
+
+  useEffect(() => {
+    if (!contentRef.current || typeof ResizeObserver === "undefined") return;
+
+    const node = contentRef.current;
+    const updateWidth = () => {
+      setContentWidth(node.clientWidth);
+    };
+
+    updateWidth();
+    const observer = new ResizeObserver(() => updateWidth());
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const lastClickedIdRef = useRef<string | null>(null);
+  const [showBulkMovePicker, setShowBulkMovePicker] = useState(false);
+  const [bulkMoveSearch, setBulkMoveSearch] = useState("");
+  const [bulkMoveBusy, setBulkMoveBusy] = useState(false);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const [selectedFeedItemIds, setSelectedFeedItemIds] = useState<Set<string>>(new Set());
+  const lastClickedFeedItemIdRef = useRef<string | null>(null);
+  const [bulkTagInput, setBulkTagInput] = useState("");
+  const [bulkTagBusy, setBulkTagBusy] = useState(false);
+  const [resizingSidebar, setResizingSidebar] = useState(false);
+  const [loadingBookmarks, setLoadingBookmarks] = useState(false);
+  const [initialDataLoaded, setInitialDataLoaded] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const [showAdd, setShowAdd] = useState(false);
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const [sharingCollection, setSharingCollection] = useState<ShareableCollection | null>(null);
+  const [triageOpen, setTriageOpen] = useState(false);
+  const [imageTriageOpen, setImageTriageOpen] = useState(false);
+  const openLinkTriage = useCallback(() => {
+    const unsorted: Selection = { kind: "unsorted" };
+    setSelection(unsorted);
+    setRenderSelection(unsorted);
+    setContentTransitioning(false);
+    setActiveTag(null);
+    setSearch("");
+    setTriageOpen(true);
+  }, []);
+  const [smartBuilderOpen, setSmartBuilderOpen] = useState(false);
+  const [editSmartCollection, setEditSmartCollection] = useState<SmartCollection | null>(null);
+  const [showCreateCollection, setShowCreateCollection] = useState(false);
+  const [showAddImages, setShowAddImages] = useState(false);
+  const [showCreateImageFolder, setShowCreateImageFolder] = useState(false);
+  const [images, setImages] = useState<ImageRow[]>([]);
+  const openImageTriage = useCallback(() => {
+    const unsorted: Selection = { kind: "images_unsorted" };
+    setSelection(unsorted);
+    setRenderSelection(unsorted);
+    setImages([]);
+    setContentTransitioning(false);
+    setActiveTag(null);
+    setSearch("");
+    setImageTriageOpen(true);
+  }, []);
+  const imageViewCacheRef = useRef<Map<string, ImageRow[]>>(new Map());
+  const [loadedImageViewKey, setLoadedImageViewKey] = useState<string | null>(null);
+  const [loadingImages, setLoadingImages] = useState(false);
+  const [imagesReloadKey, setImagesReloadKey] = useState(0);
+  const [slideshowIndex, setSlideshowIndex] = useState<number | null>(null);
+  const [imageDetailId, setImageDetailId] = useState<string | null>(null);
+  const [imageDropUploading, setImageDropUploading] = useState<{
+    count: number;
+    label: string;
+  } | null>(null);
+  const [imageCollections, setImageCollections] = useState<ImageCollection[]>([]);
+  const [unsortedImageCount, setUnsortedImageCount] = useState(0);
+  const [imageTagCounts, setImageTagCounts] = useState<Record<string, number>>({});
+  const visibleImages = useMemo(() => {
+    const normalizedTag = activeTag?.trim().toLowerCase() ?? "";
+    if (!normalizedTag) return images;
+    return images.filter((image) =>
+      (image.tags ?? []).some((tag) => tag.trim().toLowerCase() === normalizedTag)
+    );
+  }, [activeTag, images]);
+
+  // Same grouping pattern for the image grid when sortBy="collection" and
+  // we're looking at All images.
+  const groupedImages = useMemo(() => {
+    if (!isGroupedImageView) return null;
+    type ImgGroup = { collectionId: string; collectionName: string; images: ImageRow[] };
+    const groups: ImgGroup[] = [];
+    const seen = new Map<string, number>();
+    const folderName = (id: string | null) => {
+      if (!id) return "Unsorted";
+      return imageCollections.find((c) => c.id === id)?.name ?? "Folder";
+    };
+    for (const img of visibleImages) {
+      const cid = img.collection_id || "__uncategorized__";
+      const name = folderName(img.collection_id ?? null);
+      if (seen.has(cid)) {
+        groups[seen.get(cid)!].images.push(img);
+      } else {
+        seen.set(cid, groups.length);
+        groups.push({ collectionId: cid, collectionName: name, images: [img] });
+      }
+    }
+    // Folders alphabetically; Unsorted at the end.
+    groups.sort((a, b) => {
+      if (a.collectionId === "__uncategorized__") return 1;
+      if (b.collectionId === "__uncategorized__") return -1;
+      return a.collectionName.localeCompare(b.collectionName);
+    });
+    return groups;
+  }, [isGroupedImageView, visibleImages, imageCollections]);
+  const slideshowImages = useMemo(
+    () =>
+      selection.kind === "images_all" ||
+      selection.kind === "image_collection" ||
+      selection.kind === "images_unsorted"
+        ? visibleImages
+        : images,
+    [images, selection.kind, visibleImages]
+  );
+
+  // Load the image-collection folder list (flat). Called on auth-ready and
+  // after a successful create/delete so the sidebar refreshes.
+  const loadImageCollections = useCallback(async () => {
+    try {
+      const res = await fetch("/api/image-collections", { cache: "no-store" });
+      if (!res.ok) return;
+      const body = await res.json();
+      setImageCollections(
+        (body.collections as ImageCollection[]) || [],
+      );
+      setUnsortedImageCount(
+        typeof body.unsorted_count === "number" ? body.unsorted_count : 0,
+      );
+      setImageTagCounts(
+        (body.tags && typeof body.tags === "object") ? body.tags : {},
+      );
+    } catch (err) {
+      console.error("[image-collections] load failed", err);
+    }
+  }, [setImageCollections, setUnsortedImageCount, setImageTagCounts]);
+
+  const refreshImages = useCallback(() => {
+    if (selection.kind === "images_all") {
+      imageViewCacheRef.current.delete("images_all");
+    } else if (selection.kind === "image_collection") {
+      imageViewCacheRef.current.delete(`image_collection:${selection.id}`);
+    } else if (selection.kind === "images_unsorted") {
+      imageViewCacheRef.current.delete("images_unsorted");
+    }
+    setImagesReloadKey((v) => v + 1);
+  }, [selection, setImagesReloadKey]);
+
+  const getImageViewCacheKey = useCallback((target: Selection): string | null => {
+    if (target.kind === "images_all") return "images_all";
+    if (target.kind === "image_collection") return `image_collection:${target.id}`;
+    if (target.kind === "images_unsorted") return "images_unsorted";
+    return null;
+  }, []);
+
+  const getSelectionKey = useCallback((target: Selection): string => {
+    switch (target.kind) {
+      case "collection":
+      case "smart_collection":
+      case "feed":
+      case "image_collection":
+        return `${target.kind}:${target.id}`;
+      default:
+        return target.kind;
+    }
+  }, []);
+
+  const deriveCachedImagesForSelection = useCallback(
+    (target: Selection): ImageRow[] | null => {
+      const exactKey = getImageViewCacheKey(target);
+      if (exactKey) {
+        const exact = imageViewCacheRef.current.get(exactKey);
+        if (exact) return exact;
+      }
+
+      const all = imageViewCacheRef.current.get("images_all");
+      if (!all) return null;
+
+      if (target.kind === "images_all") return all;
+      if (target.kind === "image_collection") {
+        return all.filter((image) => image.collection_id === target.id);
+      }
+      if (target.kind === "images_unsorted") {
+        return all.filter((image) => image.collection_id === null);
+      }
+      return null;
+    },
+    [getImageViewCacheKey],
+  );
+
+  const prefetchImageSelection = useCallback(async (target: Selection) => {
+    const cacheKey = getImageViewCacheKey(target);
+    if (!cacheKey || imageViewCacheRef.current.has(cacheKey)) return;
+    try {
+      const url = new URL("/api/images", window.location.origin);
+      if (target.kind === "image_collection") {
+        url.searchParams.set("collection_id", target.id);
+      } else if (target.kind === "images_unsorted") {
+        url.searchParams.set("unsorted", "1");
+      }
+      url.searchParams.set("sort", "newest");
+      const nextImages = await fetchAllImages(url);
+      imageViewCacheRef.current.set(cacheKey, nextImages);
+      if (target.kind === "images_all") {
+        imageViewCacheRef.current.set(
+          "images_unsorted",
+          nextImages.filter((image) => image.collection_id === null),
+        );
+      }
+    } catch {
+      // Best-effort warm cache only.
+    }
+  }, [getImageViewCacheKey]);
+
+  const persistFeedItemsCache = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        FEED_ITEMS_CACHE_STORAGE_KEY,
+        JSON.stringify(Array.from(feedItemsCacheRef.current.entries())),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, []);
+
+  const persistImageViewCache = useCallback(() => {
+    if (typeof window === "undefined") return;
+    try {
+      window.localStorage.setItem(
+        IMAGE_VIEW_CACHE_STORAGE_KEY,
+        JSON.stringify(Array.from(imageViewCacheRef.current.entries())),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, []);
+
+  const writeImageViewCache = useCallback((target: Selection, nextImages: ImageRow[]) => {
+    const key = getImageViewCacheKey(target);
+    if (!key) return;
+    imageViewCacheRef.current.set(key, nextImages);
+    if (target.kind === "images_all") {
+      imageViewCacheRef.current.set("images_unsorted", nextImages.filter((image) => image.collection_id === null));
+    }
+    persistImageViewCache();
+  }, [getImageViewCacheKey, persistImageViewCache]);
+
+  const selectedImageDetail = useMemo(
+    () => (imageDetailId ? images.find((image) => image.id === imageDetailId) ?? null : null),
+    [imageDetailId, images],
+  );
+
+  useEffect(() => {
+    if (authLoading || !user) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the authenticated image collection load when the session becomes ready.
+    void loadImageCollections();
+  }, [authLoading, user, loadImageCollections]);
+  const [defaultAddUrl, setDefaultAddUrl] = useState<string | null>(null);
+  const [deepLinkBookmarkId, setDeepLinkBookmarkId] = useState<string | null>(null);
+  const deepLinkHandledRef = useRef<string | null>(null);
+
+  // Handle ?add=<url> and ?bookmark=<id> params from extension redirect.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const addUrl = params.get("add");
+    const bookmarkId = params.get("bookmark");
+
+    if (addUrl) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Apply an incoming deep link from the browser URL.
+      setDefaultAddUrl(addUrl);
+      setShowAdd(true);
+    }
+
+    if (bookmarkId) {
+      setDeepLinkBookmarkId(bookmarkId);
+      setSelection({ kind: "all" });
+    }
+
+    // Clean the URL without reloading.
+    if (addUrl || bookmarkId) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("add");
+      url.searchParams.delete("bookmark");
+      url.searchParams.delete("token");
+      window.history.replaceState({}, "", url.toString());
+    }
+  }, []);
+
+  // Deep link: scroll to and highlight a bookmark by ID.
+  useEffect(() => {
+    if (!deepLinkBookmarkId || deepLinkHandledRef.current === deepLinkBookmarkId) return;
+    if (allBookmarks.length === 0) return;
+
+    const id = deepLinkBookmarkId;
+    const timer = setTimeout(() => {
+      const card = document.querySelector(`[data-bookmark-id="${id}"]`);
+      if (card) {
+        card.scrollIntoView({ behavior: "smooth", block: "center" });
+        card.classList.add("highlight-pulse");
+        setTimeout(() => card.classList.remove("highlight-pulse"), 3000);
+        deepLinkHandledRef.current = id;
+      }
+      setDeepLinkBookmarkId(null);
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [deepLinkBookmarkId, allBookmarks]);
+
+  // Listen for smart collection builder events from Sidebar.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onOpen = () => {
+      setEditSmartCollection(null);
+      setSmartBuilderOpen(true);
+    };
+    const onEdit = (e: Event) => {
+      setEditSmartCollection((e as CustomEvent).detail as SmartCollection);
+      setSmartBuilderOpen(true);
+    };
+    const onNewCollection = () => setShowCreateCollection(true);
+    const onOpenSettings = () => setShowSettings(true);
+    const onAddImages = () => setShowAddImages(true);
+    const onNewImageCollection = () => setShowCreateImageFolder(true);
+    const onOpenImageTriage = () => openImageTriage();
+    window.addEventListener("savers:open-smart-builder", onOpen);
+    window.addEventListener("savers:edit-smart-collection", onEdit);
+    window.addEventListener("savers:new-collection", onNewCollection);
+    window.addEventListener("savers:open-settings", onOpenSettings);
+    window.addEventListener("savers:add-images", onAddImages);
+    window.addEventListener("savers:new-image-collection", onNewImageCollection);
+    window.addEventListener("savers:open-image-triage", onOpenImageTriage);
+    return () => {
+      window.removeEventListener("savers:open-smart-builder", onOpen);
+      window.removeEventListener("savers:edit-smart-collection", onEdit);
+      window.removeEventListener("savers:new-collection", onNewCollection);
+      window.removeEventListener("savers:open-settings", onOpenSettings);
+      window.removeEventListener("savers:add-images", onAddImages);
+      window.removeEventListener("savers:new-image-collection", onNewImageCollection);
+      window.removeEventListener("savers:open-image-triage", onOpenImageTriage);
+    };
+  }, [openImageTriage]);
+
+  // Honor the ?triage=1 query param (used by the legacy /triage URL
+  // which now redirects here).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("triage") === "1") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Consume the triage deep link from the browser URL.
+      openLinkTriage();
+      params.delete("triage");
+      params.delete("collection");
+      params.delete("tag");
+      const next = params.toString();
+      const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [openLinkTriage]);
+
+  // Reflect activeTag in the URL as ?tag=... for shareable links.
+  const suppressTagUrlWrite = useRef(false);
+  const suppressCollectionUrlWrite = useRef(false);
+
+  // Read ?collection= from URL on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const coll = params.get("collection");
+    if (coll) {
+      suppressCollectionUrlWrite.current = true;
+      if (coll === "unsorted") {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the collection named by the browser URL.
+        setSelection({ kind: "unsorted" });
+      } else if (coll === "pinned") {
+        setSelection({ kind: "pinned" });
+      } else {
+        setSelection({ kind: "collection", id: coll });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const tag = params.get("tag");
+    if (tag) {
+      suppressTagUrlWrite.current = true;
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the tag named by the browser URL.
+      setActiveTag(tag);
+      // Only go global if a collection wasn't also requested
+      if (!params.get("collection")) {
+        setSelection({ kind: "all" });
+      }
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppressTagUrlWrite.current) {
+      suppressTagUrlWrite.current = false;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (activeTag) {
+      params.set("tag", activeTag);
+    } else {
+      params.delete("tag");
+    }
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [activeTag]);
+
+  // Sync selection to ?collection= in URL
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (suppressCollectionUrlWrite.current) {
+      suppressCollectionUrlWrite.current = false;
+      return;
+    }
+    const params = new URLSearchParams(window.location.search);
+    if (selection.kind === "collection") {
+      params.set("collection", selection.id);
+    } else if (selection.kind === "unsorted") {
+      params.set("collection", "unsorted");
+    } else if (selection.kind === "pinned") {
+      params.set("collection", "pinned");
+    } else {
+      params.delete("collection");
+    }
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+  }, [selection]);
+
+  // Handle ?savers_ref=public_<id> from shared collection pages.
+  const importAttemptedRef = useRef(false);
+
+  const [detail, setDetail] = useState<Bookmark | null>(null);
+  const [toast, setToast] = useState<{
+    bookmark: Bookmark;
+    suggestion: AISuggestion;
+  } | null>(null);
+  const [dropStatus, setDropStatus] = useState<string | null>(null);
+  const [duplicateImportUrls, setDuplicateImportUrls] = useState<string[]>([]);
+
+  const resizeState = useRef<{ startX: number; startWidth: number } | null>(null);
+  const lastForegroundRefreshRef = useRef(0);
+  // (We previously registered an appUrlOpen handler for savers:// URLs,
+  // but ASWebAuthenticationSession now captures the OAuth callback
+  // natively, so the deep-link handler is no longer needed and can race
+  // with the in-app flow.)
+
+  // Persist sidebar state and sync from localStorage on mount.
+  useEffect(() => {
+    localStorage.setItem("sidebarOpen", String(sidebarOpen));
+  }, [sidebarOpen]);
+
+  // Refs let the touch listeners read current state without re-attaching.
+  const sidebarOpenRef = useRef(sidebarOpen);
+  useEffect(() => {
+    sidebarOpenRef.current = sidebarOpen;
+  }, [sidebarOpen]);
+
+  const swipeContextRef = useRef({
+    selectionKind: selection.kind,
+    showAdd: false,
+    detailOpen: false,
+  });
+  useEffect(() => {
+    swipeContextRef.current = {
+      selectionKind: selection.kind,
+      showAdd,
+      detailOpen: detail !== null,
+    };
+  }, [selection, showAdd, detail]);
+
+  // Edge-swipe gestures:
+  //   • Swipe right from the left edge → open the sidebar.
+  //   • Swipe left while the sidebar is open → close the sidebar.
+  //   • On the All-bookmarks view, swipe left from the right edge → open the
+  //     Add Bookmark modal (only when no other modal is already up).
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const isTouch = window.matchMedia("(pointer: coarse)").matches;
+    if (!isTouch) return;
+
+    const EDGE_PX = 24; // how close to the edge a swipe must start to open
+    const OPEN_THRESHOLD = 60; // horizontal px to register an open gesture
+    const CLOSE_THRESHOLD = 60; // horizontal px to register a close gesture
+    const SLOP = 18; // vertical wiggle allowed before we treat as a scroll
+
+    let startX = 0;
+    let startY = 0;
+    let tracking: "open-left" | "close-left" | "open-add" | null = null;
+
+    function onStart(event: TouchEvent) {
+      if (event.touches.length !== 1) {
+        tracking = null;
+        return;
+      }
+      const t = event.touches[0];
+      startX = t.clientX;
+      startY = t.clientY;
+      const isSidebarOpen = sidebarOpenRef.current;
+      const ctx = swipeContextRef.current;
+      const viewportWidth = window.innerWidth;
+
+      if (isSidebarOpen) {
+        tracking = "close-left";
+      } else if (startX <= EDGE_PX) {
+        tracking = "open-left";
+      } else if (
+        startX >= viewportWidth - EDGE_PX &&
+        ctx.selectionKind === "all" &&
+        !ctx.showAdd &&
+        !ctx.detailOpen
+      ) {
+        tracking = "open-add";
+      } else {
+        tracking = null;
+      }
+    }
+
+    function onMove(event: TouchEvent) {
+      if (!tracking) return;
+      const t = event.touches[0];
+      const dx = t.clientX - startX;
+      const dy = t.clientY - startY;
+
+      // Cancel if the user is mostly scrolling vertically.
+      if (Math.abs(dy) > SLOP && Math.abs(dy) > Math.abs(dx)) {
+        tracking = null;
+        return;
+      }
+
+      if (tracking === "open-left" && dx > OPEN_THRESHOLD) {
+        setSidebarOpen(true);
+        tracking = null;
+      } else if (tracking === "close-left" && dx < -CLOSE_THRESHOLD) {
+        setSidebarOpen(false);
+        tracking = null;
+      } else if (tracking === "open-add" && dx < -OPEN_THRESHOLD) {
+        setShowAdd(true);
+        tracking = null;
+      }
+    }
+
+    function onEnd() {
+      tracking = null;
+    }
+
+    document.addEventListener("touchstart", onStart, { passive: true });
+    document.addEventListener("touchmove", onMove, { passive: true });
+    document.addEventListener("touchend", onEnd, { passive: true });
+    document.addEventListener("touchcancel", onEnd, { passive: true });
+
+    return () => {
+      document.removeEventListener("touchstart", onStart);
+      document.removeEventListener("touchmove", onMove);
+      document.removeEventListener("touchend", onEnd);
+      document.removeEventListener("touchcancel", onEnd);
+    };
+  }, []);
+
+  const updateAllBookmarksState = useCallback(
+    (updater: (prev: Bookmark[]) => Bookmark[]) => {
+      const next = updater(allBookmarksRef.current);
+      allBookmarksRef.current = next;
+      setAllBookmarks(next);
+      setTotals(computeTotals(next));
+      setGlobalTagCounts(computeGlobalTagCounts(next));
+      setSmartCollectionCounts(computeSmartCollectionCounts(next, smartCollectionsRef.current));
+      setCollectionBookmarkCounts(computeCollectionBookmarkCounts(next));
+    },
+    []
+  );
+
+  function getAuthRedirectBase() {
+    const configuredBase = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+
+    if (typeof window === "undefined") {
+      return configuredBase ?? "";
+    }
+
+    const currentBase = window.location.origin;
+    const isLocalhost =
+      currentBase.includes("localhost") || currentBase.includes("127.0.0.1");
+
+    if (isLocalhost) {
+      return currentBase;
+    }
+
+    return configuredBase || currentBase;
+  }
+
+  useEffect(() => {
+    allBookmarksRef.current = allBookmarks;
+  }, [allBookmarks]);
+
+  useEffect(() => {
+    let alive = true;
+
+    const loadUser = async () => {
+      const supabase = getSupabaseBrowserClient();
+      const { data, error } = await supabase.auth.getUser();
+      if (!alive) return;
+
+      if (error) {
+        setUser(null);
+      } else {
+        setUser(data.user ?? null);
+      }
+
+      setAuthLoading(false);
+    };
+
+    void loadUser();
+
+    const {
+      data: { subscription },
+    } = getSupabaseBrowserClient().auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+      if (!alive) return;
+      setUser(session?.user ?? null);
+      setAuthLoading(false);
+      if (session?.user) {
+        setAuthMessage(null);
+      }
+      }
+    );
+
+    return () => {
+      alive = false;
+      subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const searchParams = new URLSearchParams(window.location.search);
+    if (searchParams.get("auth") === "error") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Show the auth error reported by the browser callback URL.
+      setAuthMessage("That sign-in link expired or was invalid. Please try again.");
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) return;
+    allBookmarksRef.current = [];
+    smartCollectionsRef.current = [];
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear account-specific state after sign-out.
+    setBookmarkCountsHydrated(false);
+    setAllBookmarks([]);
+    setLibraryDataLoaded(false);
+    setBookmarks([]);
+    setTreeRaw([]);
+    setFlat([]);
+    setSmartCollections([]);
+    setTotals({ all: 0, unsorted: 0, pinned: 0, broken: 0 });
+    setGlobalTagCounts({});
+    setSmartCollectionCounts({});
+    setCollectionBookmarkCounts({});
+    setFeedCounts({});
+    setFeedItems([]);
+    setLoadedFeedId(null);
+    setLoadedImageViewKey(null);
+    setFeedItemsError(null);
+    setDetail(null);
+    setToast(null);
+    setLoadError(null);
+    setInitialDataLoaded(false);
+    setRenderSelection({ kind: "all" });
+    setContentTransitioning(false);
+    feedItemsCacheRef.current = new Map();
+    imageViewCacheRef.current = new Map();
+  }, [user]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    try {
+      const rawSidebar = window.localStorage.getItem(SIDEBAR_SNAPSHOT_STORAGE_KEY);
+      if (rawSidebar) {
+        const snapshot = JSON.parse(rawSidebar) as {
+          collections?: Collection[];
+          flat?: Collection[];
+          smartCollections?: SmartCollection[];
+          feeds?: FeedSubscription[];
+          totals?: BookmarkTotals;
+          collectionBookmarkCounts?: Record<string, number>;
+          feedCounts?: Record<string, number>;
+        };
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Hydrate the saved sidebar snapshot before the server refresh.
+        if (snapshot.collections) setTreeRaw(snapshot.collections);
+        if (snapshot.flat) setFlat(snapshot.flat);
+        if (snapshot.smartCollections) {
+          smartCollectionsRef.current = snapshot.smartCollections;
+          setSmartCollections(snapshot.smartCollections);
+        }
+        if (snapshot.feeds) setFeeds(snapshot.feeds);
+        if (snapshot.totals) setTotals(snapshot.totals);
+        if (snapshot.collectionBookmarkCounts) {
+          setBookmarkCountsHydrated(true);
+          setCollectionBookmarkCounts(snapshot.collectionBookmarkCounts);
+        }
+        if (snapshot.feedCounts) setFeedCounts(snapshot.feedCounts);
+      }
+
+      const rawFeedCache = window.localStorage.getItem(FEED_ITEMS_CACHE_STORAGE_KEY);
+      if (rawFeedCache) {
+        const entries = JSON.parse(rawFeedCache) as [string, FeedItem[]][];
+        feedItemsCacheRef.current = new Map(entries);
+      }
+
+      const rawImageCache = window.localStorage.getItem(IMAGE_VIEW_CACHE_STORAGE_KEY);
+      if (rawImageCache) {
+        const entries = JSON.parse(rawImageCache) as [string, ImageRow[]][];
+        imageViewCacheRef.current = new Map(entries);
+      }
+    } catch {
+      // Ignore corrupted local snapshots.
+    }
+  }, [user]);
+
+  // Load preference on mount
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.sidebar.width");
+    const parsed = raw ? Number.parseInt(raw, 10) : NaN;
+    if (Number.isFinite(parsed)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSidebarWidth(Math.min(MAX_SIDEBAR_WIDTH, Math.max(MIN_SIDEBAR_WIDTH, parsed)));
+    }
+  }, []);
+
+  // Save preference on change
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.sidebar.width", String(sidebarWidth));
+  }, [sidebarWidth]);
+
+  // Load/save card size preference
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.grid.cardSize");
+    if (raw && (CARD_SIZES as readonly string[]).includes(raw)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setCardSize(raw as CardSize);
+    }
+  }, []);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.grid.cardSize", cardSize);
+  }, [cardSize]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const raw = window.localStorage.getItem("savers.grid.viewMode");
+    if (raw === "grid" || raw === "list") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Restore the saved view preference after hydration.
+      setViewMode(raw);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem("savers.grid.viewMode", viewMode);
+  }, [viewMode]);
+
+  useEffect(() => {
+    if (!resizingSidebar) return;
+
+    const handlePointerMove = (event: PointerEvent) => {
+      if (!resizeState.current) return;
+      const nextWidth =
+        resizeState.current.startWidth + (event.clientX - resizeState.current.startX);
+      setSidebarWidth(clamp(nextWidth, MIN_SIDEBAR_WIDTH, MAX_SIDEBAR_WIDTH));
+    };
+
+    const handlePointerUp = () => {
+      resizeState.current = null;
+      setResizingSidebar(false);
+    };
+
+    window.addEventListener("pointermove", handlePointerMove);
+    window.addEventListener("pointerup", handlePointerUp);
+    document.body.style.cursor = "col-resize";
+    document.body.style.userSelect = "none";
+
+    return () => {
+      window.removeEventListener("pointermove", handlePointerMove);
+      window.removeEventListener("pointerup", handlePointerUp);
+      document.body.style.cursor = "";
+      document.body.style.userSelect = "";
+    };
+  }, [resizingSidebar]);
+
+  const loadCollections = useCallback(async () => {
+    try {
+      const data = await api.listCollections();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load collections");
+    }
+  }, []);
+
+  const loadSmartCollections = useCallback(async () => {
+    try {
+      const data = await api.listSmartCollections();
+      smartCollectionsRef.current = data.smart_collections;
+      setSmartCollections(data.smart_collections);
+      setSmartCollectionCounts(
+        computeSmartCollectionCounts(allBookmarksRef.current, data.smart_collections)
+      );
+    } catch (e) {
+      // Smart collections are non-critical; don't set a blocking error.
+      console.error("Failed to load smart collections:", e);
+    }
+  }, []);
+
+  const loadAllBookmarks = useCallback(async () => {
+    try {
+      const { bookmarks } = await api.listBookmarks();
+      allBookmarksRef.current = bookmarks;
+      setAllBookmarks(bookmarks);
+      setBookmarkCountsHydrated(true);
+      setTotals(computeTotals(bookmarks));
+      setGlobalTagCounts(computeGlobalTagCounts(bookmarks));
+      setSmartCollectionCounts(
+        computeSmartCollectionCounts(bookmarks, smartCollectionsRef.current)
+      );
+      setCollectionBookmarkCounts(computeCollectionBookmarkCounts(bookmarks));
+      setLoadError(null);
+      return bookmarks;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load bookmarks");
+    }
+    return null;
+  }, []);
+
+  const loadBootstrap = useCallback(async () => {
+    try {
+      const data = await api.bootstrap();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+      smartCollectionsRef.current = data.smart_collections;
+      setSmartCollections(data.smart_collections);
+      allBookmarksRef.current = data.bookmarks;
+      setAllBookmarks(data.bookmarks);
+      setBookmarkCountsHydrated(true);
+      setTotals(data.summaries.totals);
+      setGlobalTagCounts(data.summaries.globalTagCounts);
+      setSmartCollectionCounts(data.summaries.smartCollectionCounts);
+      setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
+      setFeedCounts(data.summaries.feedCounts);
+      setLibraryDataLoaded(true);
+      setLoadError(null);
+      return data.bookmarks;
+    } catch (e) {
+      setLibraryDataLoaded(false);
+      setLoadError(e instanceof Error ? e.message : "Failed to load library data");
+    }
+    return null;
+  }, []);
+
+  const loadSidebarBootstrap = useCallback(async () => {
+    try {
+      const data = await api.sidebarBootstrap();
+      setTreeRaw(data.collections);
+      setFlat(data.flat);
+      smartCollectionsRef.current = data.smart_collections;
+      setSmartCollections(data.smart_collections);
+      setFeeds(data.feeds);
+      setBookmarkCountsHydrated(true);
+      setTotals(data.summaries.totals);
+      setCollectionBookmarkCounts(data.summaries.collectionBookmarkCounts);
+      setFeedCounts(data.summaries.feedCounts);
+      setLoadError(null);
+      return data;
+    } catch (e) {
+      setLoadError(e instanceof Error ? e.message : "Failed to load sidebar data");
+      return null;
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    try {
+      window.localStorage.setItem(
+        SIDEBAR_SNAPSHOT_STORAGE_KEY,
+        JSON.stringify({
+          collections: treeRaw,
+          flat,
+          smartCollections,
+          feeds,
+          totals,
+          collectionBookmarkCounts,
+          feedCounts,
+        }),
+      );
+    } catch {
+      // Ignore quota/storage failures.
+    }
+  }, [user, treeRaw, flat, smartCollections, feeds, totals, collectionBookmarkCounts, feedCounts]);
+
+  const loadFeeds = useCallback(async () => {
+    try {
+      const data = await api.listFeeds();
+      setFeeds(data.subscriptions);
+      setFeedCounts(data.counts ?? {});
+    } catch {
+      // Feeds are non-critical
+    }
+  }, []);
+
+  const loadFeedItems = useCallback(async (feedId: string) => {
+    const cached = feedItemsCacheRef.current.get(feedId);
+    if (cached) {
+      setFeedItems(cached);
+      setLoadedFeedId(feedId);
+      setFeedItemsError(null);
+      setLoadingFeedItems(false);
+    } else {
+      setLoadingFeedItems(true);
+    }
+    try {
+      const data = await api.listFeedItems(feedId);
+      feedItemsCacheRef.current.set(feedId, data.items);
+      persistFeedItemsCache();
+      setFeedItems(data.items);
+      setLoadedFeedId(feedId);
+      setFeedItemsError(null);
+      return data.items;
+    } catch (e) {
+      setFeedItems([]);
+      setLoadedFeedId(null);
+      setFeedItemsError(e instanceof Error ? e.message : "Failed to load feed items");
+      return null;
+    } finally {
+      setLoadingFeedItems(false);
+    }
+  }, [persistFeedItemsCache]);
+
+  const prefetchFeedItems = useCallback(async (feedId: string) => {
+    if (feedItemsCacheRef.current.has(feedId)) return;
+    try {
+      const data = await api.listFeedItems(feedId);
+      feedItemsCacheRef.current.set(feedId, data.items);
+      persistFeedItemsCache();
+    } catch {
+      // Best-effort warm cache only.
+    }
+  }, [persistFeedItemsCache]);
+
+  const writeFeedItemsCache = useCallback((feedId: string, nextItems: FeedItem[]) => {
+    feedItemsCacheRef.current.set(feedId, nextItems);
+    persistFeedItemsCache();
+  }, [persistFeedItemsCache]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+    const params = new URLSearchParams(window.location.search);
+    const ref = params.get("savers_ref");
+    if (!ref?.startsWith("public_")) return;
+
+    params.delete("savers_ref");
+    const next = params.toString();
+    const newUrl = `${window.location.pathname}${next ? `?${next}` : ""}`;
+    window.history.replaceState({}, "", newUrl);
+
+    const publicId = ref.slice("public_".length);
+    if (importAttemptedRef.current) return;
+    importAttemptedRef.current = true;
+
+    fetch("/api/public/import", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ public_id: publicId }),
+    })
+      .then(async (res) => {
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(json?.error ?? "Import failed");
+        return json as { collection_id: string; already_owned: boolean };
+      })
+      .then(({ collection_id }) => {
+        setSelection({ kind: "collection", id: collection_id });
+        void loadBootstrap();
+      })
+      .catch(() => {});
+  }, [user, loadBootstrap]);
+
+  const refreshFromServer = useCallback(
+    async (showLoading = false) => {
+      if (showLoading) setLoadingBookmarks(true);
+      try {
+        await Promise.all([loadSidebarBootstrap(), loadBootstrap()]);
+        if (selection.kind === "feed") {
+          void loadFeedItems(selection.id);
+        }
+      } finally {
+        if (showLoading) setLoadingBookmarks(false);
+      }
+    },
+    [loadSidebarBootstrap, loadBootstrap, loadFeedItems, selection]
+  );
+
+  // Load images for the current view. Runs whenever the user switches
+  // into an image-related selection. Re-fetch the available pages on entry.
+  useEffect(() => {
+    if (authLoading || !user) return;
+    if (selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted") return;
+
+    let cancelled = false;
+    const targetImageViewKey = getImageViewCacheKey(selection);
+    const cached = deriveCachedImagesForSelection(selection);
+    if (cached) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Show cached images while the current selection refreshes.
+      setImages(cached);
+      setLoadedImageViewKey(targetImageViewKey);
+      setLoadingImages(false);
+    } else {
+      setLoadingImages(true);
+    }
+
+    (async () => {
+      try {
+        const url = new URL("/api/images", window.location.origin);
+        if (selection.kind === "image_collection") {
+          url.searchParams.set("collection_id", selection.id);
+        } else if (selection.kind === "images_unsorted") {
+          url.searchParams.set("unsorted", "1");
+        }
+        // Always pull newest; client-side groups by collection when the
+        // sort dropdown asks for that view (mirrors the bookmark grid).
+        url.searchParams.set("sort", "newest");
+        const nextImages = await fetchAllImages(url);
+        if (cancelled) return;
+        setImages(nextImages);
+        writeImageViewCache(selection, nextImages);
+      } catch (error) {
+        if (!cancelled) {
+          console.error("[images] load failed", error);
+          setImages([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoadedImageViewKey(targetImageViewKey);
+          setLoadingImages(false);
+        }
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, [authLoading, user, selection, imagesReloadKey, sortBy, deriveCachedImagesForSelection, writeImageViewCache, getImageViewCacheKey]);
+
+  // Initial load
+  useEffect(() => {
+    if (authLoading || !user) return;
+    let cancelled = false;
+    let keepLoadingAfterSidebar = false;
+
+    (async () => {
+      setLoadingBookmarks(true);
+      try {
+        await loadSidebarBootstrap();
+        if (cancelled) return;
+        setInitialDataLoaded(true);
+        keepLoadingAfterSidebar = true;
+        void loadBootstrap().finally(() => {
+          if (!cancelled) setLoadingBookmarks(false);
+        });
+        return;
+      } finally {
+        if (!cancelled && !keepLoadingAfterSidebar) setLoadingBookmarks(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [authLoading, user, loadSidebarBootstrap, loadBootstrap]);
+
+  // Load bookmarks for the current view (with debounced search)
+  const searchTimer = useRef<number | null>(null);
+  useEffect(() => {
+    if (authLoading || !user || !initialDataLoaded) return;
+    const syncVisibleBookmarks = () => {
+      if (selection.kind === "feed") {
+        setBookmarks([]);
+        setLoadingBookmarks(false);
+        return;
+      }
+
+      if (!libraryDataLoaded) {
+        setBookmarks([]);
+        setLoadingBookmarks(true);
+        return;
+      }
+
+      const scoped = allBookmarksRef.current.filter((bookmark) => {
+        if (selection.kind === "unsorted") return bookmark.collection_id === null;
+        if (selection.kind === "pinned") return bookmark.pinned;
+        if (selection.kind === "broken") return bookmark.link_status === "broken";
+        if (selection.kind === "collection") return bookmark.collection_id === selection.id;
+        if (selection.kind === "smart_collection") {
+          const sc = smartCollections.find((s) => s.id === selection.id);
+          if (sc) return evaluateFilter(bookmark, sc.query_json);
+          return false;
+        }
+        return true;
+      });
+
+      setBookmarks(sortPinnedFirst(filterBookmarks(scoped, search, activeTag)));
+      setLoadingBookmarks(false);
+    };
+
+    if (searchTimer.current) window.clearTimeout(searchTimer.current);
+
+    if (!search.trim()) {
+      syncVisibleBookmarks();
+      return () => {
+        if (searchTimer.current) window.clearTimeout(searchTimer.current);
+      };
+    }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Show the loading state during the search debounce.
+    setLoadingBookmarks(true);
+    searchTimer.current = window.setTimeout(syncVisibleBookmarks, 180);
+
+    return () => {
+      if (searchTimer.current) window.clearTimeout(searchTimer.current);
+    };
+  }, [authLoading, user, allBookmarks, selection, search, activeTag, initialDataLoaded, smartCollections, libraryDataLoaded]);
+
+  useEffect(() => {
+    if (authLoading || !user || !initialDataLoaded) return;
+    if (selection.kind !== "feed") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Clear feed state when leaving the feed view.
+      setFeedItemsError(null);
+      return;
+    }
+    if (loadedFeedId === selection.id) return;
+    void loadFeedItems(selection.id);
+  }, [authLoading, user, initialDataLoaded, selection, loadFeedItems, loadedFeedId]);
+
+  const renderSelectionKey = useMemo(
+    () => getSelectionKey(renderSelection),
+    [getSelectionKey, renderSelection]
+  );
+  const selectionKey = useMemo(() => getSelectionKey(selection), [getSelectionKey, selection]);
+  const renderSelectionReady = useCallback(
+    (target: Selection) => {
+      if (target.kind === "feed") {
+        return (
+          feedItemsCacheRef.current.has(target.id) ||
+          (loadedFeedId === target.id && !loadingFeedItems)
+        );
+      }
+      const imageViewKey = getImageViewCacheKey(target);
+      if (imageViewKey) {
+        return (
+          deriveCachedImagesForSelection(target) !== null ||
+          (loadedImageViewKey === imageViewKey && !loadingImages)
+        );
+      }
+      return true;
+    },
+    [
+      deriveCachedImagesForSelection,
+      getImageViewCacheKey,
+      loadedFeedId,
+      loadedImageViewKey,
+      loadingFeedItems,
+      loadingImages,
+    ]
+  );
+
+  useEffect(() => {
+    if (selectionKey === renderSelectionKey) {
+      if (contentTransitioning && renderSelectionReady(selection)) {
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- Start the selection transition when its target changes.
+        setContentTransitioning(false);
+      }
+      return;
+    }
+
+    const deferredSelection =
+      selection.kind === "feed" ||
+      selection.kind === "images_all" ||
+      selection.kind === "image_collection" ||
+      selection.kind === "images_unsorted";
+
+    if (!deferredSelection || renderSelectionReady(selection)) {
+      setRenderSelection(selection);
+      setContentTransitioning(false);
+      return;
+    }
+
+    setContentTransitioning(true);
+  }, [
+    contentTransitioning,
+    renderSelectionKey,
+    renderSelectionReady,
+    selection,
+    selectionKey,
+  ]);
+
+  useEffect(() => {
+    if (!contentTransitioning) return;
+    if (!renderSelectionReady(selection)) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Finish the selection transition once content is ready.
+    setRenderSelection(selection);
+    setContentTransitioning(false);
+  }, [contentTransitioning, renderSelectionReady, selection]);
+
+  useEffect(() => {
+    if (typeof window === "undefined" || !user) return;
+
+    const maybeRefresh = () => {
+      if (selection.kind === "feed") return;
+      const now = Date.now();
+      if (now - lastForegroundRefreshRef.current < 15_000) return;
+      lastForegroundRefreshRef.current = now;
+      void refreshFromServer(false);
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") maybeRefresh();
+    };
+
+    window.addEventListener("focus", maybeRefresh);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener("focus", maybeRefresh);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [user, refreshFromServer, selection.kind]);
+
+  useEffect(() => {
+    if (!detail) return;
+    const fresh = allBookmarks.find((bookmark) => bookmark.id === detail.id);
+    if (!fresh) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect -- Sync the open detail with a refreshed or removed bookmark.
+      setDetail(null);
+      return;
+    }
+    if (fresh !== detail) {
+      setDetail(fresh);
+    }
+  }, [allBookmarks, detail]);
+
+  // Poll for pending screenshots so previews update in real time
+  // without requiring a page reload.
+  useEffect(() => {
+    if (!user || !initialDataLoaded) return;
+
+    const hasPending = () =>
+      allBookmarksRef.current.some(
+        (b) => b.screenshot_status === "pending" || b.screenshot_status === "processing"
+      );
+
+    if (!hasPending()) return;
+
+    const POLL_MS = 4000;
+    const timer = setInterval(async () => {
+      if (!hasPending()) {
+        clearInterval(timer);
+        return;
+      }
+      try {
+        const fresh = await api.listBookmarks();
+        const freshById = new Map(fresh.bookmarks.map((b) => [b.id, b]));
+        updateAllBookmarksState((prev) =>
+          prev.map((b) => {
+            const updated = freshById.get(b.id);
+            if (!updated) return b;
+            // Only merge fields the screenshot worker can change —
+            // never overwrite user-actionable fields like link_status
+            // or broken_status, which may be optimistically updated.
+            return {
+              ...b,
+              screenshot_status: updated.screenshot_status,
+              screenshot_error: updated.screenshot_error,
+              preview_path: updated.preview_path,
+              preview_version: updated.preview_version,
+              preview_updated_at: updated.preview_updated_at,
+              asset_type: updated.asset_type,
+              og_image: updated.og_image,
+              favicon: updated.favicon,
+            };
+          })
+        );
+        // Re-check if we still have pending bookmarks
+        if (!fresh.bookmarks.some(
+          (b) => b.screenshot_status === "pending" || b.screenshot_status === "processing"
+        )) {
+          clearInterval(timer);
+        }
+      } catch {
+        // Silently retry on next interval
+      }
+    }, POLL_MS);
+
+    return () => clearInterval(timer);
+  }, [user, initialDataLoaded, updateAllBookmarksState]);
+
+  // Esc to exit edit mode, Cmd/Ctrl+A to select all visible
+  useEffect(() => {
+    if (!isEditMode) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsEditMode(false);
+        setSelectedIds(new Set());
+        setSelectedFeedItemIds(new Set());
+        lastClickedIdRef.current = null;
+        lastClickedFeedItemIdRef.current = null;
+      }
+      if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+        // Don't prevent default — let the browser text-selection behavior
+        // happen if the user is in an input, but if the target is a card or
+        // the body, select all visible bookmarks instead.
+        const tag = (e.target as HTMLElement)?.tagName;
+        if (tag === "INPUT" || tag === "TEXTAREA") return;
+        e.preventDefault();
+        if (selection.kind === "feed") {
+          setSelectedFeedItemIds(new Set(visibleFeedItems.map((item) => item.id)));
+        } else {
+          setSelectedIds(new Set(bookmarks.map((b) => b.id)));
+        }
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [isEditMode, bookmarks, selection.kind, visibleFeedItems]);
+
+  // Collection paths for the bulk move picker (same logic as CollectionPicker)
+  const collectionPaths = useMemo(() => {
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const cache = new Map<string, string>();
+    function resolve(id: string): string {
+      if (cache.has(id)) return cache.get(id)!;
+      const c = byId.get(id);
+      if (!c) return "";
+      const p = c.parent_id ? `${resolve(c.parent_id)} / ${c.name}` : c.name;
+      cache.set(id, p);
+      return p;
+    }
+    for (const c of flat) resolve(c.id);
+    return cache;
+  }, [flat]);
+
+  const bulkMoveCollections = useMemo(() => {
+    const sorted = [...flat].sort((a, b) =>
+      (collectionPaths.get(a.id) || "").localeCompare(collectionPaths.get(b.id) || "")
+    );
+    if (!bulkMoveSearch.trim()) return sorted;
+    const needle = bulkMoveSearch.toLowerCase();
+    return sorted.filter((c) =>
+      (collectionPaths.get(c.id) || "").toLowerCase().includes(needle)
+    );
+  }, [flat, collectionPaths, bulkMoveSearch]);
+
+  const bulkDepthMap = useMemo(() => {
+    const byId = new Map(flat.map((c) => [c.id, c]));
+    const depths = new Map<string, number>();
+    for (const c of flat) {
+      let depth = 0;
+      let cur: Collection | undefined = c;
+      while (cur?.parent_id) {
+        depth++;
+        cur = byId.get(cur.parent_id);
+        if (!cur) break;
+      }
+      depths.set(c.id, depth);
+    }
+    return depths;
+  }, [flat]);
+
+  const subCollections = useMemo<Collection[]>(() => {
+    if (renderSelection.kind !== "collection") return [];
+    const node = findNode(tree, renderSelection.id);
+    return node?.children ?? [];
+  }, [renderSelection, tree]);
+
+  const breadcrumbItems = useMemo(() => {
+    if (selection.kind === "all") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+      ];
+    }
+    if (selection.kind === "unsorted") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Unsorted", icon: null, isCollection: false, selection: { kind: "unsorted" } as Selection },
+      ];
+    }
+    if (selection.kind === "pinned") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Pinned", icon: null, isCollection: false, selection: { kind: "pinned" } as Selection },
+      ];
+    }
+    if (selection.kind === "broken") {
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Broken links", icon: null, isCollection: false, selection: { kind: "broken" } as Selection },
+      ];
+    }
+    if (selection.kind === "smart_collection") {
+      const sc = smartCollections.find((s) => s.id === selection.id);
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: sc?.name ?? "Smart Collection", icon: sc?.icon, isCollection: false, selection: { kind: "smart_collection", id: selection.id } as Selection },
+      ];
+    }
+    if (selection.kind === "feed") {
+      const feed = feeds.find((item) => item.id === selection.id);
+      return [
+        { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: "Feeds", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+        { label: feed?.name ?? "Feed", icon: feed?.icon ?? null, isCollection: false, selection: { kind: "feed", id: selection.id } as Selection, websiteUrl: feed?.site_url || (() => { try { return new URL(feed?.feed_url ?? "").origin; } catch { return null; } })() },
+      ];
+    }
+    if (selection.kind === "images_all") {
+      // Images live in their own root, not nested under bookmarks.
+      return [
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+      ];
+    }
+    if (selection.kind === "image_collection") {
+      const folder = imageCollections.find((c) => c.id === selection.id);
+      return [
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+        { label: folder?.name ?? "Folder", icon: null, isCollection: false, selection: { kind: "image_collection", id: selection.id } as Selection },
+      ];
+    }
+    if (selection.kind === "images_unsorted") {
+      return [
+        { label: "All images", icon: null, isCollection: false, selection: { kind: "images_all" } as Selection },
+        { label: "Unsorted", icon: null, isCollection: false, selection: { kind: "images_unsorted" } as Selection },
+      ];
+    }
+
+    const path = pathToCollections(tree, selection.id) ?? [];
+    return [
+      { label: "All bookmarks", icon: null, isCollection: false, selection: { kind: "all" } as Selection },
+      ...path.map((item) => ({
+        label: item.name,
+        icon: item.icon,
+        isCollection: true,
+        selection: { kind: "collection", id: item.id } as Selection,
+      })),
+    ];
+  }, [selection, tree, smartCollections, feeds, imageCollections]);
+  const defaultCollectionForAdd =
+    selection.kind === "collection" ? selection.id : null;
+
+  function handleCardTagClick(tag: string) {
+    setActiveTag(tag);
+  }
+
+  function handleSidebarTagClick(tag: string | null) {
+    if (tag === null) {
+      setActiveTag(null);
+    } else {
+      if (sidebarMode === "images") {
+        if (
+          selection.kind !== "images_all" &&
+          selection.kind !== "image_collection" &&
+          selection.kind !== "images_unsorted"
+        ) {
+          setSelection({ kind: "images_all" });
+        }
+      } else {
+        setSelection({ kind: "all" });
+      }
+      setActiveTag(tag);
+    }
+  }
+
+  async function handleCreateCollection(name: string, parent_id: string | null) {
+    try {
+      const { collection } = await api.createCollection(name, parent_id);
+      await loadCollections();
+      return collection;
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to create collection");
+      throw e;
+    }
+  }
+  async function handleRenameCollection(id: string, name: string) {
+    try {
+      await api.updateCollection(id, { name });
+      await loadCollections();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to rename");
+    }
+  }
+  async function handleChangeCollectionIcon(id: string, iconName: string | null) {
+    try {
+      await api.updateCollection(id, { icon: iconName });
+      await loadCollections();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to update icon");
+    }
+  }
+  async function handleDeleteCollection(id: string) {
+    try {
+      await api.deleteCollection(id);
+      if (selection.kind === "collection" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await loadBootstrap();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleCreateSmartCollection(payload: {
+    name: string;
+    icon?: string | null;
+    query_json: SmartCollection["query_json"];
+  }): Promise<SmartCollection> {
+    const { smart_collection } = await api.createSmartCollection(payload);
+    await loadSmartCollections();
+    return smart_collection;
+  }
+
+  async function handleUpdateSmartCollection(
+    id: string,
+    updates: Partial<Pick<SmartCollection, "name" | "icon" | "query_json">>
+  ): Promise<SmartCollection> {
+    const { smart_collection } = await api.updateSmartCollection(id, updates);
+    await loadSmartCollections();
+    return smart_collection;
+  }
+
+  async function handleDeleteSmartCollection(id: string) {
+    try {
+      await api.deleteSmartCollection(id);
+      if (selection.kind === "smart_collection" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await loadSmartCollections();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to delete smart collection");
+    }
+  }
+
+  async function handleChangeFeedIcon(id: string, icon: string | null) {
+    await api.updateFeed(id, { icon });
+    await loadFeeds();
+  }
+
+  async function handleRenameFeed(id: string, name: string) {
+    await api.updateFeed(id, { name });
+    await loadFeeds();
+  }
+
+  async function handleKeepFeedItem(item: FeedItem) {
+    if (busyFeedItemIds.has(item.id)) return;
+    setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
+    try {
+      const { bookmark } = await api.keepFeedItem(item.id);
+      updateAllBookmarksState((prev) =>
+        prev.some((existing) => existing.id === bookmark.id)
+          ? prev.map((existing) => (existing.id === bookmark.id ? bookmark : existing))
+          : [bookmark, ...prev]
+      );
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") writeFeedItemsCache(selection.id, next);
+        return next;
+      });
+      void loadFeeds();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to keep feed item");
+    } finally {
+      setBusyFeedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
+  async function handleDismissFeedItem(item: FeedItem) {
+    if (busyFeedItemIds.has(item.id)) return;
+    setBusyFeedItemIds((prev) => new Set(prev).add(item.id));
+    try {
+      await api.dismissFeedItem(item.id);
+      setFeedItems((prev) => {
+        const next = prev.filter((candidate) => candidate.id !== item.id);
+        if (selection.kind === "feed") writeFeedItemsCache(selection.id, next);
+        return next;
+      });
+      void loadFeeds();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to dismiss feed item");
+    } finally {
+      setBusyFeedItemIds((prev) => {
+        const next = new Set(prev);
+        next.delete(item.id);
+        return next;
+      });
+    }
+  }
+
+  async function handleDismissAllFeedItems() {
+    if (selection.kind !== "feed" || busyFeedBulkAction) return;
+    const ids = Array.from(selectedFeedItemIds);
+    if (ids.length === 0) return;
+    setBusyFeedBulkAction(true);
+    try {
+      await api.dismissAllFeedItems(selection.id, ids);
+      const dismissSet = new Set(ids);
+      setFeedItems((prev) => {
+        const next = prev.filter((item) => !dismissSet.has(item.id));
+        writeFeedItemsCache(selection.id, next);
+        return next;
+      });
+      setSelectedFeedItemIds(new Set());
+      lastClickedFeedItemIdRef.current = null;
+      void loadFeeds();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to dismiss feed items");
+    } finally {
+      setBusyFeedBulkAction(false);
+    }
+  }
+
+  async function handleDeleteFeed(id: string) {
+    try {
+      await api.deleteFeed(id);
+      if (selection.kind === "feed" && selection.id === id) {
+        setSelection({ kind: "all" });
+      }
+      await loadFeeds();
+      await loadBootstrap();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to delete feed");
+    }
+  }
+
+  async function handleReparentCollection(id: string, newParentId: string | null) {
+    if (id === newParentId) return;
+    try {
+      await api.updateCollection(id, { parent_id: newParentId });
+      await loadCollections();
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to move collection");
+    }
+  }
+
+  async function handleReorderCollections(ids: string[]) {
+    const oldTree = treeRaw;
+
+    // Optimistic Update: Reorder the tree locally first
+    const newTree = JSON.parse(JSON.stringify(treeRaw)) as Collection[];
+    const updateSiblings = (nodes: Collection[]): boolean => {
+      // Check if this level contains the items we are reordering
+      if (nodes.find((n) => n.id === ids[0])) {
+        nodes.sort((a, b) => ids.indexOf(a.id) - ids.indexOf(b.id));
+        // Update positions to stay consistent
+        nodes.forEach((n, i) => {
+          n.position = i;
+        });
+        return true;
+      }
+      for (const node of nodes) {
+        if (node.children && updateSiblings(node.children)) return true;
+      }
+      return false;
+    };
+
+    updateSiblings(newTree);
+    setTreeRaw(newTree);
+
+    try {
+      await api.reorderCollections(ids);
+      // We don't strictly need to loadCollections() here if the optimistic 
+      // update was successful, but we can do it in the background to be sure.
+    } catch (e) {
+      // Revert on failure
+      setTreeRaw(oldTree);
+      notify(e instanceof Error ? e.message : "Failed to reorder");
+    }
+  }
+
+  function handleBookmarksCreated(newBatch: Bookmark[]) {
+    if (newBatch.length === 0) return;
+    setShowAdd(false);
+
+    updateAllBookmarksState((prev) => [...newBatch, ...prev]);
+
+    setBookmarks((prev) => {
+      const filteredBatch = newBatch.filter(
+        (b) =>
+          selection.kind === "all" ||
+          (selection.kind === "unsorted" && b.collection_id === null) ||
+          (selection.kind === "collection" && selection.id === b.collection_id)
+      );
+      return [...filteredBatch, ...prev];
+    });
+
+    // Run AI categorization for the first few in the batch to avoid overloading.
+    const first = newBatch[0];
+    if (tree.length > 0 && first) {
+      api
+        .categorize({
+          url: first.url,
+          title: first.title,
+          description: first.description,
+          collections: tree,
+        })
+        .then(({ suggestion }) => {
+          if (
+            suggestion &&
+            suggestion.confidence !== "low" &&
+            ((suggestion.collection_id && suggestion.collection_id !== first.collection_id) ||
+              suggestion.proposed_collection_name)
+          ) {
+            setToast({ bookmark: first, suggestion });
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  function handleBookmarkCreated(b: Bookmark) {
+    handleBookmarksCreated([b]);
+  }
+
+  async function handleMoveFromToast(collectionId: string) {
+    if (!toast) return;
+    try {
+      const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
+        collection_id: collectionId,
+      });
+      updateAllBookmarksState((prev) =>
+        prev.map((x) => (x.id === bookmark.id ? bookmark : x))
+      );
+      setBookmarks((prev) => {
+        // Drop it from the current view if it no longer belongs here
+        if (selection.kind === "unsorted") return prev.filter((x) => x.id !== bookmark.id);
+        if (selection.kind === "collection" && selection.id !== collectionId)
+          return prev.filter((x) => x.id !== bookmark.id);
+        return prev.map((x) => (x.id === bookmark.id ? bookmark : x));
+      });
+      setToast(null);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to move");
+    }
+  }
+
+  async function handleCreateAndMoveFromToast(name: string, parentId: string | null) {
+    if (!toast) return;
+    try {
+      const collection = await handleCreateCollection(name, parentId);
+      const { bookmark } = await api.updateBookmark(toast.bookmark.id, {
+        collection_id: collection.id,
+      });
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === bookmark.id ? bookmark : x)));
+      setBookmarks((prev) => {
+        if (selection.kind === "unsorted") return prev.filter((x) => x.id !== bookmark.id);
+        if (selection.kind === "collection" && selection.id !== collection.id) {
+          return prev.filter((x) => x.id !== bookmark.id);
+        }
+        return prev.map((x) => (x.id === bookmark.id ? bookmark : x));
+      });
+      setToast(null);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to create and move");
+    }
+  }
+
+  function handleBookmarkSaved(b: Bookmark) {
+    setDetail(null);
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    setBookmarks((prev) => {
+      // Remove if no longer matches current view
+      if (selection.kind === "unsorted" && b.collection_id !== null) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      if (selection.kind === "collection" && selection.id !== b.collection_id) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      return prev.map((x) => (x.id === b.id ? b : x));
+    });
+  }
+
+  function handleBookmarkPatched(b: Bookmark) {
+    // Only update detail if it's already showing this bookmark —
+    // don't open the sidebar for optimistic updates from card actions.
+    setDetail((prev) => (prev?.id === b.id ? b : prev));
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === b.id ? b : x)));
+    setBookmarks((prev) => {
+      if (selection.kind === "unsorted" && b.collection_id !== null) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      if (selection.kind === "broken" && b.link_status !== "broken") {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      if (selection.kind === "collection" && selection.id !== b.collection_id) {
+        return prev.filter((x) => x.id !== b.id);
+      }
+      return prev.map((x) => (x.id === b.id ? b : x));
+    });
+  }
+
+  function handleBookmarkDeleted(id: string) {
+    setDetail(null);
+    updateAllBookmarksState((prev) => prev.filter((x) => x.id !== id));
+    setBookmarks((prev) => prev.filter((x) => x.id !== id));
+  }
+
+  function handleBookmarkMoved(id: string, targetCollectionId: string | null) {
+    updateAllBookmarksState((prev) =>
+      prev.map((x) => (x.id === id ? { ...x, collection_id: targetCollectionId } : x))
+    );
+    if (selection.kind === "unsorted" && targetCollectionId !== null) {
+      setBookmarks((prev) => prev.filter((x) => x.id !== id));
+    } else if (selection.kind === "collection" && selection.id !== targetCollectionId) {
+      setBookmarks((prev) => prev.filter((x) => x.id !== id));
+    }
+  }
+
+  async function handleDeleteBookmark(id: string) {
+    try {
+      await api.deleteBookmark(id);
+      handleBookmarkDeleted(id);
+    } catch (e) {
+      notify(e instanceof Error ? e.message : "Failed to delete");
+    }
+  }
+
+  async function handleBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    try {
+      await api.deleteBookmarks(ids);
+      for (const id of ids) handleBookmarkDeleted(id);
+      setSelectedIds(new Set());
+      setIsEditMode(false);
+      lastClickedIdRef.current = null;
+      setDropStatus(`${ids.length} deleted.`);
+      setTimeout(() => setDropStatus(null), 3000);
+    } catch (e) {
+      setDropStatus(`Delete failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
+    }
+  }
+
+  async function handleImageBulkDelete() {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/images/${id}`, { method: "DELETE" });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    setImages((prev) => {
+      const next = prev.filter((img) => !selectedIds.has(img.id));
+      writeImageViewCache(selection, next);
+      return next;
+    });
+    setSelectedIds(new Set());
+    setIsEditMode(false);
+    void loadImageCollections();
+    setDropStatus(
+      failed > 0
+        ? `${ids.length - failed} deleted, ${failed} failed.`
+        : `${ids.length} image${ids.length === 1 ? "" : "s"} deleted.`,
+    );
+    setTimeout(() => setDropStatus(null), 3000);
+  }
+
+  async function handleImageBulkMove(collectionId: string | null) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    let failed = 0;
+    for (const id of ids) {
+      try {
+        const res = await fetch(`/api/images/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ collection_id: collectionId }),
+        });
+        if (!res.ok) failed++;
+      } catch {
+        failed++;
+      }
+    }
+    const movedIds = new Set(ids);
+    setImages((prev) => {
+      const next =
+        selection.kind === "image_collection" || selection.kind === "images_unsorted"
+          ? prev.filter((img) => !movedIds.has(img.id))
+          : prev.map((img) =>
+              movedIds.has(img.id) ? ({ ...img, collection_id: collectionId } as ImageRow) : img
+            );
+      writeImageViewCache(selection, next);
+      return next;
+    });
+    setImagesReloadKey((v) => v + 1);
+    setSelectedIds(new Set());
+    setIsEditMode(false);
+    void loadImageCollections();
+    const folderName = collectionId
+      ? imageCollections.find((c) => c.id === collectionId)?.name ?? "folder"
+      : "Unsorted";
+    setDropStatus(
+      failed > 0
+        ? `${ids.length - failed} moved to ${folderName}, ${failed} failed.`
+        : `${ids.length} image${ids.length === 1 ? "" : "s"} moved to ${folderName}.`,
+    );
+    setTimeout(() => setDropStatus(null), 3000);
+  }
+
+  async function handleBulkMove(collectionId: string | null) {
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkMoveBusy(true);
+    try {
+      await api.moveBookmarks(ids, collectionId);
+      for (const id of ids) handleBookmarkMoved(id, collectionId);
+      setSelectedIds(new Set());
+      setIsEditMode(false);
+      lastClickedIdRef.current = null;
+      setShowBulkMovePicker(false);
+      setBulkMoveSearch("");
+      const label = collectionId ? collectionPaths.get(collectionId) ?? "collection" : "Unsorted";
+      setDropStatus(`${ids.length} moved to ${label}.`);
+      setTimeout(() => setDropStatus(null), 3000);
+    } catch (e) {
+      setDropStatus(`Move failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
+    } finally {
+      setBulkMoveBusy(false);
+    }
+  }
+
+  async function handleBulkAddTags() {
+    const tag = bulkTagInput.trim().toLowerCase();
+    if (!tag) return;
+    const ids = Array.from(selectedIds);
+    if (ids.length === 0) return;
+    setBulkTagBusy(true);
+    try {
+      await api.bulkTagBookmarks(ids, "add_tags", [tag]);
+      setBulkTagInput("");
+      setDropStatus(`Added #${tag} to ${ids.length} bookmark${ids.length === 1 ? "" : "s"}.`);
+      setTimeout(() => setDropStatus(null), 3000);
+      loadAllBookmarks();
+    } catch (e) {
+      setDropStatus(`Tag failed: ${e instanceof Error ? e.message : "unknown"}`);
+      setTimeout(() => setDropStatus(null), 5000);
+    } finally {
+      setBulkTagBusy(false);
+    }
+  }
+
+  async function handlePinBookmark(id: string, pinned: boolean) {
+    // Optimistic toggle so the UI feels instant.
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? { ...x, pinned } : x)));
+    setBookmarks((prev) => {
+      const next = prev.map((x) => (x.id === id ? { ...x, pinned } : x));
+      // If viewing the Pinned collection and the user just unpinned, drop it.
+      if (selection.kind === "pinned" && !pinned) {
+        return next.filter((x) => x.id !== id);
+      }
+      return next;
+    });
+    try {
+      const { bookmark } = await api.updateBookmark(id, { pinned });
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    } catch (e) {
+      // Roll back on failure.
+      updateAllBookmarksState((prev) =>
+        prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x))
+      );
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? { ...x, pinned: !pinned } : x)));
+      notify(e instanceof Error ? e.message : "Failed to update pin");
+    }
+  }
+
+  async function handleRefreshPreview(id: string, version: number) {
+    try {
+      const { bookmark } = await api.updateBookmark(id, { preview_version: version });
+      updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+      setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    } catch (e) {
+      throw e instanceof Error ? e : new Error("Failed to refresh preview");
+    }
+  }
+
+  function handleGeneratedPreviewsQueued(ids: string[]) {
+    if (ids.length === 0) return;
+    const queuedIds = new Set(ids);
+    updateAllBookmarksState((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setBookmarks((prev) =>
+      prev.map((bookmark) =>
+        queuedIds.has(bookmark.id)
+          ? {
+              ...bookmark,
+              screenshot_status: "pending",
+              screenshot_error: null,
+            }
+          : bookmark,
+      ),
+    );
+    setDetail((prev) =>
+      prev && queuedIds.has(prev.id)
+        ? {
+            ...prev,
+            screenshot_status: "pending",
+            screenshot_error: null,
+          }
+        : prev,
+    );
+    setDropStatus(
+      `Refreshing ${ids.length} generated preview${ids.length === 1 ? "" : "s"} in the background.`,
+    );
+    window.setTimeout(() => setDropStatus(null), 3200);
+  }
+
+  async function handleUploadCustomPreview(id: string, source: CustomPreviewSource) {
+    const { bookmark } = await api.uploadCustomPreview(id, source);
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    return bookmark;
+  }
+
+  async function handleClearCustomPreview(id: string) {
+    const { bookmark } = await api.clearCustomPreview(id);
+    updateAllBookmarksState((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setBookmarks((prev) => prev.map((x) => (x.id === id ? bookmark : x)));
+    setDetail((prev) => (prev && prev.id === id ? bookmark : prev));
+    return bookmark;
+  }
+
+  function handleImagePatched(updated: EditableImageRow) {
+    setImages((prev) => {
+      let next: ImageRow[];
+      if (selection.kind === "image_collection" && updated.collection_id !== selection.id) {
+        next = prev.filter((image) => image.id !== updated.id);
+      } else if (selection.kind === "images_unsorted" && updated.collection_id !== null) {
+        next = prev.filter((image) => image.id !== updated.id);
+      } else {
+        next = prev.map((image) => (image.id === updated.id ? ({ ...image, ...updated } as ImageRow) : image));
+      }
+      writeImageViewCache(selection, next);
+      return next;
+    });
+    void loadImageCollections();
+  }
+
+  function handleImageDeleted(id: string) {
+    setImages((prev) => {
+      const next = prev.filter((image) => image.id !== id);
+      writeImageViewCache(selection, next);
+      return next;
+    });
+    setImageDetailId(null);
+    setSlideshowIndex(null);
+    void loadImageCollections();
+  }
+
+  async function handleDroppedUrls(urls: string[], options?: { allowDuplicates?: boolean }) {
+    const allowDuplicates = options?.allowDuplicates ?? false;
+    const targetCollection = selection.kind === "collection" ? selection.id : null;
+
+    const existingCanonical = new Set<string>();
+    if (!allowDuplicates) {
+      for (const bookmark of allBookmarksRef.current) {
+        existingCanonical.add(canonicalBookmarkUrl(bookmark.url));
+      }
+    }
+    const duplicates: string[] = [];
+    const createdBatch: Bookmark[] = [];
+
+    let okCount = 0;
+    let failCount = 0;
+    let lastError: string | null = null;
+    const total = urls.length;
+    let remaining = total;
+
+    setDropStatus(`${remaining} remaining`);
+
+    for (const url of urls) {
+      const canonical = canonicalBookmarkUrl(url);
+      if (!allowDuplicates && existingCanonical.has(canonical)) {
+        duplicates.push(url);
+        remaining -= 1;
+        setDropStatus(`${remaining} remaining`);
+        continue;
+      }
+      if (!allowDuplicates) {
+        existingCanonical.add(canonical);
+      }
+      try {
+        let meta: {
+          title: string | null;
+          description: string | null;
+          og_image: string | null;
+          favicon: string | null;
+        } = {
+          title: null,
+          description: null,
+          og_image: null,
+          favicon: null,
+        };
+        try {
+          meta = await api.fetchMetadata(url);
+        } catch (e) {
+          if (process.env.NODE_ENV !== "production") {
+            console.warn("Metadata fetch failed for", url, e);
+          }
+        }
+
+        const { bookmark } = await api.createBookmark({
+          url,
+          title: meta.title,
+          description: meta.description,
+          og_image: meta.og_image,
+          favicon: meta.favicon,
+          tags: [],
+          notes: null,
+          collection_id: targetCollection,
+        });
+
+        createdBatch.push(bookmark);
+        okCount += 1;
+      } catch (e) {
+        failCount += 1;
+        lastError = e instanceof Error ? e.message : String(e);
+        if (process.env.NODE_ENV !== "production") {
+          console.warn("Drop save failed", url, e);
+        }
+      }
+      remaining -= 1;
+      setDropStatus(`${remaining} remaining`);
+    }
+
+    if (createdBatch.length > 0) {
+      handleBookmarksCreated(createdBatch);
+    }
+
+    const dupCount = duplicates.length;
+    const dupSuffix = dupCount > 0 ? ` ${dupCount} duplicate${dupCount === 1 ? "" : "s"} skipped.` : "";
+    if (failCount > 0 && okCount === 0 && dupCount === 0) {
+      setDropStatus(`Save failed: ${lastError ?? "unknown error"}`);
+    } else if (failCount > 0) {
+      setDropStatus(`${okCount} saved, ${failCount} failed.${dupSuffix}`);
+    } else if (okCount === 0 && dupCount > 0) {
+      setDropStatus(
+        dupCount === 1 ? "Already saved — nothing imported." : `${dupCount} duplicates — nothing new imported.`
+      );
+    } else {
+      setDropStatus(`All bookmarks saved.${dupSuffix}`);
+    }
+    if (dupCount > 0) {
+      setDuplicateImportUrls(duplicates);
+    }
+    setTimeout(() => setDropStatus(null), failCount > 0 || dupCount > 0 ? 5000 : 3000);
+  }
+
+  async function handleSendMagicLink() {
+    const email = authEmail.trim();
+    if (!email) {
+      setAuthMessage("Enter your email first.");
+      return;
+    }
+
+    setSendingAuthLink(true);
+    setAuthMessage(null);
+
+    try {
+      const redirectBase = getAuthRedirectBase();
+      const supabase = getSupabaseBrowserClient();
+
+      // Inside the iOS shell, route the callback through our custom URL
+      // scheme so the email link comes back into the app. On desktop, use
+      // the normal https callback.
+      const emailRedirectTo = isNativeShell()
+        ? NATIVE_REDIRECT
+        : `${redirectBase}/auth/callback`;
+
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      setAuthMessage("Check your inbox for a Savers sign-in link.");
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "Failed to send sign-in link.");
+    } finally {
+      setSendingAuthLink(false);
+    }
+  }
+
+  async function handleSignOut() {
+    const supabase = getSupabaseBrowserClient();
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      notify(error.message);
+      return;
+    }
+    setSelection({ kind: "all" });
+    setSearch("");
+    setActiveTag(null);
+    setAuthMessage(null);
+  }
+
+  async function handleGoogleSignIn() {
+    setSigningInWithGoogle(true);
+    setAuthMessage(null);
+
+    try {
+      const redirectBase = getAuthRedirectBase();
+      const supabase = getSupabaseBrowserClient();
+
+      // On iOS Capacitor, Google blocks OAuth inside WKWebView. Route the
+      // OAuth flow through SFSafariViewController and have Supabase return
+      // via savers://auth/callback (handled by registerAuthDeepLinkHandler).
+      const native = isNativeShell();
+      const redirectTo = native
+        ? NATIVE_REDIRECT
+        : `${redirectBase}/auth/callback?next=/`;
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          skipBrowserRedirect: true,
+          redirectTo,
+        },
+      });
+
+      if (error) {
+        throw error;
+      }
+
+      if (!data?.url) {
+        throw new Error("Google sign-in did not return a redirect URL.");
+      }
+
+      const oauthUrl = new URL(data.url);
+      oauthUrl.searchParams.set("redirect_to", redirectTo);
+
+      if (native) {
+        // iOS: run inside ASWebAuthenticationSession so the redirect to
+        // savers://auth/callback is captured natively.
+        const callbackUrl = await runOAuthInAuthSession(
+          oauthUrl.toString(),
+          "savers"
+        );
+        if (!callbackUrl) {
+          // User cancelled the auth sheet.
+          setSigningInWithGoogle(false);
+          return;
+        }
+        const callback = new URL(callbackUrl);
+        const code = callback.searchParams.get("code");
+        if (!code) {
+          throw new Error("Auth callback missing code parameter.");
+        }
+        // Exchange the code for a session client-side. The Supabase JS
+        // client has the PKCE verifier in localStorage and writes the
+        // session into the WebView's cookie jar via @supabase/ssr.
+        // Capacitor's WebView blocks the cross-route navigation we'd need
+        // for the server-side /auth/callback path, so we do it here.
+        const { error: exchangeError } =
+          await supabase.auth.exchangeCodeForSession(code);
+        if (exchangeError) {
+          throw exchangeError;
+        }
+        // Reload so the rest of the app picks up the new session.
+        window.location.replace("/");
+        return;
+      }
+
+      await openOAuthUrl(oauthUrl.toString());
+    } catch (error) {
+      setAuthMessage(error instanceof Error ? error.message : "Failed to start Google sign-in.");
+      setSigningInWithGoogle(false);
+    }
+  }
+
+  if (authLoading) {
+    return (
+      <AuthScreen
+        email={authEmail}
+        googleSending={signingInWithGoogle}
+        message={authMessage}
+        mode="loading"
+        sending={sendingAuthLink}
+        onEmailChange={setAuthEmail}
+        onGoogleSubmit={handleGoogleSignIn}
+        onSubmit={handleSendMagicLink}
+      />
+    );
+  }
+
+  if (!user) {
+    return (
+      <AuthScreen
+        email={authEmail}
+        googleSending={signingInWithGoogle}
+        message={authMessage}
+        mode="signed_out"
+        sending={sendingAuthLink}
+        onEmailChange={setAuthEmail}
+        onGoogleSubmit={handleGoogleSignIn}
+        onSubmit={handleSendMagicLink}
+      />
+    );
+  }
+
+  return (
+    <DropZone
+      onUrls={handleDroppedUrls}
+      onFiles={async (files) => {
+        // Page-wide image drop. Upload directly via the API and jump to
+        // All Images so the new uploads land somewhere visible.
+        const fd = new FormData();
+        for (const f of files) fd.append("files", f);
+        if (selection.kind === "image_collection") {
+          fd.append("collection_id", selection.id);
+        }
+        const count = files.length;
+        setImageDropUploading({
+          count,
+          label: count === 1 ? "Uploading image…" : `Uploading ${count} images…`,
+        });
+        setDropStatus(count === 1 ? "Uploading image…" : `Uploading ${count} images…`);
+        try {
+          const res = await fetch("/api/images/upload", { method: "POST", body: fd });
+          if (!res.ok) {
+            console.error("[image-drop] upload failed", await res.text().catch(() => ""));
+            setDropStatus("Image upload failed.");
+            window.setTimeout(() => setDropStatus(null), 5000);
+            return;
+          }
+          const body = await res.json().catch(() => ({}));
+          if (body.errors?.length) {
+            console.warn("[image-drop] some files failed:", body.errors);
+          }
+          if (body.images?.length) {
+            // If already viewing an image collection, stay there; otherwise
+            // switch to All Images so the uploads are visible.
+            if (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") {
+              refreshImages();
+            } else {
+              setSelection({ kind: "images_all" });
+            }
+            const okCount = body.images.length as number;
+            const failCount = Array.isArray(body.errors) ? body.errors.length : 0;
+            const aiMissCount = Array.isArray(body.images)
+              ? body.images.filter((img: { ai_failed_at?: string | null; ai_processed_at?: string | null }) => img.ai_failed_at && !img.ai_processed_at).length
+              : 0;
+            setDropStatus(
+              aiMissCount > 0
+                ? okCount === 1
+                  ? "Image saved, but AI title didn’t land."
+                  : `${okCount} images saved. ${aiMissCount} missing AI titles.`
+                : failCount > 0
+                ? `${okCount} image${okCount === 1 ? "" : "s"} saved, ${failCount} failed.`
+                : okCount === 1
+                ? "Image saved."
+                : `${okCount} images saved.`,
+            );
+            window.setTimeout(() => setDropStatus(null), failCount > 0 ? 5000 : 3000);
+          } else if (body.errors?.length) {
+            setDropStatus("Image upload failed.");
+            window.setTimeout(() => setDropStatus(null), 5000);
+          }
+        } catch (err) {
+          console.error("[image-drop] upload error", err);
+          setDropStatus("Image upload failed.");
+          window.setTimeout(() => setDropStatus(null), 5000);
+        } finally {
+          setImageDropUploading(null);
+        }
+      }}
+    >
+    <div
+      className={`app ${!sidebarOpen ? "sidebar-closed" : ""} ${sidebarOpen ? "mobile-sidebar-open" : ""}`}
+      data-savers-app
+      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+    >
+      <Sidebar
+        tree={tree}
+        flatCollections={flat}
+        allBookmarks={allBookmarks}
+        totals={totals}
+        allTags={allTags}
+        sidebarMode={sidebarMode}
+        onSwitchSidebarMode={switchSidebarMode}
+        tagCounts={tagCounts}
+        activeTag={activeTag}
+        userEmail={user.email}
+        userAvatarUrl={(user.user_metadata as Record<string, unknown> | undefined)?.avatar_url as string | undefined || undefined}
+        onTagClick={handleSidebarTagClick}
+        selection={selection}
+        onSelect={(s) => {
+          setSelection(s);
+          setActiveTag(null);
+          if (typeof window !== "undefined" && window.innerWidth <= 768) {
+            setSidebarOpen(false);
+          }
+        }}
+        onCreateCollection={handleCreateCollection}
+        onRenameCollection={handleRenameCollection}
+        onDeleteCollection={handleDeleteCollection}
+        onChangeCollectionIcon={handleChangeCollectionIcon}
+        onReorderCollections={handleReorderCollections}
+        onReparentCollection={handleReparentCollection}
+        onShareCollection={(c) => setSharingCollection(c)}
+        onShareImageCollection={(c) =>
+          setSharingCollection({
+            ...c,
+            icon: c.icon ?? null,
+            is_public: c.is_public,
+            public_id: c.public_id,
+            public_slug: c.public_slug,
+            public_description: c.public_description,
+            shareKind: "images",
+          })
+        }
+        onOpenTriage={openLinkTriage}
+        onSignOut={handleSignOut}
+        onOpenSettings={() => setShowSettings(true)}
+        onCloseMobile={() => setSidebarOpen(false)}
+        smartCollections={smartCollections}
+        smartCollectionCounts={smartCollectionCounts}
+        feedSubscriptions={feeds}
+        feedCounts={feedCounts}
+        onCreateSmartCollection={handleCreateSmartCollection}
+        onEditSmartCollection={handleUpdateSmartCollection}
+        onDeleteSmartCollection={handleDeleteSmartCollection}
+        onChangeFeedIcon={handleChangeFeedIcon}
+        onRenameFeed={handleRenameFeed}
+        onDeleteFeed={handleDeleteFeed}
+        onPrefetchFeed={(id) => {
+          void prefetchFeedItems(id);
+        }}
+        onTagsChanged={async () => {
+          try {
+            const data = await api.bootstrap();
+            setAllBookmarks(data.bookmarks);
+          } catch { /* best-effort refresh */ }
+        }}
+        imageCollections={imageCollections}
+        unsortedImageCount={unsortedImageCount}
+        imageTagCounts={imageTagCounts}
+        onPrefetchImagesAll={() => {
+          void prefetchImageSelection({ kind: "images_all" });
+        }}
+        onPrefetchImagesUnsorted={() => {
+          void prefetchImageSelection({ kind: "images_unsorted" });
+        }}
+        onPrefetchImageCollection={(id) => {
+          void prefetchImageSelection({ kind: "image_collection", id });
+        }}
+        onUpdateImageCollection={async (id, updates) => {
+          try {
+            const res = await fetch(`/api/image-collections/${id}`, {
+              method: "PATCH",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(updates),
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              console.error("[image-collection] update failed", body);
+              return;
+            }
+            await loadImageCollections();
+          } catch (err) {
+            console.error("[image-collection] update error", err);
+          }
+        }}
+        onDeleteImageCollection={async (id) => {
+          try {
+            const res = await fetch(`/api/image-collections/${id}`, {
+              method: "DELETE",
+            });
+            if (!res.ok) {
+              const body = await res.json().catch(() => ({}));
+              console.error("[image-collection] delete failed", body);
+              return;
+            }
+            // If we were viewing the deleted folder, bounce to All Images.
+            if (selection.kind === "image_collection" && selection.id === id) {
+              setSelection({ kind: "images_all" });
+            }
+            await loadImageCollections();
+          } catch (err) {
+            console.error("[image-collection] delete error", err);
+          }
+        }}
+      />
+
+      <div
+        className={`sidebar-resizer ${resizingSidebar ? "active" : ""}`}
+        role="separator"
+        aria-label="Resize sidebar"
+        aria-orientation="vertical"
+        aria-valuenow={sidebarWidth}
+        aria-valuemin={MIN_SIDEBAR_WIDTH}
+        aria-valuemax={MAX_SIDEBAR_WIDTH}
+        onPointerDown={(event) => {
+          resizeState.current = { startX: event.clientX, startWidth: sidebarWidth };
+          setResizingSidebar(true);
+        }}
+      />
+
+      <main className="main">
+        <header className={`top ${mobileSearchOpen ? "top-searching" : ""}`}>
+          <div className="top-row top-row-primary">
+            <div className="crumbs">
+              <button
+                className="circle-btn sidebar-toggle-btn"
+                onClick={() => setSidebarOpen((prev) => !prev)}
+                aria-label={sidebarOpen ? "Close sidebar" : "Open sidebar"}
+                aria-expanded={sidebarOpen}
+              >
+                {sidebarOpen ? (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="15,6 9,12 15,18" />
+                  </svg>
+                ) : (
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <polyline points="9,6 15,12 9,18" />
+                  </svg>
+                )}
+              </button>
+              {breadcrumbItems.map((item, i) => {
+                const isLast = i === breadcrumbItems.length - 1;
+                const websiteUrl = "websiteUrl" in item ? (item.websiteUrl as string | null | undefined) : undefined;
+                const isExternal = isLast && websiteUrl != null;
+                return (
+                <span key={i} className="crumb">
+                  {isExternal ? (
+                    <a
+                      className="crumb-link current"
+                      href={websiteUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      {item.isCollection && (
+                        <span className="crumb-icon" aria-hidden>
+                          <CollectionIcon name={item.icon} size={13} />
+                        </span>
+                      )}
+                      <span className="crumb-label">{item.label}</span>
+                    </a>
+                  ) : (
+                    <button
+                      className={isLast ? "crumb-link current" : "crumb-link ancestor"}
+                      onClick={() => setSelection(item.selection)}
+                    >
+                      {item.isCollection && (
+                        <span className="crumb-icon" aria-hidden>
+                          <CollectionIcon name={item.icon} size={13} />
+                        </span>
+                      )}
+                      <span className="crumb-label">{item.label}</span>
+                    </button>
+                  )}
+                  {i < breadcrumbItems.length - 1 && <span className="sep">›</span>}
+                </span>
+              )})}
+              {isGroupedView && (() => {
+                  const displayCollection = scrollCollection ?? groupedBookmarks?.[0]?.path ?? null;
+                  if (!displayCollection) return null;
+                  return (
+                <span className="crumb" key="scroll-spy" data-scroll-spy>
+                  <span className="sep">›</span>
+                  {displayCollection.split(" > ").map((part, i, arr) => {
+                    const isLast = i === arr.length - 1;
+                    return (
+                      <span key={i} className="crumb-path-segment">
+                        {i > 0 && <span className="sep">›</span>}
+                        <span
+                          className={`crumb-label ${isLast ? "scroll-collection-label" : ""}`}
+                        >
+                          {part}
+                        </span>
+                      </span>
+                    );
+                  })}
+                </span>
+              );
+            })()}
+              {activeTag && (
+                <>
+                  <span className="sep">›</span>
+                  <span className="tag-filter" title={`Filtering by ${activeTag}`}>
+                    <span className="tag-filter-label">#{activeTag}</span>
+                    <button
+                      className="tag-filter-clear"
+                      aria-label={`Clear tag filter ${activeTag}`}
+                      onClick={() => setActiveTag(null)}
+                    >
+                      ×
+                    </button>
+                    {((sidebarMode === "images" && selection.kind !== "images_all") ||
+                      (sidebarMode === "links" && selection.kind !== "all")) && (
+                      <>
+                        <span className="tag-filter-sep" />
+                        <button
+                          className="tag-filter-scope"
+                          onClick={() =>
+                            setSelection(
+                              sidebarMode === "images" ? { kind: "images_all" } : { kind: "all" }
+                            )
+                          }
+                          title={
+                            sidebarMode === "images"
+                              ? `Show all ${imageTagCounts[activeTag] ?? 0} images tagged #${activeTag}`
+                              : `Show all ${globalTagCounts[activeTag] ?? 0} bookmarks tagged #${activeTag}`
+                          }
+                        >
+                          all
+                        </button>
+                      </>
+                    )}
+                  </span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div className="top-row top-row-secondary">
+            <div className="top-right">
+              <div className="desktop-actions">
+                <div className="session-chip" title={user.email ?? "Signed in"}>
+                  {(function() {
+                    const meta = user.user_metadata as Record<string, unknown> | undefined;
+                    const avatarUrl = (meta?.avatar_url || meta?.picture) as string | undefined;
+                    if (avatarUrl) {
+                      return <img className="session-avatar" src={avatarUrl} alt={user.email ?? ""} referrerPolicy="no-referrer" />;
+                    }
+                    return <span className="session-email">{user.email ?? "Signed in"}</span>;
+                  })()}
+                  <button
+                    className="session-signout"
+                    onClick={() => setShowSettings(true)}
+                  >
+                    Settings
+                  </button>
+                  <button className="session-signout" onClick={handleSignOut}>
+                    Sign out
+                  </button>
+                </div>
+                <div className="search">
+                  <input
+                    placeholder="Search titles, URLs, descriptions, tags…"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                  />
+                </div>
+                <div className="add-menu-wrap">
+                  <button
+                    className="btn btn-primary"
+                    onClick={() => setAddMenuOpen((v) => !v)}
+                    aria-expanded={addMenuOpen}
+                  >
+                    + Add
+                  </button>
+                  {addMenuOpen && (
+                    <>
+                      <div
+                        className="add-menu-backdrop"
+                        onClick={() => setAddMenuOpen(false)}
+                      />
+                      <div className="add-menu" onClick={(e) => e.stopPropagation()}>
+                        <button
+                          className="add-menu-item"
+                          onClick={() => {
+                            setAddMenuOpen(false);
+                            setShowAdd(true);
+                          }}
+                        >
+                          Bookmark
+                          <span className="add-menu-sub">URL, .webloc, or paste</span>
+                        </button>
+                        <button
+                          className="add-menu-item"
+                          onClick={() => {
+                            setAddMenuOpen(false);
+                            setShowAddImages(true);
+                          }}
+                        >
+                          Image
+                          <span className="add-menu-sub">Upload files or paste a URL</span>
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+
+              <div className="mobile-actions">
+                {mobileSearchOpen ? (
+                  <div className="mobile-search-row">
+                    <input
+                      autoFocus
+                      className="mobile-search-input"
+                      placeholder="Search…"
+                      value={search}
+                      onChange={(e) => setSearch(e.target.value)}
+                    />
+                    <button
+                      className="circle-btn"
+                      aria-label="Close search"
+                      onClick={() => {
+                        setMobileSearchOpen(false);
+                        setSearch("");
+                      }}
+                    >
+                      ×
+                    </button>
+                  </div>
+                ) : (
+                  <>
+                    <button
+                      className="circle-btn"
+                      aria-label="Search"
+                      onClick={() => setMobileSearchOpen(true)}
+                    >
+                      <Search size={14} strokeWidth={2} />
+                    </button>
+                    <div className="add-menu-wrap">
+                      <button
+                        className="circle-btn circle-btn-primary"
+                        aria-label="Add"
+                        aria-expanded={addMenuOpen}
+                        onClick={() => setAddMenuOpen((v) => !v)}
+                      >
+                        <Plus size={14} strokeWidth={2.4} />
+                      </button>
+                      {addMenuOpen && (
+                        <>
+                          <div
+                            className="add-menu-backdrop"
+                            onClick={() => setAddMenuOpen(false)}
+                          />
+                          <div className="add-menu" onClick={(e) => e.stopPropagation()}>
+                            <button
+                              className="add-menu-item"
+                              onClick={() => {
+                                setAddMenuOpen(false);
+                                setShowAdd(true);
+                              }}
+                            >
+                              Bookmark
+                            </button>
+                            <button
+                              className="add-menu-item"
+                              onClick={() => {
+                                setAddMenuOpen(false);
+                                setShowAddImages(true);
+                              }}
+                            >
+                              Image
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </header>
+
+        <section ref={contentRef} className="content">
+          {loadError && (
+            <div className="load-error small" role="alert">
+              <span className="load-error-msg">{loadError}</span>
+              <button
+                type="button"
+                className="load-error-dismiss"
+                aria-label="Dismiss error"
+                onClick={() => setLoadError(null)}
+              >
+                ×
+              </button>
+            </div>
+          )}
+          {contentTransitioning && <div className="content-transition-badge">Loading…</div>}
+          <div className={`content-body${contentTransitioning ? " is-transitioning" : ""}`}>
+            {subCollections.length > 0 && (
+              <SubcollectionRow
+                subs={subCollections}
+                activeId={renderSelection.kind === "collection" ? renderSelection.id : null}
+                onSelect={(id) => setSelection({ kind: "collection", id })}
+              />
+            )}
+            {renderSelection.kind === "feed" ? (
+              <FeedInbox
+                feed={feeds.find((item) => item.id === renderSelection.id) ?? null}
+                items={visibleFeedItems}
+                loading={loadingFeedItems && !contentTransitioning}
+                error={feedItemsError}
+                search={search}
+                isEditMode={isEditMode}
+                selectedIds={selectedFeedItemIds}
+                busyItemIds={busyFeedItemIds}
+                bulkBusy={busyFeedBulkAction}
+                onOpen={(item) => {
+                  if (!item.url) return;
+                  window.open(item.url, "_blank", "noopener,noreferrer");
+                }}
+                onKeep={handleKeepFeedItem}
+                onDismiss={handleDismissFeedItem}
+                onToggleSelect={(id, shiftKey) => {
+                  setSelectedFeedItemIds((prev) => {
+                    const next = new Set(prev);
+                    if (shiftKey && lastClickedFeedItemIdRef.current) {
+                      const fromIdx = visibleFeedItems.findIndex((item) => item.id === lastClickedFeedItemIdRef.current);
+                      const toIdx = visibleFeedItems.findIndex((item) => item.id === id);
+                      if (fromIdx !== -1 && toIdx !== -1) {
+                        const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                        for (let i = start; i <= end; i++) {
+                          next.add(visibleFeedItems[i].id);
+                        }
+                      }
+                    } else {
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                    }
+                    lastClickedFeedItemIdRef.current = id;
+                    return next;
+                  });
+                }}
+              />
+            ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") && isGroupedImageView && groupedImages ? (
+              groupedImages.map((group) => (
+                <section
+                  key={group.collectionId}
+                  className="collection-group-section"
+                  data-collection={group.collectionId}
+                >
+                  <div className="collection-group-header">{group.collectionName}</div>
+                <ImageGrid
+                  images={group.images}
+                  loading={false}
+                  emptyLabel=""
+                  cardMinWidth={cardMinWidth}
+                  cardSize={cardSize}
+                  desktopCols={imageDesktopCols}
+                  mobileCols={imageMobileCols}
+                    viewMode={viewMode}
+                    isEditMode={isEditMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (next.has(id)) next.delete(id);
+                        else next.add(id);
+                        return next;
+                      });
+                    }}
+                    onOpen={(img) => {
+                      const idx = slideshowImages.findIndex((i) => i.id === img.id);
+                      if (idx >= 0) setSlideshowIndex(idx);
+                    }}
+                    onEdit={(img) => setImageDetailId(img.id)}
+                    onDelete={async (img) => {
+                      try {
+                        const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                        if (!res.ok) return;
+                        handleImageDeleted(img.id);
+                      } catch {}
+                    }}
+                  />
+                </section>
+              ))
+            ) : (renderSelection.kind === "images_all" || renderSelection.kind === "image_collection" || renderSelection.kind === "images_unsorted") ? (
+            <ImageGrid
+              images={visibleImages}
+              loading={loadingImages && !contentTransitioning}
+              emptyLabel={
+                loadingImages && !contentTransitioning
+                  ? "Loading images…"
+                  : activeTag
+                  ? `No images match #${activeTag}.`
+                  : "No images yet."
+              }
+              cardMinWidth={cardMinWidth}
+              cardSize={cardSize}
+              desktopCols={imageDesktopCols}
+              mobileCols={imageMobileCols}
+                viewMode={viewMode}
+                isEditMode={isEditMode}
+                selectedIds={selectedIds}
+                onToggleSelect={(id) => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (next.has(id)) next.delete(id);
+                    else next.add(id);
+                    return next;
+                  });
+                }}
+                onOpen={(img) => {
+                  const idx = slideshowImages.findIndex((i) => i.id === img.id);
+                  if (idx >= 0) setSlideshowIndex(idx);
+                }}
+                onEdit={(img) => setImageDetailId(img.id)}
+                onDelete={async (img) => {
+                  try {
+                    const res = await fetch(`/api/images/${img.id}`, { method: "DELETE" });
+                    if (!res.ok) {
+                      console.error("[image-grid] delete failed", await res.text().catch(() => ""));
+                      return;
+                    }
+                    handleImageDeleted(img.id);
+                  } catch (err) {
+                    console.error("[image-grid] delete error", err);
+                  }
+                }}
+              />
+            ) : isGroupedView && groupedBookmarks ? (
+              groupedBookmarks.map((group) => (
+                <section
+                  key={group.collectionId}
+                  className="collection-group-section"
+                  data-collection={group.collectionId}
+                  data-collection-path={group.path}
+                >
+                  <div className="collection-group-header">{group.collectionName}</div>
+                  <BookmarkGrid
+                    bookmarks={group.bookmarks}
+                    onOpenBookmark={(b) => setDetail(b)}
+                    onDeleteBookmark={handleDeleteBookmark}
+                    onPatchBookmark={handleBookmarkPatched}
+                    onPinBookmark={handlePinBookmark}
+                    onRefreshPreview={handleRefreshPreview}
+                    onUploadCustomPreview={handleUploadCustomPreview}
+                    onClearCustomPreview={handleClearCustomPreview}
+                  onTagClick={handleCardTagClick}
+                  cardMinWidth={cardMinWidth}
+                  cardSize={cardSize}
+                  desktopCols={effectiveDesktopCols}
+                  mobileCols={mobileCols}
+                    viewMode={viewMode}
+                    loading={loadingBookmarks}
+                    isEditMode={isEditMode}
+                    selectedIds={selectedIds}
+                    onToggleSelect={(id, shiftKey) => {
+                      setSelectedIds((prev) => {
+                        const next = new Set(prev);
+                        if (shiftKey && lastClickedIdRef.current) {
+                          const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                          const toIdx = bookmarks.findIndex((b) => b.id === id);
+                          if (fromIdx !== -1 && toIdx !== -1) {
+                            const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                            for (let i = start; i <= end; i++) {
+                              next.add(bookmarks[i].id);
+                            }
+                          }
+                        } else {
+                          if (next.has(id)) next.delete(id);
+                          else next.add(id);
+                        }
+                        lastClickedIdRef.current = id;
+                        return next;
+                      });
+                    }}
+                  />
+                </section>
+              ))
+            ) : (
+              <BookmarkGrid
+                bookmarks={sortedBookmarks}
+                onOpenBookmark={(b) => setDetail(b)}
+                onDeleteBookmark={handleDeleteBookmark}
+                onPatchBookmark={handleBookmarkPatched}
+                onPinBookmark={handlePinBookmark}
+                onRefreshPreview={handleRefreshPreview}
+                onUploadCustomPreview={handleUploadCustomPreview}
+                onClearCustomPreview={handleClearCustomPreview}
+                onTagClick={handleCardTagClick}
+                cardMinWidth={cardMinWidth}
+                cardSize={cardSize}
+                desktopCols={effectiveDesktopCols}
+                mobileCols={mobileCols}
+                viewMode={viewMode}
+                loading={loadingBookmarks}
+                isEditMode={isEditMode}
+                selectedIds={selectedIds}
+                onToggleSelect={(id, shiftKey) => {
+                  setSelectedIds((prev) => {
+                    const next = new Set(prev);
+                    if (shiftKey && lastClickedIdRef.current) {
+                      const fromIdx = bookmarks.findIndex((b) => b.id === lastClickedIdRef.current);
+                      const toIdx = bookmarks.findIndex((b) => b.id === id);
+                      if (fromIdx !== -1 && toIdx !== -1) {
+                        const [start, end] = fromIdx < toIdx ? [fromIdx, toIdx] : [toIdx, fromIdx];
+                        for (let i = start; i <= end; i++) {
+                          next.add(bookmarks[i].id);
+                        }
+                      }
+                    } else {
+                      if (next.has(id)) next.delete(id);
+                      else next.add(id);
+                    }
+                    lastClickedIdRef.current = id;
+                    return next;
+                  });
+                }}
+                emptyLabel={
+                  search || activeTag
+                    ? `No bookmarks match ${[search && `"${search}"`, activeTag && `#${activeTag}`]
+                        .filter(Boolean)
+                        .join(" + ")}.`
+                    : renderSelection.kind === "unsorted"
+                    ? "Nothing unsorted — nice."
+                    : renderSelection.kind === "pinned"
+                    ? "No pinned bookmarks yet."
+                    : "No bookmarks here yet."
+                }
+              />
+            )}
+          </div>
+        </section>
+        <div className="bottom-bar">
+          {isEditMode && selection.kind === "feed" && selectedFeedItemIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="bulk-count">{selectedFeedItemIds.size} selected</span>
+              <button
+                className="btn btn-ghost danger"
+                onClick={() => handleDismissAllFeedItems()}
+                disabled={busyFeedBulkAction}
+              >
+                {busyFeedBulkAction ? "Dismissing…" : `Dismiss ${selectedFeedItemIds.size}`}
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setSelectedFeedItemIds(new Set());
+                  lastClickedFeedItemIdRef.current = null;
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {isEditMode &&
+            (selection.kind === "images_all" || selection.kind === "image_collection" || selection.kind === "images_unsorted") &&
+            selectedIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="bulk-count">
+                {selectedIds.size} selected
+              </span>
+              <div className="image-bulk-move-wrap">
+                <select
+                  className="image-bulk-move"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    e.currentTarget.value = "";
+                    if (v === "__unsorted__") {
+                      void handleImageBulkMove(null);
+                    } else if (v) {
+                      void handleImageBulkMove(v);
+                    }
+                  }}
+                >
+                  <option value="" disabled>Move {selectedIds.size}…</option>
+                  <option value="__unsorted__">Unsorted</option>
+                  {imageCollections.map((c) => (
+                    <option key={c.id} value={c.id}>{c.name}</option>
+                  ))}
+                </select>
+              </div>
+              <button
+                className="btn"
+                onClick={() => {
+                  if (confirm(`Delete ${selectedIds.size} image${selectedIds.size === 1 ? "" : "s"}? This cannot be undone.`)) {
+                    void handleImageBulkDelete();
+                  }
+                }}
+              >
+                Delete {selectedIds.size}
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setSelectedIds(new Set());
+                  setIsEditMode(false);
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {isEditMode && selection.kind !== "feed" &&
+            selection.kind !== "images_all" && selection.kind !== "image_collection" && selection.kind !== "images_unsorted" &&
+            selectedIds.size > 0 && (
+            <div className="bulk-actions">
+              <span className="bulk-count">{selectedIds.size} selected</span>
+              <div className="bulk-tag-wrap">
+                <input
+                  className="bulk-tag-input"
+                  placeholder="Add tag…"
+                  value={bulkTagInput}
+                  disabled={bulkTagBusy}
+                  onChange={(e) => setBulkTagInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      handleBulkAddTags();
+                    }
+                  }}
+                />
+                <button
+                  className="btn"
+                  disabled={bulkTagBusy || !bulkTagInput.trim()}
+                  onClick={() => handleBulkAddTags()}
+                >
+                  Tag
+                </button>
+              </div>
+              <div className="bulk-move-wrap">
+                <button
+                  className="btn"
+                  onClick={() => {
+                    setShowBulkMovePicker((v) => !v);
+                    setBulkMoveSearch("");
+                  }}
+                  disabled={bulkMoveBusy}
+                >
+                  {bulkMoveBusy ? "Moving…" : `Move ${selectedIds.size}`}
+                </button>
+                {showBulkMovePicker && (
+                  <div
+                    className="bulk-move-panel"
+                    onMouseLeave={() => setShowBulkMovePicker(false)}
+                  >
+                    <input
+                      autoFocus
+                      className="bulk-move-search"
+                      placeholder="Find collection…"
+                      value={bulkMoveSearch}
+                      onChange={(e) => setBulkMoveSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Escape") {
+                          setShowBulkMovePicker(false);
+                          setBulkMoveSearch("");
+                        }
+                        if (e.key === "Enter" && bulkMoveCollections.length > 0) {
+                          e.preventDefault();
+                          handleBulkMove(bulkMoveCollections[0].id);
+                        }
+                      }}
+                    />
+                    <div className="bulk-move-list">
+                      <button
+                        className="bulk-move-opt"
+                        onClick={() => handleBulkMove(null)}
+                      >
+                        Unsorted
+                      </button>
+                      {bulkMoveCollections.map((c) => {
+                        const depth = bulkDepthMap.get(c.id) ?? 0;
+                        const isChild = depth > 0;
+                        return (
+                          <button
+                            key={c.id}
+                            className={`bulk-move-opt ${isChild ? "bulk-move-opt-child" : ""}`}
+                            style={{ paddingLeft: isChild ? `${8 + depth * 16}px` : undefined }}
+                            onClick={() => handleBulkMove(c.id)}
+                            title={collectionPaths.get(c.id)}
+                          >
+                            <span className="bulk-move-opt-icon">
+                              <CollectionIcon name={c.icon} size={12} />
+                            </span>
+                            <span className="bulk-move-opt-label">
+                              {isChild ? c.name : collectionPaths.get(c.id)}
+                            </span>
+                          </button>
+                        );
+                      })}
+                      {bulkMoveCollections.length === 0 && (
+                        <div className="bulk-move-empty">No collections match.</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+              <button
+                className="btn btn-ghost danger"
+                onClick={() => setConfirmBulkDelete(true)}
+              >
+                Delete {selectedIds.size}
+              </button>
+              <button
+                className="btn"
+                onClick={() => {
+                  setIsEditMode(false);
+                  setSelectedIds(new Set());
+                  setSelectedFeedItemIds(new Set());
+                  lastClickedIdRef.current = null;
+                  lastClickedFeedItemIdRef.current = null;
+                }}
+              >
+                Cancel
+              </button>
+            </div>
+          )}
+          {dropStatus && (
+            <div className="drop-status small" role="status">{dropStatus}</div>
+          )}
+          <div className="bottom-row">
+            <div className="size-control" role="radiogroup" aria-label="Preview size">
+            {CARD_SIZES.map((size) => (
+              <button
+                key={size}
+                type="button"
+                role="radio"
+                aria-checked={cardSize === size}
+                className={`size-btn size-btn-${size} ${cardSize === size ? "size-btn-active" : ""}`}
+                onClick={() => {
+                  setCardSize(size);
+                  // Picking a size implies "I want to see thumbnails at
+                  // this scale" — bounce out of list view back to grid.
+                  if (viewMode === "list") setViewMode("grid");
+                }}
+                title={`${size.toUpperCase()} previews`}
+              >
+                {size.toUpperCase()}
+              </button>
+            ))}
+            </div>
+            <div className="sort-control-wrap">
+              <button
+                className={`sort-btn ${showSortMenu ? "sort-btn-active" : ""}`}
+                onClick={() => setShowSortMenu((v) => !v)}
+                title="View and sort bookmarks"
+                aria-label="View and sort bookmarks"
+              >
+                <List size={14} strokeWidth={showSortMenu ? 2.4 : 2} />
+              </button>
+              <SortMenu
+                viewMode={viewMode}
+                onSelectView={setViewMode}
+                sortBy={sortBy}
+                onSelect={setSortBy}
+                isOpen={showSortMenu}
+                onClose={() => setShowSortMenu(false)}
+              />
+            </div>
+            <button
+              className={`edit-toggle-btn ${isEditMode ? "edit-toggle-active" : ""}`}
+              onClick={() => {
+                setIsEditMode((v) => !v);
+                setSelectedIds(new Set());
+                setSelectedFeedItemIds(new Set());
+                lastClickedIdRef.current = null;
+                lastClickedFeedItemIdRef.current = null;
+              }}
+              title={isEditMode ? "Exit edit mode" : "Edit mode"}
+              aria-label={isEditMode ? "Exit edit mode" : "Edit mode"}
+            >
+              <Grid2x2 size={14} strokeWidth={isEditMode ? 2.4 : 2} />
+            </button>
+          </div>
+        </div>
+      </main>
+
+      {showAdd && (
+        <AddBookmarkModal
+          key={defaultAddUrl ?? "manual"}
+          existingBookmarks={allBookmarks}
+          flat={flat}
+          tree={tree}
+          defaultCollectionId={defaultCollectionForAdd}
+          defaultUrl={defaultAddUrl}
+          onCreateCollection={handleCreateCollection}
+          onClose={() => { setShowAdd(false); setDefaultAddUrl(null); }}
+          onCreated={handleBookmarkCreated}
+          onFeedCreated={loadFeeds}
+        />
+      )}
+
+      {detail && (
+        <BookmarkDetail
+          key={detail.id}
+          bookmark={detail}
+          existingBookmarks={allBookmarks}
+          flat={flat}
+          tree={tree}
+          onCreateCollection={handleCreateCollection}
+          onClose={() => setDetail(null)}
+          onSaved={handleBookmarkSaved}
+          onPatched={handleBookmarkPatched}
+          onDeleted={handleBookmarkDeleted}
+        />
+      )}
+
+      {toast && (
+        <AISuggestionToast
+          bookmark={toast.bookmark}
+          suggestion={toast.suggestion}
+          flat={flat}
+          onCreateCollection={handleCreateCollection}
+          onCreateAndMove={handleCreateAndMoveFromToast}
+          onMove={handleMoveFromToast}
+          onDismiss={() => setToast(null)}
+        />
+      )}
+
+      <SettingsModal
+        open={showSettings}
+        onClose={() => setShowSettings(false)}
+        bookmarks={allBookmarks}
+        flatCollections={flat}
+        userEmail={user.email}
+        userAvatarUrl={
+          ((user.user_metadata as Record<string, unknown> | undefined)?.avatar_url ||
+            (user.user_metadata as Record<string, unknown> | undefined)?.picture) as string | undefined
+        }
+        onSignOut={handleSignOut}
+        onBookmarksChanged={() => {
+          void loadBootstrap();
+          void loadFeeds();
+        }}
+        onGeneratedPreviewsQueued={handleGeneratedPreviewsQueued}
+      />
+
+      <TriageOverlay
+        open={triageOpen}
+        onClose={() => setTriageOpen(false)}
+        onMutated={() => {
+          // Refresh local bookmark list after a triage mutation lands.
+          void loadAllBookmarks();
+        }}
+        allTags={allTags}
+      />
+
+      <ImageTriageOverlay
+        open={imageTriageOpen}
+        onClose={() => setImageTriageOpen(false)}
+        imageCollections={imageCollections}
+        onMutated={() => {
+          // Bump the reload key so the image loader re-fetches, and
+          // refresh folder counts so the sidebar reflects the new total.
+          setImagesReloadKey((v) => v + 1);
+          void loadImageCollections();
+        }}
+      />
+
+      <SmartCollectionBuilderModal
+        open={smartBuilderOpen}
+        onClose={() => {
+          setSmartBuilderOpen(false);
+          setEditSmartCollection(null);
+        }}
+        editSmartCollection={editSmartCollection}
+        onCreated={() => {
+          void loadSmartCollections();
+        }}
+        onUpdated={() => {
+          void loadSmartCollections();
+        }}
+      />
+
+      <CreateCollectionModal
+        open={showCreateCollection}
+        onClose={() => setShowCreateCollection(false)}
+        onCreated={() => {
+          void loadCollections();
+        }}
+      />
+
+      <AddImageModal
+        open={showAddImages}
+        onClose={() => setShowAddImages(false)}
+        onUploaded={() => {
+          // If we're already viewing the image grid, switch to All Images
+          // and refetch so the new uploads appear immediately.
+          refreshImages();
+          setSelection({ kind: "images_all" });
+        }}
+      />
+
+      <CreateImageCollectionModal
+        open={showCreateImageFolder}
+        onClose={() => setShowCreateImageFolder(false)}
+        onCreated={(id) => {
+          void loadImageCollections();
+          // Jump to the new folder so the user immediately sees it
+          // selected in the sidebar with an empty grid waiting to be
+          // populated.
+          setSelection({ kind: "image_collection", id });
+        }}
+      />
+
+      <ImageSlideshow
+        open={slideshowIndex !== null}
+        images={slideshowImages}
+        initialIndex={slideshowIndex ?? 0}
+        onClose={() => setSlideshowIndex(null)}
+        onEdit={(image) => setImageDetailId(image.id)}
+      />
+
+      {selectedImageDetail && (
+        <ImageDetail
+          image={selectedImageDetail}
+          imageCollections={imageCollections}
+          onClose={() => setImageDetailId(null)}
+          onPatched={handleImagePatched}
+          onDeleted={handleImageDeleted}
+        />
+      )}
+
+      <SharingModal
+        collection={sharingCollection}
+        open={sharingCollection !== null}
+        onClose={() => setSharingCollection(null)}
+        onUpdate={(updated) => {
+          setSharingCollection(updated);
+          if (updated.shareKind === "images") {
+            setImageCollections((prev) =>
+              prev.map((c) =>
+                c.id === updated.id
+                  ? {
+                      ...c,
+                      is_public: updated.is_public,
+                      public_id: updated.public_id,
+                      public_slug: updated.public_slug,
+                      public_description: updated.public_description,
+                    }
+                  : c
+              )
+            );
+            return;
+          }
+          // Reflect the change in our local trees so the sidebar's
+          // "public dot" affordance updates without a refresh.
+          const patch = (list: Collection[]): Collection[] =>
+            list.map((c) =>
+              c.id === updated.id
+                ? {
+                    ...c,
+                    is_public: updated.is_public,
+                    public_id: updated.public_id,
+                    public_slug: updated.public_slug,
+                    public_description: updated.public_description,
+                  }
+                : c.children
+                ? { ...c, children: patch(c.children) }
+                : c
+            );
+          setTreeRaw((prev) => patch(prev));
+          setFlat((prev) =>
+            prev.map((c) =>
+              c.id === updated.id
+                ? {
+                    ...c,
+                    is_public: updated.is_public,
+                    public_id: updated.public_id,
+                    public_slug: updated.public_slug,
+                    public_description: updated.public_description,
+                  }
+                : c
+            )
+          );
+        }}
+      />
+
+      <DuplicateImportModal
+        open={duplicateImportUrls.length > 0}
+        urls={duplicateImportUrls}
+        onClose={() => setDuplicateImportUrls([])}
+        onAddAnyway={async (urls) => {
+          await handleDroppedUrls(urls, { allowDuplicates: true });
+        }}
+      />
+
+      <ConfirmDialog
+        open={confirmBulkDelete}
+        title={`Delete ${selectedIds.size} bookmark${selectedIds.size === 1 ? "" : "s"}?`}
+        description="This action cannot be undone."
+        confirmLabel={`Delete ${selectedIds.size}`}
+        onConfirm={() => {
+          setConfirmBulkDelete(false);
+          handleBulkDelete();
+        }}
+        onCancel={() => setConfirmBulkDelete(false)}
+      />
+
+      {imageDropUploading && (
+        <div className="image-upload-overlay" aria-live="polite" aria-busy="true">
+          <div className="image-upload-card">
+            <div className="image-upload-spinner" aria-hidden />
+            <div className="image-upload-title">{imageDropUploading.label}</div>
+            <div className="image-upload-subtitle">
+              {imageDropUploading.count === 1
+                ? "Saving it into your image library and generating a title."
+                : `Saving ${imageDropUploading.count} items into your image library.`}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <style jsx>{`
+        .app {
+          display: flex;
+          height: 100dvh;
+          width: 100vw;
+          max-width: 100%;
+          overflow-x: hidden;
+        }
+        .main {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          min-width: 0;
+          background: var(--color-bg-page);
+          overflow-x: hidden;
+          position: relative;
+        }
+        .bottom-bar {
+          position: absolute;
+          left: 50%;
+          transform: translateX(-50%);
+          bottom: 16px;
+          z-index: 6;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+        }
+        .bottom-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        .drop-status {
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          padding: 6px 14px;
+          color: var(--color-text-muted);
+          white-space: nowrap;
+        }
+        .image-upload-overlay {
+          position: fixed;
+          inset: 0;
+          z-index: 140;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          pointer-events: none;
+          background: rgba(0, 0, 0, 0.16);
+          backdrop-filter: blur(3px);
+          -webkit-backdrop-filter: blur(3px);
+        }
+        .image-upload-card {
+          min-width: 220px;
+          max-width: min(360px, calc(100vw - 32px));
+          padding: 18px 20px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-lg);
+          background: var(--color-bg);
+          box-shadow: 0 18px 48px rgba(0, 0, 0, 0.16);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 8px;
+          text-align: center;
+        }
+        .image-upload-spinner {
+          width: 18px;
+          height: 18px;
+          border-radius: 999px;
+          border: 2px solid var(--color-border);
+          border-top-color: var(--color-text);
+          animation: upload-spin 700ms linear infinite;
+        }
+        .image-upload-title {
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text);
+        }
+        .image-upload-subtitle {
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+        }
+        @keyframes upload-spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
+        }
+        .add-menu-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .add-menu-backdrop {
+          position: fixed;
+          inset: 0;
+          z-index: 50;
+        }
+        .add-menu {
+          position: absolute;
+          top: calc(100% + 6px);
+          right: 0;
+          z-index: 60;
+          min-width: 200px;
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: 10px;
+          box-shadow: 0 14px 36px rgba(0, 0, 0, 0.18);
+          padding: 4px;
+          display: flex;
+          flex-direction: column;
+        }
+        .add-menu-item {
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+          gap: 2px;
+          padding: 8px 10px;
+          font-size: 13px;
+          color: var(--color-text);
+          background: transparent;
+          border: none;
+          border-radius: 6px;
+          text-align: left;
+          cursor: pointer;
+        }
+        .add-menu-item:hover { background: var(--color-bg-hover); }
+        .add-menu-sub {
+          font-size: 11px;
+          color: var(--color-text-muted);
+        }
+        .bulk-actions {
+          display: flex;
+          gap: 8px;
+        }
+        .bulk-actions :global(.btn) {
+          height: 32px;
+          padding: 0 12px;
+          font-size: 12px;
+          border-radius: 999px;
+        }
+        /* Image bulk: matches the .btn pill exactly so the Move/Delete/
+           Cancel buttons read as a uniform opaque row. */
+        .image-bulk-move-wrap { position: relative; }
+        .image-bulk-move {
+          height: 32px;
+          padding: 0 28px 0 12px;
+          font-size: 12px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg);
+          color: var(--color-text);
+          font-family: inherit;
+          cursor: pointer;
+          appearance: none;
+          -webkit-appearance: none;
+          /* Caret chevron */
+          background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 16 16' fill='none'><path d='M4 6.5 8 10.5 12 6.5' stroke='currentColor' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/></svg>");
+          background-repeat: no-repeat;
+          background-position: right 10px center;
+        }
+        .image-bulk-move:hover {
+          border-color: var(--color-border-strong);
+        }
+        .bulk-count {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          display: inline-flex;
+          align-items: center;
+          white-space: nowrap;
+        }
+        .bulk-tag-wrap {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .bulk-tag-input {
+          width: 100px;
+          height: 32px;
+          padding: 0 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          color: var(--color-text);
+          font: inherit;
+          font-size: 12px;
+          line-height: 17px;
+        }
+        .bulk-tag-input::placeholder {
+          color: var(--color-text-muted);
+        }
+        .bulk-tag-input:focus {
+          outline: none;
+          border-color: var(--color-border-strong);
+        }
+        .bulk-move-wrap {
+          position: relative;
+        }
+        .bulk-move-panel {
+          position: absolute;
+          bottom: 40px;
+          left: 50%;
+          transform: translateX(-50%);
+          background: var(--color-bg);
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          padding: 6px;
+          width: 260px;
+          max-height: 280px;
+          display: flex;
+          flex-direction: column;
+          z-index: 71;
+        }
+        .bulk-move-search {
+          font-size: 12px;
+          margin-bottom: 4px;
+          flex-shrink: 0;
+        }
+        .bulk-move-list {
+          overflow-y: auto;
+          min-height: 0;
+        }
+        .bulk-move-opt {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+          text-align: left;
+          padding: 5px 8px;
+          border-radius: 3px;
+          font-size: 12px;
+          cursor: pointer;
+          background: transparent;
+          border: none;
+          color: var(--color-text);
+        }
+        .bulk-move-opt:hover {
+          background: var(--color-bg-hover);
+        }
+        .bulk-move-opt-icon {
+          display: inline-flex;
+          align-items: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .bulk-move-opt-label {
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .bulk-move-opt-child .bulk-move-opt-label {
+          color: var(--color-text-muted);
+        }
+        .bulk-move-opt-child:hover .bulk-move-opt-label {
+          color: var(--color-text);
+        }
+        .bulk-move-empty {
+          padding: 8px;
+          font-size: 12px;
+          color: var(--color-text-muted);
+        }
+        .size-control {
+          height: 32px;
+          display: inline-flex;
+          align-items: stretch;
+          padding: 2px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg);
+          opacity: 0.7;
+          transition: opacity 140ms ease, border-color 140ms ease;
+        }
+        .size-control:hover,
+        .size-control:focus-within {
+          opacity: 1;
+          border-color: var(--color-border-strong);
+        }
+        .size-btn {
+          min-width: 32px;
+          padding: 0 10px;
+          border: none;
+          background: transparent;
+          color: var(--color-text-muted);
+          font-size: 12px;
+          font-weight: 600;
+          letter-spacing: 0.02em;
+          border-radius: 999px;
+          cursor: pointer;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          transition: background 120ms ease, color 120ms ease;
+        }
+        .size-btn:hover {
+          color: var(--color-text);
+        }
+        .size-btn-active {
+          background: var(--color-text);
+          color: var(--color-bg);
+        }
+        .size-btn-active:hover {
+          color: var(--color-bg);
+        }
+        @media (max-width: 768px) {
+          .bottom-bar {
+            position: fixed;
+            bottom: calc(env(safe-area-inset-bottom, 0px) + 12px);
+          }
+          .size-btn-xl {
+            display: none;
+          }
+        }
+        .sidebar-resizer {
+          width: 10px;
+          margin-left: -5px;
+          margin-right: -5px;
+          cursor: col-resize;
+          position: relative;
+          z-index: 3;
+          flex-shrink: 0;
+        }
+        .sidebar-resizer::before {
+          content: "";
+          position: absolute;
+          inset: 0;
+        }
+        .sidebar-resizer::after {
+          content: "";
+          position: absolute;
+          top: 0;
+          bottom: 0;
+          left: 50%;
+          width: 1px;
+          transform: translateX(-50%);
+          background: transparent;
+          transition: background 120ms ease;
+        }
+        .sidebar-resizer:hover::after,
+        .sidebar-resizer.active::after {
+          background: var(--color-border-strong);
+        }
+        .top {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 16px;
+          height: 54px;
+          padding: 0 20px;
+          border-bottom: 1px solid var(--color-border);
+          box-sizing: border-box;
+        }
+        .top-row {
+          min-width: 0;
+          display: flex;
+          align-items: center;
+        }
+        .top-row-primary {
+          flex: 1 1 auto;
+          min-width: 0;
+        }
+        .top-row-secondary {
+          flex: 0 0 auto;
+        }
+        .sidebar-toggle-btn {
+          display: inline-flex;
+          margin-right: 8px;
+        }
+        @media (min-width: 769px) {
+          .mobile-actions {
+            display: none !important;
+          }
+        }
+        @media (max-width: 768px) {
+          .sidebar-toggle-btn {
+            margin-right: 8px;
+          }
+          .sidebar-resizer {
+            display: none;
+          }
+          :global(.sidebar) {
+            position: fixed;
+            inset: 0;
+            width: 100% !important;
+            max-width: 100%;
+            z-index: 100;
+            transform: translateX(-100%);
+            transition: transform 200ms ease;
+          }
+          .mobile-sidebar-open :global(.sidebar) {
+            transform: translateX(0);
+          }
+        }
+        /* Desktop: sidebar collapses with smooth width transition. */
+        @media (min-width: 769px) {
+          :global(.sidebar) {
+            transition: width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+                        min-width 280ms cubic-bezier(0.4, 0, 0.2, 1),
+                        opacity 200ms ease;
+          }
+          .sidebar-closed :global(.sidebar) {
+            width: 0 !important;
+            min-width: 0 !important;
+            opacity: 0;
+            pointer-events: none;
+          }
+          .sidebar-closed .sidebar-resizer {
+            display: none;
+          }
+        }
+        .crumbs {
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          min-width: 0;
+          overflow: hidden;
+          flex: 1 1 auto;
+        }
+        .crumb {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 12px;
+          white-space: nowrap;
+          min-width: 0;
+        }
+        .crumb-link {
+          font-size: 12px;
+          white-space: nowrap;
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+          min-width: 0;
+          transition: color 140ms ease;
+        }
+        .current.crumb-link {
+          max-width: 100%;
+        }
+        .crumb-label {
+          min-width: 0;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          position: relative;
+        }
+        .crumb-label::after {
+          content: "";
+          position: absolute;
+          bottom: -1px;
+          left: 0;
+          width: 100%;
+          height: 1px;
+          background: var(--color-text);
+          transform: scaleX(0);
+          transform-origin: left;
+          transition: transform 200ms ease;
+        }
+        .crumb-link:hover .crumb-label::after {
+          transform: scaleX(1);
+        }
+        .crumb-icon {
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+          transition: color 140ms ease;
+        }
+        .current .crumb-icon { color: var(--color-text); }
+        .current { font-weight: 500; }
+        .ancestor { color: var(--color-text-muted); }
+        .crumb-link:hover {
+          color: var(--color-text);
+        }
+        .sep { color: var(--color-text-faint); font-size: 12px; }
+        .crumb-path-segment {
+          display: inline-flex;
+          align-items: center;
+          gap: 6px;
+        }
+        .scroll-collection-label {
+          animation: fadeSlideIn 200ms ease;
+          will-change: transform, opacity;
+        }
+        @keyframes fadeSlideIn {
+          from { opacity: 0; transform: translateY(4px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .collection-group-section :global(.grid) {
+          padding-top: 20px;
+        }
+        .collection-group-header {
+          font-size: 12px;
+          font-weight: 600;
+          color: var(--color-text-muted);
+          padding: 16px 20px 0;
+          line-height: 17px;
+        }
+        .top-right {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+          flex-shrink: 0;
+        }
+        .desktop-actions {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .edit-toggle-btn {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-muted);
+          opacity: 0.7;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .edit-toggle-btn:active {
+          transform: scale(0.92);
+        }
+        .edit-toggle-btn:hover,
+        .edit-toggle-active {
+          opacity: 1;
+        }
+        .edit-toggle-btn:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .edit-toggle-active {
+          color: var(--color-text);
+          background: var(--color-bg-active);
+        }
+        .sort-control-wrap {
+          position: relative;
+          display: inline-flex;
+        }
+        .sort-btn {
+          width: 30px;
+          height: 30px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          color: var(--color-text-muted);
+          opacity: 0.7;
+          transition: border-color 120ms ease, color 120ms ease, background 120ms ease, opacity 140ms ease, transform 140ms cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .sort-btn:active {
+          transform: scale(0.92);
+        }
+        .sort-btn:hover,
+        .sort-btn-active {
+          opacity: 1;
+        }
+        .sort-btn:hover {
+          color: var(--color-text);
+          border-color: var(--color-border-strong);
+          background: var(--color-bg-hover);
+        }
+        .sort-btn-active {
+          color: var(--color-text);
+          background: var(--color-bg-active);
+        }
+        .mobile-actions {
+          display: none;
+          align-items: center;
+          gap: 12px;
+          min-width: 0;
+        }
+        .mobile-search-row {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          width: 100%;
+        }
+        .mobile-search-input {
+          flex: 1 1 auto;
+          min-width: 0;
+          height: 32px;
+          padding: 0 12px;
+          border-radius: 999px;
+          border: 1px solid var(--color-border);
+          background: var(--color-bg-secondary);
+          font-size: 12px;
+        }
+        /* .circle-btn and .circle-btn-primary are now in globals.css */
+        .session-chip {
+          display: inline-flex;
+          align-items: center;
+          min-width: 0;
+          padding: 0 0 0 8px;
+          height: 30px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          overflow: hidden;
+        }
+        .session-email {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          max-width: 180px;
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+          padding: 0 6px 0 10px;
+        }
+        .session-avatar {
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          object-fit: cover;
+          margin-right: 5px;
+          flex-shrink: 0;
+        }
+        .session-signout {
+          height: 100%;
+          padding: 0 10px;
+          border-left: 1px solid var(--color-border);
+          color: var(--color-text);
+          font-size: 12px;
+          transition: background 140ms ease;
+        }
+        .session-signout:last-of-type {
+          border-radius: 0 999px 999px 0;
+        }
+        .session-signout:hover {
+          background: var(--color-bg-hover);
+        }
+        .tag-filter {
+          display: inline-flex;
+          align-items: center;
+          gap: 8px;
+          padding: 4px 6px 4px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: var(--color-bg-secondary);
+          max-width: 220px;
+        }
+        .tag-filter-label {
+          font-size: 12px;
+          color: var(--color-text);
+          overflow: hidden;
+          text-overflow: ellipsis;
+          white-space: nowrap;
+        }
+        .tag-filter-clear {
+          width: 18px;
+          height: 18px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          border-radius: 999px;
+          color: var(--color-text-muted);
+          flex-shrink: 0;
+        }
+        .tag-filter-clear:hover {
+          color: var(--color-text);
+          background: color-mix(in srgb, var(--color-bg) 80%, transparent);
+        }
+        .tag-filter-sep {
+          width: 1px;
+          height: 14px;
+          background: var(--color-border-strong);
+          flex-shrink: 0;
+        }
+        .tag-filter-scope {
+          font-size: 12px;
+          color: var(--color-text-muted);
+          padding: 0 2px;
+          flex-shrink: 0;
+        }
+        .tag-filter-scope:hover {
+          color: var(--color-text);
+        }
+        .search input {
+          width: 200px;
+          height: 30px;
+          padding: 6px 10px;
+          line-height: 17px;
+          font-size: 12px;
+        }
+        @media (max-width: 1080px) {
+          .session-chip {
+            display: none;
+          }
+        }
+        .content {
+          flex: 1;
+          overflow-y: auto;
+          overflow-x: hidden;
+          -webkit-overflow-scrolling: touch;
+          min-height: 0;
+          padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 20px);
+          position: relative;
+        }
+        .content-transition-badge {
+          position: sticky;
+          top: 10px;
+          right: 16px;
+          z-index: 2;
+          margin: 10px 16px 0 auto;
+          width: fit-content;
+          padding: 6px 12px;
+          border: 1px solid var(--color-border);
+          border-radius: 999px;
+          background: color-mix(in srgb, var(--color-bg) 92%, transparent);
+          color: var(--color-text-muted);
+          font-size: 12px;
+          line-height: 17px;
+          backdrop-filter: blur(10px);
+          -webkit-backdrop-filter: blur(10px);
+        }
+        .content-body {
+          transition:
+            opacity 160ms ease,
+            filter 160ms ease,
+            transform 160ms ease;
+        }
+        .content-body.is-transitioning {
+          opacity: 0.58;
+          filter: saturate(0.9);
+          pointer-events: none;
+        }
+        @media (max-width: 768px) {
+          .collection-group-section :global(.grid) {
+            padding-top: 12px;
+          }
+          .collection-group-header {
+            padding: 14px 12px 0;
+          }
+          .main {
+            overflow-y: auto;
+            overflow-x: hidden;
+            height: 100dvh;
+          }
+          .content {
+            overflow: visible;
+            flex: 0 0 auto;
+            min-height: 0;
+            padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 96px);
+          }
+          .content-transition-badge {
+            top: calc(env(safe-area-inset-top, 0px) + 64px);
+            margin-right: 12px;
+          }
+          .top {
+            position: sticky;
+            top: 0;
+            z-index: 30;
+            background: var(--color-bg);
+            padding: calc(env(safe-area-inset-top, 0px) + 8px) 16px 8px;
+            gap: 12px;
+            display: flex;
+            align-items: center;
+            min-height: calc(env(safe-area-inset-top, 0px) + 54px);
+            border-bottom: 1px solid var(--color-border);
+            box-sizing: border-box;
+          }
+          .crumbs {
+            min-width: 0;
+            gap: 6px;
+          }
+          .crumb:not(:last-of-type) {
+            display: none;
+          }
+          .crumb {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .crumb-link,
+          .current.crumb-link {
+            width: 100%;
+          }
+          .sep {
+            display: none;
+          }
+          .crumb-path-segment .sep {
+            display: inline;
+          }
+          .tag-filter {
+            max-width: min(48vw, 180px);
+          }
+          .desktop-actions {
+            display: none;
+          }
+          .mobile-actions {
+            display: flex;
+          }
+          .top.top-searching .top-row-primary {
+            display: none;
+          }
+          .top.top-searching .top-row-secondary {
+            flex: 1 1 auto;
+            min-width: 0;
+          }
+          .top.top-searching .mobile-actions {
+            width: 100%;
+          }
+        }
+        .load-error {
+          margin: 14px 20px 0;
+          padding: 8px 10px;
+          border: 1px solid var(--color-border);
+          border-radius: var(--radius-sm);
+          color: var(--color-text-muted);
+          display: flex;
+          align-items: center;
+          gap: 10px;
+        }
+        .load-error-msg {
+          flex: 1;
+          overflow-wrap: anywhere;
+        }
+        .load-error-dismiss {
+          flex-shrink: 0;
+          width: 22px;
+          height: 22px;
+          display: inline-flex;
+          align-items: center;
+          justify-content: center;
+          font-size: 12px;
+          line-height: 17px;
+          color: var(--color-text-muted);
+          border-radius: 4px;
+        }
+        .load-error-dismiss:hover {
+          color: var(--color-text);
+          background: var(--color-bg-hover);
+        }
+      `}</style>
+    </div>
+    </DropZone>
+  );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function findNode(tree: Collection[], id: string): Collection | null {
+  for (const c of tree) {
+    if (c.id === id) return c;
+    if (c.children) {
+      const found = findNode(c.children, id);
+      if (found) return found;
+    }
+  }
+  return null;
+}
+
+function pathToCollections(
+  tree: Collection[],
+  id: string,
+  trail: { id: string; name: string; icon: string | null }[] = []
+): { id: string; name: string; icon: string | null }[] | null {
+  for (const c of tree) {
+    const next = [...trail, { id: c.id, name: c.name, icon: c.icon }];
+    if (c.id === id) return next;
+    if (c.children) {
+      const p = pathToCollections(c.children, id, next);
+      if (p) return p;
+    }
+  }
+  return null;
+}
+
+function sortPinnedFirst(bookmarks: Bookmark[]): Bookmark[] {
+  // Stable partition: pinned first, preserve relative order within each group.
+  const pinned: Bookmark[] = [];
+  const rest: Bookmark[] = [];
+  for (const b of bookmarks) (b.pinned ? pinned : rest).push(b);
+  return [...pinned, ...rest];
+}
+
+function filterBookmarks(bookmarks: Bookmark[], search: string, activeTag: string | null): Bookmark[] {
+  const query = search.trim().toLowerCase();
+  const normalizedTag = activeTag?.trim().toLowerCase() ?? "";
+  if (!query && !normalizedTag) return bookmarks;
+
+  return bookmarks.filter((bookmark) => {
+    const haystacks = [
+      bookmark.title ?? "",
+      bookmark.url,
+      bookmark.description ?? "",
+      ...(bookmark.tags ?? []),
+    ];
+
+    const matchesQuery = !query || haystacks.some((value) => value.toLowerCase().includes(query));
+    const matchesTag =
+      !normalizedTag ||
+      (bookmark.tags ?? []).some((tag) => tag.toLowerCase() === normalizedTag);
+
+    return matchesQuery && matchesTag;
+  });
+}
+
+function annotateCounts(
+  tree: Collection[],
+  counts: Record<string, number>,
+  useLocalCounts: boolean
+): Collection[] {
+  const walk = (nodes: Collection[]): Collection[] =>
+    nodes.map((n) => ({
+      ...n,
+      bookmark_count: useLocalCounts ? (counts[n.id] ?? 0) : (n.bookmark_count ?? 0),
+      children: n.children ? walk(n.children) : undefined,
+    }));
+  return walk(tree);
+}
