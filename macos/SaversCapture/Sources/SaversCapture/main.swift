@@ -50,6 +50,10 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         clipboardTimer?.invalidate()
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
     private func checkClipboard() {
         let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
@@ -179,7 +183,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openRebuild() { model.openRebuild() }
 
     private func showLarger(_ image: NSImage) {
-        largerWindow?.close()
+        dismissLarger()
         let screen = NSScreen.main ?? NSScreen.screens.first
         let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let natural = image.size
@@ -198,13 +202,20 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         window.hasShadow = true
         window.isMovableByWindowBackground = true
         window.contentView = NSHostingView(rootView: LargerPreview(image: image, size: size) { [weak self] in
-            self?.largerWindow?.close()
-            self?.largerWindow = nil
+            self?.dismissLarger()
         })
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
         largerWindow = window
+    }
+
+    private func dismissLarger() {
+        guard let window = largerWindow else { return }
+        largerWindow = nil
+        // Hide after the button event returns, so SwiftUI does not lose its
+        // hosting window while handling the close action.
+        DispatchQueue.main.async { window.orderOut(nil) }
     }
 
     @objc private func showSettings() {

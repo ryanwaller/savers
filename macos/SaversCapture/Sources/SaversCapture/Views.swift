@@ -23,35 +23,18 @@ struct CapturePreview: View {
                 .blur(radius: hovered ? 18 : 0)
             if hovered {
                 Color.black.opacity(0.42)
-                Button(action: copy) {
-                    Text("Copy")
-                        .font(.system(size: 15, weight: .medium))
-                        .foregroundColor(.black)
-                        .padding(.horizontal, 20)
-                        .frame(height: 42)
-                        .background(.white, in: Capsule())
-                }
-                .buttonStyle(.plain)
-                .help("Copy screenshot to clipboard")
+                HoverCopyButton(action: copy)
                 VStack {
                     HStack {
-                        cornerButton("xmark", help: "Close preview", action: close)
+                        HoverCircleButton(icon: "xmark", help: "Close preview", action: close)
                         Spacer()
-                        cornerButton("arrow.down.to.line", help: "Save PNG to Desktop", action: saveToDesktop)
+                        HoverCircleButton(icon: "arrow.down.to.line", help: "Save PNG to Desktop", action: saveToDesktop)
                     }
                     Spacer()
                     HStack {
-                        cornerButton("plus", help: "Open larger preview", action: openLarger)
+                        HoverCircleButton(icon: "plus", help: "Open larger preview", action: openLarger)
                         Spacer()
-                        Button(action: sendToRebuild) {
-                            SaversMark()
-                                .frame(width: 22, height: 22)
-                                .frame(width: 42, height: 42)
-                                .background(saversGreen, in: Circle())
-                        }
-                        .buttonStyle(.plain)
-                        .help("Send to Rebuild")
-                        .accessibilityLabel("Send to Rebuild")
+                        HoverCircleButton(icon: "savers", help: "Send to Rebuild", action: sendToRebuild)
                     }
                 }
                 .padding(9)
@@ -74,18 +57,58 @@ struct CapturePreview: View {
         .accessibilityLabel("Screenshot preview")
         .accessibilityHint("Hover for close, desktop, open, copy, and Rebuild actions")
     }
+}
 
-    private func cornerButton(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
+private struct HoverCircleButton: View {
+    let icon: String
+    let help: String
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
         Button(action: action) {
-            Image(systemName: icon)
-                .font(.system(size: 17, weight: .regular))
-                .foregroundColor(.black)
-                .frame(width: 42, height: 42)
-                .background(.white, in: Circle())
+            Group {
+                if icon == "savers" {
+                    SaversMark().frame(width: 22, height: 22)
+                } else {
+                    Image(systemName: icon)
+                        .font(.system(size: 17, weight: .regular))
+                }
+            }
+            .foregroundColor(.black)
+            .frame(width: 42, height: 42)
+            .background(hovered ? (icon == "savers" ? .white : saversGreen) : (icon == "savers" ? saversGreen : .white), in: Circle())
+            .scaleEffect(hovered ? 1.08 : 1)
+            .shadow(color: .black.opacity(hovered ? 0.18 : 0), radius: 5, y: 2)
         }
         .buttonStyle(.plain)
         .help(help)
         .accessibilityLabel(help)
+        .onHover { hovered = $0 }
+        .animation(.easeOut(duration: 0.14), value: hovered)
+    }
+}
+
+private struct HoverCopyButton: View {
+    let action: () -> Void
+    @State private var hovered = false
+
+    var body: some View {
+        Button(action: action) {
+            Text("Copy")
+                .font(.system(size: 15, weight: .medium))
+                .foregroundColor(.black)
+                .padding(.horizontal, 20)
+                .frame(height: 42)
+                .background(hovered ? saversGreen : .white, in: Capsule())
+                .scaleEffect(hovered ? 1.06 : 1)
+                .shadow(color: .black.opacity(hovered ? 0.18 : 0), radius: 5, y: 2)
+        }
+        .buttonStyle(.plain)
+        .help("Copy screenshot to clipboard")
+        .accessibilityLabel("Copy screenshot to clipboard")
+        .onHover { hovered = $0 }
+        .animation(.easeOut(duration: 0.14), value: hovered)
     }
 }
 
@@ -120,14 +143,7 @@ struct LargerPreview: View {
                 .frame(width: size.width, height: size.height)
                 .clipped()
             if hovered {
-                Button(action: close) {
-                    Image(systemName: "xmark")
-                        .font(.system(size: 16, weight: .medium))
-                        .foregroundColor(.black)
-                        .frame(width: 40, height: 40)
-                        .background(.white, in: Circle())
-                }
-                .buttonStyle(.plain)
+                HoverCircleButton(icon: "xmark", help: "Close larger preview", action: close)
                 .padding(12)
             }
         }

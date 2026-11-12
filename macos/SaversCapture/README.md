@@ -15,6 +15,9 @@ actions:
 - **Copy** in the center copies the image to the clipboard.
 - **Green Savers mark** sends the screenshot to the Rebuild library and closes that preview.
 
+Each preview control responds to hover. The larger image has a hover X in its
+top left; closing that window leaves Savers Capture running in the menu bar.
+
 The Rebuild preview stores cards in that browser. The Mac app opens it once with
 a private pairing token, then hands screenshots over through a loopback-only
 connection. Captures are queued in Application Support until the browser saves
