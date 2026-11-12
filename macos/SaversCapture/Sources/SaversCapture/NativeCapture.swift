@@ -73,10 +73,10 @@ private final class SelectionView: NSView {
 
     override func draw(_ dirtyRect: NSRect) {
         NSColor.black.withAlphaComponent(0.14).setFill()
-        NSRectFill(bounds)
+        NSBezierPath(rect: bounds).fill()
         guard let selection else { return }
         NSColor.white.withAlphaComponent(0.12).setFill()
-        NSRectFill(selection)
+        NSBezierPath(rect: selection).fill()
         NSColor.white.setStroke()
         let outline = NSBezierPath(rect: selection)
         outline.lineWidth = 2
