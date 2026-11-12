@@ -28,7 +28,7 @@ function isOriginAllowed(origin: string | null): string | null {
 }
 
 export function proxy(req: NextRequest) {
-  if (process.env.SAVERS_REBUILD_STAGING === "1" && req.nextUrl.pathname === "/") {
+  if ((process.env.SAVERS_REBUILD_STAGING === "1" || process.env.SAVERS_REBUILD_LIVE === "1") && req.nextUrl.pathname === "/") {
     const rebuildUrl = req.nextUrl.clone();
     rebuildUrl.pathname = "/rebuild";
     return NextResponse.rewrite(rebuildUrl);

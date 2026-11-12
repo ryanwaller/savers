@@ -1,6 +1,6 @@
 # Savers Capture for macOS
 
-Savers Capture is a compact menu bar screenshot companion for Savers. Its current default address points to the isolated browser preview while the account-backed staging app is being built.
+Savers Capture is a compact menu bar screenshot companion for Savers. Its default address points to the isolated account-backed staging app while the new interface is being tested.
 Press macOS's **Copy picture of selected area to the clipboard** shortcut
 (default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
 notices the clipboard image and opens a small preview at the bottom left.
@@ -22,12 +22,12 @@ Dismissed previews shrink, lower, and fade before the remaining previews slide i
 Each preview control responds to hover. The larger image has a hover X in its
 top left; closing that window leaves Savers Capture running in the menu bar.
 
-The current browser preview stores cards in that browser. The Mac app opens it once with
-a private pairing token, then hands screenshots over through a loopback-only
-connection. Captures are queued in Application Support until the browser saves
-them, and are then removed from the queue. Nothing is sent to the old Savers
-service or saved to the Desktop when you choose the Savers button. If the browser tab is
-closed, choose **Open Savers** from the menu bar later to finish the handoff.
+The Mac app opens Savers once with a private pairing token, then hands screenshots
+over through a loopback-only connection. Captures are queued in Application Support
+until the signed-in browser saves them to the separate Savers staging account and
+acknowledges them. Nothing is sent to the old Savers service or saved to the Desktop
+when you choose the Savers button. If the browser tab is closed, choose **Open Savers**
+from the menu bar later to finish the handoff.
 
 Change the screenshot shortcut in **System Settings → Keyboard → Keyboard
 Shortcuts → Screenshots → Copy picture of selected area to the clipboard**.
@@ -58,12 +58,10 @@ open 'dist/Savers Capture.app'
 ```
 
 The default Savers address currently is
-`https://savers-rebuild-preview-production.up.railway.app`. You can change it
+`https://savers-rebuild-web-production.up.railway.app`. You can change it
 in the menu bar's **Settings…** window. **Open Savers** pairs that browser with
 the Mac app using a token stored in the app's preferences and browser storage.
 The pairing token remains in the URL fragment only until the page loads.
-The app opens `/rebuild` on the current preview address, where the capture
-listener runs. A separately configured account-backed Savers address opens at
-its root path when its capture handoff is ready. Until then,
-the default preview remains browser-local; changing the address alone does not
-enable server-side storage.
+The app opens Savers at its root address. Sign in there before sending screenshots;
+the page keeps the pairing token through sign-in and uploads queued captures after
+the account is ready.

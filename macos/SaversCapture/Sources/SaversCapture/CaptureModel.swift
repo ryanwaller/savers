@@ -25,9 +25,10 @@ final class CapturedScreenshot: ObservableObject, Identifiable {
 }
 
 final class CaptureModel: ObservableObject {
-    static let defaultBaseURL = "https://savers-rebuild-preview-production.up.railway.app"
+    static let defaultBaseURL = "https://savers-rebuild-web-production.up.railway.app"
     static let defaultFilenameTemplate = "Savers Screenshot {date} at {time}"
     private static let oldBaseURL = "https://savers-production.up.railway.app"
+    private static let oldPreviewURL = "https://savers-rebuild-preview-production.up.railway.app"
 
     private(set) var importError = ""
     private(set) var bridgeError = ""
@@ -39,7 +40,7 @@ final class CaptureModel: ObservableObject {
     }
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
-        return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
+        return saved == nil || saved == oldBaseURL || saved == oldPreviewURL ? defaultBaseURL : saved!
     }()
 
     var onCapture: ((CapturedScreenshot) -> Void)?
@@ -163,10 +164,7 @@ final class CaptureModel: ObservableObject {
     }
 
     func openSavers() {
-        // The current preview listens on /rebuild. A separately configured
-        // account-backed Savers site will receive the handoff at its root.
-        let path = baseURL == Self.defaultBaseURL ? "/rebuild" : "/"
-        guard let bridge, let url = URL(string: "\(baseURL)\(path)#savers-capture=\(bridge.token)") else {
+        guard let bridge, let url = URL(string: "\(baseURL)/#savers-capture=\(bridge.token)") else {
             return
         }
         NSWorkspace.shared.open(url)

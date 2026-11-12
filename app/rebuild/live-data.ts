@@ -1,4 +1,4 @@
-import type { Bookmark, Collection } from "@/lib/types";
+import type { Bookmark, Collection, ImageCollection } from "@/lib/types";
 import { storedPreviewUrl } from "@/lib/api";
 import type { PreviewCard } from "./fixtures";
 
@@ -18,6 +18,49 @@ export function liveCollection(collection: Collection, count = 0): LiveCollectio
     count,
     parentId: collection.parent_id || undefined,
     group: "links",
+    isPrivate: true,
+  };
+}
+
+export type LiveSavedImage = {
+  id: string;
+  title: string | null;
+  description: string | null;
+  notes: string | null;
+  source_url: string | null;
+  tags: string[] | null;
+  collection_id: string | null;
+  preview_path: string | null;
+  processing_status: string | null;
+  created_at: string;
+};
+
+export function liveImageCollection(collection: ImageCollection, count = 0) {
+  return {
+    id: collection.id,
+    name: collection.name,
+    count,
+    parentId: collection.parent_id || undefined,
+    group: "images" as const,
+    isPrivate: collection.is_public !== true,
+  };
+}
+
+export function liveImage(image: LiveSavedImage): PreviewCard {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, "");
+  const path = image.preview_path?.split("/").map(encodeURIComponent).join("/");
+  return {
+    id: image.id,
+    kind: "image",
+    title: image.title || "Untitled image",
+    description: image.description || undefined,
+    note: image.notes || undefined,
+    source: "Saved image",
+    url: image.source_url || undefined,
+    image: supabaseUrl && path ? `${supabaseUrl}/storage/v1/object/public/image-previews/${path}` : undefined,
+    collection: image.collection_id || undefined,
+    tags: image.tags || [],
+    date: new Date(image.created_at).toLocaleDateString(),
     isPrivate: true,
   };
 }
