@@ -397,6 +397,11 @@ export default function RebuildPreview({
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
   const [collectionPickerCardId, setCollectionPickerCardId] = useState<string | null>(null);
   const [libraryCollectionPickerOpen, setLibraryCollectionPickerOpen] = useState(false);
+  const [pickerNewFolderOpen, setPickerNewFolderOpen] = useState(false);
+  const [pickerNewFolderName, setPickerNewFolderName] = useState("");
+  const [bulkNewFolderOpen, setBulkNewFolderOpen] = useState(false);
+  const [bulkNewFolderName, setBulkNewFolderName] = useState("");
+  const [deleteCollectionId, setDeleteCollectionId] = useState<string | null>(null);
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
@@ -899,6 +904,9 @@ export default function RebuildPreview({
   }
 
   const activeCard = cards.find((card) => card.id === activeCardId) || publicRelatedCards.find((card) => card.id === activeCardId) || null;
+  const pickerCard = collectionPickerCardId ? cards.find((card) => card.id === collectionPickerCardId) || publicRelatedCards.find((card) => card.id === collectionPickerCardId) : null;
+  const pickerCollectionId = pickerCard?.collection || (libraryCollectionPickerOpen && selectedLibraryIds.length && selectedLibraryIds.every((id) => cards.find((card) => card.id === id)?.collection === cards.find((card) => card.id === selectedLibraryIds[0])?.collection) ? cards.find((card) => card.id === selectedLibraryIds[0])?.collection : undefined);
+  const pickerCollections = allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).sort((a, b) => Number(b.id === pickerCollectionId) - Number(a.id === pickerCollectionId));
   const activeCardIsOwn = activeCard ? !activeCard.owner : false;
   const activeCardCollection = activeCard?.collection ? allCollections.find((item) => item.id === activeCard.collection) : null;
   const activeCardDuplicates = activeCard?.url ? cards.filter((card) => card.id !== activeCard.id && card.url?.replace(/\/$/, "") === activeCard.url?.replace(/\/$/, "")) : [];
@@ -1439,25 +1447,76 @@ export default function RebuildPreview({
   }
 
   function chooseCollection(collectionId?: string) {
+    setPickerNewFolderOpen(false);
+    setPickerNewFolderName("");
     if (collectionPickerCardId) {
       const card = [...cards, ...publicRelatedCards].find((item) => item.id === collectionPickerCardId);
+      const nextCollectionId = card?.collection === collectionId ? undefined : collectionId;
       if (card?.owner) {
-        setCards((items) => [{ ...card, id: `preview-${crypto.randomUUID()}`, originId: card.id, owner: undefined, savedFrom: card.owner, collection: collectionId, isPrivate: true, date: "Just now" }, ...items]);
+        setCards((items) => [{ ...card, id: `preview-${crypto.randomUUID()}`, originId: card.id, owner: undefined, savedFrom: card.owner, collection: nextCollectionId, isPrivate: true, date: "Just now" }, ...items]);
       } else {
-        setCards((items) => items.map((item) => item.id === collectionPickerCardId ? { ...item, collection: collectionId } : item));
+        setCards((items) => items.map((item) => item.id === collectionPickerCardId ? { ...item, collection: nextCollectionId } : item));
       }
       setCollectionPickerCardId(null);
+      setToast(nextCollectionId ? "Added to collection in this browser preview" : "Moved to Unsorted");
     } else if (libraryCollectionPickerOpen) {
-      setCards((items) => items.map((item) => selectedLibraryIds.includes(item.id) ? { ...item, collection: collectionId } : item));
+      const nextCollectionId = pickerCollectionId === collectionId ? undefined : collectionId;
+      setCards((items) => items.map((item) => selectedLibraryIds.includes(item.id) ? { ...item, collection: nextCollectionId } : item));
       setLibraryCollectionPickerOpen(false);
       setLibrarySelecting(false);
       setSelectedLibraryIds([]);
+      setToast(nextCollectionId ? "Added to collection in this browser preview" : "Moved to Unsorted");
     } else {
       saveRelatedSelection(collectionId, true);
       return;
     }
     setRelatedCollectionQuery("");
-    setToast(collectionId ? "Added to collection in this browser preview" : "Moved to Unsorted");
+  }
+
+  function closeCollectionPicker() {
+    setRelatedCollectionPickerOpen(false);
+    setCollectionPickerCardId(null);
+    setLibraryCollectionPickerOpen(false);
+    setPickerNewFolderOpen(false);
+    setPickerNewFolderName("");
+    setRelatedCollectionQuery("");
+  }
+
+  function createPickerFolder() {
+    const name = pickerNewFolderName.trim();
+    if (!name) return;
+    const id = `local-${crypto.randomUUID()}`;
+    setAllCollections((items) => [...items, { id, name, count: 0, group: pickerCard?.kind === "image" ? "images" : "links", isPrivate: true }]);
+    setPickerNewFolderName("");
+    setPickerNewFolderOpen(false);
+    chooseCollection(id);
+  }
+
+  function createBulkFolder() {
+    const name = bulkNewFolderName.trim();
+    if (!name || !bulkImportFiles?.length) return;
+    const parent = allCollections.find((item) => item.id === bulkImportCollection);
+    const imageCount = bulkImportFiles.filter(({ file }) => file.type.startsWith("image/") || imageFilePattern.test(file.name)).length;
+    const group = parent?.group || (imageCount > bulkImportFiles.length / 2 ? "images" : "links");
+    const id = `local-${crypto.randomUUID()}`;
+    setAllCollections((items) => [...items, { id, name, count: 0, parentId: parent?.id, group, isPrivate: bulkImportPrivate }]);
+    setBulkImportCollection(id);
+    setBulkNewFolderName("");
+    setBulkNewFolderOpen(false);
+  }
+
+  function deleteCollection() {
+    if (!deleteCollectionId) return;
+    const collection = allCollections.find((item) => item.id === deleteCollectionId);
+    if (!collection || collection.owner) { setDeleteCollectionId(null); return; }
+    setCards((items) => items.map((item) => item.collection === collection.id ? { ...item, collection: undefined } : item));
+    setAllCollections((items) => items.filter((item) => item.id !== collection.id).map((item) => item.parentId === collection.id ? { ...item, parentId: collection.parentId } : item));
+    setSmartRules((rules) => { const next = { ...rules }; delete next[collection.id]; return next; });
+    if (selectedCollection === collection.id) setSelectedCollection(null);
+    if (bulkImportCollection === collection.id) setBulkImportCollection("");
+    if (formCollection === collection.id) setFormCollection("");
+    setDeleteCollectionId(null);
+    setToast(`Deleted ${collection.name}. Its items are in Unsorted.`);
   }
 
   function applyBulkTags() {
@@ -1574,6 +1633,7 @@ export default function RebuildPreview({
           </div>
           </button>
           {item.group === "smart" && <button className="rb-collection-preview-rules" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
+          {!item.owner && <button className="rb-collection-preview-delete" onClick={() => setDeleteCollectionId(item.id)} aria-label={`Delete ${item.name} collection`} title="Delete collection"><Trash2 size={18} /></button>}
       </div>
     );
   }
@@ -2041,6 +2101,7 @@ export default function RebuildPreview({
           <p>Images, readable documents, and other files will be added to your browser preview. Folder names become collections.</p>
           <div className="rb-bulk-import-list">{bulkImportFiles.slice(0, 4).map((item, index) => <span key={`${item.path}-${index}`}>{item.path}</span>)}{bulkImportFiles.length > 4 && <span>+ {bulkImportFiles.length - 4} more</span>}</div>
           <label>Into collection<select value={bulkImportCollection} onChange={(event) => setBulkImportCollection(event.target.value)}><option value="">Top level</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          {bulkNewFolderOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createBulkFolder(); }}><input value={bulkNewFolderName} onChange={(event) => setBulkNewFolderName(event.target.value)} placeholder="Folder name" aria-label="New folder name" autoFocus /><button type="submit" disabled={!bulkNewFolderName.trim()}>Create</button><button type="button" onClick={() => { setBulkNewFolderOpen(false); setBulkNewFolderName(""); }} aria-label="Cancel new folder"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setBulkNewFolderOpen(true)} disabled={bulkImportBusy}><FolderPlus size={18} /> New folder</button>}
           <button className="rb-bulk-import-privacy" role="switch" aria-checked={bulkImportPrivate} onClick={() => setBulkImportPrivate((value) => !value)} disabled={bulkImportBusy}>{bulkImportPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{bulkImportPrivate ? "Private" : "Public"}</button>
           {bulkImportBusy && <p role="status">Adding {bulkImportProgress} of {bulkImportFiles.length}…</p>}
           {bulkImportError && <p className="rb-form-error" role="alert">{bulkImportError}</p>}
@@ -2232,15 +2293,19 @@ export default function RebuildPreview({
         {selectedRelatedCards.some((item) => item.owner) && <button onClick={() => saveRelatedSelection()}><Plus size={19} /> Save</button>}
         <button onClick={() => { setRelatedCollectionQuery(""); setRelatedCollectionPickerOpen(true); }}><Folder size={19} /> Add to collection</button>
       </div>}
-      {(relatedCollectionPickerOpen || collectionPickerCardId || libraryCollectionPickerOpen) && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRelatedCollectionPickerOpen(false); setCollectionPickerCardId(null); setLibraryCollectionPickerOpen(false); } }}>
+      {(relatedCollectionPickerOpen || collectionPickerCardId || libraryCollectionPickerOpen) && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCollectionPicker(); }}>
             <div className="rb-related-picker">
-              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={() => { setRelatedCollectionPickerOpen(false); setCollectionPickerCardId(null); setLibraryCollectionPickerOpen(false); }} aria-label="Close collection picker"><X size={23} /></button></div>
+              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={closeCollectionPicker} aria-label="Close collection picker"><X size={23} /></button></div>
+              {pickerNewFolderOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createPickerFolder(); }}><input value={pickerNewFolderName} onChange={(event) => setPickerNewFolderName(event.target.value)} placeholder="Folder name" aria-label="New folder name" autoFocus /><button type="submit" disabled={!pickerNewFolderName.trim()}>Create</button><button type="button" onClick={() => { setPickerNewFolderOpen(false); setPickerNewFolderName(""); }} aria-label="Cancel new folder"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setPickerNewFolderOpen(true)}><FolderPlus size={20} /> New folder</button>}
               <div className="rb-related-picker-list" data-scroll-fade="y">
-                <button onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>
-                {allCollections.filter((item) => item.group !== "smart" && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).map((item) => <button key={item.id} onClick={() => chooseCollection(item.id)}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span><Plus className="rb-picker-plus" size={21} /></button>)}
+                {!pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
+                {pickerCollections.map((item) => <div className="rb-picker-row" key={item.id}><button className={`rb-picker-target ${pickerCollectionId === item.id ? "selected" : ""}`} onClick={() => chooseCollection(item.id)} aria-pressed={pickerCollectionId === item.id}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span>{pickerCollectionId === item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>{!item.owner && <button className="rb-picker-delete" onClick={() => setDeleteCollectionId(item.id)} aria-label={`Delete ${item.name} collection`} title="Delete collection"><Trash2 size={18} /></button>}</div>)}
+                {pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
               </div>
             </div>
       </div>}
+
+      {deleteCollectionId && <div className="rb-delete-collection-backdrop" role="dialog" aria-modal="true" aria-label="Delete collection" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCollectionId(null); }}><div className="rb-delete-collection-panel"><h2>Delete {allCollections.find((item) => item.id === deleteCollectionId)?.name}?</h2><p>Items in this collection will move to Unsorted. Subfolders will move up one level.</p><div><button onClick={() => setDeleteCollectionId(null)}>Cancel</button><button onClick={deleteCollection}><Trash2 size={18} /> Delete collection</button></div></div></div>}
 
       {smartEditorId && (
         <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit rules for ${smartEditorCollection?.name || "smart collection"}`}>
