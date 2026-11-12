@@ -2666,7 +2666,9 @@ body:has(.rebuild-app) {
 .rb-related-picker-head input { flex: 1; min-width: 0; height: 58px; }
 .rb-related-picker-head > button { display: grid; place-items: center; flex: 0 0 58px; width: 58px; height: 58px; border-radius: 50%; background: #eee; }
 .rb-related-picker-head > button:hover { background: #e1e1e1; }
-.rb-related-picker-list { padding: 0 2px; }
+.rb-related-picker { --rb-picker-surface: #fff; gap: 0; overflow: hidden; padding-bottom: 0; background: var(--rb-picker-surface); }
+.rb-related-picker-head { margin-bottom: 14px; }
+.rb-related-picker-list { padding: 0 2px 32px; }
 .rb-related-picker-list button { min-height: 58px; padding: 9px 14px; border-radius: 16px; }
 .rb-related-picker-list button > span { display: flex; align-items: center; gap: 8px; }
 .rb-related-picker-list button > span svg { color: #999; }
@@ -2685,6 +2687,13 @@ body:has(.rebuild-app) {
 .rb-new-folder-form button:disabled { opacity: .5; }
 .rb-theme-dark .rb-new-folder-trigger, .rb-theme-dark .rb-new-folder-form input, .rb-theme-dark .rb-new-folder-form button:last-child { background: #393939; color: #eee; }
 .rb-theme-dark .rb-related-picker-list .rb-picker-target.selected { background: #b9ff69; color: #202820; }
+.rb-related-picker-footer { position: relative; z-index: 1; display: flex; justify-content: center; flex: 0 0 auto; margin: -26px -24px 0; padding: 50px 24px 24px; background: linear-gradient(to bottom, transparent, var(--rb-picker-surface) 38px); }
+.rb-related-picker-footer .rb-new-folder-trigger { justify-content: center; min-height: var(--rb-control-size); padding: 0 24px; border-radius: 999px; background: #b9ff69; color: #202820; font-size: var(--rb-type-body); }
+.rb-related-picker-footer .rb-new-folder-trigger:hover { background: #a7f550; }
+.rb-related-picker-footer .rb-new-folder-form { width: 100%; }
+.rb-related-picker-footer .rb-new-folder-form input, .rb-related-picker-footer .rb-new-folder-form button { min-height: var(--rb-control-size); }
+.rb-theme-dark .rb-related-picker { --rb-picker-surface: #252525; }
+.rb-theme-dark .rb-related-picker-footer .rb-new-folder-trigger { background: #b9ff69; color: #202820; }
 .rb-delete-collection-backdrop { position: fixed; z-index: 80; inset: 0; display: grid; place-items: center; padding: 24px; background: #0009; backdrop-filter: blur(8px); }
 .rb-delete-collection-panel { width: min(440px, 100%); padding: 28px; border-radius: 24px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); box-shadow: 0 20px 60px #0003; }
 .rb-delete-collection-panel h2 { margin: 0 0 12px; font-size: 24px; font-weight: 500; }
@@ -2693,7 +2702,7 @@ body:has(.rebuild-app) {
 .rb-delete-collection-panel button { display: inline-flex; align-items: center; gap: 8px; min-height: 46px; padding: 0 16px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
 .rb-delete-collection-panel button:last-child { background: #ffe1dd; color: #922e25; }
 .rb-bulk-import-panel > .rb-new-folder-trigger, .rb-bulk-import-panel > .rb-new-folder-form { margin-top: 10px; }
-@media (max-width: 620px) { .rb-related-picker { padding: 18px; } .rb-new-folder-form button { padding-inline: 10px; } }
+@media (max-width: 620px) { .rb-related-picker { padding: 18px 18px 0; } .rb-related-picker-footer { margin-inline: -18px; padding: 48px 18px 18px; } .rb-new-folder-form button { padding-inline: 10px; } }
 .rb-theme-dark .rb-related-picker-head > button { background: #393939; color: #eee; }
 @media (hover: none) { .rb-picker-plus { opacity: 1; transform: none; } }
 
@@ -2997,6 +3006,11 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rebuild-app .rb-filter-entry-social.expanded .rb-filter-suboptions button { min-height: calc(var(--rb-control-size) - 10px); padding-inline: 15px; color: var(--rb-control-muted); }
 .rebuild-app .rb-filter-entry-social.expanded .rb-filter-suboptions button.active { background: var(--rb-control-hover); color: var(--rb-control-ink); }
 .rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions button.active { background: #494949; color: #eee; }
+.rebuild-app.rb-theme-dark .rb-filter-entry-social.expanded { gap: 8px; background: transparent; }
+.rebuild-app.rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions { border-radius: 999px; background: #303030; }
+.rebuild-app.rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions button { color: #ddd; }
+.rebuild-app.rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions button:hover,
+.rebuild-app.rb-theme-dark .rb-filter-entry-social.expanded .rb-filter-suboptions button.active { background: #494949; color: #fff; }
 /* Related cards keep their large two-column layout, with a compact sort and filter menu. */
 .rb-related-heading { position: relative; gap: 8px; }
 .rebuild-app .rb-related-heading .rb-related-sort-trigger { display: grid; place-items: center; flex: 0 0 40px; width: 40px; height: 40px; border-radius: 50%; background: var(--rb-control-bg); color: var(--rb-control-muted); }
