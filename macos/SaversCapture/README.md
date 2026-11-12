@@ -3,14 +3,15 @@
 Savers Capture is a compact menu bar screenshot companion for the **Rebuild preview**.
 Press macOS's **Copy picture of selected area to the clipboard** shortcut
 (default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
-notices the clipboard image and opens a small preview at the bottom left, sized
-to the image. Hover over it to blur and darken the image and show four corner
+notices the clipboard image and opens a small preview at the bottom left. New
+previews stack above earlier ones at a consistent width; closing a lower preview
+slides the previews above it down. Hover over an image to blur and darken it and show four corner
 actions:
 
 - **X** closes the preview.
-- **Download** saves a PNG on the Desktop.
+- **Download** saves a PNG on the Desktop and closes that preview.
 - **Plus** opens a larger, resizable view.
-- **Green Savers mark** sends the screenshot to the Rebuild library.
+- **Green Savers mark** sends the screenshot to the Rebuild library and closes that preview.
 
 The Rebuild preview stores cards in that browser. The Mac app opens it once with
 a private pairing token, then hands screenshots over through a loopback-only

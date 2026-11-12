@@ -2,31 +2,47 @@ import AppKit
 import Foundation
 import SwiftUI
 
+final class CapturedScreenshot: ObservableObject, Identifiable {
+    let id = UUID()
+    let image: NSImage
+    let pngData: Data
+    @Published var status = ""
+
+    init(image: NSImage, pngData: Data) {
+        self.image = image
+        self.pngData = pngData
+    }
+
+    var previewSize: NSSize {
+        guard image.size.width > 0, image.size.height > 0 else {
+            return NSSize(width: 280, height: 170)
+        }
+        let height = 280 * image.size.height / image.size.width
+        return NSSize(width: 280, height: max(112, min(300, height)))
+    }
+}
+
 final class CaptureModel: ObservableObject {
     static let defaultBaseURL = "https://savers-rebuild-preview-production.up.railway.app"
     private static let oldBaseURL = "https://savers-production.up.railway.app"
 
-    @Published private(set) var image: NSImage?
-    @Published private(set) var status = ""
+    private(set) var importError = ""
+    private(set) var bridgeError = ""
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
         return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
     }()
 
-    private var pngData: Data?
-    var onCapture: (() -> Void)?
+    var onCapture: ((CapturedScreenshot) -> Void)?
     var onOpenLarge: ((NSImage) -> Void)?
     var onNeedsRebuild: (() -> Void)?
     private var didOpenRebuild = false
     lazy var bridge: RebuildBridge? = {
         do {
             let server = try RebuildBridge(baseURL: baseURL)
-            server.onAcknowledged = { [weak self] in
-                DispatchQueue.main.async { self?.status = "Saved to Rebuild" }
-            }
             return server
         } catch {
-            status = "Could not start the local Rebuild connection."
+            bridgeError = "Could not start the local Rebuild connection."
             return nil
         }
     }()
@@ -38,38 +54,25 @@ final class CaptureModel: ObservableObject {
         NSWorkspace.shared.open(url)
     }
 
-    var previewSize: NSSize {
-        guard let image, image.size.width > 0, image.size.height > 0 else {
-            return NSSize(width: 280, height: 170)
-        }
-        let aspect = image.size.width / image.size.height
-        if aspect >= 1 {
-            return NSSize(width: 280, height: max(112, min(220, 280 / aspect)))
-        }
-        return NSSize(width: max(112, min(280, 220 * aspect)), height: 220)
-    }
-
     @discardableResult
     func importClipboardImage() -> Bool {
         guard let captured = NSImage(pasteboard: .general),
               let tiff = captured.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff),
               let data = bitmap.representation(using: .png, properties: [:]) else {
-            status = "Copy a screenshot to the clipboard first."
+            importError = "Copy a screenshot to the clipboard first."
             return false
         }
-        image = captured
-        pngData = data
-        status = ""
-        onCapture?()
+        importError = ""
+        onCapture?(CapturedScreenshot(image: captured, pngData: data))
         return true
     }
 
-    func saveToDesktop() {
-        guard let data = pngData,
-              let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else {
-            status = "No screenshot is ready."
-            return
+    @discardableResult
+    func saveToDesktop(_ capture: CapturedScreenshot) -> Bool {
+        guard let desktop = FileManager.default.urls(for: .desktopDirectory, in: .userDomainMask).first else {
+            capture.status = "Could not find Desktop."
+            return false
         }
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
@@ -81,16 +84,16 @@ final class CaptureModel: ObservableObject {
             suffix += 1
         }
         do {
-            try data.write(to: destination, options: .atomic)
-            status = "Saved to Desktop"
+            try capture.pngData.write(to: destination, options: .atomic)
+            return true
         } catch {
-            status = "Could not save to Desktop."
+            capture.status = "Could not save to Desktop."
+            return false
         }
     }
 
-    func openLarger() {
-        guard let image else { return }
-        onOpenLarge?(image)
+    func openLarger(_ capture: CapturedScreenshot) {
+        onOpenLarge?(capture.image)
     }
 
     func configure(baseURL rawURL: String) -> String {
@@ -108,22 +111,25 @@ final class CaptureModel: ObservableObject {
 
     func openRebuild() {
         guard let bridge, let url = URL(string: "\(baseURL)/rebuild#savers-capture=\(bridge.token)") else {
-            status = "Could not open Rebuild."
             return
         }
         NSWorkspace.shared.open(url)
         didOpenRebuild = true
     }
 
-    func sendToRebuild() {
-        guard let data = pngData else { return }
-        guard let bridge else { return }
+    @discardableResult
+    func sendToRebuild(_ capture: CapturedScreenshot) -> Bool {
+        guard let bridge else {
+            capture.status = bridgeError.isEmpty ? "Could not connect to Rebuild." : bridgeError
+            return false
+        }
         do {
-            try bridge.enqueue(data)
-            status = "Waiting for Rebuild…"
+            try bridge.enqueue(capture.pngData)
             if !didOpenRebuild { onNeedsRebuild?() }
+            return true
         } catch {
-            status = "Could not queue screenshot for Rebuild."
+            capture.status = "Could not queue screenshot for Rebuild."
+            return false
         }
     }
 }

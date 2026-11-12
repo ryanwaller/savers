@@ -1,10 +1,16 @@
 import AppKit
+import QuartzCore
 import SwiftUI
+
+private struct PreviewEntry {
+    let capture: CapturedScreenshot
+    let panel: NSPanel
+}
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private let model = CaptureModel()
     private var statusItem: NSStatusItem?
-    private var previewPanel: NSPanel?
+    private var previews: [PreviewEntry] = []
     private var largerWindow: NSWindow?
     private var settingsWindow: NSWindow?
     private var clipboardTimer: Timer?
@@ -12,7 +18,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
-        item.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Savers Capture")
+        item.button?.image = makeSaversMenuIcon()
         let menu = NSMenu()
         let hint = menu.addItem(withTitle: "Screenshot to Clipboard", action: nil, keyEquivalent: "")
         hint.isEnabled = false
@@ -27,7 +33,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         item.menu = menu
         statusItem = item
 
-        model.onCapture = { [weak self] in self?.showPreview() }
+        model.onCapture = { [weak self] capture in self?.showPreview(capture) }
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
         model.onNeedsRebuild = { [weak self] in self?.model.openRebuild() }
         model.startBridge()
@@ -59,36 +65,95 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
 
     @objc private func openShortcutSettings() { model.openShortcutSettings() }
 
-    private func showPreview() {
-        if previewPanel == nil {
-            let panel = NSPanel(
-                contentRect: NSRect(origin: .zero, size: model.previewSize),
-                styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
-                backing: .buffered,
-                defer: false
-            )
-            panel.titleVisibility = .hidden
-            panel.titlebarAppearsTransparent = true
-            panel.standardWindowButton(.closeButton)?.isHidden = true
-            panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-            panel.standardWindowButton(.zoomButton)?.isHidden = true
-            panel.isOpaque = false
-            panel.backgroundColor = .clear
-            panel.hasShadow = true
-            panel.level = .floating
-            panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
-            panel.contentView = NSHostingView(rootView: CapturePreview(
-                model: model,
-                close: { [weak self] in self?.previewPanel?.orderOut(nil) }
-            ))
-            previewPanel = panel
-        }
-        guard let panel = previewPanel else { return }
-        panel.setContentSize(model.previewSize)
+    private func showPreview(_ capture: CapturedScreenshot) {
+        let panel = NSPanel(
+            contentRect: NSRect(origin: .zero, size: capture.previewSize),
+            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
+            backing: .buffered,
+            defer: false
+        )
+        panel.titleVisibility = .hidden
+        panel.titlebarAppearsTransparent = true
+        panel.standardWindowButton(.closeButton)?.isHidden = true
+        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
+        panel.standardWindowButton(.zoomButton)?.isHidden = true
+        panel.isOpaque = false
+        panel.backgroundColor = .clear
+        panel.hasShadow = true
+        panel.level = .floating
+        panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+        panel.contentView = NSHostingView(rootView: CapturePreview(
+            capture: capture,
+            close: { [weak self] in self?.removePreview(capture.id) },
+            saveToDesktop: { [weak self] in
+                guard let self, self.model.saveToDesktop(capture) else { return }
+                self.removePreview(capture.id)
+            },
+            openLarger: { [weak self] in self?.model.openLarger(capture) },
+            sendToRebuild: { [weak self] in
+                guard let self, self.model.sendToRebuild(capture) else { return }
+                self.removePreview(capture.id)
+            }
+        ))
+        previews.append(PreviewEntry(capture: capture, panel: panel))
+        layoutPreviews(animated: false)
+        panel.orderFrontRegardless()
+    }
+
+    private func removePreview(_ id: UUID) {
+        guard let index = previews.firstIndex(where: { $0.capture.id == id }) else { return }
+        let entry = previews.remove(at: index)
+        entry.panel.orderOut(nil)
+        entry.panel.close()
+        layoutPreviews(animated: true)
+    }
+
+    private func layoutPreviews(animated: Bool) {
         let screen = NSScreen.main ?? NSScreen.screens.first
         let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        panel.setFrameOrigin(NSPoint(x: frame.minX + 16, y: frame.minY + 16))
-        panel.orderFrontRegardless()
+        var nextY = frame.minY + 16
+        let updateFrames = {
+            for entry in self.previews {
+                var target = entry.panel.frame
+                target.origin = NSPoint(x: frame.minX + 16, y: nextY)
+                if animated {
+                    entry.panel.animator().setFrame(target, display: true)
+                } else {
+                    entry.panel.setFrame(target, display: true)
+                }
+                nextY += target.height + 12
+            }
+        }
+        if animated {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0.22
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                updateFrames()
+            }
+        } else {
+            updateFrames()
+        }
+    }
+
+    private func makeSaversMenuIcon() -> NSImage {
+        let icon = NSImage(size: NSSize(width: 18, height: 18), flipped: false) { _ in
+            let rays = NSBezierPath()
+            for index in 0..<8 {
+                let angle = CGFloat(index) * .pi / 4
+                let dx = cos(angle)
+                let dy = sin(angle)
+                rays.move(to: NSPoint(x: 9 + dx * 2, y: 9 + dy * 2))
+                rays.line(to: NSPoint(x: 9 + dx * 8, y: 9 + dy * 8))
+            }
+            rays.lineWidth = 1.8
+            rays.lineCapStyle = .round
+            NSColor.black.setStroke()
+            rays.stroke()
+            return true
+        }
+        icon.isTemplate = true
+        icon.accessibilityDescription = "Savers Capture"
+        return icon
     }
 
     @objc private func openRebuild() { model.openRebuild() }

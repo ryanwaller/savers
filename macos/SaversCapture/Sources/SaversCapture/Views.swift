@@ -4,36 +4,33 @@ import SwiftUI
 private let saversGreen = Color(red: 185 / 255, green: 1, blue: 105 / 255)
 
 struct CapturePreview: View {
-    @ObservedObject var model: CaptureModel
+    @ObservedObject var capture: CapturedScreenshot
     let close: () -> Void
+    let saveToDesktop: () -> Void
+    let openLarger: () -> Void
+    let sendToRebuild: () -> Void
     @State private var hovered = false
 
     var body: some View {
-        let size = model.previewSize
+        let size = capture.previewSize
         return ZStack {
-            if let image = model.image {
-                Image(nsImage: image)
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: size.width, height: size.height)
-                    .clipped()
-                    .blur(radius: hovered ? 18 : 0)
-            } else {
-                Color(white: 0.94)
-            }
+            Image(nsImage: capture.image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .clipped()
+                .blur(radius: hovered ? 18 : 0)
             if hovered {
                 Color.black.opacity(0.42)
                 VStack {
                     HStack {
                         cornerButton("xmark", help: "Close preview", action: close)
                         Spacer()
-                        cornerButton("arrow.down.to.line", help: "Save PNG to Desktop") {
-                            model.saveToDesktop()
-                        }
+                        cornerButton("arrow.down.to.line", help: "Save PNG to Desktop", action: saveToDesktop)
                     }
                     Spacer()
-                    if !model.status.isEmpty {
-                        Text(model.status)
+                    if !capture.status.isEmpty {
+                        Text(capture.status)
                             .font(.system(size: 11, weight: .medium))
                             .foregroundColor(.white)
                             .multilineTextAlignment(.center)
@@ -41,11 +38,9 @@ struct CapturePreview: View {
                     }
                     Spacer()
                     HStack {
-                        cornerButton("plus", help: "Open larger preview") {
-                            model.openLarger()
-                        }
+                        cornerButton("plus", help: "Open larger preview", action: openLarger)
                         Spacer()
-                        Button { model.sendToRebuild() } label: {
+                        Button(action: sendToRebuild) {
                             SaversMark()
                                 .frame(width: 22, height: 22)
                                 .frame(width: 42, height: 42)
@@ -54,7 +49,6 @@ struct CapturePreview: View {
                         .buttonStyle(.plain)
                         .help("Send to Rebuild")
                         .accessibilityLabel("Send to Rebuild")
-                        .disabled(model.status == "Waiting for Rebuild…")
                     }
                 }
                 .padding(9)
