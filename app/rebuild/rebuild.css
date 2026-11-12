@@ -3177,3 +3177,60 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 @media (max-width: 700px) and (hover: none) {
   .rebuild-app .rb-list-grid .rb-card-actions button:hover { background: transparent; color: var(--rb-control-muted); }
 }
+
+/* Collection covers open as landscape cards while preserving the whole stack. */
+.rb-collection-preview-main { padding-right: 270px; }
+.rb-collection-preview-art { right: 20px; width: 228px; height: 150px; }
+.rb-collection-preview-art:has(img:not([data-failed])) > svg { display: none; }
+.rb-collection-preview-art > img { width: 158px; height: 108px; object-position: top; border-width: 4px; border-radius: 14px; transition: transform 260ms cubic-bezier(.2,.7,.2,1), box-shadow 260ms ease; }
+.rb-collection-preview-art > img:nth-of-type(1) { z-index: 3; transform: translate(-10px, -8px) rotate(-5deg); }
+.rb-collection-preview-art > img:nth-of-type(2) { z-index: 2; transform: translate(0, 0) rotate(2deg); }
+.rb-collection-preview-art > img:nth-of-type(3) { z-index: 1; transform: translate(10px, 8px) rotate(6deg); }
+.rb-collection-preview-main:is(:hover, :focus-visible) .rb-collection-preview-art > img:nth-of-type(1) { transform: translate(-53px, -7px) rotate(-7deg); }
+.rb-collection-preview-main:is(:hover, :focus-visible) .rb-collection-preview-art > img:nth-of-type(2) { transform: translate(0, 0) rotate(0); }
+.rb-collection-preview-main:is(:hover, :focus-visible) .rb-collection-preview-art > img:nth-of-type(3) { transform: translate(53px, 7px) rotate(7deg); }
+
+/* Private and public use distinct status colors in both card forms. */
+.rebuild-app :is(.rb-edit-privacy, .rb-composer-footer .rb-composer-privacy-toggle)[aria-checked="true"],
+.rebuild-app :is(.rb-edit-privacy, .rb-composer-footer .rb-composer-privacy-toggle)[aria-checked="true"]:hover { background: #ff8178; color: #321715; }
+.rebuild-app :is(.rb-edit-privacy, .rb-composer-footer .rb-composer-privacy-toggle)[aria-checked="false"],
+.rebuild-app :is(.rb-edit-privacy, .rb-composer-footer .rb-composer-privacy-toggle)[aria-checked="false"]:hover { background: #b9ff69; color: #202820; }
+.rebuild-app .rb-bulk-import-privacy[aria-checked="true"] { background: #ff8178; color: #321715; }
+.rebuild-app .rb-bulk-import-privacy[aria-checked="false"] { background: #b9ff69; color: #202820; }
+.rb-edit-footer { border-top: 0; }
+.rebuild-app :is(.rb-composer input, .rb-composer textarea, .rb-composer select, .rb-edit-panel input, .rb-edit-panel textarea, .rb-edit-panel select) { border: 0; box-shadow: none; }
+.rebuild-app :is(.rb-composer input, .rb-composer textarea, .rb-composer select, .rb-edit-panel input, .rb-edit-panel textarea, .rb-edit-panel select):focus-visible { outline: 0; background: color-mix(in srgb, var(--rb-modal-field) 83%, var(--rb-modal-ink)); }
+.rb-related-feed-backdrop .rb-related-feed { flex-basis: 1400px; }
+
+/* The account menu shares one inset, including its theme switch and hover rows. */
+.rebuild-app .rb-account-menu { padding: 8px; }
+.rebuild-app .rb-theme-picker { margin: 7px 0; }
+.rebuild-app .rb-account-menu > :is(button, a) { color: var(--rb-modal-ink); }
+.rebuild-app .rb-account-menu > :is(button, a):hover { background: #e8ffd4; color: #202820; }
+.rebuild-app.rb-theme-dark .rb-account-menu > :is(button, a):hover { background: #383838; color: #fff; }
+.rebuild-app .rb-discover-tabs button.active { background: var(--rb-control-active); color: #202820; }
+
+/* Capture instructions now live in a contained overlay. */
+.rb-capture-panel { display: flex; flex-direction: column; width: min(840px, 100%); max-height: min(760px, 90dvh); padding: 26px; border-radius: 26px; background: var(--rb-modal-surface); color: var(--rb-modal-ink); box-shadow: 0 18px 55px #0003; }
+.rb-capture-content { min-height: 0; overflow-y: auto; padding-right: 8px; }
+.rb-capture-content > p { max-width: 590px; margin: 0; color: var(--rb-modal-muted); }
+.rb-capture-download { display: inline-flex; align-items: center; gap: 14px; min-height: var(--rb-control-size); margin-top: 24px; padding: 0 18px; border-radius: 999px; background: #b9ff69; color: #202820; text-decoration: none; }
+.rb-capture-version { display: block; margin-top: 9px; color: var(--rb-modal-muted); font-size: 13px; }
+.rb-capture-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 34px; margin-top: 32px; }
+.rb-capture-columns h3 { margin: 0 0 10px; font-size: 16px; font-weight: 400; }
+.rb-capture-columns section p { margin: 0; padding: 11px 0; border-top: 1px solid var(--rb-modal-border); color: var(--rb-modal-muted); }
+.rb-capture-columns section strong { display: block; color: var(--rb-modal-ink); font-weight: 400; }
+
+/* Match the add control to the active Library tile's height. */
+.rebuild-app .rb-create-button { width: var(--rb-control-dock-size); height: var(--rb-control-dock-size); }
+.rb-create-anchor { bottom: calc(27px + var(--rb-control-gap)); }
+@media (max-width: 700px) {
+  .rb-collection-preview-main { padding-right: 230px; }
+  .rb-collection-preview-art { right: 8px; width: 205px; }
+  .rb-collection-preview-art > img { width: 140px; height: 96px; }
+  .rb-capture-columns { grid-template-columns: 1fr; gap: 24px; }
+}
+@media (max-width: 620px) {
+  .rb-collection-preview-main { padding-right: 20px; }
+  .rb-create-anchor { bottom: calc(94px + env(safe-area-inset-bottom)); }
+}

@@ -440,6 +440,7 @@ export default function RebuildPreview({
   const [profileId, setProfileId] = useState<string | null>(null);
   const [profileScope, setProfileScope] = useState<"cards" | "collections">("cards");
   const [followingOverlayOpen, setFollowingOverlayOpen] = useState(false);
+  const [captureOverlayOpen, setCaptureOverlayOpen] = useState(false);
   const [followedAccountIds, setFollowedAccountIds] = useState<string[]>([]);
   const [inboxTab, setInboxTab] = useState<"activity" | "following" | "subscriptions" | "review">("activity");
   const [subscriptions, setSubscriptions] = useState<string[]>([]);
@@ -788,6 +789,7 @@ export default function RebuildPreview({
         setRelatedSortOpen(false);
         setRelatedCollectionPickerOpen(false);
         setFollowingOverlayOpen(false);
+        setCaptureOverlayOpen(false);
         setCollectionPickerCardId(null);
         setLibraryCollectionPickerOpen(false);
         setEditingCardId(null);
@@ -1509,7 +1511,7 @@ export default function RebuildPreview({
           </div>
           <div className="rb-collection-preview-art" aria-hidden="true">
             <Folder size={52} />
-            {previewImages.map((image, index) => <img key={image + index} src={image} alt="" loading="lazy" style={{ transform: `translate(${index * -10}px, ${index * -7}px) rotate(${index * -3}deg)` }} onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />)}
+            {previewImages.map((image, index) => <img key={image + index} src={image} alt="" loading="lazy" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />)}
           </div>
           </button>
           {item.group === "smart" && <button className="rb-collection-preview-rules" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
@@ -1583,7 +1585,7 @@ export default function RebuildPreview({
                   </button>
                 </div>
                 <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
-                <a href="/rebuild-capture.html">Browser capture <ArrowUpRight size={14} /></a>
+                <button onClick={() => { setAccountOpen(false); setCaptureOverlayOpen(true); }}>Browser capture <ArrowUpRight size={14} /></button>
                 <button
                   onClick={() => {
                     setCards(seedCards);
@@ -1814,9 +1816,8 @@ export default function RebuildPreview({
               </div>
             ) : (
               <div className="rb-discover-top">
-                <div className="rb-discover-tabs" role="group" aria-label="Discover view">
-                  <button className={discoverTab === "discover" ? "active" : ""} onClick={() => setDiscoverTab("discover")}>Discover</button>
-                  <button className={discoverTab === "following" ? "active" : ""} onClick={() => setDiscoverTab("following")}>Following</button>
+                <div className="rb-discover-tabs">
+                  <button className={discoverTab === "following" ? "active" : ""} aria-pressed={discoverTab === "following"} onClick={() => setDiscoverTab((tab) => tab === "following" ? "discover" : "following")}>Following</button>
                 </div>
                 <button className="rb-feed-select" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
               </div>
@@ -1853,6 +1854,21 @@ export default function RebuildPreview({
         <button onClick={() => setBulkTagOpen(true)}><Tag size={19} /> Add tag</button>
         <button onClick={() => setBulkRemoveOpen(true)}><X size={19} /> Remove</button>
         <button onClick={() => { setLibrarySelecting(false); setSelectedLibraryIds([]); }}>Done</button>
+      </div>}
+
+      {captureOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label="Browser capture" onMouseDown={(event) => { if (event.target === event.currentTarget) setCaptureOverlayOpen(false); }}>
+        <div className="rb-capture-panel">
+          <div className="rb-following-head"><h2>Browser capture</h2><button onClick={() => setCaptureOverlayOpen(false)} aria-label="Close browser capture"><X size={23} /></button></div>
+          <div className="rb-capture-content" data-scroll-fade="y">
+            <p>Save pages, images, links, text, and screenshots as you browse. Captures go to this browser’s Savers preview.</p>
+            <a className="rb-capture-download" href="/downloads/savers-rebuild-capture-0.2.1.zip" download>Download extension <ArrowUpRight size={18} /></a>
+            <span className="rb-capture-version">Version 0.2.1 · Chrome</span>
+            <div className="rb-capture-columns">
+              <section><h3>Capture</h3><p><strong>Page</strong>Click the Savers toolbar icon.</p><p><strong>Image or link</strong>Right-click it, then choose Save to Savers.</p><p><strong>Selected text</strong>Use the Save text chip or right-click menu.</p><p><strong>CleanShot screenshot</strong>Copy it and press ⌘V in Savers, or drag it onto the page.</p></section>
+              <section><h3>Set up</h3><p><strong>1 · Extract the ZIP</strong>Keep the extension folder together.</p><p><strong>2 · Open chrome://extensions</strong>Switch on Developer mode.</p><p><strong>3 · Load unpacked</strong>Select the savers-rebuild-capture folder.</p><p><strong>4 · Open Savers</strong>Leave the preview open in a Chrome tab.</p></section>
+            </div>
+          </div>
+        </div>
       </div>}
 
       {followingOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label={`${profileName} following`} onMouseDown={(event) => { if (event.target === event.currentTarget) setFollowingOverlayOpen(false); }}>
