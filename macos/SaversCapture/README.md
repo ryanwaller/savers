@@ -9,6 +9,9 @@ compact preview appears at the bottom left with three actions:
 - **Send to Savers** uploads the PNG bytes directly. It does not save a local file
   or attach a URL.
 
+Screenshots over the current 20 MB upload limit are converted to a high-quality
+JPEG for sending; **Desktop** still saves the original PNG.
+
 The capture command uses the macOS `screencapture` tool with its clipboard option.
 The first capture may prompt for Screen Recording permission. This app is intended
 for macOS 13 or newer.
