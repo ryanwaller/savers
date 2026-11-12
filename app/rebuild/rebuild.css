@@ -2302,7 +2302,7 @@ body:has(.rebuild-app) {
   font-size: var(--rb-type-body);
 }
 .rb-collection-rule-action { width: calc(100% - 32px); margin: 0 16px 16px; }
-.rb-rule-overlay { position: fixed; z-index: 55; inset: 0; display: grid; place-items: center; padding: 20px; background: #0009; }
+.rb-rule-overlay { position: fixed; z-index: 55; inset: 0; display: grid; place-items: center; padding: 20px; background: #0009; backdrop-filter: blur(8px); }
 .rb-rule-panel { width: min(680px, 100%); max-height: 90vh; overflow-y: auto; padding: 30px; border-radius: 24px; background: #fff; color: #222; }
 .rb-rule-head, .rb-rule-footer { display: flex; align-items: center; justify-content: space-between; gap: 20px; }
 .rb-rule-head span { color: #777; font-size: var(--rb-type-body); }
@@ -3180,7 +3180,7 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 
 /* Collection covers open as landscape cards while preserving the whole stack. */
 .rb-collection-preview-main { padding-right: 270px; }
-.rb-collection-preview-art { right: 20px; width: 228px; height: 150px; }
+.rb-collection-preview-art { right: 58px; width: 228px; height: 150px; }
 .rb-collection-preview-art:has(img:not([data-failed])) > svg { display: none; }
 .rb-collection-preview-art > img { width: 158px; height: 108px; object-position: top; border-width: 4px; border-radius: 14px; transition: transform 260ms cubic-bezier(.2,.7,.2,1), box-shadow 260ms ease; }
 .rb-collection-preview-art > img:nth-of-type(1) { z-index: 3; transform: translate(-10px, -8px) rotate(-5deg); }
@@ -3226,7 +3226,7 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-create-anchor { bottom: calc(27px + var(--rb-control-gap)); }
 @media (max-width: 700px) {
   .rb-collection-preview-main { padding-right: 230px; }
-  .rb-collection-preview-art { right: 8px; width: 205px; }
+  .rb-collection-preview-art { right: 38px; width: 205px; }
   .rb-collection-preview-art > img { width: 140px; height: 96px; }
   .rb-capture-columns { grid-template-columns: 1fr; gap: 24px; }
 }
@@ -3255,4 +3255,26 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-inbox-subscription-entry form { flex: 1 1 auto; min-width: 0; }
   .rebuild-app .rb-inbox-subscription-entry form button span { display: none; }
   .rebuild-app .rb-inbox-tabs .rb-inbox-subscription-entry form > button { width: 42px; justify-content: center; padding: 0; }
+}
+
+/* Keep every modal backdrop at the same dim and blur strength. */
+.rebuild-app :is(.rb-rule-overlay, .rb-related-picker-backdrop, .rb-composer-overlay, .rb-following-backdrop, .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop) {
+  background: #0009;
+}
+
+/* Selected tag is a filter control; directory tags keep their own tile shape. */
+.rebuild-app .rb-active-tag { min-height: var(--rb-control-size); padding: 0 9px 0 18px; gap: 10px; }
+.rebuild-app .rb-active-tag button { width: 34px; height: 34px; }
+@media (max-width: 620px) {
+  .rebuild-app .rb-active-tag { min-height: 42px; padding-left: 14px; }
+  .rebuild-app .rb-active-tag button { width: 30px; height: 30px; }
+}
+
+/* Header edges follow the same centered content frame as the Library controls. */
+.rb-topbar { max-width: 1640px; margin-inline: auto; padding-inline: clamp(24px, 4vw, 72px); }
+@media (min-width: 701px) {
+  .rb-root-controls { margin-top: 8px; }
+}
+@media (max-width: 700px) {
+  .rb-topbar { padding-inline: 16px; }
 }
