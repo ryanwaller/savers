@@ -59,6 +59,6 @@ jobs:
           cp Savers-Capture-macOS.zip public/downloads/savers-capture-macos-0.9.5.zip
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add public/downloads/savers-capture-macos-0.9.4.zip
+          git add public/downloads/savers-capture-macos-0.9.5.zip
           git commit -m 'Publish Savers Capture staging download'
           git push origin HEAD:rebuild-live
