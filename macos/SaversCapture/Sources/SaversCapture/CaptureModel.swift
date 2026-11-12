@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import Foundation
 import SwiftUI
 
@@ -8,6 +9,7 @@ final class CaptureModel: ObservableObject {
 
     @Published private(set) var image: NSImage?
     @Published private(set) var status = ""
+    @Published private(set) var shortcut = CaptureShortcut.load()
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
         return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
@@ -17,6 +19,7 @@ final class CaptureModel: ObservableObject {
     var onCapture: (() -> Void)?
     var onOpenLarge: ((NSImage) -> Void)?
     var onNeedsRebuild: (() -> Void)?
+    var onShortcutChange: ((CaptureShortcut) -> Bool)?
     private var didOpenRebuild = false
     lazy var bridge: RebuildBridge? = {
         do {
@@ -32,6 +35,38 @@ final class CaptureModel: ObservableObject {
     }()
 
     func startBridge() { _ = bridge }
+
+    func changeShortcut(_ proposed: CaptureShortcut) -> String {
+        guard onShortcutChange?(proposed) == true else {
+            return "That shortcut is already in use. Try another."
+        }
+        shortcut = proposed
+        proposed.save()
+        return "Shortcut saved"
+    }
+
+    func setCapturedImage(_ captured: CGImage) {
+        let bitmap = NSBitmapImageRep(cgImage: captured)
+        guard let data = bitmap.representation(using: .png, properties: [:]) else {
+            status = "Could not prepare the screenshot."
+            return
+        }
+        image = NSImage(cgImage: captured, size: NSSize(width: CGFloat(captured.width), height: CGFloat(captured.height)))
+        pngData = data
+        status = ""
+        onCapture?()
+    }
+
+    var previewSize: NSSize {
+        guard let image, image.size.width > 0, image.size.height > 0 else {
+            return NSSize(width: 280, height: 170)
+        }
+        let aspect = image.size.width / image.size.height
+        if aspect >= 1 {
+            return NSSize(width: 280, height: max(112, min(220, 280 / aspect)))
+        }
+        return NSSize(width: max(112, min(280, 220 * aspect)), height: 220)
+    }
 
     @discardableResult
     func importClipboardImage() -> Bool {

@@ -1,4 +1,5 @@
 import AppKit
+import CoreGraphics
 import SwiftUI
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
@@ -7,6 +8,9 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private var previewPanel: NSPanel?
     private var largerWindow: NSWindow?
     private var settingsWindow: NSWindow?
+    private var areaPicker: ScreenAreaPicker?
+    private let hotKey = CaptureHotKey()
+    private var captureAreaItem: NSMenuItem?
     private var clipboardTimer: Timer?
     private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
 
@@ -14,10 +18,11 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Savers Capture")
         let menu = NSMenu()
-        let areaShortcut = menu.addItem(withTitle: "Area screenshot  ⌃⇧⌘4", action: nil, keyEquivalent: "")
-        areaShortcut.isEnabled = false
-        let screenShortcut = menu.addItem(withTitle: "Screen screenshot  ⌃⇧⌘3", action: nil, keyEquivalent: "")
-        screenShortcut.isEnabled = false
+        captureAreaItem = menu.addItem(withTitle: "Capture Area  \(model.shortcut.label)", action: #selector(captureArea), keyEquivalent: "")
+        menu.addItem(withTitle: "Capture Screen", action: #selector(captureScreen), keyEquivalent: "")
+        menu.addItem(.separator())
+        let fallback = menu.addItem(withTitle: "Clipboard fallback: ⌃⇧⌘4", action: nil, keyEquivalent: "")
+        fallback.isEnabled = false
         menu.addItem(withTitle: "Use Clipboard Image", action: #selector(importClipboardImage), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Rebuild", action: #selector(openRebuild), keyEquivalent: "")
@@ -31,6 +36,13 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         model.onCapture = { [weak self] in self?.showPreview() }
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
         model.onNeedsRebuild = { [weak self] in self?.model.openRebuild() }
+        model.onShortcutChange = { [weak self] proposed in
+            guard let self, self.hotKey.register(proposed) else { return false }
+            self.captureAreaItem?.title = "Capture Area  \(proposed.label)"
+            return true
+        }
+        hotKey.onPressed = { [weak self] in self?.captureArea() }
+        _ = hotKey.register(model.shortcut)
         model.startBridge()
         clipboardTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -58,10 +70,33 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    @objc private func captureArea() {
+        guard let snapshot = ScreenSnapshot.take() else { showCapturePermissionHelp(); return }
+        previewPanel?.orderOut(nil)
+        areaPicker = ScreenAreaPicker(snapshot: snapshot)
+        areaPicker?.onFinished = { [weak self] image in
+            self?.areaPicker = nil
+            if let image { self?.model.setCapturedImage(image) }
+        }
+    }
+
+    @objc private func captureScreen() {
+        guard let snapshot = ScreenSnapshot.take() else { showCapturePermissionHelp(); return }
+        model.setCapturedImage(snapshot.image)
+    }
+
+    private func showCapturePermissionHelp() {
+        _ = CGRequestScreenCaptureAccess()
+        let alert = NSAlert()
+        alert.messageText = "Screen capture needs access"
+        alert.informativeText = "Allow Savers Capture in System Settings → Privacy & Security → Screen & System Audio Recording. You can use Control–Shift–Command–4 to copy a screenshot while access is unavailable."
+        alert.runModal()
+    }
+
     private func showPreview() {
         if previewPanel == nil {
             let panel = NSPanel(
-                contentRect: NSRect(x: 0, y: 0, width: 278, height: 190),
+                contentRect: NSRect(origin: .zero, size: model.previewSize),
                 styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
                 backing: .buffered,
                 defer: false
@@ -78,12 +113,12 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
             panel.contentView = NSHostingView(rootView: CapturePreview(
                 model: model,
-                close: { [weak self] in self?.previewPanel?.orderOut(nil) },
-                openSettings: { [weak self] in self?.showSettings() }
+                close: { [weak self] in self?.previewPanel?.orderOut(nil) }
             ))
             previewPanel = panel
         }
         guard let panel = previewPanel else { return }
+        panel.setContentSize(model.previewSize)
         let screen = NSScreen.main ?? NSScreen.screens.first
         let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         panel.setFrameOrigin(NSPoint(x: frame.minX + 16, y: frame.minY + 16))
@@ -110,7 +145,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 220),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 295),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false

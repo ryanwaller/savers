@@ -6,65 +6,97 @@ private let saversGreen = Color(red: 185 / 255, green: 1, blue: 105 / 255)
 struct CapturePreview: View {
     @ObservedObject var model: CaptureModel
     let close: () -> Void
-    let openSettings: () -> Void
     @State private var hovered = false
 
     var body: some View {
-        ZStack {
-            Color(white: 0.14)
+        let size = model.previewSize
+        return ZStack {
             if let image = model.image {
                 Image(nsImage: image)
                     .resizable()
-                    .scaledToFit()
-                    .frame(width: 278, height: 190)
+                    .scaledToFill()
+                    .frame(width: size.width, height: size.height)
+                    .clipped()
+                    .blur(radius: hovered ? 18 : 0)
+            } else {
+                Color(white: 0.94)
             }
             if hovered {
-                Color.black.opacity(0.52)
-                VStack(alignment: .leading, spacing: 0) {
+                Color.black.opacity(0.42)
+                VStack {
                     HStack {
-                        Button(action: close) { Image(systemName: "xmark") }
-                            .help("Close preview")
+                        cornerButton("xmark", help: "Close preview", action: close)
                         Spacer()
-                        if !model.status.isEmpty {
-                            Text(model.status)
-                                .font(.system(size: 10, weight: .medium))
-                                .lineLimit(2)
-                                .multilineTextAlignment(.trailing)
+                        cornerButton("arrow.down.to.line", help: "Save PNG to Desktop") {
+                            model.saveToDesktop()
                         }
                     }
                     Spacer()
-                    HStack(spacing: 6) {
-                        Button("Desktop") { model.saveToDesktop() }
-                            .help("Save PNG to Desktop")
-                        Button("Open") { model.openLarger() }
-                            .help("Open a larger preview")
-                        Button("Rebuild") { model.sendToRebuild() }
-                            .help("Send to the Rebuild library")
-                            .disabled(model.status == "Waiting for Rebuild…")
+                    if !model.status.isEmpty {
+                        Text(model.status)
+                            .font(.system(size: 11, weight: .medium))
+                            .foregroundColor(.white)
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
+                    }
+                    Spacer()
+                    HStack {
+                        cornerButton("plus", help: "Open larger preview") {
+                            model.openLarger()
+                        }
+                        Spacer()
+                        Button { model.sendToRebuild() } label: {
+                            SaversMark()
+                                .frame(width: 22, height: 22)
+                                .frame(width: 42, height: 42)
+                                .background(saversGreen, in: Circle())
+                        }
+                        .buttonStyle(.plain)
+                        .help("Send to Rebuild")
+                        .accessibilityLabel("Send to Rebuild")
+                        .disabled(model.status == "Waiting for Rebuild…")
                     }
                 }
-                .padding(10)
-                .buttonStyle(HoverButtonStyle())
-                .foregroundColor(.white)
+                .padding(9)
+                .transition(.opacity)
             }
         }
-        .frame(width: 278, height: 190)
+        .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 16))
         .onHover { hovered = $0 }
+        .animation(.easeInOut(duration: 0.2), value: hovered)
         .accessibilityLabel("Screenshot preview")
-        .accessibilityHint("Hover for Desktop, Open, and Rebuild actions")
+        .accessibilityHint("Hover for close, desktop, open, and Rebuild actions")
+    }
+
+    private func cornerButton(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Image(systemName: icon)
+                .font(.system(size: 17, weight: .regular))
+                .foregroundColor(.black)
+                .frame(width: 42, height: 42)
+                .background(.white, in: Circle())
+        }
+        .buttonStyle(.plain)
+        .help(help)
+        .accessibilityLabel(help)
     }
 }
 
-private struct HoverButtonStyle: ButtonStyle {
-    func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(.system(size: 11, weight: .medium))
-            .foregroundColor(.black.opacity(0.85))
-            .padding(.horizontal, 11)
-            .frame(height: 29)
-            .background(Color.white.opacity(configuration.isPressed ? 0.7 : 0.94))
-            .clipShape(Capsule())
+private struct SaversMark: View {
+    var body: some View {
+        Canvas { context, size in
+            var rays = Path()
+            let center = CGPoint(x: size.width / 2, y: size.height / 2)
+            for index in 0..<8 {
+                let angle = Double(index) * .pi / 4
+                let dx = CGFloat(cos(angle))
+                let dy = CGFloat(sin(angle))
+                rays.move(to: CGPoint(x: center.x + dx * 2.5, y: center.y + dy * 2.5))
+                rays.addLine(to: CGPoint(x: center.x + dx * 10, y: center.y + dy * 10))
+            }
+            context.stroke(rays, with: .color(.black), lineWidth: 1.8)
+        }
     }
 }
 
@@ -95,8 +127,22 @@ struct CaptureSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Savers Capture")
                 .font(.system(size: 23, weight: .medium))
-            Text("Screenshots go to your Rebuild preview in this browser. Open Rebuild once to connect it to this Mac.")
+            Text("Take a screenshot, then save it to the Rebuild preview in your browser.")
                 .font(.system(size: 13))
+                .foregroundColor(.secondary)
+            HStack(spacing: 14) {
+                Text("Area shortcut")
+                    .frame(width: 110, alignment: .leading)
+                ShortcutRecorder(shortcut: model.shortcut) { proposed in
+                    feedback = model.changeShortcut(proposed)
+                }
+                .frame(width: 175, height: 32)
+                Text("Click to change")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+            }
+            Text("Clipboard fallback: Control–Shift–Command–4")
+                .font(.system(size: 12))
                 .foregroundColor(.secondary)
             TextField("Rebuild address", text: $address)
                 .textFieldStyle(.roundedBorder)
