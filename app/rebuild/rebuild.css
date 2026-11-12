@@ -3278,3 +3278,15 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 @media (max-width: 700px) {
   .rb-topbar { padding-inline: 16px; }
 }
+
+/* On phones and small tablets, Add occupies the last slot of the bottom dock. */
+@media (max-width: 700px) {
+  .rebuild-app { --rb-inline-create-size: 58px; }
+  .rebuild-app .rb-dock { padding-right: calc(var(--rb-inline-create-size) + 14px); }
+  .rb-create-anchor { right: 21px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 9px); }
+  .rebuild-app .rb-create-button { width: var(--rb-inline-create-size); height: var(--rb-inline-create-size); border-radius: 17px; box-shadow: none; }
+  .rb-create-menu { bottom: calc(var(--rb-inline-create-size) + 12px); }
+}
+@media (max-width: 620px) {
+  .rebuild-app .rb-create-button { border-radius: 16px; }
+}
