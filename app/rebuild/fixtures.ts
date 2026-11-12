@@ -20,6 +20,7 @@ export type PreviewCard = {
   tone?: "cream" | "sage" | "lavender" | "stone";
   featured?: boolean;
   linkStatus?: "broken" | "working";
+  screenshotStatus?: string | null;
 };
 
 export const collections = [

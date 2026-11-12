@@ -3414,3 +3414,14 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-related-feed-top .rb-related-feed-tabs { grid-column: 1; grid-row: 2; width: min(302px, 100%); }
   .rb-detail-backdrop .rb-detail-bar { padding-inline: 18px; }
 }
+
+.rb-staging-sign-in { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: #f8f8f8; color: #252525; }
+.rb-staging-sign-in-card { width: min(440px, 100%); padding: 40px; border-radius: 28px; background: #fff; box-shadow: 0 20px 70px #0001; }
+.rb-staging-sign-in-card .rb-mark-glyph { color: #7bb63a; font-size: 38px; }
+.rb-staging-sign-in-card h1 { margin: 20px 0 8px; font-size: 32px; font-weight: 500; }
+.rb-staging-sign-in-card p { color: #666; line-height: 1.5; }
+.rb-staging-sign-in-card form { display: grid; gap: 10px; margin-top: 28px; }
+.rb-staging-sign-in-card label { font-size: 14px; }
+.rb-staging-sign-in-card input { min-height: 52px; padding: 0 16px; border: 1px solid #ccc; border-radius: 14px; font: inherit; }
+.rb-staging-sign-in-card button { min-height: 52px; margin-top: 8px; border: 0; border-radius: 999px; background: #b9ff69; color: #202820; font: inherit; cursor: pointer; }
+.rb-staging-sign-in-card button:disabled { opacity: .55; cursor: wait; }

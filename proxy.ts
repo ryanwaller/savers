@@ -28,6 +28,11 @@ function isOriginAllowed(origin: string | null): string | null {
 }
 
 export function proxy(req: NextRequest) {
+  if (process.env.SAVERS_REBUILD_STAGING === "1" && req.nextUrl.pathname === "/") {
+    const rebuildUrl = req.nextUrl.clone();
+    rebuildUrl.pathname = "/rebuild";
+    return NextResponse.rewrite(rebuildUrl);
+  }
   if (process.env.SAVERS_REBUILD_PREVIEW === "1") {
     if (req.nextUrl.pathname === "/") {
       const previewUrl = req.nextUrl.clone();

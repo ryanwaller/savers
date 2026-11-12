@@ -39,6 +39,9 @@ import {
   X,
 } from "lucide-react";
 import { type CardKind, type PreviewCard } from "./fixtures";
+import type { Bookmark as SavedBookmark, Collection } from "@/lib/types";
+import { liveCard, liveCollection } from "./live-data";
+import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type Destination = "library" | "collections" | "discover" | "inbox";
 type Filter = CardKind | "all" | "favorites" | "social" | "substack" | "youtube" | "x";
@@ -334,7 +337,7 @@ function CardTile({
         <h3>{card.title}</h3>
         {card.description && <p className={card.description.length > 125 ? "rb-card-description-long" : ""}>{card.description}</p>}
         <div className="rb-card-footer">
-          <span>{card.source || "Your note"}</span>
+          <span>{card.screenshotStatus === "pending" || card.screenshotStatus === "processing" ? "Creating preview…" : card.source || "Your note"}</span>
           {card.url && <ArrowUpRight size={16} aria-hidden="true" />}
         </div>
         {externalOwner && <div className="rb-card-owner">{externalOwner.avatar ? <img src={externalOwner.avatar} alt="" /> : <span>{externalOwner.name.slice(0, 1)}</span>}<span>{externalOwner.name}</span></div>}
@@ -375,16 +378,27 @@ function OverlayCloseButton({ label, onClick, disabled = false }: { label: strin
   return <button className="rb-overlay-close" type="button" onClick={onClick} disabled={disabled} aria-label={label}><X aria-hidden="true" /></button>;
 }
 
+async function liveRequest<T>(path: string, method: "POST" | "PATCH" | "DELETE", body: Record<string, unknown>): Promise<T> {
+  const response = await fetch(path, { method, credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const result = await response.json().catch(() => ({})) as T & { error?: string };
+  if (!response.ok) throw new Error(result.error || `Save failed (${response.status})`);
+  return result;
+}
+
 export default function RebuildPreview({
   seedCollections,
   seedCards,
   publicRelatedCards = [],
   initialCardId,
+  liveMode = false,
+  seedPinnedIds = [],
 }: {
   seedCollections: PreviewCollection[];
   seedCards: PreviewCard[];
   publicRelatedCards?: PreviewCard[];
   initialCardId?: string;
+  liveMode?: boolean;
+  seedPinnedIds?: string[];
 }) {
   const [destination, setDestination] = useState<Destination>("library");
   const [cards, setCards] = useState<PreviewCard[]>(seedCards);
@@ -422,7 +436,7 @@ export default function RebuildPreview({
   const [editCollection, setEditCollection] = useState("");
   const [editTags, setEditTags] = useState("");
   const [editPrivate, setEditPrivate] = useState(true);
-  const [pinnedIds, setPinnedIds] = useState<string[]>([]);
+  const [pinnedIds, setPinnedIds] = useState<string[]>(seedPinnedIds);
   const [createOpen, setCreateOpen] = useState(false);
   const [composer, setComposer] = useState<Composer>(null);
   const [accountOpen, setAccountOpen] = useState(false);
@@ -489,6 +503,7 @@ export default function RebuildPreview({
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart" | "tags">("links");
   const [ready, setReady] = useState(false);
+  const [liveSaving, setLiveSaving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
   const captureCardsRef = useRef(cards);
@@ -502,7 +517,7 @@ export default function RebuildPreview({
   useEffect(() => { captureCardsRef.current = cards; }, [cards]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || liveMode) return;
     const hash = new URLSearchParams(window.location.hash.slice(1));
     const pairedToken = hash.get("savers-capture");
     if (pairedToken && /^[A-Fa-f0-9-]{72}$/.test(pairedToken)) {
@@ -555,9 +570,10 @@ export default function RebuildPreview({
     void poll();
     const interval = window.setInterval(() => { void poll(); }, 1800);
     return () => { stopped = true; window.clearInterval(interval); };
-  }, [ready]);
+  }, [ready, liveMode]);
 
   useEffect(() => {
+    if (liveMode) return;
     const channel = typeof BroadcastChannel === "undefined" ? null : new BroadcastChannel(previewCardsChannel);
     let cancelled = false;
     const refreshCards = () => {
@@ -575,10 +591,10 @@ export default function RebuildPreview({
       channel?.close();
       window.removeEventListener("focus", refreshCards);
     };
-  }, []);
+  }, [liveMode]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || liveMode) return;
     const reply = (requestId: string, result: Record<string, unknown>) => window.postMessage({ type: "SAVERS_PREVIEW_CAPTURE_RESULT", requestId, theme, ...result }, window.location.origin);
     const handleCapture = (event: MessageEvent) => {
       if (event.source !== window || event.origin !== window.location.origin || event.data?.type !== "SAVERS_PREVIEW_CAPTURE") return;
@@ -660,7 +676,7 @@ export default function RebuildPreview({
     };
     window.addEventListener("message", handleCapture);
     return () => window.removeEventListener("message", handleCapture);
-  }, [ready, theme]);
+  }, [ready, theme, liveMode]);
 
   useEffect(() => {
     if (!accountOpen && !createOpen && !detailMenuOpen) return;
@@ -697,6 +713,7 @@ export default function RebuildPreview({
   }, [relatedSortOpen]);
 
   useEffect(() => {
+    if (liveMode) { setReady(true); return; }
     let cancelled = false;
     const timeout = window.setTimeout(() => { void (async () => {
       try {
@@ -738,10 +755,10 @@ export default function RebuildPreview({
       if (!cancelled) setReady(true);
     })(); }, 0);
     return () => { cancelled = true; window.clearTimeout(timeout); };
-  }, []);
+  }, [liveMode]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || liveMode) return;
     try {
       localStorage.setItem(
         storageKey,
@@ -759,15 +776,40 @@ export default function RebuildPreview({
     } catch {
       /* A full browser storage quota only affects persistence of the preview. */
     }
-  }, [cards, allCollections, favorites, pinnedIds, cardSize, followedAccountIds, subscriptions, theme, smartRules, ready]);
+  }, [cards, allCollections, favorites, pinnedIds, cardSize, followedAccountIds, subscriptions, theme, smartRules, ready, liveMode]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!ready || liveMode) return;
     const timeout = window.setTimeout(() => {
       void writePreviewCards(cards).catch(() => setToast("Browser storage could not keep these items."));
     }, 250);
     return () => window.clearTimeout(timeout);
-  }, [cards, ready]);
+  }, [cards, ready, liveMode]);
+
+  const liveHasPendingScreenshots = liveMode && cards.some((card) => card.screenshotStatus === "pending" || card.screenshotStatus === "processing");
+  useEffect(() => {
+    if (!liveMode) return;
+    let stopped = false;
+    const refresh = async () => {
+      try {
+        const all: SavedBookmark[] = [];
+        let offset = 0;
+        for (;;) {
+          const response = await fetch(`/api/bookmarks?limit=500&offset=${offset}`, { cache: "no-store", credentials: "same-origin" });
+          if (!response.ok) return;
+          const page = await response.json() as { bookmarks: SavedBookmark[]; has_more: boolean; next_offset: number };
+          all.push(...page.bookmarks);
+          if (!page.has_more || page.next_offset <= offset) break;
+          offset = page.next_offset;
+        }
+        if (!stopped) setCards(all.map(liveCard));
+        if (!stopped) setPinnedIds(all.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id));
+      } catch { /* Keep showing the last successfully loaded library. */ }
+    };
+    const interval = window.setInterval(() => { void refresh(); }, liveHasPendingScreenshots ? 4000 : 20000);
+    window.addEventListener("focus", refresh);
+    return () => { stopped = true; window.clearInterval(interval); window.removeEventListener("focus", refresh); };
+  }, [liveMode, liveHasPendingScreenshots]);
 
   useEffect(() => {
     if (!toast) return;
@@ -1014,10 +1056,20 @@ export default function RebuildPreview({
     setTagInput("");
   }
 
-  function applyTags() {
+  async function applyTags() {
     if (!tagEditorId) return;
     const extra = tagInput.trim();
     const next = extra && !tagDraft.some((tag) => tag.toLocaleLowerCase() === extra.toLocaleLowerCase()) ? [...tagDraft, extra] : tagDraft;
+    if (liveMode) {
+      try {
+        const result = await liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "PATCH", { id: tagEditorId, tags: next });
+        setCards((items) => items.map((item) => item.id === tagEditorId ? liveCard(result.bookmark) : item));
+        setTagEditorId(null);
+        setTagInput("");
+        setToast("Tags saved");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not save tags"); }
+      return;
+    }
     setCards((items) => items.map((item) => item.id === tagEditorId ? { ...item, tags: next } : item));
     setTagEditorId(null);
     setTagInput("");
@@ -1113,9 +1165,20 @@ export default function RebuildPreview({
     setFormTagInput("");
   }
 
-  function createComposerCollection() {
+  async function createComposerCollection() {
     const name = newCollectionName.trim();
     if (!name) { setFormError("Give your collection a name."); return; }
+    if (liveMode) {
+      try {
+        const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: formCollection || null });
+        setAllCollections((items) => [...items, liveCollection(result.collection)]);
+        setFormCollection(result.collection.id);
+        setNewCollectionName("");
+        setNewCollectionOpen(false);
+        setFormError("");
+      } catch (error) { setFormError(error instanceof Error ? error.message : "Could not create collection"); }
+      return;
+    }
     const id = `local-${crypto.randomUUID()}`;
     const parent = allCollections.find((item) => item.id === selectedCollection);
     setAllCollections((items) => [...items, {
@@ -1269,6 +1332,7 @@ export default function RebuildPreview({
   }
 
   useEffect(() => {
+    if (liveMode) return;
     const handlePaste = (event: ClipboardEvent) => {
       if (event.target instanceof Element && event.target.closest("input, textarea, [contenteditable='true']")) return;
       if (editingCardId || composer || tagEditorId || smartEditorId) return;
@@ -1279,10 +1343,44 @@ export default function RebuildPreview({
     };
     document.addEventListener("paste", handlePaste);
     return () => document.removeEventListener("paste", handlePaste);
-  }, [editingCardId, composer, tagEditorId, smartEditorId, prepareComposerFile]);
+  }, [editingCardId, composer, tagEditorId, smartEditorId, prepareComposerFile, liveMode]);
 
   async function saveComposer() {
     const nextTags = [...new Set(`${formTags},${formTagInput}`.split(",").map((tag) => tag.trim()).filter(Boolean))];
+    if (liveMode) {
+      if (liveSaving) return;
+      if (composer === "collection" && !formTitle.trim()) { setFormError("Give your collection a name."); return; }
+      let url: URL | undefined;
+      if (composer === "link") {
+        try {
+          url = new URL(formUrl.trim());
+          if (!/^https?:$/.test(url.protocol)) throw new Error("protocol");
+        } catch { setFormError("Enter a full link beginning with https:// or http://."); return; }
+      }
+      if (composer !== "collection" && composer !== "link") { setFormError("This save type is still being connected."); return; }
+      setLiveSaving(true);
+      setFormError("");
+      try {
+        if (composer === "collection") {
+          const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null });
+          setAllCollections((prev) => [liveCollection(result.collection), ...prev]);
+          setSelectedCollection(result.collection.id);
+          setToast("Collection saved to your separate Savers copy");
+        } else if (url) {
+          const result = await liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "POST", { url: url.href, title: formTitle.trim() || null, notes: formNote.trim() || null, collection_id: formCollection || null, tags: nextTags });
+          setCards((prev) => [liveCard(result.bookmark), ...prev]);
+          setSelectedCollection(null);
+          setFilter("all");
+          setQuery("");
+          setToast("Link saved. Creating its homepage image…");
+        }
+        setComposer(null);
+        setDestination("library");
+      } catch (error) {
+        setFormError(error instanceof Error ? error.message : "Could not save to Savers.");
+      } finally { setLiveSaving(false); }
+      return;
+    }
     if (composer === "collection") {
       if (!formTitle.trim()) {
         setFormError("Give your collection a name.");
@@ -1399,9 +1497,21 @@ export default function RebuildPreview({
   }
 
   function toggleFavorite(id: string) {
+    if (liveMode) { setToast("Favorites are still being connected to your account."); return; }
     setFavorites((prev) =>
       prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
     );
+  }
+
+  async function togglePin(id: string) {
+    if (!liveMode) { setPinnedIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]); setDetailMenuOpen(false); return; }
+    try {
+      const pinned = !pinnedIds.includes(id);
+      await liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "PATCH", { id, pinned });
+      setPinnedIds((ids) => pinned ? [...ids, id] : ids.filter((item) => item !== id));
+      setDetailMenuOpen(false);
+      setToast(pinned ? "Pinned" : "Unpinned");
+    } catch (error) { setToast(error instanceof Error ? error.message : "Could not update pin"); }
   }
 
   function openCardEditor(card: PreviewCard) {
@@ -1419,9 +1529,19 @@ export default function RebuildPreview({
     setDetailMenuOpen(false);
   }
 
-  function createEditCollection() {
+  async function createEditCollection() {
     const name = editNewCollectionName.trim();
     if (!name || !editingCardId) return;
+    if (liveMode) {
+      try {
+        const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: null });
+        setAllCollections((items) => [...items, liveCollection(result.collection)]);
+        setEditCollection(result.collection.id);
+        setEditNewCollectionOpen(false);
+        setEditNewCollectionName("");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not create collection"); }
+      return;
+    }
     const card = cards.find((item) => item.id === editingCardId);
     const id = `local-${crypto.randomUUID()}`;
     setAllCollections((items) => [...items, { id, name, count: 0, group: card?.kind === "image" ? "images" : "links", isPrivate: editPrivate }]);
@@ -1430,7 +1550,7 @@ export default function RebuildPreview({
     setEditNewCollectionName("");
   }
 
-  function saveCardEdit() {
+  async function saveCardEdit() {
     if (!editingCardId || !editTitle.trim()) return;
     let source: string | undefined;
     if (editUrl.trim()) {
@@ -1447,12 +1567,26 @@ export default function RebuildPreview({
       } catch { setToast("Enter a valid preview image URL"); return; }
     }
     const tags = [...new Set(editTags.split(",").map((tag) => tag.trim()).filter(Boolean))];
+    if (liveMode) {
+      try {
+        const current = cards.find((item) => item.id === editingCardId);
+        const updates: Record<string, unknown> = { id: editingCardId, title: editTitle.trim(), description: editDescription.trim(), notes: editNote.trim(), collection_id: editCollection || null, tags };
+        if (editUrl.trim() !== current?.url) updates.url = editUrl.trim();
+        if (editImage && editImage !== current?.image) updates.og_image = editImage;
+        const result = await liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "PATCH", updates);
+        setCards((items) => items.map((item) => item.id === editingCardId ? liveCard(result.bookmark) : item));
+        setEditingCardId(null);
+        setToast("Card saved");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not save card"); }
+      return;
+    }
     setCards((items) => items.map((item) => item.id === editingCardId ? { ...item, title: editTitle.trim(), description: editDescription.trim(), note: editNote.trim(), url: editUrl.trim(), source: source || item.source, image: editImage, collection: editCollection || undefined, tags, isPrivate: editPrivate } : item));
     setEditingCardId(null);
     setToast("Card updated in this browser preview");
   }
 
   async function replaceCardImage(file: File) {
+    if (liveMode) { setToast("Image replacement is still being connected."); return; }
     if (file.size > 20_000_000) { setToast("Choose an image under 20 MB"); return; }
     setEditImage(await fileDataUrl(file));
   }
@@ -1466,7 +1600,21 @@ export default function RebuildPreview({
     setToast("Retried existing image. A new capture needs the preview service.");
   }
 
-  function chooseCollection(collectionId?: string) {
+  async function chooseCollection(collectionId?: string) {
+    if (liveMode && (collectionPickerCardId || libraryCollectionPickerOpen)) {
+      const nextCollectionId = pickerCollectionId === collectionId ? null : collectionId || null;
+      const ids = collectionPickerCardId ? [collectionPickerCardId] : selectedLibraryIds;
+      try {
+        const updated = await Promise.all(ids.map((id) => liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "PATCH", { id, collection_id: nextCollectionId })));
+        const byId = new Map(updated.map(({ bookmark }) => [bookmark.id, liveCard(bookmark)]));
+        setCards((items) => items.map((item) => byId.get(item.id) || item));
+        setToast(nextCollectionId ? "Moved to collection" : "Moved to Unsorted");
+        setLibrarySelecting(false);
+        setSelectedLibraryIds([]);
+        closeCollectionPicker();
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not move items"); }
+      return;
+    }
     setPickerNewFolderOpen(false);
     setPickerNewFolderName("");
     if (collectionPickerCardId) {
@@ -1502,9 +1650,19 @@ export default function RebuildPreview({
     setRelatedCollectionQuery("");
   }
 
-  function createPickerFolder() {
+  async function createPickerFolder() {
     const name = pickerNewFolderName.trim();
     if (!name) return;
+    if (liveMode) {
+      try {
+        const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: null });
+        setAllCollections((items) => [...items, liveCollection(result.collection)]);
+        setPickerNewFolderName("");
+        setPickerNewFolderOpen(false);
+        await chooseCollection(result.collection.id);
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not create collection"); }
+      return;
+    }
     const id = `local-${crypto.randomUUID()}`;
     setAllCollections((items) => [...items, { id, name, count: 0, group: pickerCard?.kind === "image" ? "images" : "links", isPrivate: true }]);
     setPickerNewFolderName("");
@@ -1525,10 +1683,21 @@ export default function RebuildPreview({
     setBulkNewFolderOpen(false);
   }
 
-  function deleteCollection() {
+  async function deleteCollection() {
     if (!deleteCollectionId) return;
     const collection = allCollections.find((item) => item.id === deleteCollectionId);
     if (!collection || collection.owner) { setDeleteCollectionId(null); return; }
+    if (liveMode) {
+      try {
+        await liveRequest<{ ok: true }>(`/api/collections?id=${encodeURIComponent(collection.id)}`, "DELETE", {});
+        setCards((items) => items.map((item) => item.collection === collection.id ? { ...item, collection: undefined } : item));
+        setAllCollections((items) => items.filter((item) => item.id !== collection.id));
+        if (selectedCollection === collection.id) setSelectedCollection(null);
+        setDeleteCollectionId(null);
+        setToast("Collection removed; its links are in Unsorted");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not delete collection"); }
+      return;
+    }
     setCards((items) => items.map((item) => item.collection === collection.id ? { ...item, collection: undefined } : item));
     setAllCollections((items) => items.filter((item) => item.id !== collection.id).map((item) => item.parentId === collection.id ? { ...item, parentId: collection.parentId } : item));
     setSmartRules((rules) => { const next = { ...rules }; delete next[collection.id]; return next; });
@@ -1539,9 +1708,23 @@ export default function RebuildPreview({
     setToast(`Deleted ${collection.name}. Its items are in Unsorted.`);
   }
 
-  function applyBulkTags() {
+  async function applyBulkTags() {
     const tag = bulkTagInput.trim();
     if (!tag) return;
+    if (liveMode) {
+      try {
+        const selected = cards.filter((item) => selectedLibraryIds.includes(item.id));
+        const updated = await Promise.all(selected.map((card) => liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "PATCH", { id: card.id, tags: [...new Set([...(card.tags || []), tag])] })));
+        const byId = new Map(updated.map(({ bookmark }) => [bookmark.id, liveCard(bookmark)]));
+        setCards((items) => items.map((item) => byId.get(item.id) || item));
+        setBulkTagOpen(false);
+        setBulkTagInput("");
+        setLibrarySelecting(false);
+        setSelectedLibraryIds([]);
+        setToast("Tags saved");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not save tags"); }
+      return;
+    }
     setCards((items) => items.map((item) => selectedLibraryIds.includes(item.id) && !(item.tags || []).some((value) => value.toLocaleLowerCase() === tag.toLocaleLowerCase()) ? { ...item, tags: [...(item.tags || []), tag] } : item));
     setBulkTagOpen(false);
     setBulkTagInput("");
@@ -1550,7 +1733,19 @@ export default function RebuildPreview({
     setToast("Tags added in this browser preview");
   }
 
-  function removeSelectedCards() {
+  async function removeSelectedCards() {
+    if (liveMode) {
+      try {
+        await Promise.all(selectedLibraryIds.map((id) => liveRequest<{ ok: true }>(`/api/bookmarks?id=${encodeURIComponent(id)}`, "DELETE", {})));
+        setCards((items) => items.filter((item) => !selectedLibraryIds.includes(item.id)));
+        setBulkRemoveOpen(false);
+        setLibrarySelecting(false);
+        setSelectedLibraryIds([]);
+        setActiveCardId(null);
+        setToast("Links removed from this separate Savers copy");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not remove links"); }
+      return;
+    }
     setCards((items) => items.filter((item) => !selectedLibraryIds.includes(item.id)));
     setFavorites((ids) => ids.filter((id) => !selectedLibraryIds.includes(id)));
     setPinnedIds((ids) => ids.filter((id) => !selectedLibraryIds.includes(id)));
@@ -1561,7 +1756,17 @@ export default function RebuildPreview({
     setToast("Removed from this browser preview");
   }
 
-  function removeCard(id: string) {
+  async function removeCard(id: string) {
+    if (liveMode) {
+      try {
+        await liveRequest<{ ok: true }>(`/api/bookmarks?id=${encodeURIComponent(id)}`, "DELETE", {});
+        setCards((items) => items.filter((item) => item.id !== id));
+        if (activeCardId === id) setActiveCardId(null);
+        setDeleteCardId(null);
+        setToast("Link removed from this separate Savers copy");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not remove link"); }
+      return;
+    }
     const next = cards.filter((item) => item.id !== id);
     captureCardsRef.current = next;
     setCards(next);
@@ -1600,11 +1805,13 @@ export default function RebuildPreview({
   }
 
   function togglePrivacy(id: string) {
+    if (liveMode) { setToast("This separate copy is private while it is being connected."); return; }
     setCards((items) => items.map((item) => item.id === id ? { ...item, isPrivate: item.isPrivate === false } : item));
     setToast("Visibility updated in this preview");
   }
 
   function toggleCollectionPrivacy(id: string) {
+    if (liveMode) { setToast("This separate copy is private while it is being connected."); return; }
     setAllCollections((items) => {
       const target = items.find((item) => item.id === id);
       if (!target) return items;
@@ -1662,18 +1869,18 @@ export default function RebuildPreview({
     <div
       className={`rebuild-app ${theme === "dark" ? "rb-theme-dark" : ""} ${librarySelecting && destination === "library" ? "rb-library-selection-active" : ""}`}
       data-rebuild-root
-      onDragEnterCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) setPageDragActive(true); }}
-      onDragOverCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setPageDragActive(true); } }}
+      onDragEnterCapture={(event) => { if (!liveMode && acceptsPageDrop(event.dataTransfer)) setPageDragActive(true); }}
+      onDragOverCapture={(event) => { if (!liveMode && acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.dataTransfer.dropEffect = "copy"; setPageDragActive(true); } }}
       onDragLeaveCapture={(event) => { if (event.clientX <= 0 || event.clientX >= window.innerWidth || event.clientY <= 0 || event.clientY >= window.innerHeight) setPageDragActive(false); }}
       onDragEndCapture={() => setPageDragActive(false)}
-      onDropCapture={(event) => { if (acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.stopPropagation(); handlePageDrop(event.dataTransfer); } }}
+      onDropCapture={(event) => { if (!liveMode && acceptsPageDrop(event.dataTransfer)) { event.preventDefault(); event.stopPropagation(); handlePageDrop(event.dataTransfer); } }}
     >
       {pageDragActive && <div className="rb-page-drop-cue" aria-hidden="true"><div><Upload size={28} /><strong>Drop to save</strong><span>Link, image, or file</span></div></div>}
       <input ref={multiImageInputRef} className="rb-hidden-file-input" type="file" accept="image/*" multiple aria-label="Choose images to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.name }))); event.target.value = ""; }} />
       <input ref={folderInputRef} className="rb-hidden-file-input" type="file" multiple aria-label="Choose a folder to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.webkitRelativePath || file.name }))); event.target.value = ""; }} />
       <div className="rb-preview-flag">
-        <span className="rb-pulse" /> Preview
-        <span className="rb-flag-note">Saves stay in this browser</span>
+        <span className="rb-pulse" /> {liveMode ? "Separate copy" : "Preview"}
+        <span className="rb-flag-note">{liveMode ? "Links save to your private staging library" : "Saves stay in this browser"}</span>
       </div>
 
       <header className="rb-topbar">
@@ -1694,7 +1901,7 @@ export default function RebuildPreview({
             <button
               className="rb-avatar"
               onClick={() => setAccountOpen(!accountOpen)}
-              aria-label="Open preview menu"
+              aria-label={liveMode ? "Open account menu" : "Open preview menu"}
               aria-expanded={accountOpen}
             >
               RW
@@ -1702,8 +1909,8 @@ export default function RebuildPreview({
             {accountOpen && (
               <div className="rb-account-menu">
                 <div className="rb-account-title">
-                  Preview
-                  <span>Browser-local saves</span>
+                  {liveMode ? "Your separate Savers copy" : "Preview"}
+                  <span>{liveMode ? "Private staging library" : "Browser-local saves"}</span>
                 </div>
                 <div
                   className="rb-theme-picker"
@@ -1724,8 +1931,8 @@ export default function RebuildPreview({
                   </button>
                 </div>
                 <button onClick={() => { setDestination("discover"); setProfileId("self"); setProfileScope("cards"); setAccountOpen(false); setDiscoverTab("discover"); window.scrollTo(0, 0); }}>My profile</button>
-                <button onClick={() => { setAccountOpen(false); setCaptureOverlayOpen(true); }}>Browser capture <ArrowUpRight size={14} /></button>
-                <button
+                {!liveMode && <button onClick={() => { setAccountOpen(false); setCaptureOverlayOpen(true); }}>Browser capture <ArrowUpRight size={14} /></button>}
+                {!liveMode && <button
                   onClick={() => {
                     setCards(seedCards);
                     setAllCollections(seedCollections);
@@ -1740,7 +1947,8 @@ export default function RebuildPreview({
                   }}
                 >
                   Reset preview
-                </button>
+                </button>}
+                {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
                   href="https://savers-production.up.railway.app"
                   target="_blank"
@@ -1810,7 +2018,7 @@ export default function RebuildPreview({
               </div>
               <div className="rb-toolbar-end">
                 <span>
-                  {seedCards.length === 0 && !query && !selectedTag && filter === "all"
+                  {!liveMode && seedCards.length === 0 && !query && !selectedTag && filter === "all"
                     ? `${collection ? displayCount(collection) ?? "—" : 815}`
                     : filteredCards.length}
                 </span>
@@ -1884,9 +2092,9 @@ export default function RebuildPreview({
             ) : (
               <div className="rb-empty">
                 <Folder size={28} />
-                <h2>{filter === "favorites" && favorites.length === 0 ? "No favorites yet" : seedCards.length === 0 && !query ? "Items are being imported" : "No matches"}</h2>
+                <h2>{filter === "favorites" && favorites.length === 0 ? "No favorites yet" : liveMode && cards.length === 0 ? "Your library is empty" : seedCards.length === 0 && !query ? "Items are being imported" : "No matches"}</h2>
                 {filter === "favorites" && favorites.length === 0 && <p>Use the heart on a card to add one.</p>}
-                {seedCards.length === 0 && !query && <p>The collection structure is ready for review.</p>}
+                {liveMode && cards.length === 0 ? <p>Save a link to start your separate Savers library.</p> : seedCards.length === 0 && !query && <p>The collection structure is ready for review.</p>}
               </div>
             )}
             {filteredCards.length > visibleCount && (
@@ -2081,7 +2289,7 @@ export default function RebuildPreview({
             <button onClick={() => openComposer("link")}>
               <Link2 size={18} /> Save a link <ArrowRight size={15} />
             </button>
-            <button onClick={() => openComposer("note")}>
+            {!liveMode && <><button onClick={() => openComposer("note")}>
               <FileText size={18} /> Write a note <ArrowRight size={15} />
             </button>
             <button onClick={() => openComposer("image")}>
@@ -2098,7 +2306,7 @@ export default function RebuildPreview({
             </button>
             <button onClick={() => openComposer("file")}>
               <Upload size={18} /> Upload a file <ArrowRight size={15} />
-            </button>
+            </button></>}
             <div className="rb-create-separator" />
             <button onClick={() => openComposer("collection")}>
               <FolderPlus size={18} /> New collection <ArrowRight size={15} />
@@ -2180,7 +2388,7 @@ export default function RebuildPreview({
                   <button onClick={() => openCardEditor(activeCard)}><Pencil size={16} /> Edit card</button>
                   <button onClick={() => { setCollectionPickerCardId(activeCard.id); setRelatedCollectionQuery(""); setDetailMenuOpen(false); }}><FolderPlus size={16} /> Add to collection</button>
                   {activeCard.kind === "link" && <button onClick={() => activeCard.image ? retryCardImage(activeCard) : openCardEditor(activeCard)}><RefreshCw size={16} /> {activeCard.image ? "Reload preview" : "Add preview image"}</button>}
-                  <button onClick={() => { setPinnedIds((ids) => ids.includes(activeCard.id) ? ids.filter((id) => id !== activeCard.id) : [...ids, activeCard.id]); setDetailMenuOpen(false); }}><Pin size={16} /> {pinnedIds.includes(activeCard.id) ? "Unpin" : "Pin"}</button>
+                  <button onClick={() => void togglePin(activeCard.id)}><Pin size={16} /> {pinnedIds.includes(activeCard.id) ? "Unpin" : "Pin"}</button>
                   {activeCard.kind === "file" && activeCard.fileData && <button onClick={() => void convertFileCardToNote(activeCard)}><FileText size={16} /> Convert to note</button>}
                   {activeCard.url && <button onClick={() => { setCards((items) => items.map((item) => item.id === activeCard.id ? { ...item, linkStatus: item.linkStatus === "broken" ? "working" : "broken" } : item)); setDetailMenuOpen(false); }}><CheckCircle2 size={16} /> {activeCard.linkStatus === "broken" ? "Mark as working" : "Mark as broken"}</button>}
                   <button
@@ -2396,7 +2604,7 @@ export default function RebuildPreview({
           </div>
           <div className="rb-edit-footer">
             <div className="rb-edit-footer-start">
-              <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
+              {liveMode ? <span className="rb-edit-privacy"><LockKeyhole size={18} /> Private</span> : <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>}
               <button className="rb-edit-remove" onClick={() => setDeleteCardId(editingCardId)}><Trash2 size={17} /> Remove</button>
             </div>
             <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
@@ -2516,14 +2724,14 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-composer-footer">
-              <button className="rb-composer-privacy-toggle" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
+              {liveMode ? <span className="rb-composer-privacy-toggle"><LockKeyhole size={19} /> Private</span> : <button className="rb-composer-privacy-toggle" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
                 {formPrivate ? <LockKeyhole size={19} /> : <Unlock size={19} />}
                 {formPrivate ? "Private" : "Public"}
-              </button>
-              <button className="rb-composer-submit" onClick={saveComposer}>
+              </button>}
+              <button className="rb-composer-submit" onClick={saveComposer} disabled={liveSaving}>
                 {composer === "collection"
                   ? "Create collection"
-                  : "Save to library"}{" "}
+                  : liveSaving ? "Saving…" : "Save to library"}{" "}
                 <ArrowRight size={17} />
               </button>
             </div>
