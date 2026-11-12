@@ -7,7 +7,7 @@
 - The public visual preview on the `rebuild` branch remains browser local.
 - The isolated staging Supabase project is `zhcepsclcjigaqnlwxiw`, with migrations 001–029, exposed `savers` schema, and public preview and private original Storage buckets. Its library is empty until a staging user signs in and saves items.
 - The isolated Railway project is `savers-rebuild-staging`, with web service `savers-rebuild-web` at `https://savers-rebuild-web-production.up.railway.app`, Redis, and a screenshot worker. The Railway environment's name is `production`, but this is a separate project and database.
-- The staging web service runs the `rebuild-live` branch with `SAVERS_REBUILD_STAGING=1`. It serves the authenticated Rebuild interface at `/`. Link creation uses the existing bookmark API, queues a screenshot, and refreshes the image when the worker finishes. Image upload uses the image API. Both link and image collections load from the staging account.
+- The staging web service runs the `rebuild-live` branch with `SAVERS_REBUILD_STAGING=1`. It serves the authenticated Rebuild interface at `/`. Link creation uses the existing bookmark API, queues a screenshot, and refreshes the image when the worker finishes. Image upload uses the image API. Both link and image collections load from the staging account. Collection visibility and public links use the existing visibility APIs.
 - Savers Capture 0.9.5 points to the staging URL. It pairs through the local bridge and uploads screenshots to that signed-in staging account. The published 0.9.5 download must be installed to use this change; older installed copies still point to their previous destination.
 
 ## Test before switching
@@ -15,7 +15,7 @@
 1. Sign in at the staging URL. Check the Supabase Auth redirect allowlist if the email link does not return there. The callback URL is `https://savers-rebuild-web-production.up.railway.app/auth/callback`.
 2. Save a test link. Verify the row exists after a new page load and its homepage screenshot reaches `complete` with a public preview object. Then test an image upload and a Mac Capture handoff.
 3. Connect a staging auto-tag worker and staging AI key before testing automatic tags. The screenshot worker does not perform AI tagging.
-4. Review the Rebuild actions that still use visual-preview state, especially favorites, notes, files, sharing, feeds, and social features. Do not present those as durable until they have an API mapping.
+4. Review the Rebuild actions that still use visual-preview state, especially favorites, notes, files, individual-link sharing, feeds, and social features. Do not present those as durable until they have an API mapping.
 5. Back up production database, Auth, and Storage to a restorable archive before the main-site switch. Verify the archive and representative records. Keep the old project running.
 
 ## Production cutover design

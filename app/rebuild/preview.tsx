@@ -57,6 +57,8 @@ type PreviewCollection = {
   parentId?: string;
   group?: "links" | "images" | "smart";
   isPrivate?: boolean;
+  publicId?: string;
+  publicSlug?: string;
   owner?: { id: string; name: string; avatar?: string };
 };
 type SmartRule = {
@@ -1921,8 +1923,18 @@ export default function RebuildPreview({
     setToast("Visibility updated in this preview");
   }
 
-  function toggleCollectionPrivacy(id: string) {
-    if (liveMode) { setToast("Public sharing is being connected."); return; }
+  async function toggleCollectionPrivacy(id: string) {
+    if (liveMode) {
+      const target = allCollections.find((item) => item.id === id);
+      if (!target) return;
+      try {
+        const path = target.group === "images" ? "/api/image-collections/visibility" : "/api/collections/visibility";
+        const result = await liveRequest<{ collection: { is_public: boolean; public_id: string | null; public_slug: string | null } }>(path, "PATCH", { id, is_public: target.isPrivate !== false });
+        setAllCollections((items) => items.map((item) => item.id === id ? { ...item, isPrivate: !result.collection.is_public, publicId: result.collection.public_id || undefined, publicSlug: result.collection.public_slug || undefined } : item));
+        setToast(result.collection.is_public ? "Collection is now public" : "Collection is now private");
+      } catch (error) { setToast(error instanceof Error ? error.message : "Could not update visibility"); }
+      return;
+    }
     setAllCollections((items) => {
       const target = items.find((item) => item.id === id);
       if (!target) return items;
@@ -2090,7 +2102,8 @@ export default function RebuildPreview({
             {collection && <div className="rb-page-heading">
               <div className="rb-heading-line">
                 <h1>{collection.name}</h1>
-                <button className="rb-heading-privacy" onClick={() => toggleCollectionPrivacy(collection.id)} aria-label={`${collection.isPrivate === false ? "Make private with subfolders" : "Make public with subfolders"}: ${collection.name}`} title={collection.isPrivate === false ? "Lock this folder and subfolders" : "Unlock this folder and subfolders"}>{collection.isPrivate === false ? <Unlock size={26} /> : <LockKeyhole size={26} />}</button>
+                <button className="rb-heading-privacy" onClick={() => { void toggleCollectionPrivacy(collection.id); }} aria-label={`${collection.isPrivate === false ? "Make private" : "Make public"}${liveMode ? "" : " with subfolders"}: ${collection.name}`} title={`${collection.isPrivate === false ? "Lock" : "Unlock"} this folder${liveMode ? "" : " and subfolders"}`}>{collection.isPrivate === false ? <Unlock size={26} /> : <LockKeyhole size={26} />}</button>
+                {liveMode && collection.isPrivate === false && (collection.publicSlug || collection.publicId) && <button className="rb-heading-privacy" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/c/${collection.publicSlug || collection.publicId}`).then(() => setToast("Public collection link copied")).catch(() => setToast("Could not copy link")); }} aria-label={`Copy public link for ${collection.name}`} title="Copy public collection link"><Copy size={22} /></button>}
               </div>
               {collection?.description && <p>{collection.description}</p>}
               {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}

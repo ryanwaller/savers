@@ -8,7 +8,9 @@ export type LiveCollection = {
   count: number;
   parentId?: string;
   group: "links";
-  isPrivate: true;
+  isPrivate: boolean;
+  publicId?: string;
+  publicSlug?: string;
 };
 
 export function liveCollection(collection: Collection, count = 0): LiveCollection {
@@ -18,7 +20,9 @@ export function liveCollection(collection: Collection, count = 0): LiveCollectio
     count,
     parentId: collection.parent_id || undefined,
     group: "links",
-    isPrivate: true,
+    isPrivate: collection.is_public !== true,
+    publicId: collection.public_id || undefined,
+    publicSlug: collection.public_slug || undefined,
   };
 }
 
@@ -43,6 +47,8 @@ export function liveImageCollection(collection: ImageCollection, count = 0) {
     parentId: collection.parent_id || undefined,
     group: "images" as const,
     isPrivate: collection.is_public !== true,
+    publicId: collection.public_id || undefined,
+    publicSlug: collection.public_slug || undefined,
   };
 }
 
