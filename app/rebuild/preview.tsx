@@ -9,6 +9,7 @@ import {
   Bookmark,
   Check,
   CheckCircle2,
+  ChevronDown,
   ChevronRight,
   Compass,
   Copy,
@@ -406,6 +407,8 @@ export default function RebuildPreview({
   const [bulkTagInput, setBulkTagInput] = useState("");
   const [bulkRemoveOpen, setBulkRemoveOpen] = useState(false);
   const [editingCardId, setEditingCardId] = useState<string | null>(null);
+  const [editNewCollectionOpen, setEditNewCollectionOpen] = useState(false);
+  const [editNewCollectionName, setEditNewCollectionName] = useState("");
   const [deleteCardId, setDeleteCardId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
   const [editDescription, setEditDescription] = useState("");
@@ -1399,6 +1402,8 @@ export default function RebuildPreview({
 
   function openCardEditor(card: PreviewCard) {
     setEditingCardId(card.id);
+    setEditNewCollectionOpen(false);
+    setEditNewCollectionName("");
     setEditTitle(card.title);
     setEditDescription(card.description || "");
     setEditNote(card.note || "");
@@ -1408,6 +1413,17 @@ export default function RebuildPreview({
     setEditTags((card.tags || []).join(", "));
     setEditPrivate(card.isPrivate !== false);
     setDetailMenuOpen(false);
+  }
+
+  function createEditCollection() {
+    const name = editNewCollectionName.trim();
+    if (!name || !editingCardId) return;
+    const card = cards.find((item) => item.id === editingCardId);
+    const id = `local-${crypto.randomUUID()}`;
+    setAllCollections((items) => [...items, { id, name, count: 0, group: card?.kind === "image" ? "images" : "links", isPrivate: editPrivate }]);
+    setEditCollection(id);
+    setEditNewCollectionOpen(false);
+    setEditNewCollectionName("");
   }
 
   function saveCardEdit() {
@@ -2299,7 +2315,7 @@ export default function RebuildPreview({
               {pickerNewFolderOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createPickerFolder(); }}><input value={pickerNewFolderName} onChange={(event) => setPickerNewFolderName(event.target.value)} placeholder="Folder name" aria-label="New folder name" autoFocus /><button type="submit" disabled={!pickerNewFolderName.trim()}>Create</button><button type="button" onClick={() => { setPickerNewFolderOpen(false); setPickerNewFolderName(""); }} aria-label="Cancel new folder"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setPickerNewFolderOpen(true)}><FolderPlus size={20} /> New folder</button>}
               <div className="rb-related-picker-list" data-scroll-fade="y">
                 {!pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
-                {pickerCollections.map((item) => <div className="rb-picker-row" key={item.id}><button className={`rb-picker-target ${pickerCollectionId === item.id ? "selected" : ""}`} onClick={() => chooseCollection(item.id)} aria-pressed={pickerCollectionId === item.id}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span>{pickerCollectionId === item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>{!item.owner && <button className="rb-picker-delete" onClick={() => setDeleteCollectionId(item.id)} aria-label={`Delete ${item.name} collection`} title="Delete collection"><Trash2 size={18} /></button>}</div>)}
+                {pickerCollections.map((item) => <button className={`rb-picker-target ${pickerCollectionId === item.id ? "selected" : ""}`} key={item.id} onClick={() => chooseCollection(item.id)} aria-pressed={pickerCollectionId === item.id}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span>{pickerCollectionId === item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>)}
                 {pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
               </div>
             </div>
@@ -2372,7 +2388,7 @@ export default function RebuildPreview({
           <label>Link<input type="url" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} /></label>
           <label>Description<textarea rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
           <label>Note<textarea rows={3} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
-          <label>Collection<select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+          <div className="rb-edit-collection-field"><label>Collection<div className="rb-edit-collection-select"><select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={24} aria-hidden="true" /></div></label>{editNewCollectionOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createEditCollection(); }}><input value={editNewCollectionName} onChange={(event) => setEditNewCollectionName(event.target.value)} placeholder="Collection name" aria-label="New collection name" autoFocus /><button type="submit" disabled={!editNewCollectionName.trim()}>Create</button><button type="button" onClick={() => { setEditNewCollectionOpen(false); setEditNewCollectionName(""); }} aria-label="Cancel new collection"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setEditNewCollectionOpen(true)}><FolderPlus size={18} /> New collection</button>}</div>
           <label>Tags<input value={editTags} onChange={(event) => setEditTags(event.target.value)} placeholder="Separate tags with commas" /></label>
           <label>Preview image<input type="url" value={editImage.startsWith("data:") ? "" : editImage} onChange={(event) => setEditImage(event.target.value)} placeholder="Image URL" /></label>
           <label className="rb-edit-upload"><Upload size={18} /> Replace with an image from your computer<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCardImage(file); }} /></label>
