@@ -58,7 +58,25 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
         lastPasteboardChangeCount = pasteboard.changeCount
-        if NSImage(pasteboard: pasteboard) != nil { model.importClipboardImage() }
+        guard isScreenshotClipboard(pasteboard) else { return }
+        model.importClipboardImage()
+    }
+
+    private func isScreenshotClipboard(_ pasteboard: NSPasteboard) -> Bool {
+        guard let items = pasteboard.pasteboardItems, items.count == 1 else { return false }
+        let types = Set(items[0].types.map(\.rawValue))
+        // The native screenshot-to-clipboard shortcut publishes a small TIFF
+        // payload. Design apps also publish image previews, but include PDF,
+        // text, or app-specific types for their copied objects. Do not import
+        // those automatically; the menu's manual import still accepts them.
+        let screenshotTypes: Set<String> = [
+            "public.tiff",
+            "NeXT TIFF v4.0 pasteboard type",
+            "public.png",
+        ]
+        return types.contains("public.tiff") && types.allSatisfy {
+            screenshotTypes.contains($0) || $0.hasPrefix("org.nspasteboard.")
+        }
     }
 
     @objc private func importClipboardImage() {

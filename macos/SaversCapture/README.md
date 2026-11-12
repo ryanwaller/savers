@@ -3,7 +3,9 @@
 Savers Capture is a compact menu bar screenshot companion for the **Rebuild preview**.
 Press macOS's **Copy picture of selected area to the clipboard** shortcut
 (default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
-notices the clipboard image and opens a small preview at the bottom left. New
+notices screenshot-style clipboard image data and opens a small preview at the
+bottom left. Copied objects from design apps are ignored; use **Use Clipboard
+Image** in the menu bar to import other images intentionally. New
 previews stack above earlier ones at a consistent width and spacing, wrapping to
 the next column when the screen is full. Closing a lower preview slides the
 previews above it down. Hover over an image to blur and darken it and show four corner
