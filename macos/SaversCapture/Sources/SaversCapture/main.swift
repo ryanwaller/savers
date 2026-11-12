@@ -58,24 +58,22 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         let pasteboard = NSPasteboard.general
         guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
         lastPasteboardChangeCount = pasteboard.changeCount
-        guard isScreenshotClipboard(pasteboard) else { return }
+        guard shouldPreviewClipboardImage(pasteboard) else { return }
         model.importClipboardImage()
     }
 
-    private func isScreenshotClipboard(_ pasteboard: NSPasteboard) -> Bool {
-        guard let items = pasteboard.pasteboardItems, items.count == 1 else { return false }
-        let types = Set(items[0].types.map(\.rawValue))
-        // The native screenshot-to-clipboard shortcut publishes a small TIFF
-        // payload. Design apps also publish image previews, but include PDF,
-        // text, or app-specific types for their copied objects. Do not import
-        // those automatically; the menu's manual import still accepts them.
-        let screenshotTypes: Set<String> = [
-            "public.tiff",
-            "NeXT TIFF v4.0 pasteboard type",
-            "public.png",
+    private func shouldPreviewClipboardImage(_ pasteboard: NSPasteboard) -> Bool {
+        guard NSImage(pasteboard: pasteboard) != nil else { return false }
+        let types = (pasteboard.types ?? []).map(\.rawValue)
+        // A design object may also supply a bitmap preview. Only suppress
+        // clipboard changes that carry another kind of content alongside it.
+        let objectTypes: Set<String> = [
+            "public.pdf", "public.rtf", "public.html", "public.utf8-plain-text",
+            "public.url", "public.file-url", "public.svg-image",
         ]
-        return types.contains("public.tiff") && types.allSatisfy {
-            screenshotTypes.contains($0) || $0.hasPrefix("org.nspasteboard.")
+        let objectPrefixes = ["com.adobe.", "com.microsoft.", "com.figma.", "com.sketch.", "com.apple.iwork."]
+        return !types.contains { type in
+            objectTypes.contains(type) || objectPrefixes.contains { type.hasPrefix($0) }
         }
     }
 
