@@ -539,7 +539,7 @@ export default function RebuildPreview({
           captureCardsRef.current = next;
           setCards(next);
           announcePreviewCardsChanged();
-          setToast("Screenshot saved to Rebuild");
+          setToast("Screenshot saved to Savers");
         }
         await fetch(`${bridgeURL}/ack/${capture.id}`, { method: "POST", headers });
       } catch {

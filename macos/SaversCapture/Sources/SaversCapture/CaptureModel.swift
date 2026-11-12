@@ -44,14 +44,14 @@ final class CaptureModel: ObservableObject {
 
     var onCapture: ((CapturedScreenshot) -> Void)?
     var onOpenLarge: ((NSImage) -> Void)?
-    var onNeedsRebuild: (() -> Void)?
-    private var didOpenRebuild = false
-    lazy var bridge: RebuildBridge? = {
+    var onNeedsSavers: (() -> Void)?
+    private var didOpenSavers = false
+    lazy var bridge: CaptureBridge? = {
         do {
-            let server = try RebuildBridge(baseURL: baseURL)
+            let server = try CaptureBridge(baseURL: baseURL)
             return server
         } catch {
-            bridgeError = "Could not start the local Rebuild connection."
+            bridgeError = "Could not start the local Savers connection."
             return nil
         }
     }()
@@ -153,35 +153,35 @@ final class CaptureModel: ObservableObject {
         let cleanURL = rawURL.trimmingCharacters(in: .whitespacesAndNewlines)
         guard let url = URL(string: cleanURL), url.scheme == "https", url.host != nil,
               url.path.isEmpty || url.path == "/" else {
-            return "Enter the HTTPS address of the Rebuild preview."
+            return "Enter the HTTPS address of Savers."
         }
         baseURL = cleanURL.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
         UserDefaults.standard.set(baseURL, forKey: "saversBaseURL")
         bridge?.baseURL = baseURL
-        didOpenRebuild = false
+        didOpenSavers = false
         return "Settings saved"
     }
 
-    func openRebuild() {
-        guard let bridge, let url = URL(string: "\(baseURL)/rebuild#savers-capture=\(bridge.token)") else {
+    func openSavers() {
+        guard let bridge, let url = URL(string: "\(baseURL)/#savers-capture=\(bridge.token)") else {
             return
         }
         NSWorkspace.shared.open(url)
-        didOpenRebuild = true
+        didOpenSavers = true
     }
 
     @discardableResult
-    func sendToRebuild(_ capture: CapturedScreenshot) -> Bool {
+    func sendToSavers(_ capture: CapturedScreenshot) -> Bool {
         guard let bridge else {
-            capture.status = bridgeError.isEmpty ? "Could not connect to Rebuild." : bridgeError
+            capture.status = bridgeError.isEmpty ? "Could not connect to Savers." : bridgeError
             return false
         }
         do {
             try bridge.enqueue(capture.pngData, title: capture.title)
-            if !didOpenRebuild { onNeedsRebuild?() }
+            if !didOpenSavers { onNeedsSavers?() }
             return true
         } catch {
-            capture.status = "Could not queue screenshot for Rebuild."
+            capture.status = "Could not queue screenshot for Savers."
             return false
         }
     }

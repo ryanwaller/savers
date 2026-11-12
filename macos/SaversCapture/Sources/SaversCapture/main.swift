@@ -29,7 +29,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(withTitle: "Use Clipboard Image", action: #selector(importClipboardImage), keyEquivalent: "")
         menu.addItem(withTitle: "Change Screenshot Shortcut…", action: #selector(openShortcutSettings), keyEquivalent: "")
         menu.addItem(.separator())
-        menu.addItem(withTitle: "Open Rebuild", action: #selector(openRebuild), keyEquivalent: "")
+        menu.addItem(withTitle: "Open Savers", action: #selector(openSavers), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Quit Savers Capture", action: #selector(quit), keyEquivalent: "q")
@@ -39,7 +39,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
 
         model.onCapture = { [weak self] capture in self?.showPreview(capture) }
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
-        model.onNeedsRebuild = { [weak self] in self?.model.openRebuild() }
+        model.onNeedsSavers = { [weak self] in self?.model.openSavers() }
         model.startBridge()
         clipboardTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -109,8 +109,8 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
             },
             openLarger: { [weak self] in self?.model.openLarger(capture) },
             copy: { [weak self] in self?.copyCapture(capture) ?? false },
-            sendToRebuild: { [weak self] in
-                self?.model.sendToRebuild(capture) ?? false
+            sendToSavers: { [weak self] in
+                self?.model.sendToSavers(capture) ?? false
             }
         ))
         previews.append(PreviewEntry(capture: capture, panel: panel))
@@ -194,7 +194,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         return icon
     }
 
-    @objc private func openRebuild() { model.openRebuild() }
+    @objc private func openSavers() { model.openSavers() }
 
     private func showLarger(_ image: NSImage) {
         dismissLarger()

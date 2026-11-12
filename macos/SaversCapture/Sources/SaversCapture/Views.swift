@@ -9,7 +9,7 @@ struct CapturePreview: View {
     let saveToDesktop: () -> Bool
     let openLarger: () -> Void
     let copy: () -> Bool
-    let sendToRebuild: () -> Bool
+    let sendToSavers: () -> Bool
     @State private var hovered = false
     @State private var dismissing = false
 
@@ -39,8 +39,8 @@ struct CapturePreview: View {
                     HStack {
                         HoverCircleButton(icon: "plus", help: "Open larger preview", action: openLarger)
                         Spacer()
-                        HoverCircleButton(icon: "savers", help: "Send to Rebuild") {
-                            if sendToRebuild() { dismissPreview() }
+                        HoverCircleButton(icon: "savers", help: "Send to Savers") {
+                            if sendToSavers() { dismissPreview() }
                         }
                     }
                 }
@@ -67,7 +67,7 @@ struct CapturePreview: View {
         .animation(.easeInOut(duration: 0.2), value: hovered)
         .animation(.easeIn(duration: 0.18), value: dismissing)
         .accessibilityLabel("Screenshot preview")
-        .accessibilityHint("Hover for close, desktop, open, copy, and Rebuild actions")
+        .accessibilityHint("Hover for close, desktop, open, copy, and Savers actions")
     }
 
     private func dismissPreview() {
@@ -188,7 +188,7 @@ struct CaptureSettings: View {
         VStack(alignment: .leading, spacing: 12) {
             Text("Savers Capture")
                 .font(.system(size: 21, weight: .medium))
-            Text("Copy a screenshot to the clipboard to open its preview and send it to Rebuild.")
+            Text("Copy a screenshot to the clipboard to open its preview and send it to Savers.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
@@ -220,7 +220,7 @@ struct CaptureSettings: View {
                     .fixedSize(horizontal: false, vertical: true)
             }
             VStack(alignment: .leading, spacing: 5) {
-                Text("Rebuild address")
+                Text("Savers address")
                     .font(.system(size: 13, weight: .medium))
                 TextField("https://…", text: $address)
                     .textFieldStyle(.roundedBorder)
@@ -232,9 +232,9 @@ struct CaptureSettings: View {
             HStack {
                 Spacer()
                 Button("Save") { saveSettings() }
-                Button("Open Rebuild") {
+                Button("Open Savers") {
                     saveSettings()
-                    if feedback == "Settings saved" { model.openRebuild() }
+                    if feedback == "Settings saved" { model.openSavers() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(saversGreen)

@@ -1,9 +1,9 @@
 import Foundation
 import Network
 
-/// A loopback-only handoff to the browser-local Rebuild preview. Screenshots
+/// A loopback-only handoff to the configured Savers browser. Screenshots
 /// remain in Application Support until the browser confirms it saved them.
-final class RebuildBridge {
+final class CaptureBridge {
     static let port: UInt16 = 57733
     private let listener: NWListener
     private let queue = DispatchQueue(label: "app.savers.capture.bridge")
@@ -15,6 +15,7 @@ final class RebuildBridge {
     init(baseURL: String) throws {
         self.baseURL = baseURL
         let defaults = UserDefaults.standard
+        // Keep the existing preferences key so installed apps stay paired.
         if let saved = defaults.string(forKey: "rebuildBridgeToken") {
             token = saved
         } else {
