@@ -531,7 +531,7 @@ export default function RebuildPreview({
   });
   const [theme, setTheme] = useState<"light" | "dark">("light");
   const [collectionGroup, setCollectionGroup] = useState<"links" | "images" | "smart" | "tags">("links");
-  const [ready, setReady] = useState(false);
+  const [ready, setReady] = useState(liveMode);
   const [liveSaving, setLiveSaving] = useState(false);
   const searchRef = useRef<HTMLInputElement>(null);
   const filterRef = useRef<HTMLDivElement>(null);
@@ -754,7 +754,7 @@ export default function RebuildPreview({
   }, [relatedSortOpen]);
 
   useEffect(() => {
-    if (liveMode) { setReady(true); return; }
+    if (liveMode) return;
     let cancelled = false;
     const timeout = window.setTimeout(() => { void (async () => {
       try {
