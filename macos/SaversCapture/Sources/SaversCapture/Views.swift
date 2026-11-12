@@ -127,23 +127,17 @@ struct CaptureSettings: View {
         VStack(alignment: .leading, spacing: 16) {
             Text("Savers Capture")
                 .font(.system(size: 23, weight: .medium))
-            Text("Take a screenshot, then save it to the Rebuild preview in your browser.")
+            Text("Copy a screenshot to the clipboard. Its preview opens here automatically, ready to send to Rebuild.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
-            HStack(spacing: 14) {
-                Text("Area shortcut")
-                    .frame(width: 110, alignment: .leading)
-                ShortcutRecorder(shortcut: model.shortcut) { proposed in
-                    feedback = model.changeShortcut(proposed)
-                }
-                .frame(width: 175, height: 32)
-                Text("Click to change")
+            VStack(alignment: .leading, spacing: 7) {
+                Text("Screenshot shortcut")
+                    .font(.system(size: 13, weight: .medium))
+                Text("In macOS Keyboard Shortcuts → Screenshots, change “Copy picture of selected area to the clipboard.” The default is Control–Shift–Command–4.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                Button("Change in System Settings…") { model.openShortcutSettings() }
             }
-            Text("Clipboard fallback: Control–Shift–Command–4")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
             TextField("Rebuild address", text: $address)
                 .textFieldStyle(.roundedBorder)
             HStack {

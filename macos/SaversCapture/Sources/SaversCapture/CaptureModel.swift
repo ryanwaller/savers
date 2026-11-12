@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 import Foundation
 import SwiftUI
 
@@ -9,7 +8,6 @@ final class CaptureModel: ObservableObject {
 
     @Published private(set) var image: NSImage?
     @Published private(set) var status = ""
-    @Published private(set) var shortcut = CaptureShortcut.load()
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
         return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
@@ -19,7 +17,6 @@ final class CaptureModel: ObservableObject {
     var onCapture: (() -> Void)?
     var onOpenLarge: ((NSImage) -> Void)?
     var onNeedsRebuild: (() -> Void)?
-    var onShortcutChange: ((CaptureShortcut) -> Bool)?
     private var didOpenRebuild = false
     lazy var bridge: RebuildBridge? = {
         do {
@@ -36,25 +33,9 @@ final class CaptureModel: ObservableObject {
 
     func startBridge() { _ = bridge }
 
-    func changeShortcut(_ proposed: CaptureShortcut) -> String {
-        guard onShortcutChange?(proposed) == true else {
-            return "That shortcut is already in use. Try another."
-        }
-        shortcut = proposed
-        proposed.save()
-        return "Shortcut saved"
-    }
-
-    func setCapturedImage(_ captured: CGImage) {
-        let bitmap = NSBitmapImageRep(cgImage: captured)
-        guard let data = bitmap.representation(using: .png, properties: [:]) else {
-            status = "Could not prepare the screenshot."
-            return
-        }
-        image = NSImage(cgImage: captured, size: NSSize(width: CGFloat(captured.width), height: CGFloat(captured.height)))
-        pngData = data
-        status = ""
-        onCapture?()
+    func openShortcutSettings() {
+        guard let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension") else { return }
+        NSWorkspace.shared.open(url)
     }
 
     var previewSize: NSSize {

@@ -1,11 +1,11 @@
 # Savers Capture for macOS
 
 Savers Capture is a compact menu bar screenshot companion for the **Rebuild preview**.
-Press its area shortcut (default **Control–Option–Command–4**) and drag to select
-an area, or choose **Capture Screen** from the menu bar. Change the area shortcut
-in **Settings…** by clicking its shortcut field and pressing a new combination.
-The small preview appears at the bottom left, sized to the image. Hover over it
-to blur and darken the image and show four corner actions:
+Press macOS's **Copy picture of selected area to the clipboard** shortcut
+(default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
+notices the clipboard image and opens a small preview at the bottom left, sized
+to the image. Hover over it to blur and darken the image and show four corner
+actions:
 
 - **X** closes the preview.
 - **Download** saves a PNG on the Desktop.
@@ -19,14 +19,15 @@ them, and are then removed from the queue. Nothing is sent to the old Savers
 service or saved to the Desktop when you choose Rebuild. If the browser tab is
 closed, choose **Open Rebuild** from the menu bar later to finish the handoff.
 
-Native area capture requires Screen Recording permission for Savers Capture.
-If permission is unavailable, the Mac's built-in **Control–Shift–Command–4**
-shortcut copies an area to the clipboard; Savers Capture notices the image and
-opens the same preview without its own Screen Recording permission. Images copied
-from CleanShot also work. **Use Clipboard Image** in the menu bar imports the
-current image manually. macOS 13 or newer is required. This build is ad hoc
-signed and not notarized, so macOS may ask you to allow it in **System Settings
-→ Privacy & Security → Open Anyway**.
+Change the screenshot shortcut in **System Settings → Keyboard → Keyboard
+Shortcuts → Screenshots → Copy picture of selected area to the clipboard**.
+Savers Capture's **Settings…** window opens the Keyboard settings and shows
+this path. macOS owns the actual shortcut; Savers Capture automatically picks
+up the resulting clipboard image. It does not need Screen Recording access.
+Images copied from CleanShot also work. **Use Clipboard Image** in the menu bar
+imports the current image manually. macOS 13 or newer is required. This build
+is ad hoc signed and not notarized, so macOS may ask you to allow it in **System
+Settings → Privacy & Security → Open Anyway**.
 
 ## Build and run
 

@@ -1,5 +1,4 @@
 import AppKit
-import CoreGraphics
 import SwiftUI
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
@@ -8,9 +7,6 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private var previewPanel: NSPanel?
     private var largerWindow: NSWindow?
     private var settingsWindow: NSWindow?
-    private var areaPicker: ScreenAreaPicker?
-    private let hotKey = CaptureHotKey()
-    private var captureAreaItem: NSMenuItem?
     private var clipboardTimer: Timer?
     private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
 
@@ -18,12 +14,10 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = NSImage(systemSymbolName: "camera.viewfinder", accessibilityDescription: "Savers Capture")
         let menu = NSMenu()
-        captureAreaItem = menu.addItem(withTitle: "Capture Area  \(model.shortcut.label)", action: #selector(captureArea), keyEquivalent: "")
-        menu.addItem(withTitle: "Capture Screen", action: #selector(captureScreen), keyEquivalent: "")
-        menu.addItem(.separator())
-        let fallback = menu.addItem(withTitle: "Clipboard fallback: ⌃⇧⌘4", action: nil, keyEquivalent: "")
-        fallback.isEnabled = false
+        let hint = menu.addItem(withTitle: "Screenshot to Clipboard", action: nil, keyEquivalent: "")
+        hint.isEnabled = false
         menu.addItem(withTitle: "Use Clipboard Image", action: #selector(importClipboardImage), keyEquivalent: "")
+        menu.addItem(withTitle: "Change Screenshot Shortcut…", action: #selector(openShortcutSettings), keyEquivalent: "")
         menu.addItem(.separator())
         menu.addItem(withTitle: "Open Rebuild", action: #selector(openRebuild), keyEquivalent: "")
         menu.addItem(withTitle: "Settings…", action: #selector(showSettings), keyEquivalent: "")
@@ -36,13 +30,6 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         model.onCapture = { [weak self] in self?.showPreview() }
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
         model.onNeedsRebuild = { [weak self] in self?.model.openRebuild() }
-        model.onShortcutChange = { [weak self] proposed in
-            guard let self, self.hotKey.register(proposed) else { return false }
-            self.captureAreaItem?.title = "Capture Area  \(proposed.label)"
-            return true
-        }
-        hotKey.onPressed = { [weak self] in self?.captureArea() }
-        _ = hotKey.register(model.shortcut)
         model.startBridge()
         clipboardTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
@@ -65,33 +52,12 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         if !model.importClipboardImage() {
             let alert = NSAlert()
             alert.messageText = "No image on the clipboard"
-            alert.informativeText = "Press Control–Shift–Command–4 and select an area, then Savers Capture will open the preview."
+            alert.informativeText = "Use your macOS screenshot-to-clipboard shortcut and select an area. Savers Capture will open the preview automatically."
             alert.runModal()
         }
     }
 
-    @objc private func captureArea() {
-        guard let snapshot = ScreenSnapshot.take() else { showCapturePermissionHelp(); return }
-        previewPanel?.orderOut(nil)
-        areaPicker = ScreenAreaPicker(snapshot: snapshot)
-        areaPicker?.onFinished = { [weak self] image in
-            self?.areaPicker = nil
-            if let image { self?.model.setCapturedImage(image) }
-        }
-    }
-
-    @objc private func captureScreen() {
-        guard let snapshot = ScreenSnapshot.take() else { showCapturePermissionHelp(); return }
-        model.setCapturedImage(snapshot.image)
-    }
-
-    private func showCapturePermissionHelp() {
-        _ = CGRequestScreenCaptureAccess()
-        let alert = NSAlert()
-        alert.messageText = "Screen capture needs access"
-        alert.informativeText = "Allow Savers Capture in System Settings → Privacy & Security → Screen & System Audio Recording. You can use Control–Shift–Command–4 to copy a screenshot while access is unavailable."
-        alert.runModal()
-    }
+    @objc private func openShortcutSettings() { model.openShortcutSettings() }
 
     private func showPreview() {
         if previewPanel == nil {
@@ -145,7 +111,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 330),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 340),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
