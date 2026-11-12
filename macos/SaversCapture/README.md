@@ -4,13 +4,15 @@ Savers Capture is a compact menu bar screenshot companion for the **Rebuild prev
 Press macOS's **Copy picture of selected area to the clipboard** shortcut
 (default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
 notices the clipboard image and opens a small preview at the bottom left. New
-previews stack above earlier ones at a consistent width; closing a lower preview
-slides the previews above it down. Hover over an image to blur and darken it and show four corner
+previews stack above earlier ones at a consistent width and spacing, wrapping to
+the next column when the screen is full. Closing a lower preview slides the
+previews above it down. Hover over an image to blur and darken it and show four corner
 actions:
 
 - **X** closes the preview.
 - **Download** saves a PNG on the Desktop and closes that preview.
-- **Plus** opens a larger, resizable view.
+- **Plus** opens a larger image-only view.
+- **Copy** in the center copies the image to the clipboard.
 - **Green Savers mark** sends the screenshot to the Rebuild library and closes that preview.
 
 The Rebuild preview stores cards in that browser. The Mac app opens it once with
@@ -29,6 +31,11 @@ Images copied from CleanShot also work. **Use Clipboard Image** in the menu bar
 imports the current image manually. macOS 13 or newer is required. This build
 is ad hoc signed and not notarized, so macOS may ask you to allow it in **System
 Settings → Privacy & Security → Open Anyway**.
+
+The Settings window also offers **Ensure 2× screenshot output**. Retina
+screenshots generally arrive at 2× already. If a clipboard image has fewer
+pixels than 2× its logical size, the app enlarges it for Desktop, Copy, and
+Rebuild output; this cannot restore detail missing from the original capture.
 
 ## Build and run
 

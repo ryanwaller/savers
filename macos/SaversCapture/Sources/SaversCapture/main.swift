@@ -7,6 +7,10 @@ private struct PreviewEntry {
     let panel: NSPanel
 }
 
+private final class ImageWindow: NSWindow {
+    override var canBecomeKey: Bool { true }
+}
+
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private let model = CaptureModel()
     private var statusItem: NSStatusItem?
@@ -68,15 +72,10 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private func showPreview(_ capture: CapturedScreenshot) {
         let panel = NSPanel(
             contentRect: NSRect(origin: .zero, size: capture.previewSize),
-            styleMask: [.titled, .fullSizeContentView, .nonactivatingPanel],
+            styleMask: [.borderless, .nonactivatingPanel],
             backing: .buffered,
             defer: false
         )
-        panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true
-        panel.standardWindowButton(.closeButton)?.isHidden = true
-        panel.standardWindowButton(.miniaturizeButton)?.isHidden = true
-        panel.standardWindowButton(.zoomButton)?.isHidden = true
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
@@ -90,14 +89,30 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
                 self.removePreview(capture.id)
             },
             openLarger: { [weak self] in self?.model.openLarger(capture) },
+            copy: { [weak self] in self?.copyCapture(capture) },
             sendToRebuild: { [weak self] in
                 guard let self, self.model.sendToRebuild(capture) else { return }
                 self.removePreview(capture.id)
             }
         ))
         previews.append(PreviewEntry(capture: capture, panel: panel))
-        layoutPreviews(animated: false)
+        if let target = previewFrames()[capture.id] {
+            panel.setFrame(target, display: true)
+        }
         panel.orderFrontRegardless()
+    }
+
+    private func copyCapture(_ capture: CapturedScreenshot) {
+        let pasteboard = NSPasteboard.general
+        pasteboard.clearContents()
+        let outputImage = NSImage(data: capture.pngData) ?? capture.image
+        guard pasteboard.writeObjects([outputImage]) else {
+            capture.status = "Could not copy screenshot."
+            return
+        }
+        // Our clipboard watcher must not treat this copy as a new screenshot.
+        lastPasteboardChangeCount = pasteboard.changeCount
+        capture.status = "Copied"
     }
 
     private func removePreview(_ id: UUID) {
@@ -105,33 +120,38 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         let entry = previews.remove(at: index)
         entry.panel.orderOut(nil)
         entry.panel.close()
-        layoutPreviews(animated: true)
+        layoutPreviews()
     }
 
-    private func layoutPreviews(animated: Bool) {
+    private func previewFrames() -> [UUID: NSRect] {
         let screen = NSScreen.main ?? NSScreen.screens.first
         let frame = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let inset: CGFloat = 16
+        let gap: CGFloat = 12
+        var nextX = frame.minX + inset
         var nextY = frame.minY + 16
-        let updateFrames = {
-            for entry in self.previews {
-                var target = entry.panel.frame
-                target.origin = NSPoint(x: frame.minX + 16, y: nextY)
-                if animated {
-                    entry.panel.animator().setFrame(target, display: true)
-                } else {
-                    entry.panel.setFrame(target, display: true)
-                }
-                nextY += target.height + 12
+        var targets: [UUID: NSRect] = [:]
+        for entry in previews {
+            let size = entry.capture.previewSize
+            if nextY > frame.minY + inset && nextY + size.height > frame.maxY - inset {
+                nextX += size.width + gap
+                nextY = frame.minY + inset
             }
+            targets[entry.capture.id] = NSRect(origin: NSPoint(x: nextX, y: nextY), size: size)
+            nextY += size.height + gap
         }
-        if animated {
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0.22
-                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                updateFrames()
+        return targets
+    }
+
+    private func layoutPreviews() {
+        let targets = previewFrames()
+        NSAnimationContext.runAnimationGroup { context in
+            context.duration = 0.2
+            context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            for entry in previews {
+                guard let target = targets[entry.capture.id] else { continue }
+                entry.panel.animator().setFrame(target, display: true)
             }
-        } else {
-            updateFrames()
         }
     }
 
@@ -159,14 +179,28 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func openRebuild() { model.openRebuild() }
 
     private func showLarger(_ image: NSImage) {
-        let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 900, height: 650),
-            styleMask: [.titled, .closable, .resizable, .miniaturizable],
+        largerWindow?.close()
+        let screen = NSScreen.main ?? NSScreen.screens.first
+        let visible = screen?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        let natural = image.size
+        let width = max(1, natural.width)
+        let height = max(1, natural.height)
+        let scale = min(2, min((visible.width - 80) / width, (visible.height - 80) / height))
+        let size = NSSize(width: width * scale, height: height * scale)
+        let window = ImageWindow(
+            contentRect: NSRect(origin: .zero, size: size),
+            styleMask: [.borderless],
             backing: .buffered,
             defer: false
         )
-        window.title = "Screenshot"
-        window.contentView = NSHostingView(rootView: LargerPreview(image: image))
+        window.isOpaque = false
+        window.backgroundColor = .clear
+        window.hasShadow = true
+        window.isMovableByWindowBackground = true
+        window.contentView = NSHostingView(rootView: LargerPreview(image: image, size: size) { [weak self] in
+            self?.largerWindow?.close()
+            self?.largerWindow = nil
+        })
         window.center()
         window.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
@@ -176,7 +210,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 340),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 430),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false

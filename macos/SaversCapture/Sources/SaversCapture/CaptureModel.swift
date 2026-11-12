@@ -28,6 +28,9 @@ final class CaptureModel: ObservableObject {
 
     private(set) var importError = ""
     private(set) var bridgeError = ""
+    @Published var ensure2xOutput = UserDefaults.standard.bool(forKey: "ensure2xOutput") {
+        didSet { UserDefaults.standard.set(ensure2xOutput, forKey: "ensure2xOutput") }
+    }
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
         return saved == nil || saved == oldBaseURL ? defaultBaseURL : saved!
@@ -59,13 +62,41 @@ final class CaptureModel: ObservableObject {
         guard let captured = NSImage(pasteboard: .general),
               let tiff = captured.tiffRepresentation,
               let bitmap = NSBitmapImageRep(data: tiff),
-              let data = bitmap.representation(using: .png, properties: [:]) else {
+              let data = pngData(from: bitmap, pointSize: captured.size) else {
             importError = "Copy a screenshot to the clipboard first."
             return false
         }
         importError = ""
         onCapture?(CapturedScreenshot(image: captured, pngData: data))
         return true
+    }
+
+    private func pngData(from bitmap: NSBitmapImageRep, pointSize: NSSize) -> Data? {
+        guard ensure2xOutput else { return bitmap.representation(using: .png, properties: [:]) }
+        let scale = max(1, max(
+            pointSize.width * 2 / CGFloat(bitmap.pixelsWide),
+            pointSize.height * 2 / CGFloat(bitmap.pixelsHigh)
+        ))
+        guard scale > 1 else { return bitmap.representation(using: .png, properties: [:]) }
+        let targetWidth = Int(ceil(CGFloat(bitmap.pixelsWide) * scale))
+        let targetHeight = Int(ceil(CGFloat(bitmap.pixelsHigh) * scale))
+        guard
+              let source = bitmap.cgImage,
+              let context = CGContext(
+                data: nil,
+                width: targetWidth,
+                height: targetHeight,
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: CGColorSpaceCreateDeviceRGB(),
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else {
+            return bitmap.representation(using: .png, properties: [:])
+        }
+        context.interpolationQuality = .high
+        context.draw(source, in: CGRect(x: 0, y: 0, width: targetWidth, height: targetHeight))
+        guard let scaled = context.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: scaled).representation(using: .png, properties: [:])
     }
 
     @discardableResult

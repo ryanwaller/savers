@@ -8,6 +8,7 @@ struct CapturePreview: View {
     let close: () -> Void
     let saveToDesktop: () -> Void
     let openLarger: () -> Void
+    let copy: () -> Void
     let sendToRebuild: () -> Void
     @State private var hovered = false
 
@@ -22,19 +23,21 @@ struct CapturePreview: View {
                 .blur(radius: hovered ? 18 : 0)
             if hovered {
                 Color.black.opacity(0.42)
+                Button(action: copy) {
+                    Text("Copy")
+                        .font(.system(size: 15, weight: .medium))
+                        .foregroundColor(.black)
+                        .padding(.horizontal, 20)
+                        .frame(height: 42)
+                        .background(.white, in: Capsule())
+                }
+                .buttonStyle(.plain)
+                .help("Copy screenshot to clipboard")
                 VStack {
                     HStack {
                         cornerButton("xmark", help: "Close preview", action: close)
                         Spacer()
                         cornerButton("arrow.down.to.line", help: "Save PNG to Desktop", action: saveToDesktop)
-                    }
-                    Spacer()
-                    if !capture.status.isEmpty {
-                        Text(capture.status)
-                            .font(.system(size: 11, weight: .medium))
-                            .foregroundColor(.white)
-                            .multilineTextAlignment(.center)
-                            .lineLimit(2)
                     }
                     Spacer()
                     HStack {
@@ -53,6 +56,15 @@ struct CapturePreview: View {
                 }
                 .padding(9)
                 .transition(.opacity)
+                if !capture.status.isEmpty {
+                    Text(capture.status)
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 4)
+                        .background(.black.opacity(0.55), in: Capsule())
+                        .offset(y: 36)
+                }
             }
         }
         .frame(width: size.width, height: size.height)
@@ -60,7 +72,7 @@ struct CapturePreview: View {
         .onHover { hovered = $0 }
         .animation(.easeInOut(duration: 0.2), value: hovered)
         .accessibilityLabel("Screenshot preview")
-        .accessibilityHint("Hover for close, desktop, open, and Rebuild actions")
+        .accessibilityHint("Hover for close, desktop, open, copy, and Rebuild actions")
     }
 
     private func cornerButton(_ icon: String, help: String, action: @escaping () -> Void) -> some View {
@@ -96,14 +108,33 @@ private struct SaversMark: View {
 
 struct LargerPreview: View {
     let image: NSImage
+    let size: NSSize
+    let close: () -> Void
+    @State private var hovered = false
 
     var body: some View {
-        Image(nsImage: image)
-            .resizable()
-            .scaledToFit()
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
-            .padding(24)
-            .background(Color.black.opacity(0.9))
+        ZStack(alignment: .topLeading) {
+            Image(nsImage: image)
+                .resizable()
+                .scaledToFill()
+                .frame(width: size.width, height: size.height)
+                .clipped()
+            if hovered {
+                Button(action: close) {
+                    Image(systemName: "xmark")
+                        .font(.system(size: 16, weight: .medium))
+                        .foregroundColor(.black)
+                        .frame(width: 40, height: 40)
+                        .background(.white, in: Circle())
+                }
+                .buttonStyle(.plain)
+                .padding(12)
+            }
+        }
+        .frame(width: size.width, height: size.height)
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .onHover { hovered = $0 }
+        .onExitCommand(perform: close)
     }
 }
 
@@ -132,6 +163,11 @@ struct CaptureSettings: View {
                     .foregroundColor(.secondary)
                 Button("Change in System Settings…") { model.openShortcutSettings() }
             }
+            Toggle("Ensure 2× screenshot output", isOn: $model.ensure2xOutput)
+                .font(.system(size: 13, weight: .medium))
+            Text("Retina screenshots are usually already 2×. This enlarges lower-resolution images to at least 2× their logical size; it cannot add missing detail.")
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
             TextField("Rebuild address", text: $address)
                 .textFieldStyle(.roundedBorder)
             HStack {
