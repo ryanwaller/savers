@@ -2,9 +2,11 @@
 
 ## Current state
 
-- The `main` branch source is preserved at the fixed Git tag `legacy-savers-2026-11-12` and the `archive/legacy-savers-2026-11-12` branch. The new `rebuild-live` branch also serves that interface at `/legacy`. The currently deployed production commit still needs verification in Railway before cutover.
+- The `main` branch source is preserved at the fixed Git tag `legacy-savers-2026-11-12` and the `archive/legacy-savers-2026-11-12` branch. The new `rebuild-live` branch also serves that interface at `/legacy`. Railway confirms the currently live `savers` production deployment is commit `2850d958c5b0d7b64e6c3c74d593a3e6b654eb64`, the same commit as the archive tag.
 - The public `rebuild` preview still stores edits in the browser. It has no authenticated server data or background enrichment.
 - The isolated Supabase project **Savers Rebuild Staging** (`zhcepsclcjigaqnlwxiw`) was created on 12 November 2026 in `us-west-1`. Migrations 001–029 are applied there. Its bookmark, collection, image, and feed tables are empty. Its `bookmark-previews`, `image-originals`, and `image-previews` buckets exist and are empty. Production is `zyeuthooypsjclffmird` and has not been migrated or changed for this setup.
+- A separate Railway project, **savers-rebuild-staging** (`609ca03d-4392-4258-8cbb-ded5c53c5d88`), now contains an unconnected `savers-rebuild-web` service. Its staging Supabase URL, anon key, and `SAVERS_REBUILD_STAGING=1` guard are set. No app source or worker has been attached to this service, so it has not replaced or changed either live Savers service.
+- Savers Capture for macOS 0.9.4 is built and available on `rebuild-live` at `public/downloads/savers-capture-macos-0.9.4.zip`. Its user-facing labels say Savers. Its default browser address remains the current isolated preview and opens `/rebuild`, where the capture listener exists. The Mac app can be pointed to the account-backed staging site once that site has a durable capture handoff.
 - The source archive is **not a database or storage backup**. Before production cutover, export the production Supabase database and both original and preview storage buckets, then verify that the archive can be restored.
 - No production domain or production data is changed by this branch.
 
