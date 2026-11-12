@@ -7,7 +7,8 @@ struct ScreenSnapshot {
 
     static func take() -> ScreenSnapshot? {
         let mouse = NSEvent.mouseLocation
-        guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main,
+        guard CGPreflightScreenCaptureAccess(),
+              let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main,
               let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
               let image = CGDisplayCreateImage(CGDirectDisplayID(number.uint32Value)) else { return nil }
         return ScreenSnapshot(screen: screen, image: image)

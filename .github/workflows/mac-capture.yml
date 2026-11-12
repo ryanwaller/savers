@@ -35,6 +35,11 @@ jobs:
       - name: Publish direct preview download
         if: github.ref == 'refs/heads/rebuild'
         run: |
+          latest=$(git ls-remote origin refs/heads/rebuild | cut -f1)
+          if [ "$latest" != "$GITHUB_SHA" ]; then
+            echo "A newer rebuild commit exists; skip publishing this older build."
+            exit 0
+          fi
           mkdir -p public/downloads
           cp Savers-Capture-macOS.zip public/downloads/savers-capture-macos-0.4.0.zip
           git config user.name 'github-actions[bot]'
