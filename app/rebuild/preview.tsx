@@ -2061,11 +2061,11 @@ export default function RebuildPreview({
                 </button>}
                 {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
-                  href="https://savers-production.up.railway.app"
+                  href={liveMode && !isStaging ? "/legacy" : "https://savers-production.up.railway.app"}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  Open current Savers <ExternalLink size={14} />
+                  {liveMode && !isStaging ? "Open old Savers" : "Open current Savers"} <ExternalLink size={14} />
                 </a>
               </div>
             )}
