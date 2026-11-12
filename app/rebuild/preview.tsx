@@ -371,6 +371,10 @@ function CardTile({
   );
 }
 
+function OverlayCloseButton({ label, onClick, disabled = false }: { label: string; onClick: () => void; disabled?: boolean }) {
+  return <button className="rb-overlay-close" type="button" onClick={onClick} disabled={disabled} aria-label={label}><X aria-hidden="true" /></button>;
+}
+
 export default function RebuildPreview({
   seedCollections,
   seedCards,
@@ -1997,7 +2001,7 @@ export default function RebuildPreview({
 
       {captureOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label="Browser capture" onMouseDown={(event) => { if (event.target === event.currentTarget) setCaptureOverlayOpen(false); }}>
         <div className="rb-capture-panel">
-          <div className="rb-following-head"><h2>Browser capture</h2><button onClick={() => setCaptureOverlayOpen(false)} aria-label="Close browser capture"><X size={23} /></button></div>
+          <div className="rb-following-head"><h2>Browser capture</h2><OverlayCloseButton label="Close browser capture" onClick={() => setCaptureOverlayOpen(false)} /></div>
           <div className="rb-capture-content" data-scroll-fade="y">
             <p>Save pages, images, links, text, and screenshots as you browse. Captures go to this browser’s Savers preview.</p>
             <a className="rb-capture-download" href="/downloads/savers-rebuild-capture-0.2.1.zip" download>Download extension <ArrowUpRight size={18} /></a>
@@ -2012,7 +2016,7 @@ export default function RebuildPreview({
 
       {followingOverlayOpen && <div className="rb-following-backdrop" role="dialog" aria-modal="true" aria-label={`${profileName} following`} onMouseDown={(event) => { if (event.target === event.currentTarget) setFollowingOverlayOpen(false); }}>
         <div className="rb-following-panel">
-          <div className="rb-following-head"><h2>Following</h2><button onClick={() => setFollowingOverlayOpen(false)} aria-label="Close following"><X size={23} /></button></div>
+          <div className="rb-following-head"><h2>Following</h2><OverlayCloseButton label="Close following" onClick={() => setFollowingOverlayOpen(false)} /></div>
           <div className="rb-following-list" data-scroll-fade="y">
             {isOwnProfile && publicAccounts.filter((account) => followedAccountIds.includes(account.id)).length > 0 ? publicAccounts.filter((account) => followedAccountIds.includes(account.id)).map((account) => <div className="rb-following-row" key={account.id}>
               <button className="rb-following-person" onClick={() => { setProfileId(account.id); setProfileScope("cards"); setFollowingOverlayOpen(false); window.scrollTo(0, 0); }}>{account.avatar ? <img src={account.avatar} alt="" /> : <span>{account.name.slice(0, 1)}</span>}<strong>{account.name}</strong></button>
@@ -2113,7 +2117,7 @@ export default function RebuildPreview({
 
       {bulkImportFiles && <div className="rb-rule-overlay rb-bulk-import-backdrop" role="dialog" aria-modal="true" aria-label="Add files" onMouseDown={(event) => { if (!bulkImportBusy && event.target === event.currentTarget) setBulkImportFiles(null); }}>
         <div className="rb-bulk-import-panel">
-          <div className="rb-bulk-import-head"><h2>Add {bulkImportFiles.length} item{bulkImportFiles.length === 1 ? "" : "s"}</h2><button onClick={() => setBulkImportFiles(null)} disabled={bulkImportBusy} aria-label="Close import"><X size={21} /></button></div>
+          <div className="rb-bulk-import-head"><h2>Add {bulkImportFiles.length} item{bulkImportFiles.length === 1 ? "" : "s"}</h2><OverlayCloseButton label="Close import" onClick={() => setBulkImportFiles(null)} disabled={bulkImportBusy} /></div>
           <p>Images, readable documents, and other files will be added to your browser preview. Folder names become collections.</p>
           <div className="rb-bulk-import-list">{bulkImportFiles.slice(0, 4).map((item, index) => <span key={`${item.path}-${index}`}>{item.path}</span>)}{bulkImportFiles.length > 4 && <span>+ {bulkImportFiles.length - 4} more</span>}</div>
           <label>Into collection<select value={bulkImportCollection} onChange={(event) => setBulkImportCollection(event.target.value)}><option value="">Top level</option>{allCollections.filter((item) => item.group !== "smart").map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
@@ -2135,12 +2139,6 @@ export default function RebuildPreview({
           aria-label={activeCard.title}
         >
           <div className="rb-detail-bar">
-            <button
-              onClick={closeDetail}
-              aria-label="Close item"
-            >
-              <X size={21} />
-            </button>
             <div>
               {activeCardIsOwn && <button onClick={() => togglePrivacy(activeCard.id)} aria-label={activeCard.isPrivate === false ? "Make private" : "Make public"} title={activeCard.isPrivate === false ? "Public in this preview" : "Private in this preview"}>
                 {activeCard.isPrivate === false ? <Unlock size={19} /> : <LockKeyhole size={19} />}
@@ -2215,6 +2213,7 @@ export default function RebuildPreview({
                 </div>
               )}
             </div>
+            <OverlayCloseButton label="Close item" onClick={closeDetail} />
           </div>
           <div className="rb-detail-content">
             <span className="rb-detail-kind">{typeLabels[activeCard.kind]}{activeCard.linkStatus === "broken" && <span className="rb-broken-marker">Marked broken</span>}</span>
@@ -2287,11 +2286,13 @@ export default function RebuildPreview({
         <div className="rb-related-feed-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); } }}>
         <div className="rb-related-feed" role="dialog" aria-modal="true" aria-label="More related cards">
           <div className="rb-related-feed-top">
-            <button onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} aria-label="Close related cards"><X size={23} /></button>
             <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
               {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => setRelatedScope(scope)}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
             </div>
-            <button className="rb-related-select-toggle" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
+            <div className="rb-related-feed-actions">
+              <button className="rb-related-select-toggle" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
+              <OverlayCloseButton label="Close related cards" onClick={() => { setRelatedFeedOpen(false); setRelatedSelecting(false); setSelectedRelatedIds([]); }} />
+            </div>
           </div>
           <div className="rb-related-feed-grid">
             {visibleRelatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
@@ -2311,7 +2312,7 @@ export default function RebuildPreview({
       </div>}
       {(relatedCollectionPickerOpen || collectionPickerCardId || libraryCollectionPickerOpen) && <div className="rb-related-picker-backdrop" role="dialog" aria-modal="true" aria-label="Choose collection" onMouseDown={(event) => { if (event.target === event.currentTarget) closeCollectionPicker(); }}>
             <div className="rb-related-picker">
-              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><button onClick={closeCollectionPicker} aria-label="Close collection picker"><X size={23} /></button></div>
+              <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><OverlayCloseButton label="Close collection picker" onClick={closeCollectionPicker} /></div>
               <div className="rb-related-picker-list" data-scroll-fade="y">
                 {!pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
                 {pickerCollections.map((item) => <button className={`rb-picker-target ${pickerCollectionId === item.id ? "selected" : ""}`} key={item.id} onClick={() => chooseCollection(item.id)} aria-pressed={pickerCollectionId === item.id}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span>{pickerCollectionId === item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>)}
@@ -2321,14 +2322,14 @@ export default function RebuildPreview({
             </div>
       </div>}
 
-      {deleteCollectionId && <div className="rb-delete-collection-backdrop" role="dialog" aria-modal="true" aria-label="Delete collection" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCollectionId(null); }}><div className="rb-delete-collection-panel"><h2>Delete {allCollections.find((item) => item.id === deleteCollectionId)?.name}?</h2><p>Items in this collection will move to Unsorted. Subfolders will move up one level.</p><div><button onClick={() => setDeleteCollectionId(null)}>Cancel</button><button onClick={deleteCollection}><Trash2 size={18} /> Delete collection</button></div></div></div>}
+      {deleteCollectionId && <div className="rb-delete-collection-backdrop" role="dialog" aria-modal="true" aria-label="Delete collection" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCollectionId(null); }}><div className="rb-delete-collection-panel"><div className="rb-confirm-head"><h2>Delete {allCollections.find((item) => item.id === deleteCollectionId)?.name}?</h2><OverlayCloseButton label="Close delete collection confirmation" onClick={() => setDeleteCollectionId(null)} /></div><p>Items in this collection will move to Unsorted. Subfolders will move up one level.</p><div className="rb-confirm-actions"><button onClick={() => setDeleteCollectionId(null)}>Cancel</button><button onClick={deleteCollection}><Trash2 size={18} /> Delete collection</button></div></div></div>}
 
       {smartEditorId && (
         <div className="rb-rule-overlay" role="dialog" aria-modal="true" aria-label={`Edit rules for ${smartEditorCollection?.name || "smart collection"}`}>
           <div className="rb-rule-panel" data-scroll-fade="y">
             <div className="rb-rule-head">
               <div><span>Smart collection</span><h2>{smartEditorCollection?.name}</h2></div>
-              <button onClick={() => setSmartEditorId(null)} aria-label="Close rule editor"><X size={21} /></button>
+              <OverlayCloseButton label="Close rule editor" onClick={() => setSmartEditorId(null)} />
             </div>
             {!smartRules[smartEditorId] && <p className="rb-rule-note">Original rules aren’t in the export. Changes here stay in this preview.</p>}
             <div className="rb-rule-match">
@@ -2366,7 +2367,7 @@ export default function RebuildPreview({
           <div className="rb-tag-editor" data-scroll-fade="y">
             <div className="rb-rule-head">
               <div><span>Tags</span><h2>{tagEditorCard.title}</h2></div>
-              <button onClick={() => setTagEditorId(null)} aria-label="Close tag editor"><X size={21} /></button>
+              <OverlayCloseButton label="Close tag editor" onClick={() => setTagEditorId(null)} />
             </div>
             <div className="rb-tag-editor-chips">
               {tagDraft.map((tag) => <button key={tag} onClick={() => setTagDraft((tags) => tags.filter((item) => item !== tag))} aria-label={`Remove tag ${tag}`}>{tag} <X size={16} /></button>)}
@@ -2382,7 +2383,7 @@ export default function RebuildPreview({
 
       {editingCardId && <div className="rb-rule-overlay rb-edit-backdrop" role="dialog" aria-modal="true" aria-label="Edit card" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingCardId(null); }}>
         <div className="rb-edit-panel">
-          <div className="rb-edit-head"><h2>Edit card</h2><button onClick={() => setEditingCardId(null)} aria-label="Close editor"><X size={22} /></button></div>
+          <div className="rb-edit-head"><h2>Edit card</h2><OverlayCloseButton label="Close editor" onClick={() => setEditingCardId(null)} /></div>
           <div className="rb-edit-fields" data-scroll-fade="y">
           <label>Title<input value={editTitle} onChange={(event) => setEditTitle(event.target.value)} autoFocus /></label>
           <label>Link<input type="url" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} /></label>
@@ -2403,10 +2404,10 @@ export default function RebuildPreview({
         </div>
       </div>}
 
-      {deleteCardId && <div className="rb-rule-overlay rb-delete-card-backdrop" role="dialog" aria-modal="true" aria-label="Remove card confirmation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCardId(null); }}><div className="rb-bulk-panel"><h2>Remove this card?</h2><p>{cards.find((item) => item.id === deleteCardId)?.title} will be removed from this browser preview.</p><div><button onClick={() => setDeleteCardId(null)}>Cancel</button><button className="rb-bulk-danger" onClick={() => removeCard(deleteCardId)}>Remove card</button></div></div></div>}
+      {deleteCardId && <div className="rb-rule-overlay rb-delete-card-backdrop" role="dialog" aria-modal="true" aria-label="Remove card confirmation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCardId(null); }}><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove this card?</h2><OverlayCloseButton label="Close remove card confirmation" onClick={() => setDeleteCardId(null)} /></div><p>{cards.find((item) => item.id === deleteCardId)?.title} will be removed from this browser preview.</p><div className="rb-confirm-actions"><button onClick={() => setDeleteCardId(null)}>Cancel</button><button className="rb-bulk-danger" onClick={() => removeCard(deleteCardId)}>Remove card</button></div></div></div>}
 
-      {bulkTagOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Add tag to selected cards"><div className="rb-bulk-panel"><h2>Add a tag to {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}</h2><input value={bulkTagInput} onChange={(event) => setBulkTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyBulkTags(); }} placeholder="Tag name" autoFocus /><div><button onClick={() => setBulkTagOpen(false)}>Cancel</button><button onClick={applyBulkTags} disabled={!bulkTagInput.trim()}>Add tag</button></div></div></div>}
-      {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><p>This removes them from this browser preview.</p><div><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}
+      {bulkTagOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Add tag to selected cards"><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Add a tag to {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}</h2><OverlayCloseButton label="Close bulk tag editor" onClick={() => setBulkTagOpen(false)} /></div><input value={bulkTagInput} onChange={(event) => setBulkTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyBulkTags(); }} placeholder="Tag name" autoFocus /><div className="rb-confirm-actions"><button onClick={() => setBulkTagOpen(false)}>Cancel</button><button onClick={applyBulkTags} disabled={!bulkTagInput.trim()}>Add tag</button></div></div></div>}
+      {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><OverlayCloseButton label="Close bulk remove confirmation" onClick={() => setBulkRemoveOpen(false)} /></div><p>This removes them from this browser preview.</p><div className="rb-confirm-actions"><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}
 
       {composer && (
         <div
@@ -2417,7 +2418,7 @@ export default function RebuildPreview({
           onMouseDown={(event) => { if (event.target === event.currentTarget) setComposer(null); }}
         >
           <div className="rb-composer">
-            <div className="rb-composer-header"><button className="rb-composer-close" onClick={() => setComposer(null)} aria-label="Close"><X size={23} /></button></div>
+            <div className="rb-composer-header"><OverlayCloseButton label="Close composer" onClick={() => setComposer(null)} /></div>
             <div className="rb-composer-body" data-scroll-fade="y">
             {composer === "link" && (
               <label>
