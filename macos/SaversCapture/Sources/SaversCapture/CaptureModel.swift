@@ -6,11 +6,13 @@ final class CapturedScreenshot: ObservableObject, Identifiable {
     let id = UUID()
     let image: NSImage
     let pngData: Data
+    let title: String
     @Published var status = ""
 
-    init(image: NSImage, pngData: Data) {
+    init(image: NSImage, pngData: Data, title: String) {
         self.image = image
         self.pngData = pngData
+        self.title = title
     }
 
     var previewSize: NSSize {
@@ -24,12 +26,16 @@ final class CapturedScreenshot: ObservableObject, Identifiable {
 
 final class CaptureModel: ObservableObject {
     static let defaultBaseURL = "https://savers-rebuild-preview-production.up.railway.app"
+    static let defaultFilenameTemplate = "Savers Screenshot {date} at {time}"
     private static let oldBaseURL = "https://savers-production.up.railway.app"
 
     private(set) var importError = ""
     private(set) var bridgeError = ""
     @Published var ensure2xOutput = UserDefaults.standard.bool(forKey: "ensure2xOutput") {
         didSet { UserDefaults.standard.set(ensure2xOutput, forKey: "ensure2xOutput") }
+    }
+    @Published var filenameTemplate = UserDefaults.standard.string(forKey: "filenameTemplate") ?? defaultFilenameTemplate {
+        didSet { UserDefaults.standard.set(filenameTemplate, forKey: "filenameTemplate") }
     }
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
@@ -67,8 +73,26 @@ final class CaptureModel: ObservableObject {
             return false
         }
         importError = ""
-        onCapture?(CapturedScreenshot(image: captured, pngData: data))
+        onCapture?(CapturedScreenshot(image: captured, pngData: data, title: screenshotTitle(at: Date(), template: filenameTemplate)))
         return true
+    }
+
+    func filenameExample(for template: String) -> String {
+        screenshotTitle(at: Date(), template: template) + ".png"
+    }
+
+    private func screenshotTitle(at date: Date, template: String) -> String {
+        let day = DateFormatter()
+        day.dateFormat = "yyyy-MM-dd"
+        let time = DateFormatter()
+        time.dateFormat = "HH.mm.ss"
+        let formatted = template
+            .replacingOccurrences(of: "{date}", with: day.string(from: date))
+            .replacingOccurrences(of: "{time}", with: time.string(from: date))
+        let invalid = CharacterSet(charactersIn: "/:\\").union(.newlines).union(.controlCharacters)
+        let safe = formatted.unicodeScalars.map { invalid.contains($0) ? "-" : String($0) }.joined()
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        return safe.isEmpty ? "Screenshot" : String(safe.prefix(120))
     }
 
     private func pngData(from bitmap: NSBitmapImageRep, pointSize: NSSize) -> Data? {
@@ -105,9 +129,7 @@ final class CaptureModel: ObservableObject {
             capture.status = "Could not find Desktop."
             return false
         }
-        let formatter = DateFormatter()
-        formatter.dateFormat = "yyyy-MM-dd 'at' HH.mm.ss"
-        let stem = "Savers Screenshot \(formatter.string(from: Date()))"
+        let stem = capture.title
         var destination = desktop.appendingPathComponent("\(stem).png")
         var suffix = 2
         while FileManager.default.fileExists(atPath: destination.path) {
@@ -155,7 +177,7 @@ final class CaptureModel: ObservableObject {
             return false
         }
         do {
-            try bridge.enqueue(capture.pngData)
+            try bridge.enqueue(capture.pngData, title: capture.title)
             if !didOpenRebuild { onNeedsRebuild?() }
             return true
         } catch {

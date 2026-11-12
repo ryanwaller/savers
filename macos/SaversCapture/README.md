@@ -9,11 +9,13 @@ the next column when the screen is full. Closing a lower preview slides the
 previews above it down. Hover over an image to blur and darken it and show four corner
 actions:
 
-- **X** closes the preview.
-- **Download** saves a PNG on the Desktop and closes that preview.
+- **X** dismisses the preview.
+- **Download** saves a PNG on the Desktop and dismisses that preview.
 - **Plus** opens a larger image-only view.
-- **Copy** in the center copies the image to the clipboard.
-- **Green Savers mark** sends the screenshot to the Rebuild library and closes that preview.
+- **Copy** in the center copies the image to the clipboard and dismisses the preview.
+- **Green Savers mark** sends the screenshot to the Rebuild library and dismisses that preview.
+
+Dismissed previews shrink, lower, and fade before the remaining previews slide into place.
 
 Each preview control responds to hover. The larger image has a hover X in its
 top left; closing that window leaves Savers Capture running in the menu bar.
@@ -39,6 +41,9 @@ The Settings window also offers **Ensure 2× screenshot output**. Retina
 screenshots generally arrive at 2× already. If a clipboard image has fewer
 pixels than 2× its logical size, the app enlarges it for Desktop, Copy, and
 Rebuild output; this cannot restore detail missing from the original capture.
+The **Screenshot name** field accepts `{date}` and `{time}` placeholders and
+sets both the Desktop PNG filename and the title sent to Rebuild. If a Desktop
+filename already exists, the app adds a number instead of overwriting it.
 
 ## Build and run
 

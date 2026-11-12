@@ -6,11 +6,12 @@ private let saversGreen = Color(red: 185 / 255, green: 1, blue: 105 / 255)
 struct CapturePreview: View {
     @ObservedObject var capture: CapturedScreenshot
     let close: () -> Void
-    let saveToDesktop: () -> Void
+    let saveToDesktop: () -> Bool
     let openLarger: () -> Void
-    let copy: () -> Void
-    let sendToRebuild: () -> Void
+    let copy: () -> Bool
+    let sendToRebuild: () -> Bool
     @State private var hovered = false
+    @State private var dismissing = false
 
     var body: some View {
         let size = capture.previewSize
@@ -23,18 +24,24 @@ struct CapturePreview: View {
                 .blur(radius: hovered ? 18 : 0)
             if hovered {
                 Color.black.opacity(0.42)
-                HoverCopyButton(action: copy)
+                HoverCopyButton {
+                    if copy() { dismissPreview() }
+                }
                 VStack {
                     HStack {
-                        HoverCircleButton(icon: "xmark", help: "Close preview", action: close)
+                        HoverCircleButton(icon: "xmark", help: "Close preview", action: dismissPreview)
                         Spacer()
-                        HoverCircleButton(icon: "arrow.down.to.line", help: "Save PNG to Desktop", action: saveToDesktop)
+                        HoverCircleButton(icon: "arrow.down.to.line", help: "Save PNG to Desktop") {
+                            if saveToDesktop() { dismissPreview() }
+                        }
                     }
                     Spacer()
                     HStack {
                         HoverCircleButton(icon: "plus", help: "Open larger preview", action: openLarger)
                         Spacer()
-                        HoverCircleButton(icon: "savers", help: "Send to Rebuild", action: sendToRebuild)
+                        HoverCircleButton(icon: "savers", help: "Send to Rebuild") {
+                            if sendToRebuild() { dismissPreview() }
+                        }
                     }
                 }
                 .padding(9)
@@ -52,10 +59,21 @@ struct CapturePreview: View {
         }
         .frame(width: size.width, height: size.height)
         .clipShape(RoundedRectangle(cornerRadius: 16))
+        .scaleEffect(dismissing ? 0.82 : 1, anchor: .bottomLeading)
+        .offset(y: dismissing ? 24 : 0)
+        .opacity(dismissing ? 0 : 1)
+        .allowsHitTesting(!dismissing)
         .onHover { hovered = $0 }
         .animation(.easeInOut(duration: 0.2), value: hovered)
+        .animation(.easeIn(duration: 0.18), value: dismissing)
         .accessibilityLabel("Screenshot preview")
         .accessibilityHint("Hover for close, desktop, open, copy, and Rebuild actions")
+    }
+
+    private func dismissPreview() {
+        guard !dismissing else { return }
+        dismissing = true
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: close)
     }
 }
 
@@ -157,50 +175,78 @@ struct LargerPreview: View {
 struct CaptureSettings: View {
     @ObservedObject var model: CaptureModel
     @State private var address: String
+    @State private var filenameTemplate: String
     @State private var feedback = ""
 
     init(model: CaptureModel) {
         self.model = model
         _address = State(initialValue: model.baseURL)
+        _filenameTemplate = State(initialValue: model.filenameTemplate)
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 12) {
             Text("Savers Capture")
-                .font(.system(size: 23, weight: .medium))
-            Text("Copy a screenshot to the clipboard. Its preview opens here automatically, ready to send to Rebuild.")
+                .font(.system(size: 21, weight: .medium))
+            Text("Copy a screenshot to the clipboard to open its preview and send it to Rebuild.")
                 .font(.system(size: 13))
                 .foregroundColor(.secondary)
-            VStack(alignment: .leading, spacing: 7) {
+                .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 6) {
                 Text("Screenshot shortcut")
                     .font(.system(size: 13, weight: .medium))
-                Text("In macOS Keyboard Shortcuts → Screenshots, change “Copy picture of selected area to the clipboard.” The default is Control–Shift–Command–4.")
+                Text("In macOS Keyboard Shortcuts → Screenshots, change “Copy picture of selected area to the clipboard.” Default: Control–Shift–Command–4.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
                 Button("Change in System Settings…") { model.openShortcutSettings() }
             }
-            Toggle("Ensure 2× screenshot output", isOn: $model.ensure2xOutput)
-                .font(.system(size: 13, weight: .medium))
-            Text("Retina screenshots are usually already 2×. This enlarges lower-resolution images to at least 2× their logical size; it cannot add missing detail.")
-                .font(.system(size: 12))
-                .foregroundColor(.secondary)
-            TextField("Rebuild address", text: $address)
-                .textFieldStyle(.roundedBorder)
-            HStack {
-                Text(feedback)
+            VStack(alignment: .leading, spacing: 5) {
+                Toggle("Ensure 2× screenshot output", isOn: $model.ensure2xOutput)
+                    .font(.system(size: 13, weight: .medium))
+                Text("Retina captures are usually 2× already. Smaller images can be enlarged, but no detail is added.")
                     .font(.system(size: 12))
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Screenshot name")
+                    .font(.system(size: 13, weight: .medium))
+                TextField("Name template", text: $filenameTemplate)
+                    .textFieldStyle(.roundedBorder)
+                Text("Use {date} and {time}. Example: \(model.filenameExample(for: filenameTemplate))")
+                    .font(.system(size: 12))
+                    .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
+            }
+            VStack(alignment: .leading, spacing: 5) {
+                Text("Rebuild address")
+                    .font(.system(size: 13, weight: .medium))
+                TextField("https://…", text: $address)
+                    .textFieldStyle(.roundedBorder)
+            }
+            Text(feedback.isEmpty ? " " : feedback)
+                .font(.system(size: 12))
+                .foregroundColor(.secondary)
+                .frame(maxWidth: .infinity, alignment: .center)
+            HStack {
                 Spacer()
-                Button("Save") { feedback = model.configure(baseURL: address) }
+                Button("Save") { saveSettings() }
                 Button("Open Rebuild") {
-                    feedback = model.configure(baseURL: address)
+                    saveSettings()
                     if feedback == "Settings saved" { model.openRebuild() }
                 }
                 .buttonStyle(.borderedProminent)
                 .tint(saversGreen)
+                Spacer()
             }
         }
-        .padding(28)
-        .frame(width: 480)
+        .frame(width: 432, alignment: .leading)
+        .padding(24)
+    }
+
+    private func saveSettings() {
+        model.filenameTemplate = filenameTemplate
+        feedback = model.configure(baseURL: address)
     }
 }

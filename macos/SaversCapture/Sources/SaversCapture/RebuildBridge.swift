@@ -31,9 +31,16 @@ final class RebuildBridge {
         listener.start(queue: queue)
     }
 
-    func enqueue(_ image: Data) throws {
-        let filename = "\(UUID().uuidString).png"
-        try image.write(to: directory.appendingPathComponent(filename), options: .atomic)
+    func enqueue(_ image: Data, title: String) throws {
+        let id = UUID().uuidString
+        let titleFile = directory.appendingPathComponent("\(id).txt")
+        try title.write(to: titleFile, atomically: true, encoding: .utf8)
+        do {
+            try image.write(to: directory.appendingPathComponent("\(id).png"), options: .atomic)
+        } catch {
+            try? FileManager.default.removeItem(at: titleFile)
+            throw error
+        }
     }
 
     private func receive(_ connection: NWConnection, accumulated: Data = Data()) {
@@ -89,10 +96,12 @@ final class RebuildBridge {
                 respond(connection, status: "204 No Content", body: Data())
                 return
             }
+            let titleFile = file.deletingPathExtension().appendingPathExtension("txt")
+            let title = (try? String(contentsOf: titleFile, encoding: .utf8)) ?? "Screenshot"
             let body = (try? JSONSerialization.data(withJSONObject: [
                 "id": file.deletingPathExtension().lastPathComponent,
                 "image": "data:image/png;base64,\(image.base64EncodedString())",
-                "title": "Screenshot",
+                "title": title,
             ])) ?? Data()
             respond(connection, status: "200 OK", body: body)
             return
@@ -103,6 +112,7 @@ final class RebuildBridge {
             let file = directory.appendingPathComponent("\(id).png")
             if FileManager.default.fileExists(atPath: file.path) {
                 try? FileManager.default.removeItem(at: file)
+                try? FileManager.default.removeItem(at: directory.appendingPathComponent("\(id).txt"))
                 onAcknowledged?()
             }
             respond(connection, status: "204 No Content", body: Data())

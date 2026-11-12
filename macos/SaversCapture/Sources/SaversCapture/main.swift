@@ -89,14 +89,12 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
             capture: capture,
             close: { [weak self] in self?.removePreview(capture.id) },
             saveToDesktop: { [weak self] in
-                guard let self, self.model.saveToDesktop(capture) else { return }
-                self.removePreview(capture.id)
+                self?.model.saveToDesktop(capture) ?? false
             },
             openLarger: { [weak self] in self?.model.openLarger(capture) },
-            copy: { [weak self] in self?.copyCapture(capture) },
+            copy: { [weak self] in self?.copyCapture(capture) ?? false },
             sendToRebuild: { [weak self] in
-                guard let self, self.model.sendToRebuild(capture) else { return }
-                self.removePreview(capture.id)
+                self?.model.sendToRebuild(capture) ?? false
             }
         ))
         previews.append(PreviewEntry(capture: capture, panel: panel))
@@ -106,17 +104,17 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         panel.orderFrontRegardless()
     }
 
-    private func copyCapture(_ capture: CapturedScreenshot) {
+    private func copyCapture(_ capture: CapturedScreenshot) -> Bool {
         let pasteboard = NSPasteboard.general
         pasteboard.clearContents()
         let outputImage = NSImage(data: capture.pngData) ?? capture.image
         guard pasteboard.writeObjects([outputImage]) else {
             capture.status = "Could not copy screenshot."
-            return
+            return false
         }
         // Our clipboard watcher must not treat this copy as a new screenshot.
         lastPasteboardChangeCount = pasteboard.changeCount
-        capture.status = "Copied"
+        return true
     }
 
     private func removePreview(_ id: UUID) {
@@ -221,13 +219,15 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     @objc private func showSettings() {
         if settingsWindow == nil {
             let window = NSWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 480, height: 430),
+                contentRect: NSRect(x: 0, y: 0, width: 480, height: 480),
                 styleMask: [.titled, .closable],
                 backing: .buffered,
                 defer: false
             )
             window.title = "Savers Capture Settings"
-            window.contentView = NSHostingView(rootView: CaptureSettings(model: model))
+            let content = NSHostingView(rootView: CaptureSettings(model: model))
+            window.contentView = content
+            window.setContentSize(NSSize(width: 480, height: content.fittingSize.height))
             window.center()
             settingsWindow = window
         }
