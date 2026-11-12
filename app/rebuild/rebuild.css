@@ -3250,9 +3250,6 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rebuild-app .rb-inbox-tabs .rb-inbox-subscription-entry form > button:hover { background: #a6f54d; color: #202820; }
 .rebuild-app .rb-inbox-subscription-entry form button span { display: inline; min-width: 0; height: auto; padding: 0; background: transparent; color: inherit; font: inherit; white-space: nowrap; }
 @media (max-width: 700px) {
-  .rb-inbox-tabs:has(.rb-inbox-subscription-entry.expanded) { flex-wrap: wrap; overflow: visible; }
-  .rb-inbox-subscription-entry.expanded { flex: 1 1 100%; width: 100%; }
-  .rb-inbox-subscription-entry form { flex: 1 1 auto; min-width: 0; }
   .rebuild-app .rb-inbox-subscription-entry form button span { display: none; }
   .rebuild-app .rb-inbox-tabs .rb-inbox-subscription-entry form > button { width: 42px; justify-content: center; padding: 0; }
 }
@@ -3279,14 +3276,39 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-topbar { padding-inline: 16px; }
 }
 
-/* On phones and small tablets, Add occupies the last slot of the bottom dock. */
+/* Keep Add beside the compact mobile dock as a separate circular action. */
 @media (max-width: 700px) {
   .rebuild-app { --rb-inline-create-size: 58px; }
-  .rebuild-app .rb-dock { padding-right: calc(var(--rb-inline-create-size) + 14px); }
-  .rb-create-anchor { right: 21px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 9px); }
-  .rebuild-app .rb-create-button { width: var(--rb-inline-create-size); height: var(--rb-inline-create-size); border-radius: 17px; box-shadow: none; }
+  .rebuild-app .rb-dock { left: 12px; right: auto; width: calc(100vw - 96px); padding: var(--rb-control-gap); }
+  .rb-create-anchor { right: 12px; bottom: calc(max(10px, env(safe-area-inset-bottom)) + 9px); }
+  .rebuild-app .rb-create-button { width: var(--rb-inline-create-size); height: var(--rb-inline-create-size); border-radius: 50%; box-shadow: 0 10px 28px #0002; }
   .rb-create-menu { bottom: calc(var(--rb-inline-create-size) + 12px); }
-}
-@media (max-width: 620px) {
-  .rebuild-app .rb-create-button { border-radius: 16px; }
+
+  /* The four Inbox choices stay in place; the subscription field opens below. */
+  .rb-inbox-tabs, .rb-inbox-tabs:has(.rb-inbox-subscription-entry.expanded) { position: relative; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; overflow: visible; }
+  .rb-inbox-tabs:has(.rb-inbox-subscription-entry.expanded) { margin-bottom: 102px; }
+  .rb-inbox-subscription-entry, .rb-inbox-subscription-entry.expanded { display: contents; }
+  .rebuild-app .rb-inbox-tabs > button, .rebuild-app .rb-inbox-tabs .rb-inbox-subscription-entry > button { width: 100%; min-width: 0; justify-content: center; padding-inline: 10px; gap: 6px; }
+  .rb-inbox-tabs > button:first-child { grid-column: 1; grid-row: 1; }
+  .rb-inbox-tabs > button:nth-child(2) { grid-column: 2; grid-row: 1; }
+  .rb-inbox-subscription-entry > button { grid-column: 1; grid-row: 2; }
+  .rb-inbox-tabs > button:last-child { grid-column: 2; grid-row: 2; }
+  .rb-inbox-subscription-entry form { position: absolute; top: calc(100% + 12px); left: 0; width: 100%; max-width: 100%; min-width: 0; height: 58px; border-radius: 17px; background: var(--rb-control-bg); }
+
+  /* Card imagery stays clear; text and source sit in a compact lower panel. */
+  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-content { position: relative; display: flex; flex-direction: column; min-height: 98px; padding: 14px 16px 16px; }
+  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card h3 { order: 0; margin: 0; padding-right: 75px; font-size: 20px !important; line-height: 1.2; }
+  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-topline { position: absolute; top: 17px; right: 41px; margin: 0; padding: 0; font-size: 12px !important; }
+  .rb-card-grid:not(.rb-list-grid) .rb-card-topline span > svg:first-child { display: none; }
+  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-footer { order: 1; display: block; min-width: 0; margin: 7px 0 0; padding: 0 38px 0 0; border: 0; font-size: 13px !important; }
+  .rb-card-grid:not(.rb-list-grid) .rb-card-footer svg { position: absolute; top: 16px; right: 16px; width: 19px; height: 19px; }
+  .rb-card-grid:not(.rb-list-grid) .rb-card p { order: 2; margin-top: 10px; }
+  .rb-card-grid:not(.rb-list-grid) .rb-card-link p { display: none; }
+  .rb-card-grid:not(.rb-list-grid) .rb-card-owner { order: 3; }
+  .rebuild-app .rb-card .rb-card-favorite-toggle { display: none; }
+  .rebuild-app .rb-card .rb-card-actions { display: none; }
+  .rebuild-app .rb-card-link .rb-card-actions:has(button[title="Details in Savers"]) { display: flex; top: auto; right: 8px; bottom: 8px; left: auto; opacity: 1; pointer-events: auto; }
+  .rebuild-app .rb-card-link .rb-card-actions button:not([title="Details in Savers"]) { display: none; }
+  .rebuild-app .rb-card-link .rb-card-actions button[title="Details in Savers"] { width: 34px; height: 34px; background: transparent; }
+  .rb-list-grid .rb-card:has(.rb-card-image:not([data-failed])) .rb-card-actions { right: 8px; bottom: 8px; }
 }
