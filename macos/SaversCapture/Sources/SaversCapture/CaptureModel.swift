@@ -136,14 +136,33 @@ final class CaptureModel: ObservableObject {
             return
         }
 
+        // Savers accepts at most 20 MB per image. Keep the lossless capture when
+        // possible, and use a high-quality JPEG only for very large screenshots.
+        var uploadData = data
+        var fileName = "Screenshot.png"
+        var contentType = "image/png"
+        if data.count > 20 * 1024 * 1024,
+           let image,
+           let tiff = image.tiffRepresentation,
+           let bitmap = NSBitmapImageRep(data: tiff),
+           let jpeg = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.85]) {
+            uploadData = jpeg
+            fileName = "Screenshot.jpg"
+            contentType = "image/jpeg"
+        }
+        guard uploadData.count <= 20 * 1024 * 1024 else {
+            status = "Screenshot is larger than Savers’ 20 MB limit."
+            return
+        }
+
         isSending = true
         status = "Sending…"
         let boundary = "SaversCapture-\(UUID().uuidString)"
         var body = Data()
         body.append(Data("--\(boundary)\r\n".utf8))
-        body.append(Data("Content-Disposition: form-data; name=\"files\"; filename=\"Screenshot.png\"\r\n".utf8))
-        body.append(Data("Content-Type: image/png\r\n\r\n".utf8))
-        body.append(data)
+        body.append(Data("Content-Disposition: form-data; name=\"files\"; filename=\"\(fileName)\"\r\n".utf8))
+        body.append(Data("Content-Type: \(contentType)\r\n\r\n".utf8))
+        body.append(uploadData)
         body.append(Data("\r\n--\(boundary)--\r\n".utf8))
 
         var request = URLRequest(url: url)
