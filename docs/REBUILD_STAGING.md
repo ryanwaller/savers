@@ -8,7 +8,7 @@
 - The isolated staging Supabase project is `zhcepsclcjigaqnlwxiw`, with migrations 001–029, exposed `savers` schema, and public preview and private original Storage buckets. Its library is empty until a staging user signs in and saves items.
 - The isolated Railway project is `savers-rebuild-staging`, with web service `savers-rebuild-web` at `https://savers-rebuild-web-production.up.railway.app`, Redis, and a screenshot worker. The Railway environment's name is `production`, but this is a separate project and database.
 - The staging web service runs the `rebuild-live` branch with `SAVERS_REBUILD_STAGING=1`. It serves the authenticated Rebuild interface at `/`. Link creation uses the existing bookmark API, queues a screenshot, and refreshes the image when the worker finishes. Image upload uses the image API. Both link and image collections load from the staging account.
-- Savers Capture's next build points to the staging URL. It pairs through the local bridge and uploads screenshots to that signed-in staging account. The Mac app must be rebuilt and reinstalled to use this change.
+- Savers Capture 0.9.5 points to the staging URL. It pairs through the local bridge and uploads screenshots to that signed-in staging account. The published 0.9.5 download must be installed to use this change; older installed copies still point to their previous destination.
 
 ## Test before switching
 

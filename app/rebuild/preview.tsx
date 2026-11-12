@@ -1851,7 +1851,7 @@ export default function RebuildPreview({
         setLibrarySelecting(false);
         setSelectedLibraryIds([]);
         setActiveCardId(null);
-        setToast("Links removed from Savers");
+        setToast("Items removed from Savers");
       } catch (error) { setToast(error instanceof Error ? error.message : "Could not remove links"); }
       return;
     }
@@ -1874,7 +1874,7 @@ export default function RebuildPreview({
         setCards((items) => items.filter((item) => item.id !== id));
         if (activeCardId === id) setActiveCardId(null);
         setDeleteCardId(null);
-        setToast("Link removed from Savers");
+        setToast("Item removed from Savers");
       } catch (error) { setToast(error instanceof Error ? error.message : "Could not remove link"); }
       return;
     }
@@ -2723,10 +2723,10 @@ export default function RebuildPreview({
         </div>
       </div>}
 
-      {deleteCardId && <div className="rb-rule-overlay rb-delete-card-backdrop" role="dialog" aria-modal="true" aria-label="Remove card confirmation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCardId(null); }}><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove this card?</h2><OverlayCloseButton label="Close remove card confirmation" onClick={() => setDeleteCardId(null)} /></div><p>{cards.find((item) => item.id === deleteCardId)?.title} will be removed from this browser preview.</p><div className="rb-confirm-actions"><button onClick={() => setDeleteCardId(null)}>Cancel</button><button className="rb-bulk-danger" onClick={() => removeCard(deleteCardId)}>Remove card</button></div></div></div>}
+      {deleteCardId && <div className="rb-rule-overlay rb-delete-card-backdrop" role="dialog" aria-modal="true" aria-label="Remove card confirmation" onMouseDown={(event) => { if (event.target === event.currentTarget) setDeleteCardId(null); }}><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove this card?</h2><OverlayCloseButton label="Close remove card confirmation" onClick={() => setDeleteCardId(null)} /></div><p>{cards.find((item) => item.id === deleteCardId)?.title} will be removed from {liveMode ? "your Savers library" : "this browser preview"}.</p><div className="rb-confirm-actions"><button onClick={() => setDeleteCardId(null)}>Cancel</button><button className="rb-bulk-danger" onClick={() => removeCard(deleteCardId)}>Remove card</button></div></div></div>}
 
       {bulkTagOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Add tag to selected cards"><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Add a tag to {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}</h2><OverlayCloseButton label="Close bulk tag editor" onClick={() => setBulkTagOpen(false)} /></div><input value={bulkTagInput} onChange={(event) => setBulkTagInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") applyBulkTags(); }} placeholder="Tag name" autoFocus /><div className="rb-confirm-actions"><button onClick={() => setBulkTagOpen(false)}>Cancel</button><button onClick={applyBulkTags} disabled={!bulkTagInput.trim()}>Add tag</button></div></div></div>}
-      {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><OverlayCloseButton label="Close bulk remove confirmation" onClick={() => setBulkRemoveOpen(false)} /></div><p>This removes them from this browser preview.</p><div className="rb-confirm-actions"><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}
+      {bulkRemoveOpen && <div className="rb-rule-overlay rb-bulk-dialog" role="dialog" aria-modal="true" aria-label="Confirm removal"><div className="rb-bulk-panel"><div className="rb-confirm-head"><h2>Remove {selectedLibraryIds.length} {selectedLibraryIds.length === 1 ? "card" : "cards"}?</h2><OverlayCloseButton label="Close bulk remove confirmation" onClick={() => setBulkRemoveOpen(false)} /></div><p>This removes them from {liveMode ? "your Savers library" : "this browser preview"}.</p><div className="rb-confirm-actions"><button onClick={() => setBulkRemoveOpen(false)}>Cancel</button><button className="rb-bulk-danger" onClick={removeSelectedCards}>Remove</button></div></div></div>}
 
       {composer && (
         <div
@@ -2759,7 +2759,7 @@ export default function RebuildPreview({
                     ? formFile.name
                     : "Choose a file from your computer"}
                 </span>
-                <small>Browser-local preview, under 20 MB</small>
+                <small>{liveMode ? "Saved to your account, under 20 MB" : "Browser-local preview, under 20 MB"}</small>
                 <input
                   type="file"
                   accept={composer === "image" ? "image/*" : undefined}
