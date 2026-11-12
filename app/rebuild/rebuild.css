@@ -3296,15 +3296,15 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-inbox-subscription-entry form { position: absolute; top: calc(100% + 12px); left: 0; width: 100%; max-width: 100%; min-width: 0; height: 58px; border-radius: 17px; background: var(--rb-control-bg); }
 
   /* Card imagery stays clear; text and source sit in a compact lower panel. */
-  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-content { position: relative; display: flex; flex-direction: column; min-height: 98px; padding: 14px 16px 16px; }
-  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card h3 { order: 0; margin: 0; padding-right: 75px; font-size: 20px !important; line-height: 1.2; }
-  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-topline { position: absolute; top: 17px; right: 41px; margin: 0; padding: 0; font-size: 12px !important; }
-  .rb-card-grid:not(.rb-list-grid) .rb-card-topline span > svg:first-child { display: none; }
-  .rebuild-app .rb-card-grid:not(.rb-list-grid) .rb-card-footer { order: 1; display: block; min-width: 0; margin: 7px 0 0; padding: 0 38px 0 0; border: 0; font-size: 13px !important; }
-  .rb-card-grid:not(.rb-list-grid) .rb-card-footer svg { position: absolute; top: 16px; right: 16px; width: 19px; height: 19px; }
-  .rb-card-grid:not(.rb-list-grid) .rb-card p { order: 2; margin-top: 10px; }
-  .rb-card-grid:not(.rb-list-grid) .rb-card-link p { display: none; }
-  .rb-card-grid:not(.rb-list-grid) .rb-card-owner { order: 3; }
+  .rebuild-app :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-content { position: relative; display: flex; flex-direction: column; min-height: 98px; padding: 14px 16px 16px; }
+  .rebuild-app :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card h3 { order: 0; margin: 0; padding-right: 75px; font-size: 20px !important; line-height: 1.2; }
+  .rebuild-app :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-topline { position: absolute; top: 17px; right: 41px; margin: 0; padding: 0; font-size: 12px !important; }
+  :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-topline span > svg:first-child { display: none; }
+  .rebuild-app :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-footer { order: 1; display: block; min-width: 0; margin: 7px 0 0; padding: 0 38px 0 0; border: 0; font-size: 13px !important; }
+  :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-footer svg { position: absolute; top: 16px; right: 16px; width: 19px; height: 19px; }
+  :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card p { order: 2; margin-top: 10px; }
+  :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-link p { display: none; }
+  :is(.rb-card-grid:not(.rb-list-grid), .rb-related-stack, .rb-related-feed-grid, .rb-discover-grid) .rb-card-owner { order: 3; }
   .rebuild-app .rb-card .rb-card-favorite-toggle { display: none; }
   .rebuild-app .rb-card .rb-card-actions { display: none; }
   .rebuild-app .rb-card-link .rb-card-actions:has(button[title="Details in Savers"]) { display: flex; top: auto; right: 8px; bottom: 8px; left: auto; opacity: 1; pointer-events: auto; }
@@ -3312,3 +3312,21 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rebuild-app .rb-card-link .rb-card-actions button[title="Details in Savers"] { width: 34px; height: 34px; background: transparent; }
   .rb-list-grid .rb-card:has(.rb-card-image:not([data-failed])) .rb-card-actions { right: 8px; bottom: 8px; }
 }
+
+/* Phone inputs must be large enough to avoid Safari's focus zoom. */
+@media (max-width: 700px) {
+  .rebuild-app :is(input:not([type="checkbox"]):not([type="radio"]), textarea, select) { font-size: 16px !important; }
+  .rebuild-app svg.lucide[stroke-width="2"] { stroke-width: 1.65; }
+}
+
+/* Floating panels leave a visible frame of the underlying page. */
+.rebuild-app :is(.rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop, .rb-composer-overlay, .rb-rule-overlay, .rb-following-backdrop, .rb-related-picker-backdrop) { padding: clamp(26px, 4vw, 56px); }
+.rebuild-app .rb-composer { max-height: calc(100dvh - 52px); }
+.rebuild-app .rb-detail-backdrop:not(.rb-detail-direct) .rb-detail { max-height: 100%; }
+@media (max-width: 700px) {
+  .rebuild-app :is(.rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop, .rb-composer-overlay, .rb-rule-overlay, .rb-following-backdrop, .rb-related-picker-backdrop) { padding: 20px; }
+  .rebuild-app .rb-composer { max-height: calc(100dvh - 40px); }
+}
+
+.rebuild-app .rb-related-heading .rb-related-sort-trigger,
+.rebuild-app .rb-related-heading .rb-related-sort-trigger:is(:hover, .active) { background: #fff; color: #444; }
