@@ -10,6 +10,9 @@ on:
       - 'macos/SaversCapture/**'
       - '.github/workflows/mac-capture.yml'
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: macos-latest
@@ -19,7 +22,23 @@ jobs:
         run: ./macos/SaversCapture/build-app.sh
       - name: Zip app
         run: ditto -c -k --sequesterRsrc --keepParent 'macos/SaversCapture/dist/Savers Capture.app' Savers-Capture-macOS.zip
+      - name: Verify download ZIP
+        run: |
+          unzip -t Savers-Capture-macOS.zip
+          mkdir -p /tmp/savers-capture-verify
+          ditto -x -k Savers-Capture-macOS.zip /tmp/savers-capture-verify
+          test -x '/tmp/savers-capture-verify/Savers Capture.app/Contents/MacOS/SaversCapture'
       - uses: actions/upload-artifact@v4
         with:
           name: Savers-Capture-macOS
           path: Savers-Capture-macOS.zip
+      - name: Publish direct preview download
+        if: github.ref == 'refs/heads/rebuild'
+        run: |
+          mkdir -p public/downloads
+          cp Savers-Capture-macOS.zip public/downloads/savers-capture-macos-0.1.0.zip
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add public/downloads/savers-capture-macos-0.1.0.zip
+          git commit -m 'Publish Savers Capture direct download'
+          git push origin HEAD:rebuild
