@@ -62,7 +62,8 @@ The default Savers address currently is
 in the menu bar's **Settings…** window. **Open Savers** pairs that browser with
 the Mac app using a token stored in the app's preferences and browser storage.
 The pairing token remains in the URL fragment only until the page loads.
-The app opens the configured site's root path, so the same control can target
-the account-backed Savers site when its capture handoff is ready. Until then,
+The app opens `/rebuild` on the current preview address, where the capture
+listener runs. A separately configured account-backed Savers address opens at
+its root path when its capture handoff is ready. Until then,
 the default preview remains browser-local; changing the address alone does not
 enable server-side storage.

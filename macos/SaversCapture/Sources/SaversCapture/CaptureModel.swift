@@ -163,7 +163,10 @@ final class CaptureModel: ObservableObject {
     }
 
     func openSavers() {
-        guard let bridge, let url = URL(string: "\(baseURL)/#savers-capture=\(bridge.token)") else {
+        // The current preview listens on /rebuild. A separately configured
+        // account-backed Savers site will receive the handoff at its root.
+        let path = baseURL == Self.defaultBaseURL ? "/rebuild" : "/"
+        guard let bridge, let url = URL(string: "\(baseURL)\(path)#savers-capture=\(bridge.token)") else {
             return
         }
         NSWorkspace.shared.open(url)
