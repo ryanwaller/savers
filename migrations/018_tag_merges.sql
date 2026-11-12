@@ -24,6 +24,7 @@ CREATE OR REPLACE FUNCTION savers.get_tag_counts(p_user_id uuid)
 RETURNS TABLE(tag text, count bigint)
 LANGUAGE sql
 STABLE
+SET search_path = ''
 AS $$
   SELECT unnest(tags) AS tag, count(*) AS count
   FROM savers.bookmarks
