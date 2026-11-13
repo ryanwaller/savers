@@ -1,6 +1,6 @@
 // Feed check cron — runs every 30 minutes in production
 export function register() {
-  if (process.env.SAVERS_REBUILD_PREVIEW === "1") return;
+  if (process.env.SAVERS_REBUILD_PREVIEW === "1" || process.env.SAVERS_REBUILD_READ_ONLY === "1") return;
 
   if (process.env.NEXT_RUNTIME === "nodejs") {
     const CHECK_INTERVAL_MS = 30 * 60 * 1000;
