@@ -421,6 +421,7 @@ export default function RebuildPreview({
   initialCardId,
   liveMode = false,
   isStaging = false,
+  readOnly = false,
   seedPinnedIds = [],
 }: {
   seedCollections: PreviewCollection[];
@@ -429,6 +430,7 @@ export default function RebuildPreview({
   initialCardId?: string;
   liveMode?: boolean;
   isStaging?: boolean;
+  readOnly?: boolean;
   seedPinnedIds?: string[];
 }) {
   const [destination, setDestination] = useState<Destination>("library");
@@ -2001,9 +2003,9 @@ export default function RebuildPreview({
       {pageDragActive && <div className="rb-page-drop-cue" aria-hidden="true"><div><Upload size={28} /><strong>Drop to save</strong><span>Link, image, or file</span></div></div>}
       <input ref={multiImageInputRef} className="rb-hidden-file-input" type="file" accept="image/*" multiple aria-label="Choose images to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.name }))); event.target.value = ""; }} />
       <input ref={folderInputRef} className="rb-hidden-file-input" type="file" multiple aria-label="Choose a folder to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.webkitRelativePath || file.name }))); event.target.value = ""; }} />
-      {(!liveMode || isStaging) && <div className="rb-preview-flag">
-        <span className="rb-pulse" /> {isStaging ? "Separate copy" : "Preview"}
-        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : "Saves stay in this browser"}</span>
+      {(!liveMode || isStaging || readOnly) && <div className="rb-preview-flag">
+        <span className="rb-pulse" /> {isStaging ? "Separate copy" : readOnly ? "Connected preview" : "Preview"}
+        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : readOnly ? "Your existing library · changes paused" : "Saves stay in this browser"}</span>
       </div>}
 
       <header className="rb-topbar">
@@ -2074,11 +2076,11 @@ export default function RebuildPreview({
                 {isStaging && <a href="/downloads/savers-capture-macos-0.9.5.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
                 {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
-                  href={liveMode && !isStaging ? "/legacy" : "https://savers-production.up.railway.app"}
+                  href={liveMode && !isStaging && !readOnly ? "/legacy" : "https://savers-production.up.railway.app"}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  {liveMode && !isStaging ? "Open old Savers" : "Open current Savers"} <ExternalLink size={14} />
+                  {liveMode && !isStaging && !readOnly ? "Open old Savers" : "Open current Savers"} <ExternalLink size={14} />
                 </a>
               </div>
             )}

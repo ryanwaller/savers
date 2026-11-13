@@ -33,6 +33,7 @@ export default async function RebuildPage({
 }) {
   const item = (await searchParams).item;
   const isStaging = process.env.SAVERS_REBUILD_STAGING === "1";
+  const readOnly = process.env.SAVERS_REBUILD_READ_ONLY === "1";
   if (isStaging || process.env.SAVERS_REBUILD_LIVE === "1") {
     let userId: string;
     try {
@@ -53,7 +54,7 @@ export default async function RebuildPage({
     const imageCounts = new Map<string, number>();
     for (const image of images) if (image.collection_id) imageCounts.set(image.collection_id, (imageCounts.get(image.collection_id) || 0) + 1);
     const cards = [...bookmarks.map((bookmark) => ({ createdAt: bookmark.created_at, card: liveCard(bookmark) })), ...images.map((image) => ({ createdAt: image.created_at, card: liveImage(image) }))].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(({ card }) => card);
-    return <RebuildPreview liveMode isStaging={isStaging} seedCollections={[...collections.map((collection) => liveCollection(collection, counts.get(collection.id) || 0)), ...imageCollections.map((collection) => liveImageCollection(collection, imageCounts.get(collection.id) || 0))]} seedCards={cards} seedPinnedIds={bookmarks.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id)} initialCardId={typeof item === "string" ? item : undefined} />;
+    return <RebuildPreview liveMode isStaging={isStaging} readOnly={readOnly} seedCollections={[...collections.map((collection) => liveCollection(collection, counts.get(collection.id) || 0)), ...imageCollections.map((collection) => liveImageCollection(collection, imageCounts.get(collection.id) || 0))]} seedCards={cards} seedPinnedIds={bookmarks.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id)} initialCardId={typeof item === "string" ? item : undefined} />;
   }
   return <RebuildPreview seedCollections={realCollections} seedCards={loadBookmarkSeed()} initialCardId={typeof item === "string" ? item : undefined} />;
 }
