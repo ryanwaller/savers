@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { createServerClient } from "@supabase/ssr";
 
 function getAllowedOrigins(): string[] {
   const origins: string[] = [];
@@ -27,14 +28,52 @@ function isOriginAllowed(origin: string | null): string | null {
   return null;
 }
 
-export function proxy(req: NextRequest) {
+async function refreshRebuildSession(req: NextRequest, rewriteUrl?: URL) {
+  const makeResponse = () => rewriteUrl
+    ? NextResponse.rewrite(rewriteUrl, { request: req })
+    : NextResponse.next({ request: req });
+  let response = makeResponse();
+  if (!req.cookies.getAll().some((cookie) => cookie.name.startsWith("sb-") && cookie.name.includes("auth-token"))) return response;
+
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return response;
+  const updatedCookies: { name: string; value: string; options: Record<string, unknown> }[] = [];
+  const supabase = createServerClient(url, key, {
+    cookies: {
+      getAll: () => req.cookies.getAll(),
+      setAll(cookiesToSet) {
+        for (const cookie of cookiesToSet) {
+          req.cookies.set(cookie.name, cookie.value);
+          const options = process.env.NODE_ENV === "production"
+            ? { ...cookie.options, sameSite: "none" as const, secure: true }
+            : cookie.options;
+          updatedCookies.push({ name: cookie.name, value: cookie.value, options });
+        }
+        response = makeResponse();
+        for (const cookie of updatedCookies) response.cookies.set(cookie.name, cookie.value, cookie.options);
+      },
+    },
+  });
+  try {
+    await supabase.auth.getUser();
+  } catch {
+    // Let the page show its normal sign-in state if Auth is temporarily unavailable.
+  }
+  return response;
+}
+
+export async function proxy(req: NextRequest) {
   if (process.env.SAVERS_REBUILD_READ_ONLY === "1" && req.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !(req.nextUrl.pathname === "/api/favorites" && req.method === "PATCH") && !(req.nextUrl.pathname === "/api/feeds" && req.method === "POST")) {
     return NextResponse.json({ error: "This connected preview is read-only. Use current Savers to make changes." }, { status: 403 });
   }
   if ((process.env.SAVERS_REBUILD_STAGING === "1" || process.env.SAVERS_REBUILD_LIVE === "1") && req.nextUrl.pathname === "/") {
     const rebuildUrl = req.nextUrl.clone();
     rebuildUrl.pathname = "/rebuild";
-    return NextResponse.rewrite(rebuildUrl);
+    return refreshRebuildSession(req, rebuildUrl);
+  }
+  if ((process.env.SAVERS_REBUILD_STAGING === "1" || process.env.SAVERS_REBUILD_LIVE === "1") && req.nextUrl.pathname === "/rebuild") {
+    return refreshRebuildSession(req);
   }
   if (process.env.SAVERS_REBUILD_PREVIEW === "1") {
     if (req.nextUrl.pathname === "/") {
