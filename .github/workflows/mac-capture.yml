@@ -32,16 +32,14 @@ jobs:
         run: |
           app='/tmp/savers-capture-verify/Savers Capture.app'
           codesign --verify --deep --strict --verbose=2 "$app"
-          "$app/Contents/MacOS/SaversCapture" >/tmp/savers-capture-launch.log 2>&1 &
-          app_pid=$!
+          open -n "$app"
           sleep 5
-          if ! kill -0 "$app_pid" 2>/dev/null; then
-            cat /tmp/savers-capture-launch.log
+          app_pid=$(pgrep -x SaversCapture | head -1 || true)
+          if [ -z "$app_pid" ]; then
             find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -name 'SaversCapture*' -print -exec head -80 {} \; 2>/dev/null || true
             exit 1
           fi
           kill "$app_pid"
-          wait "$app_pid" || true
       - uses: actions/upload-artifact@v4
         with:
           name: Savers-Capture-macOS
