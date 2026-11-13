@@ -95,10 +95,11 @@ async function userFromBearerToken(): Promise<User | null> {
 }
 
 export async function requireUser(): Promise<{ user: User }> {
+  const readOnly = process.env.SAVERS_REBUILD_READ_ONLY === '1'
   // Prefer Bearer token if present (used by the iOS Share Extension and any
   // other non-browser client). Fall back to the Supabase session cookie used
   // by the web app and the Chrome extension.
-  const bearerUser = await userFromBearerToken()
+  const bearerUser = readOnly ? null : await userFromBearerToken()
   if (bearerUser) {
     await claimLegacyLibrary(bearerUser.id)
     return { user: bearerUser }
@@ -119,7 +120,7 @@ export async function requireUser(): Promise<{ user: User }> {
     throw new UnauthorizedError(looksLikeUrlDump ? undefined : raw)
   }
 
-  await claimLegacyLibrary(user.id)
+  if (!readOnly) await claimLegacyLibrary(user.id)
 
   return { user }
 }

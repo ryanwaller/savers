@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
-import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { createSupabaseServerClient, getSupabaseAdmin } from "@/lib/supabase-server";
 
 export const runtime = "nodejs";
 
@@ -32,7 +32,9 @@ export async function GET(req: NextRequest) {
     );
     const offset = Math.max(parseInt(url.searchParams.get("offset") || "0", 10) || 0, 0);
 
-    const supabaseAdmin = getSupabaseAdmin();
+    const supabaseAdmin = process.env.SAVERS_REBUILD_READ_ONLY === "1"
+      ? await createSupabaseServerClient()
+      : getSupabaseAdmin();
 
     let query = supabaseAdmin
       .schema("savers")

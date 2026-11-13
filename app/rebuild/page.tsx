@@ -3,7 +3,7 @@ import RebuildPreview from "./preview";
 import { loadBookmarkSeed } from "./bookmark-seed";
 import { realCollections } from "./real-collections";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
-import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { createSupabaseServerClient, getSupabaseAdmin } from "@/lib/supabase-server";
 import type { Bookmark, Collection, ImageCollection } from "@/lib/types";
 import { readAllPages } from "@/lib/read-all-pages";
 import { liveCard, liveCollection, liveImage, liveImageCollection, type LiveSavedImage } from "./live-data";
@@ -42,7 +42,7 @@ export default async function RebuildPage({
       if (error instanceof UnauthorizedError) return <StagingSignIn staging={isStaging} />;
       throw error;
     }
-    const db = getSupabaseAdmin();
+    const db = readOnly ? await createSupabaseServerClient() : getSupabaseAdmin();
     const [bookmarks, collections, images, imageCollections] = await Promise.all([
       readAllPages<Bookmark>((from, to) => db.from("bookmarks").select("*").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to).returns<Bookmark[]>()),
       readAllPages<Collection>((from, to) => db.from("collections").select("*").eq("user_id", userId).order("position").order("id").range(from, to).returns<Collection[]>()),

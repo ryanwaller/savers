@@ -2,7 +2,7 @@ import { after, NextRequest, NextResponse } from 'next/server'
 import { safePublicFetch } from "@/lib/safe-fetch";
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { canonicalBookmarkUrl } from '@/lib/api'
-import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { createSupabaseServerClient, getSupabaseAdmin } from '@/lib/supabase-server'
 import { fetchPageContent } from '@/lib/page-content'
 import { removePreviewObjects } from '@/lib/preview-server'
 import { enqueueScreenshot } from '@/lib/screenshot-queue'
@@ -213,8 +213,10 @@ export async function POST(req: NextRequest) {
 
 export async function GET(req: NextRequest) {
   try {
-    const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
+    const supabaseAdmin = process.env.SAVERS_REBUILD_READ_ONLY === '1'
+      ? await createSupabaseServerClient()
+      : getSupabaseAdmin()
     const collection_id = req.nextUrl.searchParams.get('collection_id')
     const q = req.nextUrl.searchParams.get('q')
     const limit = Math.min(Math.max(parseInt(req.nextUrl.searchParams.get('limit') || '500', 10) || 500, 1), 500)

@@ -19,7 +19,6 @@ function getServerSupabaseConfig() {
   return {
     url,
     anonKey: requiredEnv('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
-    serviceRoleKey: requiredEnv('SUPABASE_SERVICE_ROLE_KEY'),
   }
 }
 
@@ -51,7 +50,8 @@ export async function createSupabaseServerClient() {
 }
 
 export function getSupabaseAdmin() {
-  const { url, serviceRoleKey } = getServerSupabaseConfig()
+  const { url } = getServerSupabaseConfig()
+  const serviceRoleKey = requiredEnv('SUPABASE_SERVICE_ROLE_KEY')
 
   return createClient(url, serviceRoleKey, {
     auth: {
