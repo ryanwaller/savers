@@ -8,6 +8,7 @@ final class CapturedScreenshot: ObservableObject, Identifiable {
     let pngData: Data
     let title: String
     @Published var status = ""
+    @Published var dismissRequested = false
 
     init(image: NSImage, pngData: Data, title: String) {
         self.image = image

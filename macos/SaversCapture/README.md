@@ -17,6 +17,10 @@ actions:
 - **Copy** in the center copies the image to the clipboard and dismisses the preview.
 - **Green Savers mark** sends the screenshot to Savers and dismisses that preview.
 
+The newest preview accepts **Escape** to close it and **Return** to copy it to
+the clipboard and dismiss it. It takes keyboard focus without activating Savers
+Capture or switching away from the app beneath the preview.
+
 Dismissed previews shrink, lower, and fade before the remaining previews slide into place.
 
 Each preview control responds to hover. The larger image has a hover X in its

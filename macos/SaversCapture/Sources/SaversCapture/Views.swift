@@ -64,10 +64,13 @@ struct CapturePreview: View {
         .opacity(dismissing ? 0 : 1)
         .allowsHitTesting(!dismissing)
         .onHover { hovered = $0 }
+        .onChange(of: capture.dismissRequested) { requested in
+            if requested { dismissPreview() }
+        }
         .animation(.easeInOut(duration: 0.2), value: hovered)
         .animation(.easeIn(duration: 0.18), value: dismissing)
         .accessibilityLabel("Screenshot preview")
-        .accessibilityHint("Hover for close, desktop, open, copy, and Savers actions")
+        .accessibilityHint("Press Escape to close or Return to copy. Hover for more actions.")
     }
 
     private func dismissPreview() {
