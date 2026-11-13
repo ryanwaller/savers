@@ -13,7 +13,10 @@ private final class InstanceLock {
         let path = directory.appendingPathComponent("app.lock").path
         let fd = path.withCString { Darwin.open($0, O_CREAT | O_RDWR, mode_t(0o600)) }
         guard fd >= 0 else { return nil }
-        guard Darwin.flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+        var lock = Darwin.flock()
+        lock.l_type = Int16(F_WRLCK)
+        lock.l_whence = Int16(SEEK_SET)
+        guard Darwin.fcntl(fd, F_SETLK, &lock) == 0 else {
             Darwin.close(fd)
             return nil
         }
@@ -21,7 +24,10 @@ private final class InstanceLock {
     }
 
     deinit {
-        Darwin.flock(descriptor, LOCK_UN)
+        var lock = Darwin.flock()
+        lock.l_type = Int16(F_UNLCK)
+        lock.l_whence = Int16(SEEK_SET)
+        _ = Darwin.fcntl(descriptor, F_SETLK, &lock)
         Darwin.close(descriptor)
     }
 }
