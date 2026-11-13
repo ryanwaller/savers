@@ -24,16 +24,19 @@ export default function StagingSignIn({ staging }: { staging: boolean }) {
     setGoogleBusy(true);
     setMessage("");
     try {
+      const redirectTo = `${window.location.origin}/auth/callback?next=/rebuild`;
       const { data, error } = await getSupabaseBrowserClient().auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback?next=/rebuild`,
+          redirectTo,
           skipBrowserRedirect: true,
         },
       });
       if (error) throw error;
       if (!data?.url) throw new Error("Google sign-in could not start.");
-      window.location.assign(data.url);
+      const oauthUrl = new URL(data.url);
+      oauthUrl.searchParams.set("redirect_to", redirectTo);
+      window.location.assign(oauthUrl.toString());
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Could not start Google sign-in.");
       setGoogleBusy(false);
