@@ -39,6 +39,13 @@ jobs:
             find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -name 'SaversCapture*' -print -exec head -80 {} \; 2>/dev/null || true
             exit 1
           fi
+          open -n "$app"
+          sleep 2
+          instance_count=$(pgrep -xc SaversCapture || true)
+          if [ "$instance_count" -ne 1 ]; then
+            echo "Expected one Savers Capture process after launching twice, found $instance_count"
+            exit 1
+          fi
           kill "$app_pid"
       - uses: actions/upload-artifact@v4
         with:
