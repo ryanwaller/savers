@@ -36,6 +36,7 @@ export type LiveSavedImage = {
   collection_id: string | null;
   preview_path: string | null;
   processing_status: string | null;
+  favorite?: boolean;
   created_at: string;
 };
 

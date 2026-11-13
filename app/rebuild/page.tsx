@@ -46,7 +46,7 @@ export default async function RebuildPage({
     const [bookmarks, collections, images, imageCollections] = await Promise.all([
       readAllPages<Bookmark>((from, to) => db.from("bookmarks").select("*").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to).returns<Bookmark[]>()),
       readAllPages<Collection>((from, to) => db.from("collections").select("*").eq("user_id", userId).order("position").order("id").range(from, to).returns<Collection[]>()),
-      readAllPages<LiveSavedImage>((from, to) => db.from("images").select("id,title,description,notes,source_url,tags,collection_id,preview_path,processing_status,created_at").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to).returns<LiveSavedImage[]>()),
+      readAllPages<LiveSavedImage>((from, to) => db.from("images").select("id,title,description,notes,source_url,tags,collection_id,preview_path,processing_status,favorite,created_at").eq("user_id", userId).order("created_at", { ascending: false }).order("id").range(from, to).returns<LiveSavedImage[]>()),
       readAllPages<ImageCollection>((from, to) => db.from("image_collections").select("*").eq("user_id", userId).order("position").order("id").range(from, to).returns<ImageCollection[]>()),
     ]);
     const counts = new Map<string, number>();
@@ -54,7 +54,7 @@ export default async function RebuildPage({
     const imageCounts = new Map<string, number>();
     for (const image of images) if (image.collection_id) imageCounts.set(image.collection_id, (imageCounts.get(image.collection_id) || 0) + 1);
     const cards = [...bookmarks.map((bookmark) => ({ createdAt: bookmark.created_at, card: liveCard(bookmark) })), ...images.map((image) => ({ createdAt: image.created_at, card: liveImage(image) }))].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(({ card }) => card);
-    return <RebuildPreview liveMode isStaging={isStaging} readOnly={readOnly} seedCollections={[...collections.map((collection) => liveCollection(collection, counts.get(collection.id) || 0)), ...imageCollections.map((collection) => liveImageCollection(collection, imageCounts.get(collection.id) || 0))]} seedCards={cards} seedPinnedIds={bookmarks.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id)} initialCardId={typeof item === "string" ? item : undefined} />;
+    return <RebuildPreview liveMode isStaging={isStaging} readOnly={readOnly} seedCollections={[...collections.map((collection) => liveCollection(collection, counts.get(collection.id) || 0)), ...imageCollections.map((collection) => liveImageCollection(collection, imageCounts.get(collection.id) || 0))]} seedCards={cards} seedPinnedIds={bookmarks.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id)} seedFavoriteIds={[...bookmarks.filter((bookmark) => bookmark.favorite).map((bookmark) => bookmark.id), ...images.filter((image) => image.favorite).map((image) => image.id)]} initialCardId={typeof item === "string" ? item : undefined} />;
   }
   return <RebuildPreview seedCollections={realCollections} seedCards={loadBookmarkSeed()} initialCardId={typeof item === "string" ? item : undefined} />;
 }

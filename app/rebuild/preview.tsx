@@ -423,6 +423,7 @@ export default function RebuildPreview({
   isStaging = false,
   readOnly = false,
   seedPinnedIds = [],
+  seedFavoriteIds = [],
 }: {
   seedCollections: PreviewCollection[];
   seedCards: PreviewCard[];
@@ -432,6 +433,7 @@ export default function RebuildPreview({
   isStaging?: boolean;
   readOnly?: boolean;
   seedPinnedIds?: string[];
+  seedFavoriteIds?: string[];
 }) {
   const [destination, setDestination] = useState<Destination>("library");
   const [cards, setCards] = useState<PreviewCard[]>(seedCards);
@@ -526,7 +528,7 @@ export default function RebuildPreview({
   const [bulkImportError, setBulkImportError] = useState("");
   const [pageDragActive, setPageDragActive] = useState(false);
   const [toast, setToast] = useState("");
-  const [favorites, setFavorites] = useState<string[]>([]);
+  const [favorites, setFavorites] = useState<string[]>(seedFavoriteIds);
   const [smartRules, setSmartRules] = useState<Record<string, SmartDefinition>>({});
   const [smartEditorId, setSmartEditorId] = useState<string | null>(null);
   const [smartDraft, setSmartDraft] = useState<SmartDefinition>({
@@ -860,6 +862,7 @@ export default function RebuildPreview({
         const nextCards = [...all.map((bookmark) => ({ createdAt: bookmark.created_at, card: liveCard(bookmark) })), ...allImages.map((image) => ({ createdAt: image.created_at, card: liveImage(image) }))].sort((a, b) => Date.parse(b.createdAt) - Date.parse(a.createdAt)).map(({ card }) => card);
         if (!stopped) setCards(nextCards);
         if (!stopped) setPinnedIds(all.filter((bookmark) => bookmark.pinned).map((bookmark) => bookmark.id));
+        if (!stopped) setFavorites([...all.filter((bookmark) => bookmark.favorite).map((bookmark) => bookmark.id), ...allImages.filter((image) => image.favorite).map((image) => image.id)]);
       } catch { /* Keep showing the last successfully loaded library. */ }
     };
     const interval = window.setInterval(() => { void refresh(); }, liveHasPendingScreenshots ? 4000 : 20000);
@@ -1579,11 +1582,21 @@ export default function RebuildPreview({
     setToast("Saved in this browser preview");
   }
 
-  function toggleFavorite(id: string) {
-    if (liveMode) { setToast("Favorites are still being connected to your account."); return; }
-    setFavorites((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id],
-    );
+  async function toggleFavorite(id: string) {
+    if (!liveMode) {
+      setFavorites((prev) => prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]);
+      return;
+    }
+    const card = cards.find((item) => item.id === id);
+    if (!card || (card.kind !== "link" && card.kind !== "image")) return;
+    const favorite = !favorites.includes(id);
+    try {
+      await liveRequest<{ favorite: boolean }>("/api/favorites", "PATCH", { id, kind: card.kind, favorite });
+      setFavorites((prev) => favorite ? [...new Set([...prev, id])] : prev.filter((item) => item !== id));
+      setToast(favorite ? "Added to Favorites" : "Removed from Favorites");
+    } catch (error) {
+      setToast(error instanceof Error ? error.message : "Could not update favorite");
+    }
   }
 
   async function togglePin(id: string) {
@@ -2005,7 +2018,7 @@ export default function RebuildPreview({
       <input ref={folderInputRef} className="rb-hidden-file-input" type="file" multiple aria-label="Choose a folder to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.webkitRelativePath || file.name }))); event.target.value = ""; }} />
       {(!liveMode || isStaging || readOnly) && <div className="rb-preview-flag">
         <span className="rb-pulse" /> {isStaging ? "Separate copy" : readOnly ? "Connected preview" : "Preview"}
-        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : readOnly ? "Your existing library · changes paused" : "Saves stay in this browser"}</span>
+        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : readOnly ? "Your existing library · Favorites work; other changes paused" : "Saves stay in this browser"}</span>
       </div>}
 
       <header className="rb-topbar">

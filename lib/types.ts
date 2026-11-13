@@ -39,6 +39,8 @@ export interface Bookmark {
   screenshot_error?: string | null
   /** Pinned bookmarks sort first everywhere and populate the virtual "Pinned" collection. */
   pinned: boolean
+  /** Account-backed heart in the Rebuild library, independent of pinned order. */
+  favorite?: boolean
   /** Async LLM auto-tagging status: 'pending' | 'processing' | 'completed' | 'failed' */
   tagging_status?: string | null
   /** Auto-extracted tags from the LLM pipeline. Never overwritten by user edits. */
