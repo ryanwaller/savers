@@ -62,8 +62,7 @@ export default function StagingSignIn({ staging }: { staging: boolean }) {
 
   return <main className="rb-staging-sign-in">
     <div className="rb-staging-sign-in-card">
-      <span className="rb-mark-glyph" aria-hidden="true">✳</span>
-      <h1>Welcome to Savers</h1>
+      <div className="rb-staging-sign-in-head"><span className="rb-mark-glyph" aria-hidden="true">✳</span><h1>Sign in to Savers</h1></div>
       <p>{staging ? "Sign in to the separate Rebuild copy. Your existing Savers library stays where it is." : "Sign in to your Savers library."}</p>
       <button className="rb-staging-google" type="button" onClick={() => { void signInWithGoogle(); }} disabled={googleBusy || busy}>{googleBusy ? "Opening Google…" : "Continue with Google"}</button>
       <div className="rb-staging-sign-in-divider"><span>or use email</span></div>
@@ -72,7 +71,7 @@ export default function StagingSignIn({ staging }: { staging: boolean }) {
         <input id="rb-staging-email" type="email" autoComplete="email" value={email} onChange={(event) => setEmail(event.target.value)} required />
         <button type="submit" disabled={busy || googleBusy}>{busy ? "Sending…" : "Send sign-in link"}</button>
       </form>
-      {message && <p role="status">{message}</p>}
+      {message && <p className="rb-staging-sign-in-message" role="status">{message}</p>}
     </div>
   </main>;
 }

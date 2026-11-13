@@ -39,7 +39,7 @@ import {
   X,
 } from "lucide-react";
 import { type CardKind, type PreviewCard } from "./fixtures";
-import type { Bookmark as SavedBookmark, Collection, ImageCollection } from "@/lib/types";
+import type { Bookmark as SavedBookmark, Collection, FeedSubscription, ImageCollection } from "@/lib/types";
 import { liveCard, liveCollection, liveImage, liveImageCollection, type LiveSavedImage } from "./live-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
@@ -424,6 +424,7 @@ export default function RebuildPreview({
   readOnly = false,
   seedPinnedIds = [],
   seedFavoriteIds = [],
+  seedFeedSubscriptions = [],
 }: {
   seedCollections: PreviewCollection[];
   seedCards: PreviewCard[];
@@ -434,6 +435,7 @@ export default function RebuildPreview({
   readOnly?: boolean;
   seedPinnedIds?: string[];
   seedFavoriteIds?: string[];
+  seedFeedSubscriptions?: FeedSubscription[];
 }) {
   const [destination, setDestination] = useState<Destination>("library");
   const [cards, setCards] = useState<PreviewCard[]>(seedCards);
@@ -507,8 +509,10 @@ export default function RebuildPreview({
   const [inboxTab, setInboxTab] = useState<"activity" | "following" | "subscriptions" | "review">("activity");
   const [subscriptionEntryOpen, setSubscriptionEntryOpen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<string[]>([]);
+  const [liveSubscriptions, setLiveSubscriptions] = useState<FeedSubscription[]>(seedFeedSubscriptions);
   const [subscriptionInput, setSubscriptionInput] = useState("");
   const [subscriptionError, setSubscriptionError] = useState("");
+  const [subscriptionBusy, setSubscriptionBusy] = useState(false);
   const [formUrl, setFormUrl] = useState("");
   const [formTitle, setFormTitle] = useState("");
   const [formNote, setFormNote] = useState("");
@@ -1177,12 +1181,32 @@ export default function RebuildPreview({
     setFollowedAccountIds((ids) => ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id]);
   }
 
-  function addSubscription() {
+  async function addSubscription() {
     const value = subscriptionInput.trim();
     try {
       const url = new URL(value);
       if (url.protocol !== "https:" && url.protocol !== "http:") throw new Error("invalid protocol");
       const source = url.toString();
+      if (liveMode) {
+        if (liveSubscriptions.some((item) => item.feed_url === source || item.site_url === source)) {
+          setSubscriptionError("This source is already added.");
+          return;
+        }
+        setSubscriptionBusy(true);
+        try {
+          const result = await liveRequest<{ subscription: FeedSubscription }>("/api/feeds", "POST", { feed_url: source, name: url.hostname.replace(/^www\./, ""), collection_id: null });
+          setLiveSubscriptions((items) => [...items, result.subscription]);
+          setSubscriptionInput("");
+          setSubscriptionError("");
+          setSubscriptionEntryOpen(false);
+          setToast("Subscription added to your account");
+        } catch (error) {
+          setSubscriptionError(error instanceof Error ? error.message : "Could not add subscription.");
+        } finally {
+          setSubscriptionBusy(false);
+        }
+        return;
+      }
       if (subscriptions.includes(source)) {
         setSubscriptionError("This source is already added.");
         return;
@@ -2322,7 +2346,7 @@ export default function RebuildPreview({
               {(["activity", "following", "subscriptions", "review"] as const).map((tab) => tab === "subscriptions" ? (
                 <div className={`rb-inbox-subscription-entry ${subscriptionEntryOpen && inboxTab === "subscriptions" ? "expanded" : ""}`} key={tab}>
                   <button className={inboxTab === tab ? "active" : ""} onClick={() => { setInboxTab("subscriptions"); setSubscriptionEntryOpen((open) => inboxTab === "subscriptions" ? !open : true); setSubscriptionError(""); }} aria-expanded={inboxTab === "subscriptions" && subscriptionEntryOpen} aria-controls="rb-subscription-entry-form">Subscriptions <ChevronRight size={18} /></button>
-                  {inboxTab === "subscriptions" && subscriptionEntryOpen && <form id="rb-subscription-entry-form" onSubmit={(event) => { event.preventDefault(); addSubscription(); }}><input value={subscriptionInput} onChange={(event) => { setSubscriptionInput(event.target.value); setSubscriptionError(""); }} placeholder="Site or feed URL" aria-label="Site or feed URL" autoFocus /><button type="submit" aria-label="Add source"><Plus size={18} /><span>Add source</span></button></form>}
+                  {inboxTab === "subscriptions" && subscriptionEntryOpen && <form id="rb-subscription-entry-form" onSubmit={(event) => { event.preventDefault(); void addSubscription(); }}><input value={subscriptionInput} onChange={(event) => { setSubscriptionInput(event.target.value); setSubscriptionError(""); }} placeholder="Site or feed URL" aria-label="Site or feed URL" autoFocus /><button type="submit" aria-label="Add source" disabled={subscriptionBusy}><Plus size={18} /><span>{subscriptionBusy ? "Adding…" : "Add source"}</span></button></form>}
                 </div>
               ) : <button key={tab} className={inboxTab === tab ? "active" : ""} onClick={() => { setInboxTab(tab); setSubscriptionEntryOpen(false); setSubscriptionError(""); }}>{tab === "activity" ? "Activity" : tab === "following" ? "Following" : "Review"}{tab === "review" && <span>{unsortedCards.length}</span>}</button>)}
             </div>
@@ -2330,8 +2354,9 @@ export default function RebuildPreview({
             {inboxTab === "following" && (followingCards.length ? <div className="rb-discover-grid">{followingCards.filter((item) => `${item.title} ${item.owner?.name || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onOpenOwner={() => { setDestination("discover"); setProfileId(item.owner!.id); }} onOpen={() => setActiveCardId(item.id)} />)}</div> : <div className="rb-empty rb-inbox-empty"><UsersRound size={28} /><h2>No cards from followed accounts yet</h2><button onClick={() => navigate("discover")}>Open Discover <ArrowRight size={18} /></button></div>)}
             {inboxTab === "subscriptions" && <div className="rb-subscriptions">
               {subscriptionError && <p role="alert">{subscriptionError}</p>}
-              {subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
-              {subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
+              {liveMode ? (liveSubscriptions.length ? <div className="rb-subscription-list">{liveSubscriptions.map((item) => <div key={item.id}><Link2 size={19} /><div className="rb-subscription-copy"><a href={item.site_url || item.feed_url} target="_blank" rel="noopener noreferrer">{item.name || item.feed_url}</a><small>{item.feed_url}</small></div></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No subscriptions yet</h2></div>) : subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
+              {liveMode && readOnly && <p>To remove a subscription, use <a href="https://savers-production.up.railway.app" target="_blank" rel="noopener noreferrer">current Savers</a> while the connected preview is being checked.</p>}
+              {!liveMode && subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
             </div>}
             {inboxTab === "review" && (unsortedCards.length ? <><div className="rb-discover-grid">{unsortedCards.slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onToggleFavorite={() => toggleFavorite(item.id)} onEdit={() => openCardEditor(item)} onEditTags={() => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} onOpen={() => setActiveCardId(item.id)} />)}</div>{unsortedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : <div className="rb-empty rb-inbox-empty"><Check size={28} /><h2>Nothing to review</h2></div>)}
           </section>

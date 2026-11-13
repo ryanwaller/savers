@@ -1,7 +1,7 @@
 import { safePublicFetch } from "@/lib/safe-fetch";
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
-import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { createSupabaseServerClient, getSupabaseAdmin } from "@/lib/supabase-server";
 import { runFeedChecks } from "@/lib/feed-check";
 import { readAllPages } from "@/lib/read-all-pages";
 
@@ -9,7 +9,7 @@ import { readAllPages } from "@/lib/read-all-pages";
 export async function GET() {
   try {
     const { user } = await requireUser();
-    const supabase = getSupabaseAdmin();
+    const supabase = process.env.SAVERS_REBUILD_READ_ONLY === "1" ? await createSupabaseServerClient() : getSupabaseAdmin();
 
     const subscriptions = await readAllPages((from, to) => supabase
       .from("feed_subscriptions")
@@ -52,7 +52,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const { user } = await requireUser();
-    const supabase = getSupabaseAdmin();
+    const supabase = process.env.SAVERS_REBUILD_READ_ONLY === "1" ? await createSupabaseServerClient() : getSupabaseAdmin();
     const body = await req.json();
 
     let feedUrl = String(body.feed_url ?? "").trim();
@@ -152,7 +152,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Kick off an immediate check without exposing a privileged HTTP route.
-    void runFeedChecks({ userId: user.id, subscriptionId: data.id }).catch(() => {});
+    if (process.env.SAVERS_REBUILD_READ_ONLY !== "1") {
+      void runFeedChecks({ userId: user.id, subscriptionId: data.id }).catch(() => {});
+    }
 
     return NextResponse.json({ subscription: data });
   } catch (err) {
