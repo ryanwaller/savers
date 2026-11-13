@@ -28,6 +28,20 @@ jobs:
           mkdir -p /tmp/savers-capture-verify
           ditto -x -k Savers-Capture-macOS.zip /tmp/savers-capture-verify
           test -x '/tmp/savers-capture-verify/Savers Capture.app/Contents/MacOS/SaversCapture'
+      - name: Verify app launches
+        run: |
+          app='/tmp/savers-capture-verify/Savers Capture.app'
+          codesign --verify --deep --strict --verbose=2 "$app"
+          "$app/Contents/MacOS/SaversCapture" >/tmp/savers-capture-launch.log 2>&1 &
+          app_pid=$!
+          sleep 5
+          if ! kill -0 "$app_pid" 2>/dev/null; then
+            cat /tmp/savers-capture-launch.log
+            find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -name 'SaversCapture*' -print -exec head -80 {} \; 2>/dev/null || true
+            exit 1
+          fi
+          kill "$app_pid"
+          wait "$app_pid" || true
       - uses: actions/upload-artifact@v4
         with:
           name: Savers-Capture-macOS
