@@ -12,7 +12,7 @@
 
 ## Test before switching
 
-1. Sign in at the staging URL. Check the Supabase Auth redirect allowlist if the email link does not return there. The callback URL is `https://savers-rebuild-web-production.up.railway.app/auth/callback`.
+1. Sign in at the staging URL with Google or an email link. Google sign-in requires Google enabled under Supabase Auth → Sign In / Providers on staging project `zhcepsclcjigaqnlwxiw`, with a Google OAuth web client whose authorized redirect URI is `https://zhcepsclcjigaqnlwxiw.supabase.co/auth/v1/callback`. The staging app's OAuth return URL `https://savers-rebuild-web-production.up.railway.app/auth/callback?next=/rebuild` must be allowed under Supabase Auth → URL Configuration. Keep the Google client secret in the provider dashboard, not in the repository or chat.
 2. Save a test link. Verify the row exists after a new page load and its homepage screenshot reaches `complete` with a public preview object. Then test an image upload and a Mac Capture handoff.
 3. Connect a staging auto-tag worker and staging AI key before testing automatic tags. The screenshot worker does not perform AI tagging.
 4. Review the Rebuild actions that still use visual-preview state, especially favorites, notes, files, individual-link sharing, feeds, and social features. Do not present those as durable until they have an API mapping.

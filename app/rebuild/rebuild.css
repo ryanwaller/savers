@@ -3425,3 +3425,8 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-staging-sign-in-card input { min-height: 52px; padding: 0 16px; border: 1px solid #ccc; border-radius: 14px; font: inherit; }
 .rb-staging-sign-in-card button { min-height: 52px; margin-top: 8px; border: 0; border-radius: 999px; background: #b9ff69; color: #202820; font: inherit; cursor: pointer; }
 .rb-staging-sign-in-card button:disabled { opacity: .55; cursor: wait; }
+.rb-staging-sign-in-card .rb-staging-google { width: 100%; margin-top: 28px; background: #f2f2f2; }
+.rb-staging-sign-in-card .rb-staging-google:hover:not(:disabled) { background: #e9e9e9; }
+.rb-staging-sign-in-divider { display: flex; align-items: center; gap: 14px; margin-top: 24px; color: #777; font-size: 13px; }
+.rb-staging-sign-in-divider::before, .rb-staging-sign-in-divider::after { content: ""; flex: 1; height: 1px; background: #ddd; }
+.rb-staging-sign-in-card .rb-staging-sign-in-divider + form { margin-top: 20px; }
