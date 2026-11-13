@@ -416,6 +416,17 @@ async function liveUploadImage(file: File | null, remoteURL: string, collectionI
   return updated.image;
 }
 
+async function liveUploadCapture(file: File, title: string, captureId: string): Promise<LiveSavedImage> {
+  const body = new FormData();
+  body.append("file", file);
+  body.append("title", title);
+  body.append("capture_id", captureId);
+  const response = await fetch("/api/rebuild/capture", { method: "POST", credentials: "same-origin", body });
+  const result = await response.json() as { image?: LiveSavedImage; error?: string };
+  if (!response.ok || !result.image) throw new Error(result.error || "Could not save screenshot");
+  return result.image;
+}
+
 export default function RebuildPreview({
   seedCollections,
   seedCards,
@@ -618,9 +629,10 @@ export default function RebuildPreview({
           if (!captureResultsRef.current.has(capture.id)) {
             const blob = await (await fetch(capture.image)).blob();
             const title = capture.title || "Screenshot";
-            const saved = await liveUploadImage(new File([blob], `${title}.png`, { type: "image/png" }), "", null, title, "", []);
+            const file = new File([blob], `${title}.png`, { type: "image/png" });
+            const saved = readOnly ? await liveUploadCapture(file, title, capture.id) : await liveUploadImage(file, "", null, title, "", []);
             captureResultsRef.current.set(capture.id, saved.id);
-            setCards((items) => [liveImage(saved), ...items]);
+            setCards((items) => items.some((item) => item.id === saved.id) ? items : [liveImage(saved), ...items]);
             setToast("Screenshot saved to Savers");
           }
           await fetch(`${bridgeURL}/ack/${capture.id}`, { method: "POST", headers });
@@ -657,7 +669,7 @@ export default function RebuildPreview({
     void poll();
     const interval = window.setInterval(() => { void poll(); }, 1800);
     return () => { stopped = true; window.clearInterval(interval); };
-  }, [ready, liveMode]);
+  }, [ready, liveMode, readOnly]);
 
   useEffect(() => {
     if (liveMode) return;
@@ -2148,6 +2160,7 @@ export default function RebuildPreview({
                   Reset preview
                 </button>}
                 {isStaging && <a href="/downloads/savers-capture-macos-0.9.5.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
+                {liveMode && !isStaging && <a href="/downloads/savers-capture-macos-0.9.6.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
                 {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
                   href={liveMode && !isStaging && !readOnly ? "/legacy" : "https://savers-production.up.railway.app"}

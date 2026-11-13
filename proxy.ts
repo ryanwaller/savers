@@ -64,7 +64,7 @@ async function refreshRebuildSession(req: NextRequest, rewriteUrl?: URL) {
 }
 
 export async function proxy(req: NextRequest) {
-  if (process.env.SAVERS_REBUILD_READ_ONLY === "1" && req.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !(req.nextUrl.pathname === "/api/favorites" && req.method === "PATCH") && !(req.nextUrl.pathname === "/api/feeds" && req.method === "POST")) {
+  if (process.env.SAVERS_REBUILD_READ_ONLY === "1" && req.nextUrl.pathname.startsWith("/api/") && !["GET", "HEAD", "OPTIONS"].includes(req.method) && !(req.nextUrl.pathname === "/api/favorites" && req.method === "PATCH") && !(req.nextUrl.pathname === "/api/feeds" && req.method === "POST") && !(req.nextUrl.pathname === "/api/rebuild/capture" && req.method === "POST")) {
     return NextResponse.json({ error: "This connected preview is read-only. Use current Savers to make changes." }, { status: 403 });
   }
   if ((process.env.SAVERS_REBUILD_STAGING === "1" || process.env.SAVERS_REBUILD_LIVE === "1") && req.nextUrl.pathname === "/") {

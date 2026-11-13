@@ -1,6 +1,6 @@
 # Savers Capture for macOS
 
-Savers Capture is a compact menu bar screenshot companion for Savers. Its default address points to the isolated account-backed staging app while the new interface is being tested.
+Savers Capture is a compact menu bar screenshot companion for Savers. Its default address points to the connected Rebuild app and saves screenshots to your signed-in Savers library.
 Press macOS's **Copy picture of selected area to the clipboard** shortcut
 (default **Control–Shift–Command–4**) and drag to select an area. Savers Capture
 notices the clipboard image and opens a small preview at the bottom left.
@@ -24,9 +24,8 @@ top left; closing that window leaves Savers Capture running in the menu bar.
 
 The Mac app opens Savers once with a private pairing token, then hands screenshots
 over through a loopback-only connection. Captures are queued in Application Support
-until the signed-in browser saves them to the separate Savers staging account and
-acknowledges them. Nothing is sent to the old Savers service or saved to the Desktop
-when you choose the Savers button. If the browser tab is closed, choose **Open Savers**
+until the signed-in browser saves them to your Savers account and acknowledges them.
+If the browser tab is closed, choose **Open Savers**
 from the menu bar later to finish the handoff.
 
 Change the screenshot shortcut in **System Settings → Keyboard → Keyboard
@@ -58,7 +57,7 @@ open 'dist/Savers Capture.app'
 ```
 
 The default Savers address currently is
-`https://savers-rebuild-web-production.up.railway.app`. You can change it
+`https://savers-rebuild-connected-production.up.railway.app`. You can change it
 in the menu bar's **Settings…** window. **Open Savers** pairs that browser with
 the Mac app using a token stored in the app's preferences and browser storage.
 The pairing token remains in the URL fragment only until the page loads.

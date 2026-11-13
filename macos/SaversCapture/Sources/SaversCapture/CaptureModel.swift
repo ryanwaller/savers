@@ -25,10 +25,11 @@ final class CapturedScreenshot: ObservableObject, Identifiable {
 }
 
 final class CaptureModel: ObservableObject {
-    static let defaultBaseURL = "https://savers-rebuild-web-production.up.railway.app"
+    static let defaultBaseURL = "https://savers-rebuild-connected-production.up.railway.app"
     static let defaultFilenameTemplate = "Savers Screenshot {date} at {time}"
     private static let oldBaseURL = "https://savers-production.up.railway.app"
     private static let oldPreviewURL = "https://savers-rebuild-preview-production.up.railway.app"
+    private static let oldStagingURL = "https://savers-rebuild-web-production.up.railway.app"
 
     private(set) var importError = ""
     private(set) var bridgeError = ""
@@ -40,7 +41,7 @@ final class CaptureModel: ObservableObject {
     }
     @Published private(set) var baseURL: String = {
         let saved = UserDefaults.standard.string(forKey: "saversBaseURL")
-        return saved == nil || saved == oldBaseURL || saved == oldPreviewURL ? defaultBaseURL : saved!
+        return saved == nil || saved == oldBaseURL || saved == oldPreviewURL || saved == oldStagingURL ? defaultBaseURL : saved!
     }()
 
     var onCapture: ((CapturedScreenshot) -> Void)?
