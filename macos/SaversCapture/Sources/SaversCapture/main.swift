@@ -1,6 +1,30 @@
 import AppKit
+import Darwin
 import QuartzCore
 import SwiftUI
+
+private final class InstanceLock {
+    private let descriptor: Int32
+
+    init?() {
+        let directory = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent("Savers Capture", isDirectory: true)
+        guard (try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)) != nil else { return nil }
+        let path = directory.appendingPathComponent("app.lock").path
+        let fd = path.withCString { Darwin.open($0, O_CREAT | O_RDWR, mode_t(0o600)) }
+        guard fd >= 0 else { return nil }
+        guard Darwin.flock(fd, LOCK_EX | LOCK_NB) == 0 else {
+            Darwin.close(fd)
+            return nil
+        }
+        descriptor = fd
+    }
+
+    deinit {
+        Darwin.flock(descriptor, LOCK_UN)
+        Darwin.close(descriptor)
+    }
+}
 
 private struct PreviewEntry {
     let capture: CapturedScreenshot
@@ -13,6 +37,7 @@ private final class ImageWindow: NSWindow {
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private let model = CaptureModel()
+    private var instanceLock: InstanceLock?
     private var statusItem: NSStatusItem?
     private var previews: [PreviewEntry] = []
     private var largerWindow: NSWindow?
@@ -21,6 +46,11 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        guard let lock = InstanceLock() else {
+            NSApp.terminate(nil)
+            return
+        }
+        instanceLock = lock
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
         item.button?.image = makeSaversMenuIcon()
         let menu = NSMenu()
@@ -48,6 +78,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         clipboardTimer?.invalidate()
+        instanceLock = nil
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
@@ -59,7 +90,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         guard pasteboard.changeCount != lastPasteboardChangeCount else { return }
         lastPasteboardChangeCount = pasteboard.changeCount
         guard shouldPreviewClipboardImage(pasteboard) else { return }
-        model.importClipboardImage()
+        model.importClipboardImage(automatic: true)
     }
 
     private func shouldPreviewClipboardImage(_ pasteboard: NSPasteboard) -> Bool {

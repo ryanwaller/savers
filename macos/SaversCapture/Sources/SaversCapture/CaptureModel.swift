@@ -33,6 +33,8 @@ final class CaptureModel: ObservableObject {
 
     private(set) var importError = ""
     private(set) var bridgeError = ""
+    private var lastAutomaticImage: Data?
+    private var lastAutomaticImportAt = Date.distantPast
     @Published var ensure2xOutput = UserDefaults.standard.bool(forKey: "ensure2xOutput") {
         didSet { UserDefaults.standard.set(ensure2xOutput, forKey: "ensure2xOutput") }
     }
@@ -66,13 +68,25 @@ final class CaptureModel: ObservableObject {
     }
 
     @discardableResult
-    func importClipboardImage() -> Bool {
+    func importClipboardImage(automatic: Bool = false) -> Bool {
         guard let captured = NSImage(pasteboard: .general),
-              let tiff = captured.tiffRepresentation,
+              let tiff = captured.tiffRepresentation else {
+            importError = "Copy a screenshot to the clipboard first."
+            return false
+        }
+        let now = Date()
+        if automatic, now.timeIntervalSince(lastAutomaticImportAt) < 1, lastAutomaticImage == tiff {
+            return true
+        }
+        guard
               let bitmap = NSBitmapImageRep(data: tiff),
               let data = pngData(from: bitmap, pointSize: captured.size) else {
             importError = "Copy a screenshot to the clipboard first."
             return false
+        }
+        if automatic {
+            lastAutomaticImage = tiff
+            lastAutomaticImportAt = now
         }
         importError = ""
         onCapture?(CapturedScreenshot(image: captured, pngData: data, title: screenshotTitle(at: Date(), template: filenameTemplate)))
