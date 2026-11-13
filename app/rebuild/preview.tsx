@@ -39,8 +39,8 @@ import {
   X,
 } from "lucide-react";
 import { type CardKind, type PreviewCard } from "./fixtures";
-import type { Bookmark as SavedBookmark, Collection, FeedSubscription, ImageCollection } from "@/lib/types";
-import { liveCard, liveCollection, liveImage, liveImageCollection, type LiveSavedImage } from "./live-data";
+import type { Bookmark as SavedBookmark, Collection, FeedItem, FeedSubscription, ImageCollection } from "@/lib/types";
+import { liveCard, liveCollection, liveFeedCard, liveImage, liveImageCollection, type LiveSavedImage } from "./live-data";
 import { getSupabaseBrowserClient } from "@/lib/supabase";
 
 type Destination = "library" | "collections" | "discover" | "inbox";
@@ -302,6 +302,7 @@ function CardTile({
   selecting = false,
   selected = false,
   onSelect,
+  externalOnly = false,
 }: {
   card: PreviewCard;
   onOpen: () => void;
@@ -316,6 +317,7 @@ function CardTile({
   selecting?: boolean;
   selected?: boolean;
   onSelect?: () => void;
+  externalOnly?: boolean;
 }) {
   const KindIcon = icons[card.kind];
   const externalOwner = card.owner || card.savedFrom;
@@ -370,7 +372,7 @@ function CardTile({
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
         {onAddToCollection && <button onClick={onAddToCollection} aria-label={`Add ${card.title} to a collection`} title="Add to collection"><FolderPlus size={18} /></button>}
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
-        {card.kind === "link" && card.url && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
+        {card.kind === "link" && card.url && !externalOnly && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>}
     </article>
   );
@@ -510,6 +512,40 @@ export default function RebuildPreview({
   const [subscriptionEntryOpen, setSubscriptionEntryOpen] = useState(false);
   const [subscriptions, setSubscriptions] = useState<string[]>([]);
   const [liveSubscriptions, setLiveSubscriptions] = useState<FeedSubscription[]>(seedFeedSubscriptions);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
+  const [liveFeedItems, setLiveFeedItems] = useState<FeedItem[]>([]);
+  const [feedItemsBusy, setFeedItemsBusy] = useState(false);
+  const [feedItemsError, setFeedItemsError] = useState("");
+  const [feedRefreshKey, setFeedRefreshKey] = useState(0);
+  const subscriptionCounts = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const item of liveFeedItems) counts.set(item.subscription_id, (counts.get(item.subscription_id) || 0) + 1);
+    return counts;
+  }, [liveFeedItems]);
+  const visibleFeedCards = useMemo(() => {
+    const names = new Map(liveSubscriptions.map((subscription) => [subscription.id, subscription.name]));
+    const needle = query.trim().toLocaleLowerCase();
+    return liveFeedItems
+      .filter((item) => !selectedSubscriptionId || item.subscription_id === selectedSubscriptionId)
+      .filter((item) => !needle || `${item.title || ""} ${item.description || ""} ${item.url || ""} ${names.get(item.subscription_id) || ""}`.toLocaleLowerCase().includes(needle))
+      .map((item) => liveFeedCard(item, names.get(item.subscription_id) || "Feed"));
+  }, [liveFeedItems, liveSubscriptions, query, selectedSubscriptionId]);
+  useEffect(() => {
+    if (!liveMode || destination !== "inbox" || inboxTab !== "subscriptions") return;
+    const controller = new AbortController();
+    queueMicrotask(() => {
+      if (!controller.signal.aborted) { setFeedItemsBusy(true); setFeedItemsError(""); }
+    });
+    void fetch("/api/feeds/items", { credentials: "same-origin", signal: controller.signal })
+      .then(async (response) => {
+        const result = await response.json() as { items?: FeedItem[]; error?: string };
+        if (!response.ok) throw new Error(result.error || "Could not load feed items.");
+        setLiveFeedItems(result.items || []);
+      })
+      .catch((error: unknown) => { if (!controller.signal.aborted) setFeedItemsError(error instanceof Error ? error.message : "Could not load feed items."); })
+      .finally(() => { if (!controller.signal.aborted) setFeedItemsBusy(false); });
+    return () => controller.abort();
+  }, [destination, feedRefreshKey, inboxTab, liveMode]);
   const [subscriptionInput, setSubscriptionInput] = useState("");
   const [subscriptionError, setSubscriptionError] = useState("");
   const [subscriptionBusy, setSubscriptionBusy] = useState(false);
@@ -1200,6 +1236,7 @@ export default function RebuildPreview({
           setSubscriptionError("");
           setSubscriptionEntryOpen(false);
           setToast("Subscription added to your account");
+          setFeedRefreshKey((key) => key + 1);
         } catch (error) {
           setSubscriptionError(error instanceof Error ? error.message : "Could not add subscription.");
         } finally {
@@ -2354,7 +2391,17 @@ export default function RebuildPreview({
             {inboxTab === "following" && (followingCards.length ? <div className="rb-discover-grid">{followingCards.filter((item) => `${item.title} ${item.owner?.name || ""}`.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase())).slice(0, visibleCount).map((item) => <CardTile key={item.id} card={item} onOpenOwner={() => { setDestination("discover"); setProfileId(item.owner!.id); }} onOpen={() => setActiveCardId(item.id)} />)}</div> : <div className="rb-empty rb-inbox-empty"><UsersRound size={28} /><h2>No cards from followed accounts yet</h2><button onClick={() => navigate("discover")}>Open Discover <ArrowRight size={18} /></button></div>)}
             {inboxTab === "subscriptions" && <div className="rb-subscriptions">
               {subscriptionError && <p role="alert">{subscriptionError}</p>}
-              {liveMode ? (liveSubscriptions.length ? <div className="rb-subscription-list">{liveSubscriptions.map((item) => <div key={item.id}><Link2 size={19} /><div className="rb-subscription-copy"><a href={item.site_url || item.feed_url} target="_blank" rel="noopener noreferrer">{item.name || item.feed_url}</a><small>{item.feed_url}</small></div></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No subscriptions yet</h2></div>) : subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
+              {liveMode ? (liveSubscriptions.length ? <>
+                <div className="rb-subscription-heading"><h2>Incoming from your sources</h2><div><span>{liveFeedItems.length} waiting</span><button onClick={() => setFeedRefreshKey((key) => key + 1)} disabled={feedItemsBusy} aria-label="Refresh feed items" title="Refresh feed items"><RefreshCw size={18} /></button></div></div>
+                <div className="rb-subscription-list">{liveSubscriptions.map((item) => <div key={item.id} className={selectedSubscriptionId === item.id ? "selected" : ""}>
+                  <button className="rb-subscription-pick" onClick={() => { setSelectedSubscriptionId((id) => id === item.id ? null : item.id); setVisibleCount(48); }} aria-pressed={selectedSubscriptionId === item.id}><Link2 size={19} /><span className="rb-subscription-copy"><strong>{item.name || item.feed_url}</strong><small>{subscriptionCounts.get(item.id) || 0} waiting · {item.feed_url}</small></span></button>
+                  <a className="rb-subscription-external" href={item.site_url || item.feed_url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${item.name || item.feed_url}`}><ExternalLink size={18} /></a>
+                </div>)}</div>
+                {selectedSubscriptionId && <button className="rb-subscription-all" onClick={() => { setSelectedSubscriptionId(null); setVisibleCount(48); }}>All sources <X size={16} /></button>}
+                {liveFeedItems.length > 0 && <p>Open a card to read it. To keep or dismiss items, use <a href="https://savers-production.up.railway.app" target="_blank" rel="noopener noreferrer">current Savers</a>.</p>}
+                {feedItemsError && <p role="alert">{feedItemsError}</p>}
+                {feedItemsBusy && !liveFeedItems.length ? <div className="rb-empty rb-inbox-empty"><RefreshCw size={28} /><h2>Loading feed items…</h2></div> : visibleFeedCards.length ? <><div className="rb-discover-grid rb-subscription-cards">{visibleFeedCards.slice(0, visibleCount).map((card) => <CardTile key={card.id} card={card} externalOnly onOpen={() => { if (card.url) window.open(card.url, "_blank", "noopener,noreferrer"); }} />)}</div>{visibleFeedCards.length > visibleCount && <button className="rb-load-more" onClick={() => setVisibleCount((count) => count + 48)}>Show more <ArrowRight size={16} /></button>}</> : !feedItemsError && <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>{query.trim() ? "No feed items match your search" : "Nothing waiting from these sources"}</h2></div>}
+              </> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No subscriptions yet</h2></div>) : subscriptions.length ? <div className="rb-subscription-list">{subscriptions.map((source) => <div key={source}><Link2 size={19} /><a href={source} target="_blank" rel="noopener noreferrer">{source}</a><button onClick={() => setSubscriptions((items) => items.filter((item) => item !== source))} aria-label={`Remove ${source}`}><X size={19} /></button></div>)}</div> : <div className="rb-empty rb-inbox-empty"><Link2 size={28} /><h2>No sources added yet</h2></div>}
               {liveMode && readOnly && <p>To remove a subscription, use <a href="https://savers-production.up.railway.app" target="_blank" rel="noopener noreferrer">current Savers</a> while the connected preview is being checked.</p>}
               {!liveMode && subscriptions.length > 0 && <p>Live feed checks will connect with account data.</p>}
             </div>}

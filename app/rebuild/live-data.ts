@@ -1,4 +1,4 @@
-import type { Bookmark, Collection, ImageCollection } from "@/lib/types";
+import type { Bookmark, Collection, FeedItem, ImageCollection } from "@/lib/types";
 import { storedPreviewUrl } from "@/lib/api";
 import type { PreviewCard } from "./fixtures";
 
@@ -90,5 +90,32 @@ export function liveCard(bookmark: Bookmark): PreviewCard {
     isPrivate: true,
     linkStatus: bookmark.link_status === "broken" ? "broken" : "working",
     screenshotStatus: bookmark.screenshot_status,
+  };
+}
+
+export function liveFeedCard(item: FeedItem, sourceName: string): PreviewCard {
+  let source = sourceName;
+  let url: string | undefined;
+  try {
+    const parsed = new URL(item.url || "");
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") {
+      url = parsed.href;
+      source = parsed.hostname.replace(/^www\./, "");
+    }
+  } catch { /* Use the feed name. */ }
+  let image: string | undefined;
+  try {
+    const parsed = new URL(item.preview_image || "");
+    if (parsed.protocol === "https:" || parsed.protocol === "http:") image = parsed.href;
+  } catch { /* Show the card without an image. */ }
+  return {
+    id: item.id,
+    kind: "link",
+    title: item.title || source || "Untitled feed item",
+    description: item.description || undefined,
+    source,
+    url,
+    image,
+    date: new Date(item.published_at || item.created_at).toLocaleDateString(),
   };
 }
