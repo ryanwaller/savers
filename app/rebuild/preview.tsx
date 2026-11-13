@@ -2091,7 +2091,7 @@ export default function RebuildPreview({
       <input ref={folderInputRef} className="rb-hidden-file-input" type="file" multiple aria-label="Choose a folder to add" onChange={(event) => { openBulkImport(Array.from(event.target.files || []).map((file) => ({ file, path: file.webkitRelativePath || file.name }))); event.target.value = ""; }} />
       {(!liveMode || isStaging || readOnly) && <div className="rb-preview-flag">
         <span className="rb-pulse" /> {isStaging ? "Separate copy" : readOnly ? "Connected preview" : "Preview"}
-        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : readOnly ? "Your existing library · Favorites work; other changes paused" : "Saves stay in this browser"}</span>
+        <span className="rb-flag-note">{isStaging ? "Links save to your private staging library" : readOnly ? "Your library · Favorites, subscriptions and Mac captures save; other edits use current Savers" : "Saves stay in this browser"}</span>
       </div>}
 
       <header className="rb-topbar">
@@ -2160,7 +2160,7 @@ export default function RebuildPreview({
                   Reset preview
                 </button>}
                 {isStaging && <a href="/downloads/savers-capture-macos-0.9.5.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
-                {liveMode && !isStaging && <a href="/downloads/savers-capture-macos-0.9.7.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
+                {liveMode && !isStaging && <a href="/downloads/savers-capture-macos-0.9.8.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
                 {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
                   href={liveMode && !isStaging && !readOnly ? "/legacy" : "https://savers-production.up.railway.app"}
