@@ -3483,9 +3483,14 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 }
 
 /* Scrolled content blurs beneath the pinned controls instead of fading to white. */
-.rb-detail-backdrop .rb-detail-bar { isolation: isolate; background: transparent; backdrop-filter: none; }
-.rb-detail-backdrop .rb-detail-bar::before { content: ""; position: absolute; z-index: -1; inset: 0; border-radius: 24px 24px 0 0; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 48%, transparent); mask-image: linear-gradient(to bottom, #000 48%, transparent); pointer-events: none; }
-.rb-theme-dark .rb-detail-backdrop .rb-detail-bar::before { background: #2224; }
+.rb-detail-backdrop .rb-detail-bar { background: #fcfcfa44; backdrop-filter: blur(18px); }
+.rb-theme-dark .rb-detail-backdrop .rb-detail-bar { background: #2227; }
+.rb-related-feed-top { position: sticky; top: -36px; z-index: 5; margin-top: -36px; padding: 36px 0 18px; background: #fcfcfa44; backdrop-filter: blur(18px); }
+.rb-theme-dark .rb-related-feed-top { background: #15151577; }
+.rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: clamp(26px, 4vw, 56px); --rb-blur-width: 1400px; }
+.rb-related-feed-backdrop { --rb-blur-width: 1600px; }
+.rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 50; left: 50%; bottom: var(--rb-blur-frame); width: min(calc(100vw - 2 * var(--rb-blur-frame)), var(--rb-blur-width)); height: 90px; transform: translateX(-50%); border-radius: 0 0 24px 24px; background: #fcfcfa22; backdrop-filter: blur(20px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000); mask-image: linear-gradient(to bottom, transparent, #000); pointer-events: none; }
+.rb-theme-dark .rb-detail-backdrop::after, .rb-theme-dark .rb-related-feed-backdrop::after { background: #2224; }
 .rb-related-picker-list[data-scroll-fade="y"] { -webkit-mask-image: none !important; mask-image: none !important; }
 .rb-related-picker-footer { isolation: isolate; background: transparent; }
 .rb-related-picker-footer::before { content: ""; position: absolute; z-index: -1; inset: 0; background: #fff4; backdrop-filter: blur(16px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 72%); mask-image: linear-gradient(to bottom, transparent, #000 72%); pointer-events: none; }
@@ -3538,12 +3543,9 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rebuild-app .rb-detail-menu { position: fixed; top: calc(max(40px, env(safe-area-inset-top, 0px) + 40px) + 60px + 16px); left: 50%; right: auto; width: min(320px, calc(100vw - 72px)); max-height: calc(100dvh - max(40px, env(safe-area-inset-top, 0px) + 40px) - 96px); transform: translateX(-50%); z-index: 6; }
 
   /* Both related actions remain at the upper right while cards scroll. */
-  .rb-related-feed-top { position: sticky; top: 0; z-index: 5; isolation: isolate; margin-top: -22px; padding: 22px 0 18px; background: transparent; }
-  .rb-related-feed-top::before { content: ""; position: absolute; z-index: -1; inset: 0 -18px; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent); mask-image: linear-gradient(to bottom, #000 65%, transparent); pointer-events: none; }
-  .rb-theme-dark .rb-related-feed-top::before { background: #15151544; }
+  .rb-related-feed-top { top: -22px; margin-top: -22px; padding-top: 22px; }
   .rb-related-feed-actions { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; }
 
-  /* Blur increases toward the bottom edge while content scrolls underneath. */
-  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 4; left: 20px; right: 20px; bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 80px; border-radius: 0 0 18px 18px; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 90%); mask-image: linear-gradient(to bottom, transparent, #000 90%); pointer-events: none; }
-  .rb-theme-dark .rb-detail-backdrop::after, .rb-theme-dark .rb-related-feed-backdrop::after { background: #2224; }
+  .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: 20px; }
+  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 80px; border-radius: 0 0 18px 18px; }
 }
