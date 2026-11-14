@@ -10,7 +10,7 @@ const imageFields = "id,title,description,notes,source_url,tags,collection_id,pr
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 export async function POST(req: NextRequest) {
-  if (process.env.SAVERS_REBUILD_LIVE !== "1" || process.env.SAVERS_REBUILD_READ_ONLY !== "1") {
+  if (process.env.SAVERS_REBUILD_LIVE !== "1") {
     return NextResponse.json({ error: "Capture upload is unavailable here." }, { status: 404 });
   }
   try {

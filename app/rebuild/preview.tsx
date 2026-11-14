@@ -1311,6 +1311,15 @@ export default function RebuildPreview({
   async function createComposerCollection() {
     const name = newCollectionName.trim();
     if (!name) { setFormError("Give your collection a name."); return; }
+    const group = composer === "image" ? "images" : "links";
+    const existing = allCollections.find((item) => item.group === group && item.name.toLocaleLowerCase() === name.toLocaleLowerCase() && (!liveMode || (item.isPrivate !== false) === formPrivate));
+    if (existing) {
+      setFormCollection(existing.id);
+      setNewCollectionName("");
+      setNewCollectionOpen(false);
+      setFormError("");
+      return;
+    }
     if (liveMode) {
       try {
         const imageGroup = composer === "image" || allCollections.find((item) => item.id === formCollection)?.group === "images";
@@ -2957,15 +2966,23 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-composer-field">
-              <div className="rb-composer-field-head">
-                <label htmlFor="rb-composer-collection">{composer === "collection" ? "Inside" : "Collection"}</label>
-                {composer !== "collection" && <button onClick={() => setNewCollectionOpen((open) => !open)} aria-expanded={newCollectionOpen}><Plus size={17} /> New collection</button>}
-              </div>
-              <select id="rb-composer-collection" value={formCollection} onChange={(e) => setFormCollection(e.target.value)}>
-                <option value="">{composer === "collection" ? "Top level" : formPrivate ? "Unsorted — decide later" : "Choose a public collection"}</option>
-                {allCollections.filter((item) => (!liveMode || item.group === (composer === "image" || composer === "collection" && (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images") ? "images" : "links")) && (!liveMode || composer === "collection" || (item.isPrivate !== false) === formPrivate)).map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
-              </select>
-              {newCollectionOpen && <div className="rb-composer-inline-entry"><input autoFocus value={newCollectionName} onChange={(event) => setNewCollectionName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); createComposerCollection(); } }} placeholder="Collection name" aria-label="New collection name" /><button onClick={createComposerCollection}>Create</button></div>}
+              {composer === "collection" ? <>
+                <label htmlFor="rb-composer-collection">Inside</label>
+                <select id="rb-composer-collection" value={formCollection} onChange={(e) => setFormCollection(e.target.value)}>
+                  <option value="">Top level</option>
+                  {allCollections.filter((item) => !liveMode || item.group === (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images" ? "images" : "links")).map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
+                </select>
+              </> : <>
+                <label htmlFor="rb-composer-collection-input">Collection</label>
+                {formCollection && <div className="rb-composer-tag-chips"><button onClick={() => setFormCollection("")} aria-label={`Remove collection ${allCollections.find((item) => item.id === formCollection)?.name || "selection"}`}><Folder size={16} />{allCollections.find((item) => item.id === formCollection)?.name || "Collection"}<X size={15} /></button></div>}
+                <div className="rb-composer-inline-entry">
+                  <input id="rb-composer-collection-input" value={newCollectionName} onFocus={() => setNewCollectionOpen(true)} onChange={(event) => { setNewCollectionName(event.target.value); setNewCollectionOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createComposerCollection(); } else if (event.key === "Escape") setNewCollectionOpen(false); }} placeholder={formPrivate ? "New or existing collection" : "New or existing public collection"} autoComplete="off" />
+                  <button onClick={() => void createComposerCollection()} disabled={!newCollectionName.trim()} aria-label="Add collection" title="Add collection"><Plus size={21} /></button>
+                </div>
+                {newCollectionOpen && <div className="rb-composer-collection-options" role="listbox" aria-label="Existing collections">
+                  {allCollections.filter((item) => item.group === (composer === "image" ? "images" : "links") && (!liveMode || (item.isPrivate !== false) === formPrivate) && item.name.toLocaleLowerCase().includes(newCollectionName.trim().toLocaleLowerCase())).map((item) => <button key={item.id} role="option" aria-selected={formCollection === item.id} onPointerDown={(event) => { event.preventDefault(); setFormCollection(item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }} onClick={() => { setFormCollection(item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }}><Folder size={16} />{item.parentId ? "↳ " : ""}{item.name}{formCollection === item.id && <Check size={16} />}</button>)}
+                </div>}
+              </>}
             </div>
             </div>
             {formError && (

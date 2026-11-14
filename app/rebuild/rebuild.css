@@ -2845,6 +2845,10 @@ body:has(.rebuild-app) {
 .rb-composer-inline-entry button { display: inline-grid; place-items: center; flex: 0 0 auto; min-width: 52px; padding: 0 16px; border-radius: 13px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
 .rb-composer-tag-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 9px; }
 .rb-composer-tag-chips button { display: inline-flex; align-items: center; gap: 7px; min-height: 38px; padding: 0 11px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+.rb-composer-collection-options { display: flex; flex-direction: column; gap: 4px; max-height: 220px; overflow-y: auto; margin-top: 8px; padding: 6px; border-radius: 14px; background: var(--rb-modal-field); }
+.rb-composer-collection-options button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 8px 12px; border-radius: 10px; color: var(--rb-modal-ink); text-align: left; }
+.rb-composer-collection-options button:hover, .rb-composer-collection-options button[aria-selected="true"] { background: var(--rb-control-active); color: #202820; }
+.rb-composer-collection-options button > svg:last-child:not(:first-child) { margin-left: auto; }
 .rb-composer-error { flex: 0 0 auto; margin: 0; padding: 9px 0; }
 .rb-composer-footer { position: static; z-index: 1; flex: 0 0 auto; margin: 0 -30px; padding: 16px 30px 24px; background: var(--rb-modal-surface); }
 .rb-composer .rb-composer-close { position: static; display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 16px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
