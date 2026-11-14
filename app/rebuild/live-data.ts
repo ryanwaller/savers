@@ -5,6 +5,7 @@ import type { PreviewCard } from "./fixtures";
 export type LiveCollection = {
   id: string;
   name: string;
+  description?: string;
   count: number;
   parentId?: string;
   group: "links";
@@ -17,6 +18,7 @@ export function liveCollection(collection: Collection, count = 0): LiveCollectio
   return {
     id: collection.id,
     name: collection.name,
+    description: collection.public_description || undefined,
     count,
     parentId: collection.parent_id || undefined,
     group: "links",
@@ -44,6 +46,7 @@ export function liveImageCollection(collection: ImageCollection, count = 0) {
   return {
     id: collection.id,
     name: collection.name,
+    description: collection.public_description || undefined,
     count,
     parentId: collection.parent_id || undefined,
     group: "images" as const,

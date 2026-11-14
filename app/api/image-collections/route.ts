@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireUser, UnauthorizedError } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-server";
+import { createPublicCollectionId } from "@/lib/public-collection-id";
 
 export const runtime = "nodejs";
 
@@ -91,6 +92,8 @@ export async function POST(req: NextRequest) {
     const icon = typeof body?.icon === "string" && body.icon.trim()
       ? body.icon.trim()
       : null;
+    const wantsPublic = body?.is_public === true;
+    const description = typeof body?.public_description === "string" ? body.public_description.trim().slice(0, 280) : "";
 
     if (!name) {
       return NextResponse.json({ error: "Name is required." }, { status: 400 });
@@ -114,6 +117,7 @@ export async function POST(req: NextRequest) {
     if (siblings && siblings.length > 0) {
       nextPos = Math.max(...siblings.map((s: { position: number | null }) => s.position ?? 0)) + 1;
     }
+    const publicId = wantsPublic ? await createPublicCollectionId(supabaseAdmin) : null;
 
     const { data, error } = await supabaseAdmin
       .schema("savers")
@@ -124,6 +128,9 @@ export async function POST(req: NextRequest) {
         parent_id: parentId,
         position: nextPos,
         icon,
+        is_public: wantsPublic,
+        public_id: publicId,
+        public_description: description || null,
       })
       .select("id, user_id, name, parent_id, position, icon, is_public, public_id, public_slug, public_description, created_at")
       .single();

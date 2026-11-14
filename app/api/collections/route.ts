@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser, UnauthorizedError } from '@/lib/auth-server'
 import { Collection } from '@/lib/types'
 import { getSupabaseAdmin } from '@/lib/supabase-server'
+import { createPublicCollectionId } from '@/lib/public-collection-id'
 
 function getErrorMessage(error: unknown) {
   if (error instanceof Error && error.message) {
@@ -124,7 +125,9 @@ export async function POST(req: NextRequest) {
   try {
     const supabaseAdmin = getSupabaseAdmin()
     const { user } = await requireUser()
-    const { name, parent_id } = await req.json()
+    const { name, parent_id, is_public, public_description } = await req.json()
+    const wantsPublic = is_public === true
+    const description = typeof public_description === 'string' ? public_description.trim().slice(0, 280) : ''
 
     if (parent_id) {
       const { data: parent, error: parentError } = await supabaseAdmin
@@ -155,10 +158,11 @@ export async function POST(req: NextRequest) {
 
     const { data: siblings } = await posQuery
     const position = siblings?.length ? siblings[0].position + 1 : 0
+    const publicId = wantsPublic ? await createPublicCollectionId(supabaseAdmin) : null
 
     const { data, error } = await supabaseAdmin
       .from('collections')
-      .insert({ user_id: user.id, name, parent_id: parent_id ?? null, position })
+      .insert({ user_id: user.id, name, parent_id: parent_id ?? null, position, is_public: wantsPublic, public_id: publicId, public_description: description || null })
       .select()
       .single()
 

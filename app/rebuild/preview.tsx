@@ -1511,11 +1511,11 @@ export default function RebuildPreview({
         if (composer === "collection") {
           const imageGroup = collectionGroup === "images" || allCollections.find((item) => item.id === formCollection)?.group === "images";
           if (imageGroup) {
-            const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null });
+            const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null, is_public: !formPrivate, public_description: formNote.trim() });
             setAllCollections((prev) => [liveImageCollection(result.collection), ...prev]);
             setSelectedCollection(result.collection.id);
           } else {
-            const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null });
+            const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null, is_public: !formPrivate, public_description: formNote.trim() });
             setAllCollections((prev) => [liveCollection(result.collection), ...prev]);
             setSelectedCollection(result.collection.id);
           }
@@ -2952,7 +2952,7 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-composer-footer">
-              {liveMode ? <span className="rb-composer-privacy-toggle"><LockKeyhole size={19} /> Private</span> : <button className="rb-composer-privacy-toggle" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
+              {liveMode && composer !== "collection" ? <span className="rb-composer-privacy-toggle"><LockKeyhole size={19} /> Private</span> : <button className="rb-composer-privacy-toggle" type="button" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
                 {formPrivate ? <LockKeyhole size={19} /> : <Unlock size={19} />}
                 {formPrivate ? "Private" : "Public"}
               </button>}
