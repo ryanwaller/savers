@@ -360,6 +360,10 @@ function CardTile({
         <a className="rb-card-primary" href={card.url} target="_blank" rel="noopener noreferrer" aria-label={`Open ${card.title} in a new tab`}>
           {content}
         </a>
+      ) : card.kind === "image" && (card.url || card.image) ? (
+        <a className="rb-card-primary" href={card.url || card.image} target="_blank" rel="noopener noreferrer" aria-label={`Open ${card.title} in a new tab`} onClick={(event) => { if (window.innerWidth > 700) { event.preventDefault(); onOpen(); } }}>
+          {content}
+        </a>
       ) : (
         <button className="rb-card-primary" onClick={onOpen} aria-label={`View ${card.title} in Savers`}>
           {content}
@@ -372,7 +376,7 @@ function CardTile({
         {onEditTags && <button onClick={onEditTags} aria-label={`Edit tags: ${card.title}`} title="Edit tags"><Tag size={18} /></button>}
         {onAddToCollection && <button onClick={onAddToCollection} aria-label={`Add ${card.title} to a collection`} title="Add to collection"><FolderPlus size={18} /></button>}
         {onOpenOwner && <button onClick={onOpenOwner} aria-label={`View ${externalOwner?.name}'s profile`} title="View account"><UsersRound size={18} /></button>}
-        {card.kind === "link" && card.url && !externalOnly && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
+        {((card.kind === "link" && card.url) || card.kind === "image") && !externalOnly && <button onClick={onOpen} aria-label={`View ${card.title} in Savers`} title="Details in Savers"><MoreHorizontal size={18} /></button>}
       </div>}
     </article>
   );
@@ -1286,7 +1290,7 @@ export default function RebuildPreview({
     setNewCollectionOpen(false);
     setNewCollectionName("");
     setFormFile(null);
-    setFormPrivate(true);
+    setFormPrivate(liveMode && selected && kind !== "collection" ? selected.isPrivate !== false : true);
     setFormError("");
   }, [selectedCollection, allCollections, collectionGroup, liveMode]);
 
@@ -1311,11 +1315,11 @@ export default function RebuildPreview({
       try {
         const imageGroup = composer === "image" || allCollections.find((item) => item.id === formCollection)?.group === "images";
         if (imageGroup) {
-          const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name, parent_id: formCollection || null });
+          const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name, parent_id: formCollection || null, is_public: !formPrivate });
           setAllCollections((items) => [...items, liveImageCollection(result.collection)]);
           setFormCollection(result.collection.id);
         } else {
-          const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: formCollection || null });
+          const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: formCollection || null, is_public: !formPrivate });
           setAllCollections((items) => [...items, liveCollection(result.collection)]);
           setFormCollection(result.collection.id);
         }
@@ -1505,6 +1509,11 @@ export default function RebuildPreview({
       }
       if (composer === "image" && !formFile && !formUrl.trim()) { setFormError("Choose an image or enter its URL."); return; }
       if (composer !== "collection" && composer !== "link" && composer !== "image") { setFormError("This save type is still being connected."); return; }
+      if (composer !== "collection") {
+        const destination = allCollections.find((item) => item.id === formCollection);
+        if (!formPrivate && !destination) { setFormError("Choose a public collection to make this save public."); return; }
+        if (destination && (destination.isPrivate !== false) !== formPrivate) { setFormError(`Choose a ${formPrivate ? "private" : "public"} collection for this save.`); return; }
+      }
       setLiveSaving(true);
       setFormError("");
       try {
@@ -1522,14 +1531,14 @@ export default function RebuildPreview({
           setToast("Collection saved to Savers");
         } else if (composer === "image") {
           const image = await liveUploadImage(formFile, formUrl.trim(), formCollection || null, formTitle.trim(), formNote.trim(), nextTags);
-          setCards((prev) => [liveImage(image), ...prev]);
+          setCards((prev) => [{ ...liveImage(image), isPrivate: formPrivate }, ...prev]);
           setSelectedCollection(null);
           setFilter("all");
           setQuery("");
           setToast("Image saved to Savers");
         } else if (url) {
           const result = await liveRequest<{ bookmark: SavedBookmark }>("/api/bookmarks", "POST", { url: url.href, title: formTitle.trim() || null, notes: formNote.trim() || null, collection_id: formCollection || null, tags: nextTags });
-          setCards((prev) => [liveCard(result.bookmark), ...prev]);
+          setCards((prev) => [{ ...liveCard(result.bookmark), isPrivate: formPrivate }, ...prev]);
           setSelectedCollection(null);
           setFilter("all");
           setQuery("");
@@ -1707,11 +1716,11 @@ export default function RebuildPreview({
       try {
         const imageGroup = cards.find((item) => item.id === editingCardId)?.kind === "image";
         if (imageGroup) {
-          const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name, parent_id: null });
+          const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name, parent_id: null, is_public: !editPrivate });
           setAllCollections((items) => [...items, liveImageCollection(result.collection)]);
           setEditCollection(result.collection.id);
         } else {
-          const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: null });
+          const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name, parent_id: null, is_public: !editPrivate });
           setAllCollections((items) => [...items, liveCollection(result.collection)]);
           setEditCollection(result.collection.id);
         }
@@ -1749,13 +1758,16 @@ export default function RebuildPreview({
       try {
         const current = cards.find((item) => item.id === editingCardId);
         if (!current) throw new Error("Item not found");
+        const destination = allCollections.find((item) => item.id === editCollection);
+        if (!editPrivate && !destination) throw new Error("Choose a public collection to make this save public.");
+        if (destination && (destination.isPrivate !== false) !== editPrivate) throw new Error(`Choose a ${editPrivate ? "private" : "public"} collection for this save.`);
         const updates: Record<string, unknown> = { id: editingCardId, title: editTitle.trim(), description: editDescription.trim(), notes: editNote.trim(), collection_id: editCollection || null, tags };
         if (current.kind === "link") {
           if (editUrl.trim() !== current.url) updates.url = editUrl.trim();
           if (editImage && editImage !== current.image) updates.og_image = editImage;
         }
         const updated = await liveUpdateCard(current, updates);
-        setCards((items) => items.map((item) => item.id === editingCardId ? updated : item));
+        setCards((items) => items.map((item) => item.id === editingCardId ? { ...updated, isPrivate: editPrivate } : item));
         setEditingCardId(null);
         setToast("Card saved");
       } catch (error) { setToast(error instanceof Error ? error.message : "Could not save card"); }
@@ -1798,7 +1810,8 @@ export default function RebuildPreview({
         const selected = cards.filter((item) => ids.includes(item.id));
         if (new Set(selected.map((item) => item.kind)).size > 1) throw new Error("Move links and images separately.");
         const updated = await Promise.all(selected.map((card) => liveUpdateCard(card, { collection_id: nextCollectionId })));
-        const byId = new Map(updated.map((card) => [card.id, card]));
+        const destinationPrivate = nextCollectionId ? allCollections.find((item) => item.id === nextCollectionId)?.isPrivate !== false : true;
+        const byId = new Map(updated.map((card) => [card.id, { ...card, isPrivate: destinationPrivate }]));
         setCards((items) => items.map((item) => byId.get(item.id) || item));
         setToast(nextCollectionId ? "Moved to collection" : "Moved to Unsorted");
         setLibrarySelecting(false);
@@ -2021,6 +2034,7 @@ export default function RebuildPreview({
         const path = target.group === "images" ? "/api/image-collections/visibility" : "/api/collections/visibility";
         const result = await liveRequest<{ collection: { is_public: boolean; public_id: string | null; public_slug: string | null } }>(path, "PATCH", { id, is_public: target.isPrivate !== false });
         setAllCollections((items) => items.map((item) => item.id === id ? { ...item, isPrivate: !result.collection.is_public, publicId: result.collection.public_id || undefined, publicSlug: result.collection.public_slug || undefined } : item));
+        setCards((items) => items.map((item) => item.collection === id ? { ...item, isPrivate: !result.collection.is_public } : item));
         setToast(result.collection.is_public ? "Collection is now public" : "Collection is now private");
       } catch (error) { setToast(error instanceof Error ? error.message : "Could not update visibility"); }
       return;
@@ -2341,7 +2355,7 @@ export default function RebuildPreview({
                   <button onClick={() => setTagOrder((order) => order === "popular" ? "name" : "popular")}>
                     <SlidersHorizontal size={18} /> {tagOrder === "popular" ? "Most used" : "By name"}
                   </button>
-                ) : <button onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>}
+                ) : <button className="rb-collections-top-create" onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>}
               </div>
             </div>
             {collectionGroup === "tags" ? (
@@ -2353,7 +2367,10 @@ export default function RebuildPreview({
                     <Tag size={20} /><span>{tag.name}</span><span>{tag.count}</span>
                   </button>)}
               </div>
-            ) : <div className="rb-collection-preview-list">{allCollections.filter((item) => !item.parentId && (item.group || "links") === collectionGroup).map(renderCollectionPreview)}</div>}
+            ) : <>
+              <div className="rb-collection-preview-list">{allCollections.filter((item) => !item.parentId && (item.group || "links") === collectionGroup).map(renderCollectionPreview)}</div>
+              <button className="rb-collections-bottom-create" onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>
+            </>}
           </>
         )}
 
@@ -2657,7 +2674,9 @@ export default function RebuildPreview({
               <p className={`rb-detail-description ${activeCard.kind === "note" ? "rb-note-body" : ""}`}>{activeCard.description}</p>
             )}
             {activeCard.image && (
-              <img className="rb-detail-image" key={activeCard.image} src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
+              <a className="rb-detail-image-link" href={activeCard.url || activeCard.image} target="_blank" rel="noopener noreferrer" aria-label={`Open ${activeCard.kind === "image" ? "image" : "original link"}`}>
+                <img className="rb-detail-image" key={activeCard.image} src={activeCard.image} alt="" onError={(event) => event.currentTarget.setAttribute("data-failed", "true")} />
+              </a>
             )}
             {activeCard.kind === "file" && (
               <div className="rb-detail-file">
@@ -2675,7 +2694,10 @@ export default function RebuildPreview({
                 <span>Source</span>
                 {activeCard.url ? <a className="rb-detail-meta-link" href={activeCard.url} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${activeCard.source || "saved link"} in a new tab`}>{activeCard.source || "Visit source"}<ArrowUpRight size={17} aria-hidden="true" /></a> : <strong>{activeCard.source || "Your library"}</strong>}
               </div>}
-              <div><span>{activeCard.owner ? "By" : "Collection"}</span>{activeCard.owner ? <button className="rb-detail-meta-link" onClick={() => { closeDetail(); setDestination("discover"); setProfileId(activeCard.owner!.id); window.scrollTo(0, 0); }}>{activeCard.owner.name}<ArrowRight size={17} aria-hidden="true" /></button> : activeCardCollection ? <button className="rb-detail-meta-link" onClick={() => openDetailCollection(activeCardCollection.id)}>{activeCardCollection.name}<ArrowRight size={17} aria-hidden="true" /></button> : <strong>Unsorted</strong>}</div>
+              <div><span>{activeCard.owner ? "By" : "Collection"}</span>{activeCard.owner ? <button className="rb-detail-meta-link" onClick={() => { closeDetail(); setDestination("discover"); setProfileId(activeCard.owner!.id); window.scrollTo(0, 0); }}>{activeCard.owner.name}<ArrowRight size={17} aria-hidden="true" /></button> : <>
+                {activeCardCollection ? <button className="rb-detail-collection-pill" onClick={() => openDetailCollection(activeCardCollection.id)}><Folder size={17} />{activeCardCollection.name}</button> : <span className="rb-detail-collection-pill"><Folder size={17} />Unsorted</span>}
+                {activeCardIsOwn && <button className="rb-detail-collection-edit" onClick={() => { setCollectionPickerCardId(activeCard.id); setRelatedCollectionQuery(""); setDetailMenuOpen(false); }}>Edit collection</button>}
+              </>}</div>
             </div>
             {activeCard.note && (
               <div className="rb-detail-note">
@@ -2685,7 +2707,7 @@ export default function RebuildPreview({
             )}
             {activeCardDuplicates.length > 0 && <div className="rb-detail-duplicates">{activeCardDuplicates.length} other saved {activeCardDuplicates.length === 1 ? "copy" : "copies"} of this link</div>}
             <div className="rb-detail-tags">
-              {activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setDestination("library"); setActiveCardId(null); window.scrollTo(0, 0); }}>{tag}</button>)}
+              <div className="rb-detail-tag-list">{activeCard.tags?.map((tag) => <button key={tag} onClick={() => { setSelectedTag(tag); setDestination("library"); setActiveCardId(null); window.scrollTo(0, 0); }}>{tag}</button>)}</div>
               {activeCardIsOwn && <button className="rb-detail-edit-tags" onClick={() => openTagEditor(activeCard)}><Tag size={17} /> Edit tags</button>}
             </div>
           </div>
@@ -2825,14 +2847,14 @@ export default function RebuildPreview({
           {(!liveMode || cards.find((item) => item.id === editingCardId)?.kind === "link") && <label>Link<input type="url" value={editUrl} onChange={(event) => setEditUrl(event.target.value)} /></label>}
           <label>Description<textarea rows={3} value={editDescription} onChange={(event) => setEditDescription(event.target.value)} /></label>
           <label>Note<textarea rows={3} value={editNote} onChange={(event) => setEditNote(event.target.value)} /></label>
-          <div className="rb-edit-collection-field"><label>Collection<div className="rb-edit-collection-select"><select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">Unsorted</option>{allCollections.filter((item) => item.group !== "smart" && (!liveMode || item.group === (cards.find((card) => card.id === editingCardId)?.kind === "image" ? "images" : "links"))).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={24} aria-hidden="true" /></div></label>{editNewCollectionOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createEditCollection(); }}><input value={editNewCollectionName} onChange={(event) => setEditNewCollectionName(event.target.value)} placeholder="Collection name" aria-label="New collection name" autoFocus /><button type="submit" disabled={!editNewCollectionName.trim()}>Create</button><button type="button" onClick={() => { setEditNewCollectionOpen(false); setEditNewCollectionName(""); }} aria-label="Cancel new collection"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setEditNewCollectionOpen(true)}><FolderPlus size={18} /> New collection</button>}</div>
+          <div className="rb-edit-collection-field"><label>Collection<div className="rb-edit-collection-select"><select value={editCollection} onChange={(event) => setEditCollection(event.target.value)}><option value="">{editPrivate ? "Unsorted" : "Choose a public collection"}</option>{allCollections.filter((item) => item.group !== "smart" && (!liveMode || item.group === (cards.find((card) => card.id === editingCardId)?.kind === "image" ? "images" : "links")) && (!liveMode || (item.isPrivate !== false) === editPrivate)).map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select><ChevronDown size={24} aria-hidden="true" /></div></label>{editNewCollectionOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createEditCollection(); }}><input value={editNewCollectionName} onChange={(event) => setEditNewCollectionName(event.target.value)} placeholder="Collection name" aria-label="New collection name" autoFocus /><button type="submit" disabled={!editNewCollectionName.trim()}>Create</button><button type="button" onClick={() => { setEditNewCollectionOpen(false); setEditNewCollectionName(""); }} aria-label="Cancel new collection"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setEditNewCollectionOpen(true)}><FolderPlus size={18} /> New collection</button>}</div>
           <label>Tags<input value={editTags} onChange={(event) => setEditTags(event.target.value)} placeholder="Separate tags with commas" /></label>
           {!liveMode && <><label>Preview image<input type="url" value={editImage.startsWith("data:") ? "" : editImage} onChange={(event) => setEditImage(event.target.value)} placeholder="Image URL" /></label>
           <label className="rb-edit-upload"><Upload size={18} /> Replace with an image from your computer<input type="file" accept="image/*" onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceCardImage(file); }} /></label></>}
           </div>
           <div className="rb-edit-footer">
             <div className="rb-edit-footer-start">
-              {liveMode ? <span className="rb-edit-privacy"><LockKeyhole size={18} /> Private</span> : <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => setEditPrivate((value) => !value)}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>}
+              <button className="rb-edit-privacy" role="switch" aria-checked={editPrivate} onClick={() => { const next = !editPrivate; setEditPrivate(next); if (liveMode && editCollection && (allCollections.find((item) => item.id === editCollection)?.isPrivate !== false) !== next) setEditCollection(""); }}>{editPrivate ? <LockKeyhole size={18} /> : <Unlock size={18} />}{editPrivate ? "Private" : "Public"}</button>
               <button className="rb-edit-remove" onClick={() => setDeleteCardId(editingCardId)}><Trash2 size={17} /> Remove</button>
             </div>
             <div className="rb-edit-actions"><button onClick={() => setEditingCardId(null)}>Cancel</button><button onClick={saveCardEdit} disabled={!editTitle.trim()}>Save changes</button></div>
@@ -2940,8 +2962,8 @@ export default function RebuildPreview({
                 {composer !== "collection" && <button onClick={() => setNewCollectionOpen((open) => !open)} aria-expanded={newCollectionOpen}><Plus size={17} /> New collection</button>}
               </div>
               <select id="rb-composer-collection" value={formCollection} onChange={(e) => setFormCollection(e.target.value)}>
-                <option value="">{composer === "collection" ? "Top level" : "Unsorted — decide later"}</option>
-                {allCollections.filter((item) => !liveMode || item.group === (composer === "image" || composer === "collection" && (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images") ? "images" : "links")).map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
+                <option value="">{composer === "collection" ? "Top level" : formPrivate ? "Unsorted — decide later" : "Choose a public collection"}</option>
+                {allCollections.filter((item) => (!liveMode || item.group === (composer === "image" || composer === "collection" && (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images") ? "images" : "links")) && (!liveMode || composer === "collection" || (item.isPrivate !== false) === formPrivate)).map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
               </select>
               {newCollectionOpen && <div className="rb-composer-inline-entry"><input autoFocus value={newCollectionName} onChange={(event) => setNewCollectionName(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); createComposerCollection(); } }} placeholder="Collection name" aria-label="New collection name" /><button onClick={createComposerCollection}>Create</button></div>}
             </div>
@@ -2952,10 +2974,10 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-composer-footer">
-              {liveMode && composer !== "collection" ? <span className="rb-composer-privacy-toggle"><LockKeyhole size={19} /> Private</span> : <button className="rb-composer-privacy-toggle" type="button" role="switch" aria-checked={formPrivate} onClick={() => setFormPrivate((value) => !value)}>
+              <button className="rb-composer-privacy-toggle" type="button" role="switch" aria-checked={formPrivate} onClick={() => { const next = !formPrivate; setFormPrivate(next); if (liveMode && composer !== "collection" && formCollection && (allCollections.find((item) => item.id === formCollection)?.isPrivate !== false) !== next) setFormCollection(""); setFormError(""); }}>
                 {formPrivate ? <LockKeyhole size={19} /> : <Unlock size={19} />}
                 {formPrivate ? "Private" : "Public"}
-              </button>}
+              </button>
               <button className="rb-composer-submit" onClick={saveComposer} disabled={liveSaving}>
                 {composer === "collection"
                   ? "Create collection"

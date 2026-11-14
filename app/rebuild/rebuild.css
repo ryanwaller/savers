@@ -3465,13 +3465,23 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-tags-page button { height: 39px; gap: 7px; padding-inline: 11px; border-radius: 11px; font-size: 14px; }
   .rb-tags-page button svg { width: 16px; height: 16px; }
 
-  /* The article and its thumbnail both use rb-card-image; only the thumbnail is 44%. */
+  /* The article and its thumbnail both use rb-card-image. */
   .rb-list-grid .rb-card.rb-card-image { flex: none; align-self: stretch; width: 100%; height: auto; min-width: 0; min-height: 0; aspect-ratio: auto; }
-  .rb-list-grid .rb-card-primary > .rb-card-image { flex: 0 0 44%; width: 44%; }
+  .rb-list-grid .rb-card-primary > .rb-card-image { flex: 0 0 50%; width: 50%; }
 }
 
-/* Keep scrolled detail content behind a solid header, with controls above it. */
-.rb-detail-backdrop .rb-detail-bar { background: inherit; }
+/* The detail controls stay legible as content fades beneath them. */
+.rb-detail-backdrop .rb-detail-bar { background: linear-gradient(to bottom, var(--rb-detail-surface, #fcfcfc) 45%, transparent); }
+.rb-theme-dark .rb-detail-backdrop .rb-detail-bar { --rb-detail-surface: #222; }
+
+.rb-detail-tag-list { display: flex; flex-wrap: wrap; gap: 7px; }
+.rb-detail-image-link { display: block; }
+.rb-detail-collection-pill { display: inline-flex; align-items: center; align-self: flex-start; gap: 8px; max-width: 100%; min-height: 42px; padding: 8px 13px; border-radius: 12px; background: var(--rb-control-bg); color: var(--rb-control-ink); overflow-wrap: anywhere; text-align: left; }
+.rb-detail-meta span.rb-detail-collection-pill { color: var(--rb-control-ink); font-size: var(--rb-type-body); font-weight: 400; letter-spacing: 0; }
+.rb-detail-collection-edit { align-self: flex-start; padding: 3px 0; color: var(--rb-control-muted); text-decoration: underline; text-underline-offset: 3px; }
+.rb-detail-collection-edit:hover { color: var(--rb-control-ink); }
+
+.rb-collections-bottom-create { display: none; }
 
 /* Website previews in related cards use the landscape capture shape. */
 :is(.rb-related-stack, .rb-related-feed-grid) .rb-card-link .rb-card-primary > .rb-card-image { width: 100%; aspect-ratio: 16 / 9; }
@@ -3485,4 +3495,39 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
     padding-top: max(40px, calc(env(safe-area-inset-top, 0px) + 40px));
     padding-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px));
   }
+
+  /* A dialog must fit the space left after the safe-area padding. */
+  .rebuild-app .rb-composer, .rebuild-app .rb-rule-panel, .rebuild-app .rb-tag-editor, .rebuild-app .rb-edit-panel, .rebuild-app .rb-related-picker { max-height: 100%; min-height: 0; }
+  .rb-composer-footer { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 8px; }
+  .rb-composer-footer .rb-composer-privacy-toggle { width: 110px; justify-content: center; padding-inline: 8px; }
+  .rb-composer-footer .rb-composer-submit { min-width: 0; padding-inline: 8px; font-size: 13px !important; }
+
+  /* Keep the card preview flush to the full-height, half-width thumbnail. */
+  .rb-list-grid .rb-card { height: 124px; min-height: 124px; }
+  .rb-list-grid .rb-card-primary { height: 100%; min-height: 0; }
+  .rb-list-grid .rb-card-primary > .rb-card-image, .rb-list-grid .rb-file-art { flex: 0 0 50%; width: 50%; height: 100%; min-height: 0; aspect-ratio: auto; }
+  .rb-list-grid .rb-card-primary > .rb-card-image img, .rb-card-grid.rb-list-grid .rb-card-image img { width: 100%; height: 100%; min-height: 0; max-height: none; object-fit: cover; object-position: top; }
+  .rebuild-app .rb-card-image .rb-card-actions:has(button[title="Details in Savers"]) { display: flex; top: auto; right: 8px; bottom: 8px; opacity: 1; pointer-events: auto; }
+  .rebuild-app .rb-card-image .rb-card-actions button:not([title="Details in Savers"]) { display: none; }
+
+  .rb-collections-top-create { display: none !important; }
+  .rebuild-app .rb-collections-bottom-create { display: flex; align-items: center; justify-content: center; gap: 9px; min-height: 48px; margin: 0 auto 140px; padding: 0 18px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+  .rb-collection-preview-list { margin-bottom: 28px; }
+
+  .rb-detail-tags { flex-direction: column; align-items: center; }
+  .rb-detail-tag-list { justify-content: center; }
+
+  /* The popover has the same gap below the toolbar as at each side. */
+  .rebuild-app .rb-detail-menu { position: fixed; top: calc(max(40px, env(safe-area-inset-top, 0px) + 40px) + 60px + 16px); left: 50%; right: auto; width: min(320px, calc(100vw - 72px)); max-height: calc(100dvh - max(40px, env(safe-area-inset-top, 0px) + 40px) - 96px); transform: translateX(-50%); z-index: 6; }
+
+  /* Both related actions remain at the upper right while cards scroll. */
+  .rb-related-feed-top { position: sticky; top: 0; z-index: 5; margin-top: -22px; padding: 22px 0 18px; background: linear-gradient(to bottom, var(--rb-related-surface, #fcfcfa) 66%, transparent); }
+  .rb-theme-dark .rb-related-feed-top { --rb-related-surface: #151515; }
+  .rb-related-feed-actions { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; }
+
+  /* Scrolling content fades into the bottom edge of each card overlay. */
+  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 4; left: 20px; right: 20px; bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 34px; border-radius: 0 0 18px 18px; background: linear-gradient(to bottom, transparent, var(--rb-detail-surface, #fcfcfc)); pointer-events: none; }
+  .rb-theme-dark .rb-detail-backdrop::after { --rb-detail-surface: #222; }
+  .rb-related-feed-backdrop::after { --rb-detail-surface: #fcfcfa; }
+  .rb-theme-dark .rb-related-feed-backdrop::after { --rb-detail-surface: #151515; }
 }
