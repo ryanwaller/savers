@@ -2471,6 +2471,10 @@ body:has(.rebuild-app) {
 .rb-collections-head { border-bottom: 0; padding-bottom: 0; }
 .rb-collection-preview-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; gap: clamp(16px, 2vw, 28px); margin-bottom: 120px; }
 .rb-collection-preview { position: relative; min-width: 0; }
+.rb-collection-reorder-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+.rb-collection-reorder-actions button { display: inline-flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 13px; border-radius: 999px; background: var(--rb-control-bg, #f1f1f1); color: var(--rb-control-ink, #333); }
+.rb-collection-reorder-actions button:hover:not(:disabled) { background: #b9ff69; color: #202820; }
+.rb-collection-reorder-actions button:disabled { opacity: .4; cursor: default; }
 .rb-collection-preview-main {
   position: relative;
   display: flex;
@@ -3484,12 +3488,13 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 
 /* Scrolled content blurs beneath the pinned controls instead of fading to white. */
 .rb-detail-backdrop .rb-detail-bar { background: #fcfcfa44; backdrop-filter: blur(18px); }
+.rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 80px; height: calc(var(--rb-bar-height) + 48px); margin-bottom: -48px; align-items: flex-start; padding-top: calc((var(--rb-bar-height) - var(--rb-control-size)) / 2); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); }
 .rb-theme-dark .rb-detail-backdrop .rb-detail-bar { background: #2227; }
-.rb-related-feed-top { position: sticky; top: -36px; z-index: 5; margin-top: -36px; padding: 36px 0 18px; background: #fcfcfa44; backdrop-filter: blur(18px); }
+.rb-related-feed-top { position: sticky; top: -36px; z-index: 5; margin-top: -36px; margin-bottom: -15px; padding: 36px 0 66px; background: #fcfcfa44; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); }
 .rb-theme-dark .rb-related-feed-top { background: #15151577; }
 .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: clamp(26px, 4vw, 56px); --rb-blur-width: 1400px; }
 .rb-related-feed-backdrop { --rb-blur-width: 1600px; }
-.rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 50; left: 50%; bottom: var(--rb-blur-frame); width: min(calc(100vw - 2 * var(--rb-blur-frame)), var(--rb-blur-width)); height: 90px; transform: translateX(-50%); border-radius: 0 0 24px 24px; background: #fcfcfa22; backdrop-filter: blur(20px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000); mask-image: linear-gradient(to bottom, transparent, #000); pointer-events: none; }
+.rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 50; left: 50%; bottom: var(--rb-blur-frame); width: min(calc(100vw - 2 * var(--rb-blur-frame)), var(--rb-blur-width)); height: 90px; transform: translateX(-50%); border-radius: 0 0 24px 24px; clip-path: inset(0 round 0 0 24px 24px); background: #fcfcfa22; backdrop-filter: blur(20px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000); mask-image: linear-gradient(to bottom, transparent, #000); pointer-events: none; }
 .rb-theme-dark .rb-detail-backdrop::after, .rb-theme-dark .rb-related-feed-backdrop::after { background: #2224; }
 .rb-related-picker-list[data-scroll-fade="y"] { -webkit-mask-image: none !important; mask-image: none !important; }
 .rb-related-picker-footer { isolation: isolate; background: transparent; }
@@ -3544,6 +3549,7 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 
   /* Both related actions remain at the upper right while cards scroll. */
   .rb-related-feed-top { top: -22px; margin-top: -22px; padding-top: 22px; }
+  .rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 60px; }
   .rb-related-feed-actions { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; }
 
   .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: 20px; }

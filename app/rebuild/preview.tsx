@@ -4,7 +4,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowDown,
   ArrowRight,
+  ArrowUp,
   ArrowUpRight,
   Bookmark,
   Check,
@@ -493,7 +495,9 @@ export default function RebuildPreview({
   const [socialExpanded, setSocialExpanded] = useState(false);
   const [query, setQuery] = useState("");
   const [listMode, setListMode] = useState(false);
-  const [cardSize, setCardSize] = useState<"s" | "m" | "l" | "xl">("l");
+  const [cardSize, setCardSize] = useState<"s" | "m" | "l" | "xl">("s");
+  const [reorderingCollections, setReorderingCollections] = useState(false);
+  const [reorderBusy, setReorderBusy] = useState(false);
   const [librarySelecting, setLibrarySelecting] = useState(false);
   const [selectedLibraryIds, setSelectedLibraryIds] = useState<string[]>([]);
   const [collectionPickerCardId, setCollectionPickerCardId] = useState<string | null>(null);
@@ -1562,11 +1566,11 @@ export default function RebuildPreview({
           const imageGroup = collectionGroup === "images" || allCollections.find((item) => item.id === formCollection)?.group === "images";
           if (imageGroup) {
             const result = await liveRequest<{ collection: ImageCollection }>("/api/image-collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null, is_public: !formPrivate, public_description: formNote.trim() });
-            setAllCollections((prev) => [liveImageCollection(result.collection), ...prev]);
+            setAllCollections((prev) => [...prev, liveImageCollection(result.collection)]);
             setSelectedCollection(result.collection.id);
           } else {
             const result = await liveRequest<{ collection: Collection }>("/api/collections", "POST", { name: formTitle.trim(), parent_id: formCollection || null, is_public: !formPrivate, public_description: formNote.trim() });
-            setAllCollections((prev) => [liveCollection(result.collection), ...prev]);
+            setAllCollections((prev) => [...prev, liveCollection(result.collection)]);
             setSelectedCollection(result.collection.id);
           }
           setToast("Collection saved to Savers");
@@ -1598,7 +1602,7 @@ export default function RebuildPreview({
         return;
       }
       const id = `local-${Date.now()}`;
-      setAllCollections((prev) => [
+      setAllCollections((prev) => [...prev,
         {
           id,
           name: formTitle.trim(),
@@ -1608,7 +1612,6 @@ export default function RebuildPreview({
           group: allCollections.find((item) => item.id === formCollection)?.group || (collectionGroup === "tags" ? "links" : collectionGroup),
           isPrivate: formPrivate,
         },
-        ...prev,
       ]);
       setSelectedCollection(id);
       setDestination("library");
@@ -2100,7 +2103,39 @@ export default function RebuildPreview({
     setToast("Folder and subfolders updated in this preview");
   }
 
+  async function moveCollection(item: PreviewCollection, direction: -1 | 1) {
+    if (reorderBusy) return;
+    const group = item.group || "links";
+    const positions = allCollections.flatMap((collection, index) => !collection.parentId && (collection.group || "links") === group ? [index] : []);
+    const current = positions.findIndex((index) => allCollections[index].id === item.id);
+    const target = current + direction;
+    if (current < 0 || target < 0 || target >= positions.length) return;
+    const next = [...allCollections];
+    [next[positions[current]], next[positions[target]]] = [next[positions[target]], next[positions[current]]];
+    setAllCollections(next);
+    if (!liveMode || group === "smart") return;
+    setReorderBusy(true);
+    try {
+      const response = await fetch(group === "images" ? "/api/image-collections/reorder" : "/api/collections/reorder", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: positions.map((index) => next[index].id) }),
+      });
+      if (!response.ok) {
+        const body = await response.json().catch(() => ({}));
+        throw new Error(body.error || "Could not reorder collections");
+      }
+    } catch (error) {
+      setAllCollections(allCollections);
+      setToast(error instanceof Error ? error.message : "Could not reorder collections");
+    } finally {
+      setReorderBusy(false);
+    }
+  }
+
   function renderCollectionPreview(item: PreviewCollection): React.ReactNode {
+    const siblings = allCollections.filter((collection) => !collection.parentId && (collection.group || "links") === (item.group || "links"));
+    const siblingIndex = siblings.findIndex((collection) => collection.id === item.id);
     const descendantIds = new Set([item.id]);
     for (let index = 0; index < allCollections.length; index += 1) {
       for (const child of allCollections) {
@@ -2128,6 +2163,10 @@ export default function RebuildPreview({
           </div>
           </button>
           {item.group === "smart" && <button className="rb-collection-preview-rules" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
+          {reorderingCollections && <div className="rb-collection-reorder-actions">
+            <button onClick={() => void moveCollection(item, -1)} disabled={reorderBusy || siblingIndex <= 0} aria-label={`Move ${item.name} up`}><ArrowUp size={18} /> Up</button>
+            <button onClick={() => void moveCollection(item, 1)} disabled={reorderBusy || siblingIndex >= siblings.length - 1} aria-label={`Move ${item.name} down`}><ArrowDown size={18} /> Down</button>
+          </div>}
       </div>
     );
   }
@@ -2205,7 +2244,7 @@ export default function RebuildPreview({
                     setAllCollections(seedCollections);
                     setFavorites([]);
                     setPinnedIds([]);
-                    setCardSize("l");
+                    setCardSize("s");
                     setFollowedAccountIds([]);
                     setSubscriptions([]);
                     setSmartRules({});
@@ -2396,7 +2435,10 @@ export default function RebuildPreview({
                   <button onClick={() => setTagOrder((order) => order === "popular" ? "name" : "popular")}>
                     <SlidersHorizontal size={18} /> {tagOrder === "popular" ? "Most used" : "By name"}
                   </button>
-                ) : <button className="rb-collections-top-create" onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>}
+                ) : <>
+                  {(!liveMode || !readOnly) && (!liveMode || collectionGroup !== "smart") && <button className="rb-collections-reorder-toggle" onClick={() => setReorderingCollections((value) => !value)}>{reorderingCollections ? "Done" : "Reorder"}</button>}
+                  <button className="rb-collections-top-create" onClick={() => openComposer("collection")}><FolderPlus size={18} /> New collection</button>
+                </>}
               </div>
             </div>
             {collectionGroup === "tags" ? (
