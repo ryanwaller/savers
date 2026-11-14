@@ -23,5 +23,10 @@ enum Config {
     ///
     /// Treat this like a password. Don't commit a populated value to a
     /// public repository.
-    static let apiToken = ""
+    static var apiToken: String {
+        guard let url = Bundle.main.url(forResource: "SaversShareSecrets", withExtension: "plist"),
+              let values = NSDictionary(contentsOf: url),
+              let token = values["SaversApiToken"] as? String else { return "" }
+        return token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

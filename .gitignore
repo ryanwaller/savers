@@ -39,3 +39,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+mobile/ios/App/SaversShare/SaversShareSecrets.plist
+mobile/ShareExtension/SaversShareSecrets.plist

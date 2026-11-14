@@ -17,11 +17,12 @@ enum Config {
     /// share extension hits its API endpoints.
     static let apiBase = "https://savers-production.up.railway.app"
 
-    /// Personal API token for the Share Extension to authenticate with.
-    /// Mint this at:  Settings → API tokens → Create token  in the Savers
-    /// web app, then paste the secret here.
-    ///
-    /// Treat this like a password. Don't commit a populated value to a
-    /// public repository.
-    static let apiToken = "svr_xeDOTONPvO7kdhJ1EeXKT-HPPRF5EsMCWhI2BoQB_6E"
+    /// Load the personal token from an untracked resource in the share
+    /// extension target. Never put a token in a tracked Swift source file.
+    static var apiToken: String {
+        guard let url = Bundle.main.url(forResource: "SaversShareSecrets", withExtension: "plist"),
+              let values = NSDictionary(contentsOf: url),
+              let token = values["SaversApiToken"] as? String else { return "" }
+        return token.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
 }

@@ -155,15 +155,21 @@ Delete the auto-generated `MainInterface.storyboard` — we don't use it
    with the main app's bundle ID, plus a suffix).
 5. Minimum Deployments → iOS 16.0 to match the main app.
 
-### Paste your token into Config.swift
+### Add your token without committing it
 
-Open `Config.swift`. Paste the token from step 2 into `apiToken`:
+Create `mobile/ios/App/SaversShare/SaversShareSecrets.plist` with this content,
+replacing the example value with the fresh token from step 2. This path is
+ignored by Git and Xcode includes it as a Share Extension resource.
 
-```swift
-static let apiToken = "svr_yourTokenHere..."
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>SaversApiToken</key><string>svr_yourFreshTokenHere</string>
+</dict></plist>
 ```
 
-Save.
+Do not add the secret to `Config.swift` or commit the plist.
 
 ### Build and install
 
@@ -179,8 +185,9 @@ extension will install together.
 3. Tap the **Share** button (bottom of Safari toolbar, square with arrow).
 4. In the share sheet's app row, scroll to find **Savers**. The first
    time, you may have to tap **More**, then enable Savers in the list.
-5. Tap **Savers**. You'll see a "Saving…" card, then "Saved." for half
-   a second, then it dismisses.
+5. Tap **Savers**. A shared webpage saves as a link, even when Chrome includes
+   its thumbnail. You'll see "Saving…" followed by "Saved." before the
+   extension dismisses. Errors stay visible until you tap Close.
 6. Open the Savers app — the bookmark is there in Unsorted (or
    auto-filed by AI).
 
@@ -206,7 +213,7 @@ extension will install together.
 When you're ready to give Savers to other people:
 
 1. Sign up for the Apple Developer Program ($99/year).
-2. Replace the hardcoded `Config.apiToken` with a setup screen that
+2. Replace the local token plist with a setup screen that
    collects the token at first launch and stores it in the shared
    App Group keychain (use the existing `TokenStore.swift` as the
    implementation — just enable the App Group entitlement on both

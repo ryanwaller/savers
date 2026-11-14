@@ -15,6 +15,8 @@ final class ShareViewController: UIViewController {
 
     private let blurView = UIVisualEffectView(effect: UIBlurEffect(style: .systemUltraThinMaterialDark))
     private let label = UILabel()
+    private let closeButton = UIButton(type: .system)
+    private var hasStarted = false
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,6 +35,14 @@ final class ShareViewController: UIViewController {
         label.numberOfLines = 0
         view.addSubview(label)
 
+        closeButton.translatesAutoresizingMaskIntoConstraints = false
+        closeButton.setTitle("Close", for: .normal)
+        closeButton.setTitleColor(.white, for: .normal)
+        closeButton.titleLabel?.font = .systemFont(ofSize: 16, weight: .semibold)
+        closeButton.isHidden = true
+        closeButton.addTarget(self, action: #selector(closeShare), for: .touchUpInside)
+        view.addSubview(closeButton)
+
         NSLayoutConstraint.activate([
             blurView.topAnchor.constraint(equalTo: view.topAnchor),
             blurView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
@@ -43,38 +53,44 @@ final class ShareViewController: UIViewController {
             label.centerYAnchor.constraint(equalTo: view.centerYAnchor),
             label.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 32),
             label.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -32),
+            closeButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
+            closeButton.topAnchor.constraint(equalTo: label.bottomAnchor, constant: 24),
         ])
     }
 
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
+        guard !hasStarted else { return }
+        hasStarted = true
         Task { await self.handleShare() }
+    }
+
+    @objc private func closeShare() {
+        extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
 
     // MARK: - Share flow
 
     @MainActor
     private func handleShare() async {
+        label.text = "Reading shared item…"
         let payload = await extractShareContent()
 
-        // v1: token is hardcoded in Config.swift for personal sideload.
-        // TokenStore is the v2 path — when we add a setup UI we'll prefer
-        // the shared keychain over Config.
+        // Prefer a token provisioned in the keychain; personal sideloads can
+        // load one from an untracked plist in the extension bundle.
         let token = TokenStore.read() ?? Config.apiToken
         guard !token.isEmpty else {
             await showFinal(
                 message:
-                    "No token configured. Open Config.swift, paste a token from the Savers web Settings, and rebuild.",
+                    "No share token configured. Create an API token in Savers Settings, add it to SaversShareSecrets.plist, then reinstall the app.",
                 isError: true
             )
             return
         }
 
-        // Image branch — take precedence over URL when the share contains
-        // raw image bytes (Photos.app, screenshots, files). Many image
-        // shares also include a URL attachment (the file:// URL) but we
-        // prefer the inline bytes since they're already available.
-        if let image = payload.image {
+        // Chrome often attaches a page thumbnail as well as its URL. Save
+        // the page in that case. Raw image shares have no web URL.
+        if payload.url == nil, let image = payload.image {
             label.text = "Uploading image…"
             do {
                 try await postImage(image: image, token: token)
@@ -98,6 +114,7 @@ final class ShareViewController: UIViewController {
             return
         }
 
+        label.text = "Saving to Savers…"
         do {
             try await postBookmark(
                 url: url,
@@ -166,33 +183,11 @@ final class ShareViewController: UIViewController {
             }
 
             for provider in item.attachments ?? [] {
-                // Image branch — Photos.app, screenshots, file attachments.
-                // We check this BEFORE URL so that a Photos share (which
-                // can include both an image + a backing photos:// URL)
-                // routes to the image upload endpoint.
-                if result.image == nil {
-                    let imageTypes: [UTType] = [
-                        .jpeg, .png, .gif, .webP, .heic, .heif, .svg, .image,
-                    ]
-                    var matchedType: UTType? = nil
-                    for t in imageTypes {
-                        if provider.hasItemConformingToTypeIdentifier(t.identifier) {
-                            matchedType = t
-                            break
-                        }
-                    }
-                    if let utType = matchedType {
-                        if let img = await loadImage(from: provider, utType: utType) {
-                            result.image = img
-                        }
-                    }
-                }
-
                 if result.url == nil,
                    provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
                     if let u: URL = await loadItem(
                         from: provider, type: UTType.url.identifier
-                    ) {
+                    ), ["http", "https"].contains((u.scheme ?? "").lowercased()) {
                         result.url = u
                     }
                 }
@@ -202,9 +197,7 @@ final class ShareViewController: UIViewController {
                         from: provider, type: UTType.plainText.identifier
                     ) {
                         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
-                        if result.url == nil,
-                           let u = URL(string: trimmed),
-                           ["http", "https"].contains((u.scheme ?? "").lowercased()) {
+                        if result.url == nil, let u = firstWebURL(in: trimmed) {
                             result.url = u
                         } else if !trimmed.isEmpty {
                             // Treat free-form text as the description if we
@@ -216,6 +209,24 @@ final class ShareViewController: UIViewController {
                         }
                     }
                 }
+            }
+        }
+
+        // Only load image bytes when the share contained no web page. This
+        // avoids Chrome's thumbnail provider delaying or replacing its URL.
+        if result.url == nil {
+            for item in items {
+                for provider in item.attachments ?? [] {
+                    for type in [UTType.jpeg, .png, .gif, .webP, .heic, .heif, .svg, .image] {
+                        if provider.hasItemConformingToTypeIdentifier(type.identifier),
+                           let image = await loadImage(from: provider, utType: type) {
+                            result.image = image
+                            break
+                        }
+                    }
+                    if result.image != nil { break }
+                }
+                if result.image != nil { break }
             }
         }
 
@@ -236,6 +247,17 @@ final class ShareViewController: UIViewController {
         return result
     }
 
+    private func firstWebURL(in text: String) -> URL? {
+        if let url = URL(string: text), ["http", "https"].contains((url.scheme ?? "").lowercased()) {
+            return url
+        }
+        guard let detector = try? NSDataDetector(types: NSTextCheckingResult.CheckingType.link.rawValue) else { return nil }
+        let range = NSRange(text.startIndex..<text.endIndex, in: text)
+        return detector.matches(in: text, options: [], range: range)
+            .compactMap(\.url)
+            .first { ["http", "https"].contains(($0.scheme ?? "").lowercased()) }
+    }
+
     private func loadItem<T>(from provider: NSItemProvider, type: String) async -> T? {
         await withCheckedContinuation { continuation in
             provider.loadItem(forTypeIdentifier: type, options: nil) { value, _ in
@@ -252,6 +274,12 @@ final class ShareViewController: UIViewController {
                     continuation.resume(returning: url as? T)
                     return
                 }
+                if T.self == URL.self,
+                   let str = value as? String,
+                   let url = URL(string: str) {
+                    continuation.resume(returning: url as? T)
+                    return
+                }
                 continuation.resume(returning: nil)
             }
         }
@@ -261,9 +289,11 @@ final class ShareViewController: UIViewController {
     private func showFinal(message: String, isError: Bool) async {
         label.text = message
         label.textColor = isError ? UIColor(red: 1.0, green: 0.5, blue: 0.5, alpha: 1.0) : .white
-
-        // Linger for a moment so the user actually sees the result, then dismiss.
-        try? await Task.sleep(nanoseconds: isError ? 1_400_000_000 : 700_000_000)
+        if isError {
+            closeButton.isHidden = false
+            return
+        }
+        try? await Task.sleep(nanoseconds: 1_500_000_000)
         extensionContext?.completeRequest(returningItems: [], completionHandler: nil)
     }
 
@@ -291,7 +321,7 @@ final class ShareViewController: UIViewController {
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
         request.timeoutInterval = 15
 
-        var body: [String: Any] = ["url": url.absoluteString]
+        var body: [String: Any] = ["url": url.absoluteString, "quick_save": true]
         if let title, !title.isEmpty { body["title"] = title }
         if let description, !description.isEmpty {
             body["description"] = description
