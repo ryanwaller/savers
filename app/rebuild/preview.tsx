@@ -2160,7 +2160,7 @@ export default function RebuildPreview({
                   Reset preview
                 </button>}
                 {isStaging && <a href="/downloads/savers-capture-macos-0.9.5.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
-                {liveMode && !isStaging && <a href="/downloads/savers-capture-macos-0.9.8.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
+                {liveMode && !isStaging && <a href="/downloads/savers-capture-macos-0.9.9.zip" download>Download Savers Capture <ArrowUpRight size={14} /></a>}
                 {liveMode && <button onClick={() => { void getSupabaseBrowserClient().auth.signOut().then(() => window.location.assign("/rebuild")); }}>Sign out</button>}
                 <a
                   href={liveMode && !isStaging && !readOnly ? "/legacy" : "https://savers-production.up.railway.app"}
