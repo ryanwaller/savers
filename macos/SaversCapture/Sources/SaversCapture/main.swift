@@ -42,7 +42,13 @@ private final class ImageWindow: NSWindow {
 }
 
 private final class CapturePanel: NSPanel {
+    var handleKeyDown: ((NSEvent) -> Bool)?
     override var canBecomeKey: Bool { true }
+
+    override func sendEvent(_ event: NSEvent) {
+        if event.type == .keyDown, handleKeyDown?(event) == true { return }
+        super.sendEvent(event)
+    }
 }
 
 final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
@@ -53,7 +59,6 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
     private var largerWindow: NSWindow?
     private var settingsWindow: NSWindow?
     private var clipboardTimer: Timer?
-    private var keyboardMonitor: Any?
     private var lastPasteboardChangeCount = NSPasteboard.general.changeCount
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -82,22 +87,6 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         model.onOpenLarge = { [weak self] image in self?.showLarger(image) }
         model.onNeedsSavers = { [weak self] in self?.model.openSavers() }
         model.startBridge()
-        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
-            guard let self,
-                  let panel = NSApp.keyWindow as? CapturePanel,
-                  let capture = self.previews.first(where: { $0.panel === panel })?.capture,
-                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return event }
-            switch event.keyCode {
-            case 53: // Escape
-                capture.dismissRequested = true
-                return nil
-            case 36, 76: // Return and keypad Enter
-                if self.copyCapture(capture) { capture.dismissRequested = true }
-                return nil
-            default:
-                return event
-            }
-        }
         clipboardTimer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { [weak self] _ in
             self?.checkClipboard()
         }
@@ -105,7 +94,6 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
 
     func applicationWillTerminate(_ notification: Notification) {
         clipboardTimer?.invalidate()
-        if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
         instanceLock = nil
     }
 
@@ -158,6 +146,7 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = true
+        panel.becomesKeyOnlyIfNeeded = false
         panel.hidesOnDeactivate = false
         panel.level = .floating
         panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
@@ -173,11 +162,26 @@ final class CaptureAppDelegate: NSObject, NSApplicationDelegate {
                 self?.model.sendToSavers(capture) ?? false
             }
         ))
+        panel.handleKeyDown = { [weak self, weak capture] event in
+            guard let self, let capture,
+                  event.modifierFlags.intersection([.command, .control, .option]).isEmpty else { return false }
+            switch event.keyCode {
+            case 53: // Escape
+                capture.dismissRequested = true
+                return true
+            case 36, 76: // Return and keypad Enter
+                if self.copyCapture(capture) { capture.dismissRequested = true }
+                return true
+            default:
+                return false
+            }
+        }
         previews.append(PreviewEntry(capture: capture, panel: panel))
         if let target = previewFrames()[capture.id] {
             panel.setFrame(target, display: true)
         }
         panel.makeKeyAndOrderFront(nil)
+        if !panel.isKeyWindow { panel.makeKey() }
     }
 
     private func copyCapture(_ capture: CapturedScreenshot) -> Bool {
