@@ -3469,3 +3469,20 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-list-grid .rb-card.rb-card-image { flex: none; align-self: stretch; width: 100%; height: auto; min-width: 0; min-height: 0; aspect-ratio: auto; }
   .rb-list-grid .rb-card-primary > .rb-card-image { flex: 0 0 44%; width: 44%; }
 }
+
+/* Keep scrolled detail content behind a solid header, with controls above it. */
+.rb-detail-backdrop .rb-detail-bar { background: inherit; }
+
+/* Website previews in related cards use the landscape capture shape. */
+:is(.rb-related-stack, .rb-related-feed-grid) .rb-card-link .rb-card-primary > .rb-card-image { width: 100%; aspect-ratio: 16 / 9; }
+:is(.rb-related-stack, .rb-related-feed-grid) .rb-card-link .rb-card-primary > .rb-card-image img { display: block; width: 100%; height: 100%; max-height: none; object-fit: cover; object-position: top; }
+
+.rb-related-feed-load-more { margin-bottom: 24px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
+
+@media (max-width: 700px) {
+  /* Every floating panel clears the iPhone's translucent status-bar fade. */
+  .rebuild-app :is(.rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop, .rb-composer-overlay, .rb-rule-overlay, .rb-following-backdrop, .rb-related-picker-backdrop, .rb-delete-collection-backdrop) {
+    padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 16px));
+    padding-bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px));
+  }
+}

@@ -509,6 +509,7 @@ export default function RebuildPreview({
   const [relatedMineOnly, setRelatedMineOnly] = useState(false);
   const [relatedKind, setRelatedKind] = useState<"all" | CardKind>("all");
   const [relatedScope, setRelatedScope] = useState<"all" | "yours" | "others">("all");
+  const [relatedFeedVisibleCount, setRelatedFeedVisibleCount] = useState(8);
   const [relatedSelecting, setRelatedSelecting] = useState(false);
   const [selectedRelatedIds, setSelectedRelatedIds] = useState<string[]>([]);
   const [relatedCollectionPickerOpen, setRelatedCollectionPickerOpen] = useState(false);
@@ -1104,6 +1105,7 @@ export default function RebuildPreview({
     const bIndex = cards.indexOf(b) < 0 ? Number.MAX_SAFE_INTEGER : cards.indexOf(b);
     return relatedSort === "library" ? aIndex - bIndex : bIndex - aIndex;
   });
+  const scopedRelatedCards = visibleRelatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner));
   const publicCards = [...cards.filter((item) => item.isPrivate === false), ...publicRelatedCards.filter((item) => item.isPrivate === false && item.owner)];
   const publicAccounts = [...new Map(publicRelatedCards.filter((item) => item.isPrivate === false && item.owner).map((item) => [item.owner!.id, item.owner!])).values()];
   const activeProfile = publicAccounts.find((account) => account.id === profileId);
@@ -2708,7 +2710,7 @@ export default function RebuildPreview({
                 ))}
               </div>
               {!visibleRelatedCards.length && <p className="rb-related-empty">No related cards match these filters.</p>}
-              <button className="rb-related-more" onClick={() => { setRelatedScope("all"); setRelatedSelecting(false); setSelectedRelatedIds([]); setRelatedFeedOpen(true); }}>More related <ArrowRight size={19} /></button>
+              <button className="rb-related-more" onClick={() => { setRelatedScope("all"); setRelatedFeedVisibleCount(8); setRelatedSelecting(false); setSelectedRelatedIds([]); setRelatedFeedOpen(true); }}>More related <ArrowRight size={19} /></button>
             </section>
           )}
         </div>
@@ -2720,7 +2722,7 @@ export default function RebuildPreview({
         <div className="rb-related-feed" role="dialog" aria-modal="true" aria-label="More related cards">
           <div className="rb-related-feed-top">
             <div className="rb-related-feed-tabs" role="group" aria-label="Related card source">
-              {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => setRelatedScope(scope)}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
+              {(["all", "yours", "others"] as const).map((scope) => <button key={scope} className={relatedScope === scope ? "active" : ""} onClick={() => { setRelatedScope(scope); setRelatedFeedVisibleCount(8); }}>{scope === "all" ? "All" : scope === "yours" ? "Yours" : "Others"}</button>)}
             </div>
             <div className="rb-related-feed-actions">
               <button className="rb-related-select-toggle" onClick={() => { setRelatedSelecting((value) => !value); setSelectedRelatedIds([]); }}>{relatedSelecting ? "Done" : "Select"}</button>
@@ -2728,12 +2730,13 @@ export default function RebuildPreview({
             </div>
           </div>
           <div className="rb-related-feed-grid">
-            {visibleRelatedCards.filter((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)).map((item) => (
+            {scopedRelatedCards.slice(0, relatedFeedVisibleCount).map((item) => (
               <CardTile key={item.id} card={item} onToggleFavorite={item.owner ? undefined : () => toggleFavorite(item.id)} onEdit={item.owner ? undefined : () => openCardEditor(item)} onEditTags={item.owner ? undefined : () => openTagEditor(item)} onAddToCollection={() => { setRelatedCollectionQuery(""); setCollectionPickerCardId(item.id); }} favorite={favorites.includes(item.id)} selecting={relatedSelecting} selected={selectedRelatedIds.includes(item.id)} onSelect={() => setSelectedRelatedIds((ids) => ids.includes(item.id) ? ids.filter((id) => id !== item.id) : [...ids, item.id])} onOpen={() => { setActiveCardId(item.id); setRelatedFeedOpen(false); setDetailMenuOpen(false); }} />
             ))}
           </div>
+          {scopedRelatedCards.length > relatedFeedVisibleCount && <button className="rb-related-more rb-related-feed-load-more" onClick={() => setRelatedFeedVisibleCount((count) => count + 8)}>Load more</button>}
           {relatedScope === "others" && !relatedCards.some((item) => item.owner) && <p className="rb-related-feed-empty">No public cards from other accounts yet.</p>}
-          {!visibleRelatedCards.some((item) => relatedScope === "all" || (relatedScope === "others" ? !!item.owner : !item.owner)) && (relatedScope !== "others" || relatedCards.some((item) => item.owner)) && <p className="rb-related-feed-empty">No cards match the related filters.</p>}
+          {!scopedRelatedCards.length && (relatedScope !== "others" || relatedCards.some((item) => item.owner)) && <p className="rb-related-feed-empty">No cards match the related filters.</p>}
         </div>
         </div>
       )}
