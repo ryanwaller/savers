@@ -2673,6 +2673,10 @@ body:has(.rebuild-app) {
 .rb-related-picker-list .rb-picker-target span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rb-related-picker-list .rb-picker-target.selected { background: #b9ff69; color: #202820; }
 .rb-related-picker-list .rb-picker-target.selected > svg:last-child { flex: 0 0 auto; }
+.rb-related-picker-list .rb-picker-target .rb-picker-label { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; overflow: visible; white-space: normal; }
+.rb-picker-label strong { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.rb-picker-label small { color: #858585; font-size: 12px; line-height: 1.25; }
+.rb-related-picker-list .rb-picker-target.selected .rb-picker-label small { color: #40562d; }
 .rb-new-folder-trigger { display: inline-flex; align-items: center; gap: 10px; width: fit-content; min-height: 42px; padding: 8px 14px; border-radius: 14px; background: #eee; color: #333; }
 .rb-new-folder-trigger:hover { background: #b9ff69; color: #202820; }
 .rb-new-folder-form { display: flex; align-items: center; gap: 8px; min-width: 0; }
@@ -2849,6 +2853,10 @@ body:has(.rebuild-app) {
 .rb-composer-collection-options button { display: flex; align-items: center; gap: 9px; width: 100%; min-height: 42px; padding: 8px 12px; border-radius: 10px; color: var(--rb-modal-ink); text-align: left; }
 .rb-composer-collection-options button:hover, .rb-composer-collection-options button[aria-selected="true"] { background: var(--rb-control-active); color: #202820; }
 .rb-composer-collection-options button > svg:last-child:not(:first-child) { margin-left: auto; }
+.rb-composer-collection-options .rb-collection-option-label { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 3px; min-width: 0; }
+.rb-collection-option-label strong { color: inherit; font-weight: 400; }
+.rb-collection-option-label small { color: var(--rb-modal-muted); font-size: 12px; line-height: 1.25; }
+.rb-composer-collection-options button:is(:hover, [aria-selected="true"]) .rb-collection-option-label small { color: #40562d; }
 .rb-composer-error { flex: 0 0 auto; margin: 0; padding: 9px 0; }
 .rb-composer-footer { position: static; z-index: 1; flex: 0 0 auto; margin: 0 -30px; padding: 16px 30px 24px; background: var(--rb-modal-surface); }
 .rb-composer .rb-composer-close { position: static; display: grid; place-items: center; flex: 0 0 var(--rb-control-size); width: var(--rb-control-size); height: var(--rb-control-size); border-radius: 16px; background: var(--rb-control-bg); color: var(--rb-control-ink); }
@@ -3474,9 +3482,14 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rb-list-grid .rb-card-primary > .rb-card-image { flex: 0 0 50%; width: 50%; }
 }
 
-/* The detail controls stay legible as content fades beneath them. */
-.rb-detail-backdrop .rb-detail-bar { background: linear-gradient(to bottom, var(--rb-detail-surface, #fcfcfc) 45%, transparent); }
-.rb-theme-dark .rb-detail-backdrop .rb-detail-bar { --rb-detail-surface: #222; }
+/* Scrolled content blurs beneath the pinned controls instead of fading to white. */
+.rb-detail-backdrop .rb-detail-bar { isolation: isolate; background: transparent; backdrop-filter: none; }
+.rb-detail-backdrop .rb-detail-bar::before { content: ""; position: absolute; z-index: -1; inset: 0; border-radius: 24px 24px 0 0; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 48%, transparent); mask-image: linear-gradient(to bottom, #000 48%, transparent); pointer-events: none; }
+.rb-theme-dark .rb-detail-backdrop .rb-detail-bar::before { background: #2224; }
+.rb-related-picker-list[data-scroll-fade="y"] { -webkit-mask-image: none !important; mask-image: none !important; }
+.rb-related-picker-footer { isolation: isolate; background: transparent; }
+.rb-related-picker-footer::before { content: ""; position: absolute; z-index: -1; inset: 0; background: #fff4; backdrop-filter: blur(16px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 72%); mask-image: linear-gradient(to bottom, transparent, #000 72%); pointer-events: none; }
+.rb-theme-dark .rb-related-picker-footer::before { background: #25252544; }
 
 .rb-detail-tag-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .rb-detail-image-link { display: block; }
@@ -3525,13 +3538,12 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rebuild-app .rb-detail-menu { position: fixed; top: calc(max(40px, env(safe-area-inset-top, 0px) + 40px) + 60px + 16px); left: 50%; right: auto; width: min(320px, calc(100vw - 72px)); max-height: calc(100dvh - max(40px, env(safe-area-inset-top, 0px) + 40px) - 96px); transform: translateX(-50%); z-index: 6; }
 
   /* Both related actions remain at the upper right while cards scroll. */
-  .rb-related-feed-top { position: sticky; top: 0; z-index: 5; margin-top: -22px; padding: 22px 0 18px; background: linear-gradient(to bottom, var(--rb-related-surface, #fcfcfa) 66%, transparent); }
-  .rb-theme-dark .rb-related-feed-top { --rb-related-surface: #151515; }
+  .rb-related-feed-top { position: sticky; top: 0; z-index: 5; isolation: isolate; margin-top: -22px; padding: 22px 0 18px; background: transparent; }
+  .rb-related-feed-top::before { content: ""; position: absolute; z-index: -1; inset: 0 -18px; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 65%, transparent); mask-image: linear-gradient(to bottom, #000 65%, transparent); pointer-events: none; }
+  .rb-theme-dark .rb-related-feed-top::before { background: #15151544; }
   .rb-related-feed-actions { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; }
 
-  /* Scrolling content fades into the bottom edge of each card overlay. */
-  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 4; left: 20px; right: 20px; bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 34px; border-radius: 0 0 18px 18px; background: linear-gradient(to bottom, transparent, var(--rb-detail-surface, #fcfcfc)); pointer-events: none; }
-  .rb-theme-dark .rb-detail-backdrop::after { --rb-detail-surface: #222; }
-  .rb-related-feed-backdrop::after { --rb-detail-surface: #fcfcfa; }
-  .rb-theme-dark .rb-related-feed-backdrop::after { --rb-detail-surface: #151515; }
+  /* Blur increases toward the bottom edge while content scrolls underneath. */
+  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 4; left: 20px; right: 20px; bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 80px; border-radius: 0 0 18px 18px; background: #fcfcfa22; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000 90%); mask-image: linear-gradient(to bottom, transparent, #000 90%); pointer-events: none; }
+  .rb-theme-dark .rb-detail-backdrop::after, .rb-theme-dark .rb-related-feed-backdrop::after { background: #2224; }
 }

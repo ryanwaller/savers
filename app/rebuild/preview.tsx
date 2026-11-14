@@ -61,6 +61,34 @@ type PreviewCollection = {
   publicSlug?: string;
   owner?: { id: string; name: string; avatar?: string };
 };
+type CollectionRow = { item: PreviewCollection; ancestors: PreviewCollection[] };
+
+function collectionRows(collections: PreviewCollection[]): CollectionRow[] {
+  const byId = new Map(collections.map((item) => [item.id, item]));
+  const children = new Map<string, PreviewCollection[]>();
+  for (const item of collections) {
+    const parent = item.parentId && byId.get(item.parentId);
+    if (!parent || parent.group !== item.group) continue;
+    const siblings = children.get(parent.id) || [];
+    siblings.push(item);
+    children.set(parent.id, siblings);
+  }
+  const rows: CollectionRow[] = [];
+  const seen = new Set<string>();
+  const visit = (item: PreviewCollection, ancestors: PreviewCollection[]) => {
+    if (seen.has(item.id)) return;
+    seen.add(item.id);
+    rows.push({ item, ancestors });
+    for (const child of children.get(item.id) || []) visit(child, [...ancestors, item]);
+  };
+  for (const item of collections) if (!item.parentId || !byId.has(item.parentId)) visit(item, []);
+  for (const item of collections) if (!seen.has(item.id)) visit(item, []);
+  return rows;
+}
+
+function collectionPath(row: CollectionRow): string {
+  return [...row.ancestors, row.item].map((item) => item.name).join(" › ");
+}
 type SmartRule = {
   field: "tags" | "title" | "domain" | "url";
   operator: "contains" | "not_contains";
@@ -1072,7 +1100,11 @@ export default function RebuildPreview({
   const pickerCard = collectionPickerCardId ? cards.find((card) => card.id === collectionPickerCardId) || publicRelatedCards.find((card) => card.id === collectionPickerCardId) : null;
   const pickerCollectionId = pickerCard?.collection || (libraryCollectionPickerOpen && selectedLibraryIds.length && selectedLibraryIds.every((id) => cards.find((card) => card.id === id)?.collection === cards.find((card) => card.id === selectedLibraryIds[0])?.collection) ? cards.find((card) => card.id === selectedLibraryIds[0])?.collection : undefined);
   const pickerKind = pickerCard?.kind || (libraryCollectionPickerOpen && selectedLibraryIds.length ? cards.find((card) => card.id === selectedLibraryIds[0])?.kind : undefined);
-  const pickerCollections = allCollections.filter((item) => item.group !== "smart" && (!liveMode || item.group === (pickerKind === "image" ? "images" : "links")) && item.name.toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase())).sort((a, b) => Number(b.id === pickerCollectionId) - Number(a.id === pickerCollectionId));
+  const pickerCollections = collectionRows(allCollections.filter((item) => item.group !== "smart" && (!liveMode || item.group === (pickerKind === "image" ? "images" : "links")))).filter((row) => collectionPath(row).toLocaleLowerCase().includes(relatedCollectionQuery.toLocaleLowerCase()));
+  const composerCollectionRows = collectionRows(allCollections.filter((item) => item.group === (composer === "image" ? "images" : "links")));
+  const composerParentRows = collectionRows(allCollections.filter((item) => item.group === (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images" ? "images" : "links")));
+  const visibleComposerCollections = composerCollectionRows.filter((row) => (!liveMode || (row.item.isPrivate !== false) === formPrivate) && collectionPath(row).toLocaleLowerCase().includes(newCollectionName.trim().toLocaleLowerCase()));
+  const selectedComposerCollection = composerCollectionRows.find((row) => row.item.id === formCollection);
   const activeCardIsOwn = activeCard ? !activeCard.owner : false;
   const activeCardCollection = activeCard?.collection ? allCollections.find((item) => item.id === activeCard.collection) : null;
   const activeCardDuplicates = activeCard?.url ? cards.filter((card) => card.id !== activeCard.id && card.url?.replace(/\/$/, "") === activeCard.url?.replace(/\/$/, "")) : [];
@@ -2782,7 +2814,7 @@ export default function RebuildPreview({
               <div className="rb-related-picker-head"><input value={relatedCollectionQuery} onChange={(event) => setRelatedCollectionQuery(event.target.value)} placeholder="Find a collection" aria-label="Find a collection" autoFocus /><OverlayCloseButton label="Close collection picker" onClick={closeCollectionPicker} /></div>
               <div className="rb-related-picker-list" data-scroll-fade="y">
                 {!pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
-                {pickerCollections.map((item) => <button className={`rb-picker-target ${pickerCollectionId === item.id ? "selected" : ""}`} key={item.id} onClick={() => chooseCollection(item.id)} aria-pressed={pickerCollectionId === item.id}><Folder size={20} /><span>{item.name}{item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</span>{pickerCollectionId === item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>)}
+                {pickerCollections.map((row) => <button className={`rb-picker-target ${pickerCollectionId === row.item.id ? "selected" : ""}`} key={row.item.id} onClick={() => chooseCollection(row.item.id)} aria-pressed={pickerCollectionId === row.item.id} style={{ paddingLeft: 14 + Math.min(row.ancestors.length, 3) * 14 }}><Folder size={20} /><span className="rb-picker-label"><strong>{row.item.name}{row.item.isPrivate !== false && <LockKeyhole size={16} aria-label="Private" />}</strong>{row.ancestors.length > 0 && <small>Inside {row.ancestors.map((item) => item.name).join(" › ")}</small>}</span>{pickerCollectionId === row.item.id ? <Check size={21} /> : <Plus className="rb-picker-plus" size={21} />}</button>)}
                 {pickerCollectionId && <button className="rb-picker-target" onClick={() => chooseCollection(undefined)}><Folder size={20} /><span>Unsorted</span><ArrowRight className="rb-picker-plus" size={21} /></button>}
               </div>
               <div className="rb-related-picker-footer">{pickerNewFolderOpen ? <form className="rb-new-folder-form" onSubmit={(event) => { event.preventDefault(); createPickerFolder(); }}><input value={pickerNewFolderName} onChange={(event) => setPickerNewFolderName(event.target.value)} placeholder="Folder name" aria-label="New folder name" autoFocus /><button type="submit" disabled={!pickerNewFolderName.trim()}>Create</button><button type="button" onClick={() => { setPickerNewFolderOpen(false); setPickerNewFolderName(""); }} aria-label="Cancel new folder"><X size={18} /></button></form> : <button className="rb-new-folder-trigger" onClick={() => setPickerNewFolderOpen(true)}><FolderPlus size={20} /> New folder</button>}</div>
@@ -2970,17 +3002,17 @@ export default function RebuildPreview({
                 <label htmlFor="rb-composer-collection">Inside</label>
                 <select id="rb-composer-collection" value={formCollection} onChange={(e) => setFormCollection(e.target.value)}>
                   <option value="">Top level</option>
-                  {allCollections.filter((item) => !liveMode || item.group === (collectionGroup === "images" || allCollections.find((folder) => folder.id === selectedCollection)?.group === "images" ? "images" : "links")).map((item) => <option value={item.id} key={item.id}>{item.parentId ? "↳ " : ""}{item.name}</option>)}
+                  {composerParentRows.map((row) => <option value={row.item.id} key={row.item.id}>{collectionPath(row)}</option>)}
                 </select>
               </> : <>
                 <label htmlFor="rb-composer-collection-input">Collection</label>
-                {formCollection && <div className="rb-composer-tag-chips"><button onClick={() => setFormCollection("")} aria-label={`Remove collection ${allCollections.find((item) => item.id === formCollection)?.name || "selection"}`}><Folder size={16} />{allCollections.find((item) => item.id === formCollection)?.name || "Collection"}<X size={15} /></button></div>}
+                {formCollection && <div className="rb-composer-tag-chips"><button onClick={() => setFormCollection("")} aria-label={`Remove collection ${selectedComposerCollection?.item.name || "selection"}`}><Folder size={16} />{selectedComposerCollection ? collectionPath(selectedComposerCollection) : "Collection"}<X size={15} /></button></div>}
                 <div className="rb-composer-inline-entry">
                   <input id="rb-composer-collection-input" value={newCollectionName} onFocus={() => setNewCollectionOpen(true)} onChange={(event) => { setNewCollectionName(event.target.value); setNewCollectionOpen(true); }} onKeyDown={(event) => { if (event.key === "Enter") { event.preventDefault(); void createComposerCollection(); } else if (event.key === "Escape") setNewCollectionOpen(false); }} placeholder={formPrivate ? "New or existing collection" : "New or existing public collection"} autoComplete="off" />
                   <button onClick={() => void createComposerCollection()} disabled={!newCollectionName.trim()} aria-label="Add collection" title="Add collection"><Plus size={21} /></button>
                 </div>
                 {newCollectionOpen && <div className="rb-composer-collection-options" role="listbox" aria-label="Existing collections">
-                  {allCollections.filter((item) => item.group === (composer === "image" ? "images" : "links") && (!liveMode || (item.isPrivate !== false) === formPrivate) && item.name.toLocaleLowerCase().includes(newCollectionName.trim().toLocaleLowerCase())).map((item) => <button key={item.id} role="option" aria-selected={formCollection === item.id} onPointerDown={(event) => { event.preventDefault(); setFormCollection(item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }} onClick={() => { setFormCollection(item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }}><Folder size={16} />{item.parentId ? "↳ " : ""}{item.name}{formCollection === item.id && <Check size={16} />}</button>)}
+                  {visibleComposerCollections.map((row) => <button key={row.item.id} role="option" aria-selected={formCollection === row.item.id} onPointerDown={(event) => { event.preventDefault(); setFormCollection(row.item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }} onClick={() => { setFormCollection(row.item.id); setNewCollectionName(""); setNewCollectionOpen(false); setFormError(""); }} style={{ paddingLeft: 12 + Math.min(row.ancestors.length, 3) * 14 }}><Folder size={16} /><span className="rb-collection-option-label"><strong>{row.item.name}</strong>{row.ancestors.length > 0 && <small>Inside {row.ancestors.map((item) => item.name).join(" › ")}</small>}</span>{formCollection === row.item.id && <Check size={16} />}</button>)}
                 </div>}
               </>}
             </div>
