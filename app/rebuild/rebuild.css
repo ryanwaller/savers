@@ -2504,16 +2504,11 @@ body:has(.rebuild-app) {
 .rb-collection-preview-art > img { position: absolute; width: 116px; height: 138px; border: 5px solid #fff; border-radius: 15px; object-fit: cover; box-shadow: 0 9px 25px #0002; }
 .rb-collection-preview-art > img[data-failed] { display: none; }
 .rb-collection-preview-rules { position: absolute; right: 18px; bottom: 15px; z-index: 1; padding: 7px 12px; border-radius: 999px; background: #fff; color: #555; }
-.rb-collection-preview-delete { position: absolute; z-index: 2; top: 18px; right: 18px; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #777; opacity: 0; transition: opacity 150ms ease, background-color 150ms ease; }
-.rb-collection-preview:hover .rb-collection-preview-delete, .rb-collection-preview-delete:focus-visible { opacity: 1; }
-.rb-collection-preview-delete:hover { background: #ffe1dd; color: #b64034; }
 .rb-card-owner { display: flex; align-items: center; gap: 9px; margin-top: 14px; color: #888; }
 .rb-card-owner > span:first-child, .rb-card-owner img { flex-basis: 28px; width: 28px; height: 28px; }
 .rb-theme-dark .rb-collection-preview-main { background: #242424; color: #eee; }
 .rb-theme-dark .rb-collection-preview-main:hover { background: #2e2e2e; }
 .rb-theme-dark .rb-collection-preview-rules { background: #383838; color: #eee; }
-.rb-theme-dark .rb-collection-preview-delete { background: #383838; color: #ddd; }
-@media (hover: none) { .rb-collection-preview-delete { opacity: 1; } }
 @media (max-width: 1100px) {
   .rb-collection-preview-list { grid-template-columns: 1fr; }
 }
@@ -3454,3 +3449,23 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 .rb-staging-sign-in-divider { display: flex; align-items: center; gap: 14px; margin-top: 24px; color: #777; font-size: 14px; }
 .rb-staging-sign-in-divider::before, .rb-staging-sign-in-divider::after { content: ""; flex: 1; height: 1px; background: #dedede; }
 .rb-staging-sign-in-card .rb-staging-sign-in-message { padding: 12px 14px; border-radius: 12px; background: #f2f2f2; color: #252525; }
+
+/* Collection deletion belongs to the collection itself, behind its confirmation. */
+.rb-collection-detail-delete { display: inline-flex; align-items: center; gap: 8px; min-height: 42px; margin-top: 18px; padding: 0 14px; border-radius: 999px; background: var(--rb-control-bg); color: var(--rb-control-muted); }
+.rb-collection-detail-delete:hover { background: #ffe1dd; color: #922e25; }
+.rb-theme-dark .rb-collection-detail-delete:hover { background: #59312f; color: #ffceca; }
+
+@media (max-width: 700px) {
+  /* A standalone iPhone app paints under the translucent status bar. */
+  .rebuild-app { padding-top: env(safe-area-inset-top, 0px); }
+  .rebuild-app .rb-detail-backdrop:not(.rb-detail-direct) { padding-top: max(20px, calc(env(safe-area-inset-top, 0px) + 8px)); padding-bottom: max(20px, env(safe-area-inset-bottom, 0px)); }
+  .rb-detail-direct .rb-detail-bar { height: calc(60px + env(safe-area-inset-top, 0px)); padding-top: env(safe-area-inset-top, 0px); }
+
+  .rb-tags-page { justify-content: flex-start; gap: 7px; }
+  .rb-tags-page button { height: 39px; gap: 7px; padding-inline: 11px; border-radius: 11px; font-size: 14px; }
+  .rb-tags-page button svg { width: 16px; height: 16px; }
+
+  /* The article and its thumbnail both use rb-card-image; only the thumbnail is 44%. */
+  .rb-list-grid .rb-card.rb-card-image { flex: none; align-self: stretch; width: 100%; height: auto; min-width: 0; min-height: 0; aspect-ratio: auto; }
+  .rb-list-grid .rb-card-primary > .rb-card-image { flex: 0 0 44%; width: 44%; }
+}

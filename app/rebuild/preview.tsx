@@ -2071,7 +2071,6 @@ export default function RebuildPreview({
           </div>
           </button>
           {item.group === "smart" && <button className="rb-collection-preview-rules" onClick={() => openSmartEditor(item.id)}>Edit rules</button>}
-          {!item.owner && <button className="rb-collection-preview-delete" onClick={() => setDeleteCollectionId(item.id)} aria-label={`Delete ${item.name} collection`} title="Delete collection"><Trash2 size={18} /></button>}
       </div>
     );
   }
@@ -2196,6 +2195,7 @@ export default function RebuildPreview({
               </div>
               {collection?.description && <p>{collection.description}</p>}
               {collection?.group === "smart" && <button className="rb-edit-rules" onClick={() => openSmartEditor(collection.id)}>Edit rules</button>}
+              {!collection.owner && <button className="rb-collection-detail-delete" onClick={() => setDeleteCollectionId(collection.id)}><Trash2 size={18} /> Delete collection</button>}
             </div>}
             {collection && subcollections.length > 0 && <section className="rb-subfolder-section"><div className="rb-collection-preview-list">{subcollections.map(renderCollectionPreview)}</div></section>}
             <div className={`rb-library-toolbar ${collection ? "" : "rb-root-controls"}`}>
@@ -2669,10 +2669,10 @@ export default function RebuildPreview({
               </div>
             )}
             <div className="rb-detail-meta">
-              <div>
+              {(activeCard.kind !== "image" || activeCard.url || activeCard.source !== "Saved image") && <div>
                 <span>Source</span>
                 {activeCard.url ? <a className="rb-detail-meta-link" href={activeCard.url} target="_blank" rel="noopener noreferrer" aria-label={`Visit ${activeCard.source || "saved link"} in a new tab`}>{activeCard.source || "Visit source"}<ArrowUpRight size={17} aria-hidden="true" /></a> : <strong>{activeCard.source || "Your library"}</strong>}
-              </div>
+              </div>}
               <div><span>{activeCard.owner ? "By" : "Collection"}</span>{activeCard.owner ? <button className="rb-detail-meta-link" onClick={() => { closeDetail(); setDestination("discover"); setProfileId(activeCard.owner!.id); window.scrollTo(0, 0); }}>{activeCard.owner.name}<ArrowRight size={17} aria-hidden="true" /></button> : activeCardCollection ? <button className="rb-detail-meta-link" onClick={() => openDetailCollection(activeCardCollection.id)}>{activeCardCollection.name}<ArrowRight size={17} aria-hidden="true" /></button> : <strong>Unsorted</strong>}</div>
             </div>
             {activeCard.note && (
