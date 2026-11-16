@@ -3488,13 +3488,14 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
 
 /* Scrolled content blurs beneath the pinned controls instead of fading to white. */
 .rb-detail-backdrop .rb-detail-bar { background: #fcfcfa44; backdrop-filter: blur(18px); }
-.rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 80px; height: calc(var(--rb-bar-height) + 48px); margin-bottom: -48px; align-items: flex-start; padding-top: calc((var(--rb-bar-height) - var(--rb-control-size)) / 2); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); }
+.rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 80px; --rb-top-blur-depth: 160px; height: calc(var(--rb-bar-height) + var(--rb-top-blur-depth)); margin-bottom: calc(-1 * var(--rb-top-blur-depth)); align-items: flex-start; padding-top: calc((var(--rb-bar-height) - var(--rb-control-size)) / 2); -webkit-mask-image: var(--rb-top-blur-mask); mask-image: var(--rb-top-blur-mask); }
 .rb-theme-dark .rb-detail-backdrop .rb-detail-bar { background: #2227; }
-.rb-related-feed-top { position: sticky; top: -36px; z-index: 5; margin-top: -36px; margin-bottom: -15px; padding: 36px 0 66px; background: #fcfcfa44; backdrop-filter: blur(18px); -webkit-mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); mask-image: linear-gradient(to bottom, #000 calc(100% - 48px), transparent); }
+.rb-related-feed-top { --rb-top-blur-depth: 160px; position: sticky; top: -36px; z-index: 5; margin-top: -36px; margin-bottom: calc(33px - var(--rb-top-blur-depth)); padding: 36px 0 calc(18px + var(--rb-top-blur-depth)); background: #fcfcfa44; backdrop-filter: blur(18px); -webkit-mask-image: var(--rb-top-blur-mask); mask-image: var(--rb-top-blur-mask); }
 .rb-theme-dark .rb-related-feed-top { background: #15151577; }
+.rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar, .rb-related-feed-top { --rb-top-blur-mask: linear-gradient(to bottom, #000 calc(100% - var(--rb-top-blur-depth)), #000e calc(100% - var(--rb-top-blur-depth) * .75), #0008 calc(100% - var(--rb-top-blur-depth) * .5), #0002 calc(100% - var(--rb-top-blur-depth) * .25), transparent); }
 .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: clamp(26px, 4vw, 56px); --rb-blur-width: 1400px; }
 .rb-related-feed-backdrop { --rb-blur-width: 1600px; }
-.rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 50; left: 50%; bottom: var(--rb-blur-frame); width: min(calc(100vw - 2 * var(--rb-blur-frame)), var(--rb-blur-width)); height: 90px; transform: translateX(-50%); border-radius: 0 0 24px 24px; clip-path: inset(0 round 0 0 24px 24px); background: #fcfcfa22; backdrop-filter: blur(20px); -webkit-mask-image: linear-gradient(to bottom, transparent, #000); mask-image: linear-gradient(to bottom, transparent, #000); pointer-events: none; }
+.rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { content: ""; position: absolute; z-index: 50; left: 50%; bottom: var(--rb-blur-frame); width: min(calc(100vw - 2 * var(--rb-blur-frame)), var(--rb-blur-width)); height: 180px; transform: translateX(-50%); border-radius: 0 0 24px 24px; clip-path: inset(0 round 0 0 24px 24px); background: #fcfcfa22; backdrop-filter: blur(20px); -webkit-mask-image: linear-gradient(to bottom, transparent, #0002 25%, #0008 50%, #000e 75%, #000); mask-image: linear-gradient(to bottom, transparent, #0002 25%, #0008 50%, #000e 75%, #000); pointer-events: none; }
 .rb-theme-dark .rb-detail-backdrop::after, .rb-theme-dark .rb-related-feed-backdrop::after { background: #2224; }
 .rb-related-picker-list[data-scroll-fade="y"] { -webkit-mask-image: none !important; mask-image: none !important; }
 .rb-related-picker-footer { isolation: isolate; background: transparent; }
@@ -3548,10 +3549,10 @@ body:has(.rebuild-app), .rebuild-app, .rb-detail, .rb-related-feed { background:
   .rebuild-app .rb-detail-menu { position: fixed; top: calc(max(40px, env(safe-area-inset-top, 0px) + 40px) + 60px + 16px); left: 50%; right: auto; width: min(320px, calc(100vw - 72px)); max-height: calc(100dvh - max(40px, env(safe-area-inset-top, 0px) + 40px) - 96px); transform: translateX(-50%); z-index: 6; }
 
   /* Both related actions remain at the upper right while cards scroll. */
-  .rb-related-feed-top { top: -22px; margin-top: -22px; padding-top: 22px; }
-  .rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 60px; }
+  .rb-related-feed-top { --rb-top-blur-depth: 120px; top: -22px; margin-top: -22px; padding-top: 22px; }
+  .rb-detail-backdrop:not(.rb-detail-direct) .rb-detail-bar { --rb-bar-height: 60px; --rb-top-blur-depth: 120px; }
   .rb-related-feed-actions { grid-column: 1; grid-row: 1; justify-self: end; align-self: start; }
 
   .rb-detail-backdrop:not(.rb-detail-direct), .rb-related-feed-backdrop { --rb-blur-frame: 20px; }
-  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 80px; border-radius: 0 0 18px 18px; }
+  .rb-detail-backdrop:not(.rb-detail-direct)::after, .rb-related-feed-backdrop::after { bottom: max(20px, calc(env(safe-area-inset-bottom, 0px) + 12px)); height: 140px; border-radius: 0 0 18px 18px; }
 }
